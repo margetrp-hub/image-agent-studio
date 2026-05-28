@@ -34,6 +34,7 @@ function trimTrailingSlash(value) {
 
 function defaultDevSub2ApiOrigin() {
   if (!import.meta.env.DEV) return '';
+  if (import.meta.env.VITE_DEV_SUB2API_PROXY_TARGET) return '';
   const host = window.location.hostname;
   if ((host === 'localhost' || host === '127.0.0.1') && window.location.port !== '8080') {
     return `${window.location.protocol}//${host}:8080`;
@@ -80,10 +81,34 @@ function base64ToDataUrl(base64, format = 'png') {
   return base64 ? `data:${imageMimeType(format)};base64,${base64}` : '';
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('FILE_READ_FAILED'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function compactObject(value = {}) {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== '')
   );
+}
+
+function isDirectImageResponsesModel(value) {
+  const model = String(value || '').toLowerCase();
+  return /(^|[^a-z0-9])(gpt-)?image[-_a-z0-9]*\d/.test(model)
+    || /(^|[^a-z0-9])dall[-_a-z0-9]*\d/.test(model);
+}
+
+function responsesImageParams({ size, quality, outputFormat, moderation }) {
+  return compactObject({
+    size: size || 'auto',
+    quality: quality || 'auto',
+    output_format: outputFormat || 'png',
+    moderation: moderation || 'auto'
+  });
 }
 
 function sleep(ms, signal) {
@@ -426,13 +451,39 @@ function normalizeVideoTask(payload) {
 }
 
 function extractResponsesImages(payload) {
-  const output = Array.isArray(payload?.output) ? payload.output : [];
-  const data = output
-    .filter((item) => item?.type === 'image_generation_call' && item.result)
+  const directData = Array.isArray(payload?.data) ? payload.data : [];
+  const directImages = directData
+    .filter((item) => item?.b64_json || item?.url || item?.image_url || item?.image_base64)
     .map((item) => ({
-      b64_json: item.result,
+      b64_json: item.b64_json || item.image_base64 || '',
+      url: item.url || item.image_url || '',
       revised_prompt: item.revised_prompt || ''
     }));
+  if (directImages.length) {
+    return {
+      id: payload?.id || '',
+      model: payload?.model || '',
+      data: directImages,
+      response: payload || null
+    };
+  }
+
+  const output = Array.isArray(payload?.output) ? payload.output : [];
+  const data = output
+    .filter((item) => (
+      item?.type === 'image_generation_call'
+      || item?.type === 'output_image'
+      || item?.b64_json
+      || item?.url
+      || item?.image_url
+      || item?.image_base64
+    ))
+    .map((item) => ({
+      b64_json: item.result || item.b64_json || item.image_base64 || '',
+      url: item.url || item.image_url || '',
+      revised_prompt: item.revised_prompt || ''
+    }))
+    .filter((item) => item.b64_json || item.url);
 
   return {
     id: payload?.id || '',
@@ -863,6 +914,77 @@ export class Sub2ApiClient {
     };
   }
 
+  async chatPromptAssistant({ apiKey, prompt, messages = [], size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
+    const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
+    const assistantModel = normalizeResponsesModel(model || envPromptOptimizerModel || this.providerSettings.responsesModel || envResponsesModel);
+    const context = [
+      prompt ? `当前可生成提示词:\n${String(prompt).trim()}` : '',
+      aspectRatio || size || resolutionTier || quality
+        ? `当前生图参数: ${[
+          aspectRatio ? `比例 ${aspectRatio}` : '',
+          size ? `尺寸 ${size}` : '',
+          resolutionTier ? `清晰度 ${resolutionTier}` : '',
+          quality ? `质量 ${quality}` : ''
+        ].filter(Boolean).join('，')}`
+        : ''
+    ].filter(Boolean).join('\n\n');
+    const safeMessages = (Array.isArray(messages) ? messages : [])
+      .slice(-8)
+      .map((item) => ({
+        role: item.role === 'assistant' ? 'assistant' : 'user',
+        content: String(item.content || '').slice(0, 4000)
+      }))
+      .filter((item) => item.content.trim());
+
+    const response = await fetch(`${resolvedGatewayBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: assistantModel,
+        messages: [
+          {
+            role: 'system',
+            content: [
+              '你是图片和视频创作工作台里的中文提示词助手。',
+              '你和用户对话，帮助澄清想法、补全画面要素、整理可直接用于生成的提示词。',
+              '不要直接生成图片，也不要假装已经生成图片。',
+              '如果用户给的是修改要求，请在现有提示词基础上延续，不要丢掉主体和限制。',
+              '只输出 JSON，不要输出 Markdown。',
+              'JSON 字段必须是：reply, finalPrompt。',
+              'reply 是给用户看的简短中文回复；finalPrompt 是整理后的可生成提示词。'
+            ].join('')
+          },
+          ...(context ? [{ role: 'user', content: context }] : []),
+          ...safeMessages
+        ],
+        temperature: 0.6,
+        max_tokens: 900,
+        stream: true
+      }),
+      ...(signal ? { signal } : {})
+    });
+
+    if (!response.ok) {
+      await readJsonResponse(response);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    const text = contentType.includes('text/event-stream') && response.body
+      ? await readChatCompletionStream(response, onPartial, signal)
+      : extractChatCompletionText(await readJsonResponse(response));
+
+    if (!text) {
+      throw new Error('PROMPT_ASSISTANT_RETURNED_EMPTY');
+    }
+    return {
+      text,
+      model: assistantModel
+    };
+  }
+
   async listGatewayModels({ apiKey, gatewayBaseUrl, signal } = {}) {
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const response = await fetch(`${resolvedGatewayBaseUrl}/models`, {
@@ -1032,12 +1154,24 @@ export class Sub2ApiClient {
     return latest;
   }
 
-  async generateImageViaResponses({ apiKey, prompt, size, quality, outputFormat, moderation, n, onPartial, onProgress, gatewayBaseUrl, responsesModel, partialImages, signal }) {
+  async generateImageViaResponses({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, referenceImages = [], onPartial, onProgress, gatewayBaseUrl, responsesModel, partialImages, signal }) {
     const count = Math.max(1, Number(n || 1));
-    const responseModel = normalizeResponsesModel(responsesModel || this.providerSettings.responsesModel || envResponsesModel);
+    const selectedModel = String(model || '').trim();
+    const directImageModel = isDirectImageResponsesModel(selectedModel);
+    const responseModel = directImageModel
+      ? selectedModel
+      : String(selectedModel || responsesModel || this.providerSettings.responsesModel || envResponsesModel).trim();
     const partialImageCount = normalizePartialImageCount(partialImages ?? this.providerSettings.partialImages ?? envResponsesPartialImages);
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const resultFormat = outputFormat || 'png';
+    const imageParams = responsesImageParams({ size, quality, outputFormat: resultFormat, moderation });
+    const inputContent = [{ type: 'input_text', text: prompt }];
+    for (const file of referenceImages.slice(0, 4)) {
+      inputContent.push({ type: 'input_image', image_url: await fileToDataUrl(file) });
+    }
+    const input = inputContent.length > 1
+      ? [{ role: 'user', content: inputContent }]
+      : prompt;
     const data = [];
 
     for (let index = 0; index < count; index += 1) {
@@ -1053,23 +1187,26 @@ export class Sub2ApiClient {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          Accept: 'text/event-stream'
+          Accept: directImageModel ? 'application/json' : 'text/event-stream'
         },
-        body: JSON.stringify({
-          model: responseModel,
-          input: prompt,
-          stream: true,
-          tools: [
-            {
-              type: 'image_generation',
-              partial_images: partialImageCount,
-              quality: quality || 'auto',
-              size: size || 'auto',
-              output_format: outputFormat || 'png',
-              moderation: moderation || 'auto'
-            }
-          ]
-        }),
+        body: JSON.stringify(directImageModel
+          ? {
+            model: responseModel,
+            input,
+            ...imageParams
+          }
+          : {
+            model: responseModel,
+            input,
+            stream: true,
+            tools: [
+              {
+                type: 'image_generation',
+                partial_images: partialImageCount,
+                ...imageParams
+              }
+            ]
+          }),
         ...(signal ? { signal } : {})
       });
 
@@ -1088,8 +1225,8 @@ export class Sub2ApiClient {
       if (contentType.includes('text/event-stream') && response.body) {
         const partials = [];
         const { finalResponse, fallbackItem } = await readResponsesStream(response, ({ type, payload }) => {
-          if (type !== 'response.image_generation_call.partial_image') return;
-          const base64 = payload?.partial_image_b64 || payload?.b64_json || '';
+          if (type !== 'response.image_generation_call.partial_image' && type !== 'response.output_image.delta' && type !== 'response.output_image.done') return;
+          const base64 = payload?.partial_image_b64 || payload?.b64_json || payload?.image_base64 || payload?.delta || '';
           if (!base64) return;
 
           const partialIndex = Number.isFinite(Number(payload?.partial_image_index))
@@ -1168,7 +1305,7 @@ export class Sub2ApiClient {
     };
   }
 
-  async generateImage({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, onPartial, onProgress, route, gatewayBaseUrl, responsesModel, partialImages, signal }) {
+  async generateImage({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, referenceImages, onPartial, onProgress, route, gatewayBaseUrl, responsesModel, partialImages, signal }) {
     const imageRoute = normalizeImageRoute(route || this.providerSettings.route || envImageRoute);
     if (imageRoute !== 'legacy') {
       try {
@@ -1180,6 +1317,8 @@ export class Sub2ApiClient {
           outputFormat,
           moderation,
           n,
+          model,
+          referenceImages,
           onPartial,
           onProgress,
           gatewayBaseUrl,

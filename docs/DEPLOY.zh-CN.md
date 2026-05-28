@@ -51,7 +51,10 @@ VITE_SUB2API_LOGIN_URL=https://studio.example.com/login
 VITE_STUDIO_HISTORY_BASE_URL=https://studio.example.com
 VITE_STUDIO_BACK_URL=/
 VITE_STUDIO_LIBRARY_AUTH_REQUIRED=false
+VITE_DEV_SUB2API_PROXY_TARGET=https://sub2api.example.com
 ```
+
+`VITE_DEV_SUB2API_PROXY_TARGET` 只用于本地 Vite 开发，生产构建可以不设置。它会把本地 `/v1`、`/api`、`/login` 代理到你的 Sub2API 域名，方便真实上游测试。
 
 ## 3. 生产构建
 
@@ -171,7 +174,18 @@ Remove-Item Env:\SUB2API_BASE_URL,Env:\SUB2API_EMAIL,Env:\SUB2API_PASSWORD
 
 这个检查只验证登录、用户资料和 Key 列表，不会发起付费生成。
 
-## 7. 素材库与防爬
+## 7. 生图链路检查
+
+0.5 版本推荐链路：
+
+```text
+文生图：POST /v1/responses，模型使用 gpt-image-2 等图片模型
+参考图/Mask：POST /v1/images/edits
+```
+
+如果你在 Sub2API 后台看到入站和上游都是 `/v1/responses`，模型是 `gpt-image-2`，说明没有走旧的降级链路。
+
+## 8. 素材库与防爬
 
 前端已经加载的图片、JSON 和提示词无法靠前端代码彻底隐藏。生产部署建议：
 
@@ -183,7 +197,7 @@ Remove-Item Env:\SUB2API_BASE_URL,Env:\SUB2API_EMAIL,Env:\SUB2API_PASSWORD
 
 仓库里的 `deploy/nginx-sub2api-studio.conf` 已包含基础保护示例。
 
-## 8. 发布前检查
+## 9. 发布前检查
 
 ```bash
 npm run build
@@ -203,6 +217,6 @@ data/images/
 .env.local
 ```
 
-## 9. 许可证
+## 10. 许可证
 
 代码使用仓库根目录的 `LICENSE`。提示词模板内容来自社区，遵循 CC BY 4.0 许可证；使用和改编时请保留原作者或来源归属。

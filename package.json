@@ -1,7 +1,7 @@
 {
   "name": "image-sub2api-studio",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "check:sub2api": "node scripts/check-sub2api-contract.mjs",

@@ -297,6 +297,62 @@ select:disabled {
   overflow: hidden;
 }
 
+.templateRail.collapsed {
+  align-items: center;
+  gap: 10px;
+}
+
+.railAvatarButton {
+  margin-top: auto;
+}
+
+.railAccountCard {
+  width: 100%;
+  margin-top: auto;
+  min-height: 64px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(34, 51, 43, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.9);
+  color: #17211b;
+  text-align: left;
+}
+
+.railAvatar {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1f7268, #e7bd67);
+  color: #fff8ed;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.railAccountCard strong,
+.railAccountCard em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.railAccountCard strong {
+  font-size: 13px;
+}
+
+.railAccountCard em {
+  color: #5a675f;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
 .railHead {
   display: flex;
   justify-content: space-between;
@@ -536,9 +592,12 @@ select:disabled {
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  gap: 5px;
 }
 
-.favoriteMiniButton {
+.favoriteMiniButton,
+.appendMiniButton {
   width: 28px;
   height: 28px;
   min-height: 28px;
@@ -555,6 +614,10 @@ select:disabled {
   border-color: rgba(178, 39, 50, 0.28);
   background: #fff1d8;
   color: #b22732;
+}
+
+.appendMiniButton {
+  color: var(--studio-primary);
 }
 
 .videoInspirationTile {
@@ -716,6 +779,60 @@ select:disabled {
   grid-template-columns: minmax(280px, 0.78fr) minmax(360px, 1fr);
   gap: 18px;
   align-items: start;
+}
+
+.workbenchSectionToggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.workbenchSectionToggle button,
+.collapsedWorkbenchBlock,
+.bottomComposerToggle {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid rgba(34, 51, 43, 0.12);
+  border-radius: 8px;
+  background: #ebe5d7;
+  color: #17211b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workbenchSectionToggle button,
+.collapsedWorkbenchBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.collapsedWorkbenchBlock {
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 12px;
+  background: #f7f3ea;
+  text-align: left;
+}
+
+.creationDesk .promptCollapsedBlock {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 168px;
+  height: 168px;
+  margin: 0;
+  align-self: stretch;
+}
+
+.collapsedWorkbenchBlock span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promptTools.isCollapsed {
+  display: none;
 }
 
 .workPreview {
@@ -1433,6 +1550,14 @@ select:disabled {
   height: 38px;
 }
 
+.sizeLimitHint {
+  display: block;
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .videoSpecField {
   min-height: 68px;
   padding: 10px;
@@ -1527,6 +1652,39 @@ select:disabled {
 
 .statusLine.success {
   color: #0f6a44;
+}
+
+.bottomComposerToggle {
+  grid-column: 1 / -1;
+  width: fit-content;
+  justify-self: end;
+}
+
+.bottomComposerBar {
+  grid-column: 1 / -1;
+  min-height: 62px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(34, 51, 43, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.9);
+}
+
+.bottomComposerBar span {
+  color: #5a675f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.bottomComposerBar .primaryAction {
+  grid-column: 3;
+}
+
+.bottomComposerBar button {
+  min-width: 96px;
 }
 
 .generationProgress {
@@ -1626,9 +1784,36 @@ select:disabled {
   white-space: nowrap;
 }
 
+.resultStage {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.resultStageHead {
+  min-height: 44px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(34, 51, 43, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.88);
+}
+
+.resultStageHead strong {
+  color: #17211b;
+}
+
+.resultStageHead span {
+  color: #5a675f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .resultGrid,
 .emptyResult {
-  grid-column: 1 / -1;
   min-height: 220px;
   padding: 14px;
 }
@@ -1641,7 +1826,7 @@ select:disabled {
 
 .resultGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 14px;
 }
 
@@ -1907,6 +2092,15 @@ select:disabled {
   margin: 12px 0;
 }
 
+.settingsHint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .keyList {
   display: grid;
   gap: 10px;
@@ -2008,7 +2202,7 @@ select:disabled {
   color: #fff8ed;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 760px) {
   .loginShell,
   .studioLayout,
   .creationDesk {
@@ -2848,7 +3042,7 @@ label span,
   color: var(--studio-text);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 760px) {
   .studioLayout,
   .studioLayout.railCollapsed {
     grid-template-columns: 1fr;
@@ -2917,4 +3111,3209 @@ label span,
   .maskMetaLine {
     display: grid;
   }
+}
+
+/* Lightweight creative workstation redesign overrides */
+.templateRail {
+  min-height: 0;
+}
+
+.caseList,
+.historyList {
+  min-height: 0;
+}
+
+.railAccountCard {
+  flex-shrink: 0;
+  border-color: var(--studio-border);
+  background: var(--studio-surface-strong);
+  box-shadow: none;
+}
+
+.railAvatarButton {
+  margin-top: auto;
+}
+
+.creationDesk {
+  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
+  align-items: start;
+}
+
+.deskPanel {
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+
+.workbenchSectionToggle {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-bottom: 8px;
+  background: linear-gradient(var(--studio-surface) 78%, transparent);
+}
+
+.workbenchSectionToggle button,
+.collapsedWorkbenchBlock,
+.bottomComposerToggle {
+  border-color: var(--studio-border);
+  background: var(--studio-surface-soft);
+  color: var(--studio-text);
+}
+
+.collapsedWorkbenchBlock {
+  min-height: 46px;
+  border-style: dashed;
+}
+
+.promptTools.isCollapsed {
+  display: none;
+}
+
+.uploadDrop {
+  min-height: 58px;
+  border-color: var(--studio-border);
+  background: var(--studio-surface-soft);
+}
+
+.referenceThumbs {
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+}
+
+.referenceThumbs img {
+  aspect-ratio: 4 / 3;
+}
+
+.resultStage {
+  min-width: 0;
+}
+
+.resultStage,
+.bottomComposerBar {
+  grid-column: 1 / -1;
+}
+
+.resultStageHead {
+  border-color: var(--studio-border);
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.resultStage .resultGrid,
+.resultStage .emptyResult {
+  background: var(--studio-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.resultStage.hasResult .resultGrid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.bottomComposerToggle {
+  justify-self: end;
+}
+
+.bottomComposerBar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  margin-top: -4px;
+  border-color: var(--studio-border);
+  background: var(--studio-surface-strong);
+  box-shadow: var(--studio-shadow);
+}
+
+.bottomComposerBar span {
+  color: var(--studio-muted);
+}
+
+@media (max-width: 760px) {
+  .creationDesk {
+    grid-template-columns: 1fr;
+  }
+
+  .deskPanel {
+    max-height: none;
+  }
+}
+
+/* Prompt-first studio layout matched to output/ui-concepts-imagegen/light/light-01-prompt-first.png */
+:root {
+  --studio-bg: #f7f8fb;
+  --studio-grid: rgba(17, 24, 39, 0.035);
+  --studio-surface: rgba(255, 255, 255, 0.86);
+  --studio-surface-strong: #ffffff;
+  --studio-surface-soft: #f5f7fa;
+  --studio-surface-hover: #eef7f7;
+  --studio-text: #111827;
+  --studio-text-strong: #0b1020;
+  --studio-muted: #6b7280;
+  --studio-border: rgba(17, 24, 39, 0.10);
+  --studio-border-strong: rgba(15, 118, 110, 0.38);
+  --studio-primary: #0aa39c;
+  --studio-primary-strong: #07817c;
+  --studio-accent: #0f766e;
+  --studio-info: #0f766e;
+  --studio-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  --studio-shadow-soft: 0 10px 26px rgba(15, 23, 42, 0.055);
+}
+
+:root[data-theme="dark"] {
+  --studio-bg: #070a0d;
+  --studio-grid: rgba(94, 234, 212, 0.06);
+  --studio-surface: rgba(17, 24, 39, 0.86);
+  --studio-surface-strong: #0d141d;
+  --studio-surface-soft: #111827;
+  --studio-surface-hover: #13242b;
+  --studio-text: #d8e2ea;
+  --studio-text-strong: #f8fafc;
+  --studio-muted: #91a2b4;
+  --studio-border: rgba(148, 163, 184, 0.16);
+  --studio-border-strong: rgba(45, 212, 191, 0.32);
+  --studio-primary: #2dd4bf;
+  --studio-primary-strong: #5eead4;
+  --studio-accent: #fb7185;
+  --studio-info: #38bdf8;
+}
+
+.studioTopbar {
+  display: none;
+}
+
+.studioLayout,
+.studioLayout.railCollapsed {
+  min-height: 100vh;
+  grid-template-columns: 122px minmax(760px, 1fr);
+  gap: 0;
+  padding: 0;
+}
+
+.templateRail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 14px 7px 12px;
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--studio-surface-strong) 86%, transparent);
+}
+
+.sideBrand {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+
+.sideBrandMark {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: #111827;
+  color: #fff;
+}
+
+:root[data-theme="dark"] .sideBrandMark {
+  background: var(--studio-primary);
+  color: #06110f;
+}
+
+.sideBrand strong {
+  color: var(--studio-text-strong);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.sideCollapseButton {
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-muted);
+  opacity: 0.76;
+}
+
+.sideCollapseButton:hover {
+  color: var(--studio-primary);
+  opacity: 1;
+}
+
+.sidePrimaryNav {
+  display: grid;
+  gap: 8px;
+}
+
+.sidePrimaryNav button {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: left;
+}
+
+.sidePrimaryNav button.active {
+  background: var(--studio-surface-strong);
+  color: var(--studio-primary);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.sideRecentBlock {
+  margin-top: 18px;
+  display: grid;
+  gap: 9px;
+}
+
+.sideSectionLabel {
+  padding: 0 8px;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.sideRecentItem {
+  min-height: 48px;
+  padding: 6px 8px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 6px;
+  gap: 9px;
+  align-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--studio-text);
+  text-align: left;
+}
+
+.sideRecentItem:hover {
+  background: var(--studio-surface-soft);
+}
+
+.sideRecentThumb {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgba(10, 163, 156, 0.16), transparent 54%),
+    var(--studio-surface-soft);
+  color: var(--studio-primary);
+}
+
+.sideRecentThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sideRecentItem strong,
+.sideRecentItem em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sideRecentItem strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+}
+
+.sideRecentItem em,
+.sideRecentEmpty {
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.sideRecentItem i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--studio-primary);
+  opacity: 0;
+}
+
+.sideRecentItem:first-of-type i {
+  opacity: 1;
+}
+
+.sideRecentEmpty {
+  padding: 10px 8px;
+}
+
+.sideLibraryBlock {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.sideLibraryItem {
+  min-height: 34px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: left;
+}
+
+.sideLibraryItem:hover {
+  background: var(--studio-surface-soft);
+  color: var(--studio-primary);
+}
+
+.sideLibraryItem.active {
+  background: var(--studio-surface-hover);
+  color: var(--studio-text-strong);
+}
+
+.sideLibraryDrawer {
+  position: fixed;
+  left: 128px;
+  top: 54px;
+  z-index: 20;
+  width: min(430px, calc(100vw - 156px));
+  height: min(760px, calc(100vh - 88px));
+  margin-top: 0;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 9px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  box-shadow: var(--studio-shadow);
+  overflow: hidden;
+}
+
+.sideLibraryDrawerHead {
+  min-height: 30px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 28px;
+  gap: 7px;
+  align-items: center;
+}
+
+.sideLibraryDrawerHead span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--studio-surface-hover);
+  color: var(--studio-primary);
+}
+
+.sideLibraryDrawerHead strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.sideLibraryDrawerHead button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+}
+
+.sideLibrarySearch {
+  min-height: 34px;
+  padding: 0 9px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+}
+
+.sideLibrarySearch input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--studio-text);
+  font-size: 12px;
+  outline: none;
+}
+
+.sideLibraryFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.sideLibraryFilters button {
+  min-height: 30px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.sideLibraryFilters button.active {
+  border-color: var(--studio-border-strong);
+  color: var(--studio-primary);
+}
+
+.sideLibraryDrawerList {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.sideLibraryDrawerList .categoryTile,
+.sideLibraryDrawerList .caseTile,
+.sideLibraryDrawerList .videoInspirationTile {
+  border-radius: 8px;
+}
+
+.sideLibraryDrawerList .categoryTile {
+  min-height: 88px;
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.sideLibraryDrawerList .categoryThumbs,
+.sideLibraryDrawerList .categoryThumbs img {
+  width: 72px;
+  height: 72px;
+}
+
+.sideLibraryDrawerList .caseTileMain {
+  grid-template-columns: 64px 36px minmax(0, 1fr);
+  min-height: 78px;
+}
+
+.sideLibraryDrawerList .caseTile img,
+.sideLibraryDrawerList .caseMedia {
+  width: 64px;
+  height: 64px;
+}
+
+.sideLibraryLoadMore {
+  width: 100%;
+}
+
+.sideLibraryLicense {
+  padding-top: 7px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--studio-border);
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.sideLibraryLicense a {
+  color: var(--studio-primary);
+}
+
+.railHead,
+.searchField,
+.favoriteFilterButton,
+.backCategoryButton,
+.caseList,
+.licenseNotice,
+.historyList {
+  display: none;
+}
+
+.railBottomBar {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.railAccountCard {
+  min-height: 54px;
+  padding: 7px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  border: 0;
+  background: transparent;
+}
+
+.railAvatar {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #d9b686, #eef4f3);
+  color: var(--studio-text-strong);
+  font-size: 12px;
+}
+
+.railAccountCard strong {
+  font-size: 12px;
+}
+
+.railAccountCard em {
+  font-size: 10px;
+  color: var(--studio-muted);
+}
+
+.railThemeButton {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+}
+
+.creationDesk {
+  min-height: 100vh;
+  display: grid;
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  grid-template-rows: minmax(0, 1fr) 68px;
+  gap: 12px;
+  padding: 14px 14px 14px 18px;
+  background:
+    linear-gradient(var(--studio-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--studio-grid) 1px, transparent 1px),
+    var(--studio-bg);
+  background-size: 32px 32px, 32px 32px, auto;
+}
+
+.deskPanel,
+.workPreview,
+.resultStage,
+.bottomComposerBar {
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.deskPanel {
+  grid-column: 1;
+  grid-row: 1;
+  position: absolute;
+  inset: 16px auto auto 18px;
+  z-index: 7;
+  width: min(520px, calc(100% - 120px));
+  pointer-events: none;
+  max-height: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(340px, 1.13fr) minmax(300px, 0.87fr);
+  gap: 12px;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.modeTabs,
+.workspaceTitleStrip,
+.caseMeta,
+.presetChips,
+.creativeRecipeBar,
+.workbenchSectionToggle,
+.promptTools,
+.promptSuggestion,
+.routeStrip,
+.controlGrid,
+.billingStrip,
+.deskActions,
+.generationProgress,
+.statusLine {
+  grid-column: 1 / -1;
+}
+
+.modeTabs,
+.workspaceTitleStrip,
+.caseMeta,
+.presetChips,
+.creativeRecipeBar,
+.workbenchSectionToggle,
+.routeStrip,
+.controlGrid,
+.billingStrip {
+  display: none;
+}
+
+.promptTools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  min-height: 168px;
+  padding: 18px 12px 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.promptTools::before {
+  content: "输入提示词";
+  grid-column: 1 / -1;
+  align-self: start;
+  color: var(--studio-text-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.instructionField {
+  gap: 0;
+}
+
+.instructionField span {
+  display: none;
+}
+
+.instructionField input {
+  height: 48px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+}
+
+.ghostAction {
+  min-width: 94px;
+  min-height: 38px;
+  border: 0;
+  background: var(--studio-surface-soft);
+}
+
+.promptEditor {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 168px;
+  height: 168px;
+  margin: 0;
+  padding: 16px 12px 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.promptEditor span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--studio-text-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.promptEditor textarea {
+  min-height: 106px;
+  height: 106px;
+  padding: 15px 138px 42px 42px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 13px;
+  opacity: 1;
+  pointer-events: auto;
+  resize: none;
+}
+
+.promptEditor textarea::placeholder {
+  color: #a8b0ba;
+}
+
+.promptSummaryCard {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 150px;
+  height: auto;
+  pointer-events: auto;
+  padding: 16px 12px 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.miniPanelHead {
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 8px;
+  align-items: center;
+}
+
+.miniPanelHead strong {
+  color: var(--studio-text-strong);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.miniPanelHead button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-muted);
+}
+
+.miniPanelHead button:hover {
+  color: var(--studio-primary);
+}
+
+.promptSummaryCard p {
+  margin: 0;
+  padding: 12px;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.promptSummaryCard small {
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.referenceBox {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 150px;
+  height: auto;
+  pointer-events: auto;
+  padding: 16px 12px 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.referenceBox::before {
+  content: none;
+}
+
+.uploadDrop {
+  min-height: 98px;
+  margin-top: 8px;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--studio-surface-soft) 62%, transparent);
+}
+
+.referenceThumbs {
+  margin-top: 8px;
+  max-height: 76px;
+  display: flex;
+  gap: 7px;
+  overflow: auto;
+}
+
+.referenceThumbs figure {
+  flex: 0 0 68px;
+  height: 68px;
+}
+
+.referenceThumbs figcaption {
+  display: none;
+}
+
+.referenceThumbActions {
+  opacity: 1;
+}
+
+.referenceCollapsedBlock {
+  grid-column: 1;
+  grid-row: 1;
+  width: fit-content;
+  min-height: 40px;
+  height: 40px;
+  margin: 0;
+  align-self: start;
+  pointer-events: auto;
+  transform: translateY(48px);
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.resultStage {
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 0;
+  padding: 14px 10px 14px 14px;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.resultStageHead {
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  margin-bottom: 10px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.resultStageHead strong {
+  max-width: none;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.resultStageHead span {
+  width: fit-content;
+  max-width: 96px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--studio-surface-soft);
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.resultStage .resultGrid,
+.resultStage .emptyResult {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.resultStage .resultGrid {
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resultStage .emptyResult {
+  min-height: 318px;
+}
+
+.resultGrid figure {
+  border-radius: 7px;
+}
+
+.resultGrid img,
+.resultGrid video {
+  aspect-ratio: 1;
+}
+
+.workPreview {
+  grid-column: 2;
+  grid-row: 2;
+  position: static;
+  min-height: 0;
+  overflow: hidden;
+  align-self: stretch;
+  background: var(--studio-surface);
+}
+
+.workPreview img,
+.workPreview video {
+  min-height: 0;
+  height: 100%;
+}
+
+.workPreviewEmpty {
+  min-height: 100%;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+}
+
+.workPreviewEmpty strong {
+  color: var(--studio-text-strong);
+}
+
+.bottomComposerToggle {
+  display: none;
+}
+
+.bottomComposerBar {
+  grid-column: 1 / 3;
+  grid-row: 3;
+  position: static;
+  min-height: 54px;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.bottomComposerBar::before {
+  content: "AI 优化";
+  color: var(--studio-text-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.bottomComposerBar span {
+  min-height: 34px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-surface-strong);
+}
+
+.bottomComposerBar .primaryAction,
+.deskActions .primaryAction {
+  min-width: 42px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  color: transparent;
+}
+
+.bottomComposerBar .primaryAction svg,
+.deskActions .primaryAction svg {
+  color: #fff;
+}
+
+.deskActions {
+  grid-column: 1;
+  justify-content: end;
+}
+
+.deskActions button:first-child {
+  display: none;
+}
+
+.progressWrap,
+.generationProgress,
+.statusLine {
+  grid-column: 1 / -1;
+}
+
+.creationDesk::after {
+  display: none;
+}
+
+.paramRail {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.paramRail button {
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.paramRailHead {
+  min-height: 24px !important;
+  grid-template-columns: auto auto;
+  display: inline-grid !important;
+  place-items: center;
+  gap: 3px !important;
+  color: var(--studio-text-strong) !important;
+}
+
+.paramRailBadge {
+  min-width: 22px;
+  min-height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 4px;
+  color: var(--studio-muted);
+  font-size: 11px;
+}
+
+/* Final prompt-first fidelity pass for the approved reference composition. */
+.creationDesk .bottomComposerBar {
+  min-height: 58px;
+  padding: 7px 12px 7px 16px;
+  display: grid;
+  grid-column: 1;
+  grid-row: 2;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.creationDesk .bottomComposerBar::before {
+  content: "AI 优化";
+  white-space: nowrap;
+}
+
+.creationDesk .bottomComposerBar span {
+  min-height: 34px;
+  padding: 0 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.creationDesk .bottomComposerBar .primaryAction {
+  grid-column: auto;
+  box-shadow: 0 12px 26px rgba(10, 163, 156, 0.24);
+}
+
+.creationDesk .deskActions {
+  grid-row: 1;
+  align-self: end;
+  justify-self: stretch;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 4;
+  margin: 0 24px 9px 22px;
+}
+
+.creationDesk .deskActions button:first-child {
+  min-width: 84px;
+  width: auto;
+  height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 12px;
+}
+
+.creationDesk .deskActions .primaryAction {
+  min-width: 76px;
+  width: auto;
+  height: 34px;
+  padding: 0 13px;
+  display: inline-flex;
+  border-radius: 8px;
+  color: #fff;
+  overflow: visible;
+}
+
+.creationDesk .paramRail {
+  gap: 19px;
+  padding: 14px 7px;
+}
+
+.creationDesk .paramRail button {
+  min-height: 50px;
+}
+
+.creationDesk .paramRail button.active {
+  color: var(--studio-primary);
+}
+
+.creationDesk .paramRail button.active svg,
+.creationDesk .paramRail button.active .paramRailBadge {
+  color: var(--studio-primary);
+  border-color: var(--studio-border-strong);
+}
+
+.paramDrawer {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  position: absolute;
+  top: 16px;
+  right: 92px;
+  z-index: 8;
+  width: 256px;
+  max-width: min(256px, calc(100vw - 120px));
+  padding: 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+  box-shadow: var(--studio-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.paramDrawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.paramDrawerHead strong {
+  color: var(--studio-text-strong);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.paramDrawerHead button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+}
+
+.paramDrawerBody {
+  display: grid;
+  gap: 10px;
+}
+
+.paramField,
+.paramRange {
+  display: grid;
+  gap: 7px;
+}
+
+.paramField span,
+.paramRange span,
+.paramHint {
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.paramField select {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface);
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.paramSegment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.paramSegment button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface);
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.paramSegment button.active {
+  border-color: var(--studio-border-strong);
+  background: var(--studio-surface-hover);
+  color: var(--studio-primary);
+}
+
+.paramRange {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.paramRange input {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.paramRange strong {
+  color: var(--studio-primary);
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .studioLayout,
+  .studioLayout.railCollapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .templateRail {
+    position: static;
+    height: auto;
+  }
+
+  .creationDesk {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .deskPanel,
+  .resultStage,
+  .workPreview,
+  .bottomComposerBar {
+    grid-column: 1;
+  }
+
+  .deskPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .referenceBox {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .creationDesk::after {
+    display: none;
+  }
+}
+
+/* Conversation-first refinement: make the left side work like a chat/session rail. */
+.studioLayout {
+  width: 100%;
+}
+
+.studioLayout,
+.studioLayout.railCollapsed {
+  grid-template-columns: 122px minmax(0, 1fr);
+}
+
+.studioLayout.railCollapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.templateRail {
+  min-width: 0;
+  padding: 14px 7px 12px;
+}
+
+.templateRail.collapsed {
+  width: 64px;
+  padding: 10px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-right: 1px solid var(--studio-border);
+  background: var(--studio-surface-strong);
+}
+
+.sideBrand {
+  margin-bottom: 12px;
+}
+
+.sideBrand > span:last-of-type {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.sideBrand em {
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.newChatButton {
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 10px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 8px;
+  background: var(--studio-text-strong);
+  color: var(--studio-on-dark);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.sideChatBlock {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.sideChatCard {
+  min-height: 72px;
+  padding: 9px 8px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  text-align: left;
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.sideChatCard.active {
+  border-color: var(--studio-border-strong);
+}
+
+.sideChatIcon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--studio-surface-hover);
+  color: var(--studio-primary);
+}
+
+.sideChatCard strong,
+.sideChatCard em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sideChatCard strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.sideChatCard em {
+  margin-top: 4px;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.sideRecentBlock {
+  margin-top: 18px;
+}
+
+.sideLibraryBlock {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--studio-border);
+}
+
+.railBottomBar {
+  padding-top: 10px;
+  border-top: 1px solid var(--studio-border);
+}
+
+.railIconAction {
+  flex: 0 0 auto;
+  border-radius: 10px;
+}
+
+.railAvatarButton {
+  width: 40px;
+  height: 40px;
+  margin-top: auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  background: var(--studio-text-strong);
+  color: var(--studio-on-dark);
+}
+
+.collapsedRailAvatar {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d9b686, #eef4f3);
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.creationDesk {
+  grid-template-columns: minmax(300px, 1.08fr) minmax(260px, 0.92fr) 64px;
+  gap: 12px;
+  padding: 14px 12px 12px 14px;
+}
+
+.studioLayout.railCollapsed .creationDesk {
+  grid-template-columns: minmax(0, 1fr) 64px;
+}
+
+.bottomComposerBar::before,
+.creationDesk .bottomComposerBar::before {
+  content: "会话";
+  min-width: 30px;
+}
+
+.bottomComposerBar span,
+.creationDesk .bottomComposerBar span {
+  color: var(--studio-text);
+}
+
+/* Canvas-first working page: actions live in the bottom conversation bar. */
+.creationDesk {
+  grid-template-columns: minmax(0, 1fr) 64px;
+  grid-template-rows: minmax(420px, 1fr) 68px;
+}
+
+.workPreview {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.workPreview:active {
+  cursor: grabbing;
+}
+
+.infiniteCanvas {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--studio-muted) 22%, transparent) 1px, transparent 1.5px),
+    linear-gradient(var(--studio-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--studio-grid) 1px, transparent 1px),
+    var(--studio-surface);
+  background-size: 24px 24px, 120px 120px, 120px 120px, auto;
+  background-position: center;
+}
+
+.canvasToolbar {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 4;
+  min-height: 38px;
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent);
+  box-shadow: var(--studio-shadow-soft);
+  backdrop-filter: blur(14px);
+}
+
+.canvasToolbar button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.canvasToolbar button:hover {
+  background: var(--studio-surface-hover);
+  color: var(--studio-primary);
+}
+
+.canvasToolbar span {
+  min-width: 42px;
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.canvasPlane {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center;
+  transition: transform 90ms ease-out;
+}
+
+.canvasLinks {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.canvasLinks path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--studio-primary) 52%, var(--studio-border-strong));
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-dasharray: 9 8;
+  opacity: 0.72;
+}
+
+.canvasNode {
+  position: relative;
+  width: min(560px, 60vw);
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: 12px;
+  background: var(--studio-surface-strong);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.14);
+}
+
+.graphNode {
+  position: absolute;
+  width: 260px;
+  height: 220px;
+  min-height: 220px;
+  padding: 0;
+  cursor: pointer;
+  place-items: stretch;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.graphNode:hover,
+.graphNode.selected {
+  border-color: var(--studio-border-strong);
+  box-shadow: 0 26px 60px rgba(10, 163, 156, 0.2);
+}
+
+.graphNode.selected {
+  outline: 3px solid color-mix(in srgb, var(--studio-primary) 22%, transparent);
+  outline-offset: 3px;
+}
+
+.canvasNode img,
+.canvasNode video {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  object-fit: contain;
+  display: block;
+}
+
+.graphNode img,
+.graphNode video {
+  min-height: 0;
+  object-fit: cover;
+}
+
+.canvasNodeLabel {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  padding: 6px 9px;
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvasNodeAction {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  max-width: calc(100% - 130px);
+  padding: 6px 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 45%, var(--studio-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-primary) 14%, var(--studio-surface-strong));
+  color: var(--studio-text);
+  font-size: 11px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  backdrop-filter: blur(14px);
+}
+
+.graphNode.selected .canvasNodeAction {
+  background: var(--studio-primary);
+  color: #fff;
+}
+
+.graphNode small {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  min-height: 26px;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 90%, transparent);
+  color: var(--studio-text);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  backdrop-filter: blur(14px);
+}
+
+.emptyCanvasNode {
+  width: 360px;
+  min-height: 240px;
+  padding: 28px;
+  color: var(--studio-muted);
+  text-align: center;
+}
+
+.resultStage {
+  display: none;
+}
+
+.workPreviewEmpty {
+  min-height: 100%;
+}
+
+.workPreviewEmpty svg {
+  width: 34px;
+  height: 34px;
+}
+
+.workPreviewEmpty strong {
+  font-size: 24px;
+}
+
+.workPreviewEmpty span {
+  max-width: 360px;
+  text-align: center;
+}
+
+.creationDesk .deskActions {
+  display: none;
+}
+
+.promptTools {
+  display: none;
+}
+
+.ghostAction {
+  display: none;
+}
+
+.bottomComposerToggle {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 40px;
+  width: 56px;
+  padding: 0;
+  align-self: center;
+  justify-self: stretch;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 0;
+}
+
+.creationDesk .promptCollapsedBlock {
+  grid-column: 1;
+  grid-row: 1;
+  width: fit-content;
+  min-height: 40px;
+  height: 40px;
+  margin: 0;
+  align-self: start;
+  pointer-events: auto;
+  background: var(--studio-surface-strong);
+  box-shadow: var(--studio-shadow-soft);
+}
+
+.creationDesk .promptCollapsedBlock.active,
+.referenceCollapsedBlock.active {
+  border-style: solid;
+  color: var(--studio-primary);
+}
+
+.bottomComposerToggle::before {
+  content: "收起";
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.bottomComposerToggle.isOpen::before {
+  content: "收起";
+}
+
+.bottomComposerToggle.isClosed::before {
+  content: "展开";
+}
+
+.creationDesk .bottomComposerBar {
+  min-height: 62px;
+  grid-column: 1;
+  grid-row: 2;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  gap: 10px;
+}
+
+.creationDesk:not(.composerOpen) {
+  grid-template-rows: minmax(420px, 1fr) 48px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerBar {
+  display: none;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: 2;
+  width: 96px;
+  justify-self: start;
+}
+
+.bottomComposerInput {
+  min-width: 0;
+}
+
+.bottomComposerInput input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 13px;
+  outline: none;
+}
+
+.bottomComposerInput input:focus {
+  border-color: var(--studio-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 12%, transparent);
+}
+
+.composerToolAction {
+  min-height: 38px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.composerQuotaHint {
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.creationDesk .bottomComposerBar .composerPrimaryAction {
+  min-width: 76px;
+  width: auto;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(10, 163, 156, 0.24);
+}
+
+.creationDesk .bottomComposerBar .composerPrimaryAction svg {
+  color: #fff;
+}
+
+.creationDesk .bottomComposerToggle {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+}
+
+.creationDesk.composerOpen .bottomComposerToggle {
+  justify-self: stretch;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: 2;
+  width: 96px;
+  justify-self: start;
+}
+
+.creationDesk .bottomComposerBar {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+@media (max-width: 900px) {
+  .studioLayout,
+  .studioLayout.railCollapsed {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .templateRail:not(.collapsed) {
+    width: 64px;
+    padding: 10px 8px;
+    align-items: center;
+  }
+
+  .templateRail:not(.collapsed) .sideBrand,
+  .templateRail:not(.collapsed) .newChatButton,
+  .templateRail:not(.collapsed) .sidePrimaryNav,
+  .templateRail:not(.collapsed) .sideChatBlock,
+  .templateRail:not(.collapsed) .sideRecentBlock,
+  .templateRail:not(.collapsed) .sideLibraryBlock,
+  .templateRail:not(.collapsed) .railBottomBar {
+    display: none;
+  }
+
+  .templateRail:not(.collapsed)::before {
+    content: "";
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--studio-text-strong);
+  }
+
+  .creationDesk,
+  .studioLayout.railCollapsed .creationDesk {
+    grid-template-columns: minmax(360px, 1fr) minmax(300px, 0.82fr) 72px;
+  }
+}
+
+@media (max-width: 760px) {
+  .studioLayout,
+  .studioLayout.railCollapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .templateRail,
+  .templateRail.collapsed {
+    width: auto;
+  }
+
+  .templateRail.collapsed {
+    flex-direction: row;
+    height: auto;
+  }
+
+  .creationDesk .bottomComposerBar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .creationDesk .bottomComposerBar::before {
+    display: none;
+  }
+
+.bottomComposerInput {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Canvas utility polish: keep the canvas dominant and make libraries actionable. */
+.studioLayout,
+.studioLayout.railCollapsed {
+  grid-template-columns: 122px minmax(0, 1fr);
+}
+
+.studioLayout.railCollapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.sideLibraryDrawer {
+  left: 134px;
+  top: 58px;
+  width: min(460px, calc(100vw - 164px));
+  height: min(780px, calc(100vh - 96px));
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+}
+
+.studioLayout.railCollapsed .sideLibraryDrawer {
+  left: 76px;
+}
+
+.sideLibraryHint {
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 72%, transparent);
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.sideLibraryDrawerList .caseTileMain {
+  padding-right: 84px;
+}
+
+.caseTileActions {
+  top: 10px;
+  right: 10px;
+}
+
+.appendMiniButton,
+.favoriteMiniButton {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+.appendMiniButton {
+  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong));
+  border-color: color-mix(in srgb, var(--studio-primary) 28%, var(--studio-border));
+}
+
+.creationDesk {
+  grid-template-columns: minmax(0, 1fr) 64px;
+  grid-template-rows: minmax(460px, 1fr) auto;
+  min-height: calc(100vh - 54px);
+  padding: 0 12px 12px 0;
+  overflow: hidden;
+}
+
+.deskPanel {
+  inset: 14px auto auto 14px;
+  width: auto;
+  max-width: min(360px, calc(100% - 120px));
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.modeTabs,
+.workspaceTitleStrip,
+.caseMeta,
+.presetChips,
+.creativeRecipeBar,
+.workbenchSectionToggle,
+.promptTools,
+.promptSummaryCard,
+.routeStrip,
+.controlGrid,
+.billingStrip,
+.deskActions {
+  display: none !important;
+}
+
+.promptSuggestion {
+  pointer-events: auto;
+}
+
+.creationDesk .promptCollapsedBlock,
+.referenceCollapsedBlock {
+  grid-column: 1;
+  grid-row: 1;
+  width: fit-content;
+  min-width: 108px;
+  min-height: 38px;
+  height: 38px;
+  margin: 0;
+  padding: 0 12px;
+  align-self: start;
+  justify-self: start;
+  pointer-events: auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 93%, transparent);
+  box-shadow: var(--studio-shadow-soft);
+  backdrop-filter: blur(14px);
+}
+
+.referenceCollapsedBlock {
+  transform: translateY(46px);
+}
+
+.referenceCollapsedBlock,
+.referenceCollapsedBlock * {
+  pointer-events: auto;
+}
+
+.referenceCollapsedBlock > svg,
+.referenceCollapsedBlock > span {
+  pointer-events: none;
+}
+
+.referenceBox {
+  grid-column: 1;
+  grid-row: 1;
+  width: min(360px, calc(100vw - 240px));
+  pointer-events: auto;
+}
+
+.bottomComposerToggle {
+  display: grid !important;
+  grid-column: 2;
+  grid-row: 2;
+  width: 56px;
+  min-height: 44px;
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.creationDesk:not(.composerOpen) {
+  grid-template-rows: minmax(460px, 1fr) 48px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: 2;
+  width: 104px;
+  justify-self: start;
+}
+
+.creationDesk .bottomComposerBar {
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 74px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.creationDesk .bottomComposerBar::before {
+  content: none;
+}
+
+.bottomComposerInput textarea {
+  width: 100%;
+  min-height: 48px;
+  max-height: 96px;
+  padding: 12px 14px;
+  border: 1px solid var(--studio-border);
+  border-radius: 16px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 13px;
+  line-height: 1.45;
+  outline: none;
+  resize: vertical;
+}
+
+.bottomComposerInput textarea:focus {
+  border-color: var(--studio-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 12%, transparent);
+}
+
+.composerAssistGroup {
+  min-width: 128px;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.composerThread {
+  max-height: 86px;
+  min-width: 150px;
+  display: grid;
+  gap: 5px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.composerMessage {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  color: var(--studio-text);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.composerMessage span {
+  min-height: 20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--studio-surface-soft);
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.composerMessage.assistant span {
+  background: color-mix(in srgb, var(--studio-primary) 14%, var(--studio-surface-soft));
+  color: var(--studio-primary);
+}
+
+.composerMessage p {
+  margin: 0;
+  max-height: 48px;
+  overflow: hidden;
+}
+
+.composerMessage.failed p {
+  color: #b22732;
+}
+
+.composerMessage.pending p {
+  color: var(--studio-muted);
+}
+
+.composerMessage button {
+  grid-column: 2;
+  width: fit-content;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-surface-soft);
+  color: var(--studio-primary);
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.composerQuotaHint {
+  min-height: 0;
+  max-width: 160px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.composerLineageHint {
+  max-width: 136px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-content: center;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--studio-text);
+}
+
+.composerLineageHint > span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composerLineageHint button {
+  width: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-surface-soft);
+  color: var(--studio-primary);
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.composerToolAction {
+  min-height: 36px;
+  align-self: end;
+  border-color: color-mix(in srgb, var(--studio-primary) 22%, var(--studio-border));
+  color: var(--studio-primary);
+}
+
+.workPreview.infiniteCanvas {
+  position: absolute;
+  inset: 0 64px 0 0;
+  grid-column: 1 / 3;
+  grid-row: 1 / 3;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  border: 0 !important;
+  border-radius: 0;
+  background-color: var(--studio-bg);
+  box-shadow: none !important;
+  z-index: 0;
+}
+
+.canvasToolbar {
+  right: 16px;
+  bottom: 16px;
+}
+
+.paramRail {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  z-index: 6;
+}
+
+.creationDesk .deskPanel,
+.referenceCollapsedBlock,
+.referenceBox,
+.creationDesk .promptCollapsedBlock,
+.bottomComposerToggle,
+.creationDesk .bottomComposerBar,
+.creationDesk .statusLine {
+  position: relative;
+  z-index: 5;
+}
+
+.creationDesk .bottomComposerBar {
+  align-self: end;
+  margin: 0 0 0 12px;
+}
+
+/* Final alignment pass: canvas controls live top-right, rails align to one shell. */
+.canvasToolbar {
+  top: 16px;
+  right: 150px;
+  bottom: auto;
+}
+
+.creationDesk.referencesOpen .promptCollapsedBlock {
+  transform: translateY(204px);
+}
+
+.referenceBox {
+  z-index: 8;
+}
+
+.paramRail {
+  align-self: start;
+  justify-self: center;
+  width: 64px;
+  min-height: auto;
+  margin-top: 48px;
+  margin-right: 10px;
+  padding: 8px 6px 10px;
+  border-radius: 10px;
+}
+
+.paramRailHead {
+  min-height: 28px !important;
+}
+
+.creationDesk .paramRail button {
+  min-height: 46px;
+}
+
+.bottomComposerToggle {
+  align-self: end;
+  justify-self: stretch;
+  min-height: 74px;
+  margin: 0 8px 0 0;
+  border-radius: 8px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  width: 104px;
+  min-height: 48px;
+  margin: 0 0 0 12px;
+  justify-self: start;
+}
+
+.creationDesk.composerOpen .bottomComposerToggle {
+  width: 56px;
+}
+
+.creationDesk .statusLine {
+  position: absolute;
+  left: 28px;
+  top: 230px;
+  z-index: 9;
+  max-width: 260px;
+  margin: 0;
+  padding: 8px 11px;
+  pointer-events: none;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+  color: var(--studio-text);
+  box-shadow: var(--studio-shadow-soft);
+  backdrop-filter: blur(14px);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+@media (max-width: 900px) {
+  .sideLibraryDrawer {
+    left: 76px;
+    width: min(430px, calc(100vw - 92px));
+  }
+
+  .creationDesk,
+  .studioLayout.railCollapsed .creationDesk {
+    grid-template-columns: minmax(0, 1fr) 58px;
+  }
+
+  .referenceBox {
+    width: min(340px, calc(100vw - 104px));
+  }
+
+  .creationDesk .bottomComposerBar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .composerQuotaHint {
+    display: none;
+  }
+}
+
+/* Compact the left rail so it reads like a usable conversation/tool strip. */
+.sideBrand {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 3px;
+  margin-bottom: 8px;
+}
+
+.sideBrand > span:last-of-type {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.sideBrand strong {
+  display: block;
+  overflow: hidden;
+  color: var(--studio-text-strong);
+  font-size: 11px;
+  line-height: 1.12;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.sideBrand em {
+  display: block;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 9px;
+  line-height: 1;
+  font-style: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sideBrandMark {
+  width: 24px;
+  height: 24px;
+}
+
+.sideCollapseButton {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+.newChatButton {
+  min-height: 34px;
+  margin-bottom: 8px;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.sidePrimaryNav {
+  gap: 6px;
+}
+
+.sidePrimaryNav button {
+  min-height: 32px;
+  padding: 0 8px;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sideLibraryItem {
+  min-height: 30px;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sideChatBlock {
+  margin-top: 12px;
+  gap: 6px;
+}
+
+.sideChatCard {
+  min-height: 58px;
+  padding: 7px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.sideChatIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.sideChatCard strong {
+  font-size: 11px;
+}
+
+.sideChatCard em {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.25;
+  -webkit-line-clamp: 1;
+}
+
+/* Bottom chat collapse keeps the composer usable as a one-line input. */
+.creationDesk:not(.composerOpen) {
+  grid-template-rows: minmax(460px, 1fr) 54px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerBar {
+  display: grid !important;
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 48px;
+  height: 48px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-self: end;
+  align-items: center;
+  margin: 0 0 0 12px;
+  padding: 6px 8px 6px 12px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerInput textarea {
+  min-height: 34px;
+  height: 34px;
+  max-height: 34px;
+  padding: 7px 12px;
+  resize: none;
+  overflow: hidden;
+  border-radius: 999px;
+  line-height: 1.35;
+}
+
+.creationDesk:not(.composerOpen) .composerAssistGroup {
+  display: none;
+}
+
+.creationDesk:not(.composerOpen) .composerThread {
+  display: none;
+}
+
+.creationDesk:not(.composerOpen) .composerPrimaryAction {
+  height: 36px !important;
+  min-height: 36px !important;
+  min-width: 68px !important;
+  width: auto;
+  padding: 0 12px;
+  color: #fff;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: auto;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  height: 34px;
+  margin: 0;
+  justify-self: start;
+  align-self: center;
+}
+
+.creationDesk.composerOpen .bottomComposerToggle {
+  height: 64px;
+  min-height: 64px;
+}
+
+/* Conversation composer and generation controls are separate: chat on bottom, render on right. */
+.creationDesk .bottomComposerBar {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  transition: grid-template-columns 180ms ease, height 180ms ease, min-height 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.creationDesk .bottomComposerBar.hasLineage {
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+}
+
+.creationDesk .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: auto;
+  width: 44px;
+  min-width: 44px;
+  height: 64px;
+  min-height: 64px;
+  margin: 0;
+  display: grid !important;
+  place-items: center;
+  align-self: center;
+  justify-self: start;
+  color: var(--studio-muted);
+}
+
+.creationDesk.composerOpen .bottomComposerInput textarea {
+  min-height: 64px;
+  height: 64px;
+  max-height: 64px;
+  resize: none;
+}
+
+.bottomComposerToggle::before,
+.bottomComposerToggle.isOpen::before,
+.bottomComposerToggle.isClosed::before {
+  content: none;
+}
+
+.creationDesk .composerPrimaryAction {
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 44%, rgba(255, 255, 255, 0.3));
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.82), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 92%, #ffffff 8%), color-mix(in srgb, var(--studio-accent) 84%, #f7c4b3 16%)) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 14px 30px color-mix(in srgb, var(--studio-primary) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42) !important;
+  font-size: 0;
+  transition: transform 170ms ease, box-shadow 170ms ease, filter 170ms ease, opacity 170ms ease;
+}
+
+.creationDesk .composerPrimaryAction svg {
+  width: 17px;
+  height: 17px;
+  color: currentColor !important;
+  transform: translateX(1px);
+  transition: transform 170ms ease;
+}
+
+.creationDesk .composerPrimaryAction:hover:not(:disabled) {
+  color: #fff !important;
+  filter: saturate(1.08) brightness(1.04);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow:
+    0 18px 38px color-mix(in srgb, var(--studio-primary) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
+}
+
+.creationDesk .composerPrimaryAction:hover:not(:disabled) svg {
+  transform: translateX(2px) scale(1.04);
+}
+
+.creationDesk .composerPrimaryAction:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  box-shadow:
+    0 8px 18px color-mix(in srgb, var(--studio-primary) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36) !important;
+}
+
+.creationDesk .composerPrimaryAction:disabled {
+  opacity: 0.58;
+  filter: grayscale(0.18);
+  cursor: not-allowed;
+}
+
+.paramGenerateAction {
+  margin-top: 8px;
+  min-height: 54px !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 35%, var(--studio-border)) !important;
+  background: linear-gradient(135deg, var(--studio-primary), var(--studio-accent)) !important;
+  color: #fff !important;
+}
+
+.paramGenerateAction svg,
+.paramGenerateAction .spin {
+  color: #fff !important;
+}
+
+.paramDrawerGenerate {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border-color: color-mix(in srgb, var(--studio-primary) 35%, var(--studio-border));
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--studio-primary), var(--studio-accent));
+  color: #fff;
+  font-weight: 950;
+}
+
+.sideLibraryDrawer {
+  width: min(640px, calc(100vw - 164px));
+}
+
+.sideLibraryDrawerList {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 250px);
+  grid-template-rows: 1fr;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 10px;
+  scroll-snap-type: x proximity;
+}
+
+.sideLibraryDrawerList > * {
+  scroll-snap-align: start;
+}
+
+.sideLibraryDrawerList .categoryTile,
+.sideLibraryDrawerList .caseTile,
+.sideLibraryDrawerList .videoInspirationTile {
+  width: 100%;
+  height: 100%;
+}
+
+.sideLibraryDrawerList .caseTileMain {
+  grid-template-columns: 1fr;
+  grid-template-rows: 132px auto auto auto;
+  padding: 10px;
+  padding-right: 10px;
+  align-content: start;
+}
+
+.sideLibraryDrawerList .caseTile img,
+.sideLibraryDrawerList .caseMedia {
+  width: 100%;
+  height: 132px;
+}
+
+/* Final rail brand fix: keep the narrow header from squeezing the title. */
+.templateRail:not(.collapsed) .sideBrand {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 3px;
+  margin-bottom: 8px;
+}
+
+.templateRail:not(.collapsed) .sideBrand > span:last-of-type {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.templateRail:not(.collapsed) .sideBrand strong {
+  max-width: 48px;
+  display: block;
+  overflow: hidden;
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  line-height: 1.08;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.templateRail:not(.collapsed) .sideBrand em {
+  display: block;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 9px;
+  line-height: 1;
+  font-style: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.templateRail:not(.collapsed) .sideBrandMark {
+  width: 24px;
+  height: 24px;
+}
+
+.templateRail:not(.collapsed) .sideCollapseButton {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+/* Final detail pass: make the narrow rail and floating panels breathe. */
+.sideChatCard {
+  min-height: 54px;
+  padding: 6px;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+
+.sideChatCard strong {
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sideChatCard em {
+  max-width: 64px;
+  font-size: 9px;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.railAccountCard {
+  min-height: 48px;
+  padding: 6px 5px;
+  grid-template-columns: 30px minmax(0, 1fr) 14px;
+  gap: 5px;
+}
+
+.railAccountCard strong,
+.railAccountCard em {
+  max-width: 50px;
+}
+
+.railAvatar {
+  width: 30px;
+  height: 30px;
+}
+
+.railAccountCard strong {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.railAccountCard em {
+  font-size: 9px;
+  line-height: 1.1;
+}
+
+.referenceBox {
+  width: min(340px, calc(100vw - 260px));
+  padding: 11px;
+  border-color: color-mix(in srgb, var(--studio-border) 70%, transparent);
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+  box-shadow: 0 14px 40px rgba(17, 24, 39, 0.07);
+}
+
+.referenceBox .miniPanelHead {
+  min-height: 26px;
+}
+
+.uploadDrop {
+  min-height: 72px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 78%, transparent);
+}
+
+.uploadDrop span {
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.canvasToolbar {
+  right: 138px;
+  min-height: 34px;
+  padding: 4px;
+  gap: 3px;
+}
+
+.canvasToolbar button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+}
+
+.canvasToolbar span {
+  min-width: 38px;
+}
+
+.paramRail {
+  width: 58px;
+  margin-right: 8px;
+  padding: 7px 5px 8px;
+  gap: 12px;
+  transition: width 190ms ease, margin 190ms ease, padding 190ms ease, border-radius 190ms ease, box-shadow 190ms ease, background 190ms ease;
+}
+
+.creationDesk .paramRail button {
+  min-height: 42px;
+  font-size: 11px;
+}
+
+.paramRailHead {
+  min-height: 26px !important;
+  font-size: 11px !important;
+}
+
+.canvasPlane > .previewFallbackNode,
+.canvasPlane > .emptyCanvasNode:not(.graphNode),
+.canvasPlane > .sourceNode:not(.graphNode) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.emptyCanvasNode {
+  width: 300px;
+  min-height: 178px;
+  padding: 22px;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--studio-border) 82%, transparent);
+  background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+}
+
+.emptyCanvasNode svg {
+  width: 26px;
+  height: 26px;
+  color: var(--studio-primary);
+}
+
+.emptyCanvasNode strong {
+  margin-top: 6px;
+  color: var(--studio-text-strong);
+  font-size: 13px;
+}
+
+.emptyCanvasNode span {
+  max-width: 220px;
+  color: var(--studio-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.composerQuotaHint {
+  max-width: 210px;
+  min-height: 24px;
+  padding: 0;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+/* Final composer alignment: collapse button, input, and send button share one baseline. */
+.creationDesk:not(.composerOpen) .bottomComposerBar {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  min-height: 46px;
+  height: 46px;
+  padding: 5px 7px 5px 10px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle,
+.creationDesk:not(.composerOpen) .bottomComposerInput textarea,
+.creationDesk:not(.composerOpen) .composerPrimaryAction {
+  height: 36px !important;
+  min-height: 36px !important;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  width: 36px !important;
+  min-width: 36px !important;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerInput,
+.creationDesk:not(.composerOpen) .bottomComposerInput textarea,
+.creationDesk:not(.composerOpen) .composerPrimaryAction {
+  align-self: center;
+}
+
+.creationDesk:not(.composerOpen) .composerPrimaryAction {
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  border-radius: 999px;
+}
+
+/* Icon-only assistant submit: keep the composer row visually locked to one baseline. */
+.creationDesk .bottomComposerBar {
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 9px;
+}
+
+.creationDesk .bottomComposerBar.hasLineage {
+  grid-template-columns: 40px minmax(0, 1fr) minmax(90px, 126px) 40px;
+}
+
+.creationDesk .bottomComposerBar.hasThread {
+  grid-template-columns: 40px minmax(0, 1fr) minmax(132px, 188px) 40px;
+}
+
+.creationDesk .bottomComposerBar.hasThread.hasLineage {
+  grid-template-columns: 40px minmax(0, 1fr) minmax(116px, 170px) minmax(90px, 126px) 40px;
+}
+
+.creationDesk .bottomComposerToggle,
+.creationDesk .bottomComposerInput,
+.creationDesk .composerThread,
+.creationDesk .composerAssistGroup,
+.creationDesk .composerPrimaryAction {
+  align-self: center;
+}
+
+.creationDesk .composerThread {
+  min-width: 0;
+  max-width: 188px;
+}
+
+.creationDesk .composerAssistGroup {
+  min-width: 0;
+  width: min(126px, 100%);
+  justify-items: stretch;
+}
+
+.creationDesk .composerLineageHint {
+  max-width: none;
+  justify-content: space-between;
+}
+
+.creationDesk .composerPrimaryAction {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  display: grid !important;
+  place-items: center;
+  flex: 0 0 40px;
+  line-height: 1;
+  font-size: 0;
+}
+
+.creationDesk .composerPrimaryAction svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  transform: none;
+  stroke-width: 2.35;
+}
+
+.creationDesk .composerPrimaryAction:hover:not(:disabled) svg {
+  transform: scale(1.04);
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerBar {
+  grid-template-columns: 36px minmax(0, 1fr) 38px;
+}
+
+.creationDesk:not(.composerOpen) .composerPrimaryAction {
+  width: 38px !important;
+  min-width: 38px !important;
+  flex-basis: 38px;
+  padding: 0 !important;
+}
+
+.creationDesk:not(.composerOpen) .composerPrimaryAction svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Keep library drawers above the canvas instead of clipping them inside the rail. */
+.templateRail {
+  z-index: 40;
+  overflow: visible;
+}
+
+.sideLibraryDrawer {
+  z-index: 70;
+  height: min(404px, calc(100vh - 92px));
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border-color: color-mix(in srgb, var(--studio-border-strong) 28%, var(--studio-border));
+  box-shadow: 0 26px 72px rgba(15, 23, 42, 0.18);
+}
+
+.sideLibraryFilters {
+  align-items: center;
+  flex: 0 0 auto;
+  align-self: start;
+}
+
+.sideLibraryDrawerList {
+  flex: 0 0 auto;
+  min-height: 174px;
+  max-height: 188px;
+  grid-auto-columns: minmax(184px, 208px);
+  align-items: start;
+}
+
+.sideLibraryLicense {
+  margin-top: auto;
+}
+
+.sideLibraryDrawerList .categoryTile,
+.sideLibraryDrawerList .caseTile,
+.sideLibraryDrawerList .videoInspirationTile {
+  min-height: 168px;
+  height: 168px !important;
+  align-self: start;
+}
+
+.sideLibraryDrawerList .categoryTile {
+  grid-template-columns: 1fr;
+  grid-template-rows: 76px auto auto auto;
+  gap: 7px;
+  padding: 10px;
+}
+
+.sideLibraryDrawerList .categoryThumbs,
+.sideLibraryDrawerList .categoryThumbs img {
+  width: 100%;
+  height: 76px;
+  min-height: 76px;
+}
+
+.sideLibraryDrawerList .categoryTile strong,
+.sideLibraryDrawerList .caseTile strong,
+.sideLibraryDrawerList .videoInspirationTile strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.sideLibraryDrawerList .categoryTile span,
+.sideLibraryDrawerList .categoryTile small,
+.sideLibraryDrawerList .caseTile em,
+.sideLibraryDrawerList .caseTile small,
+.sideLibraryDrawerList .videoInspirationTile span,
+.sideLibraryDrawerList .videoInspirationTile p {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.sideLibraryDrawerList .caseTileMain {
+  grid-template-rows: 82px auto auto;
+  min-height: 0;
+  height: 100%;
+  gap: 7px;
+  padding: 9px;
+}
+
+.sideLibraryDrawerList .caseTile img,
+.sideLibraryDrawerList .caseMedia {
+  height: 82px;
+}
+
+.creationDesk {
+  z-index: 0;
+}
+
+/* Right parameter rail can fully collapse so the canvas regains the edge space. */
+.creationDesk.paramRailCollapsed {
+  grid-template-columns: minmax(0, 1fr) 34px;
+  transition: grid-template-columns 190ms ease;
+}
+
+.creationDesk.paramRailCollapsed .workPreview.infiniteCanvas {
+  right: 0;
+  transition: right 190ms ease, transform 90ms ease-out;
+}
+
+.creationDesk.paramRailCollapsed .canvasToolbar {
+  right: 52px;
+  transition: right 190ms ease, transform 170ms ease, box-shadow 170ms ease;
+}
+
+.creationDesk.paramRailCollapsed .paramRail {
+  width: 34px;
+  margin-top: 48px;
+  margin-right: 4px;
+  padding: 4px;
+  gap: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 86%, transparent);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.14);
+  transition: width 190ms ease, margin 190ms ease, padding 190ms ease, border-radius 190ms ease, box-shadow 190ms ease, background 190ms ease;
+}
+
+.creationDesk.paramRailCollapsed .paramRail button:not(.paramRailHead),
+.creationDesk.paramRailCollapsed .paramDrawer {
+  display: none;
+}
+
+.creationDesk.paramRailCollapsed .paramRailHead {
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px !important;
+  height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 0 !important;
+  color: var(--studio-primary) !important;
+}
+
+.creationDesk.paramRailCollapsed .paramRailHead span {
+  font-size: 15px;
+  line-height: 1;
 }

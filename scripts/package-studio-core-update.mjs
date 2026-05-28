@@ -11,6 +11,8 @@ const include = [
   'index.html',
   'studio.html',
   'favicon.svg',
+  'demo-canvas-1.svg',
+  'demo-canvas-2.svg',
   'cases.json',
   'inspirations.json',
   'inspiration-sources.json',

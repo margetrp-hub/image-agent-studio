@@ -7,7 +7,9 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  BotMessageSquare,
   Brush,
+  CirclePlus,
   Eraser,
   Clock,
   History,
@@ -16,10 +18,12 @@ import {
   KeyRound,
   LoaderCircle,
   LogOut,
+  MessageSquareText,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  SendHorizontal,
   Server,
   SlidersHorizontal,
   Sparkles,
@@ -29,6 +33,7 @@ import {
   Redo2,
   FlipHorizontal,
   ScanLine,
+  SquarePen,
   WandSparkles,
   Trash2,
   Upload,
@@ -49,20 +54,21 @@ import {
   saveProviderSettings,
   saveSelectedKeyId
 } from './sub2apiClient';
+import { buildPromptSlug, sanitizeProvider } from './studio/util/filename.js';
 
 const IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'gpt-image-1-mini'];
 const RESPONSE_MODELS = ['gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-4.1'];
 const VIDEO_MODELS = [];
 const ROUTES = [
-  { value: 'responses', label: '响应接口', shortLabel: '响应' },
-  { value: 'legacy', label: '图片接口', shortLabel: '图片' }
+  { value: 'responses', label: '生图接口', shortLabel: '生图' },
+  { value: 'legacy', label: '编辑接口', shortLabel: '编辑' }
 ];
 const SIZES = ['auto', '1024x1024', '1536x1024', '1024x1536'];
 const ASPECT_OPTIONS = [
   { value: '1:1', label: '1:1', size: '1024x1024' },
   { value: '16:9', label: '16:9', size: '1536x1024' },
   { value: '9:16', label: '9:16', size: '1024x1536' },
-  { value: 'custom', label: '自定义', size: '1024x1024' }
+  { value: 'custom', label: '手动', size: '1024x1024' }
 ];
 const CUSTOM_SIZE_OPTIONS = [
   { value: 'auto', label: '自动' },
@@ -78,8 +84,13 @@ const RESOLUTION_TIERS = [
 ];
 const OUTPUT_FORMATS = ['png', 'jpeg', 'webp'];
 const MODERATION = ['auto', 'low'];
+const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d/i;
 const IMAGE_REFERENCE_LIMIT = 4;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const CANVAS_PLANE_WIDTH = 2400;
+const CANVAS_PLANE_HEIGHT = 1600;
+const CANVAS_NODE_WIDTH = 260;
+const CANVAS_NODE_HEIGHT = 220;
 const VIDEO_ASPECT_OPTIONS = [
   { value: '16:9', label: '16:9', width: 1280, height: 720 },
   { value: '9:16', label: '9:16', width: 720, height: 1280 },
@@ -174,6 +185,8 @@ const THEME_KEY = 'image-sub2api-studio:theme:v1';
 const LEGACY_THEME_KEY = 'ohlaoo-studio:theme:v1';
 const TEMPLATE_FAVORITES_KEY = 'image-sub2api-studio:template-favorites:v1';
 const LEGACY_TEMPLATE_FAVORITES_KEY = 'ohlaoo-studio:template-favorites:v1';
+const WORKBENCH_LAYOUT_KEY = 'image-sub2api-studio:workbench-layout:v3';
+const CURRENT_SESSION_KEY = 'image-sub2api-studio:current-session:v1';
 const LOCAL_HISTORY_LIMIT = 30;
 const REFERENCE_ROLES = [
   { value: 'identity', label: '主体' },
@@ -197,6 +210,7 @@ const COMMUNITY_LICENSE_NOTICE = {
   url: 'https://creativecommons.org/licenses/by/4.0/',
   text: '提示词模板内容来自公开社区，遵循 CC BY 4.0 许可证；使用和改编时请保留原作者或来源归属。'
 };
+
 const CATEGORY_COVERS = {
   'Architecture & Spaces': 'architecture',
   'Brand & Logos': 'brand',
@@ -274,9 +288,61 @@ const CREATIVE_RECIPES = [
 ];
 const CREATIVE_RECIPE_PREFIX = '配方增强：';
 
+
 function compact(value, length = 180) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return text.length > length ? `${text.slice(0, length)}...` : text;
+}
+
+function shortId(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 8) || Math.random().toString(36).slice(2, 10);
+}
+
+function formatDownloadStamp(value) {
+  const date = new Date(value || Date.now());
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  const pad = (number) => String(number).padStart(2, '0');
+  return [
+    safeDate.getFullYear(),
+    pad(safeDate.getMonth() + 1),
+    pad(safeDate.getDate())
+  ].join('') + '-' + [
+    pad(safeDate.getHours()),
+    pad(safeDate.getMinutes()),
+    pad(safeDate.getSeconds())
+  ].join('');
+}
+
+function buildStudioDownloadFilename({
+  mode = 'image',
+  providerId = 'sub2api',
+  createdAt,
+  prompt,
+  id,
+  index = 0,
+  extension = 'png'
+} = {}) {
+  const type = mode === 'video' ? 'video' : 'image';
+  const provider = sanitizeProvider(providerId);
+  const stamp = formatDownloadStamp(createdAt);
+  const slug = buildPromptSlug(prompt);
+  const suffix = shortId(id || `${stamp}-${slug}-${index}`);
+  const seq = String(Math.max(1, (Number.isFinite(index) ? (index | 0) : 0) + 1)).padStart(2, '0');
+  const ext = String(extension || (type === 'video' ? 'mp4' : 'png')).toLowerCase().replace(/[^a-z0-9]+/g, '') || (type === 'video' ? 'mp4' : 'png');
+  return `image-sub2api-studio-${type}-${provider}-${stamp}-${slug}-${suffix}-${seq}.${ext}`;
+}
+
+function downloadMetaFromHistoryItem(item, isVideo = false) {
+  return {
+    mode: isVideo ? 'video' : 'image',
+    providerId: item?.providerId || item?.provider || item?.route || item?.model || 'sub2api',
+    createdAt: item?.createdAt,
+    prompt: item?.generationPrompt || item?.prompt || item?.case?.title || '',
+    id: item?.taskId || item?.id || item?.createdAt
+  };
 }
 
 function stripCreativeRecipePrompt(value) {
@@ -339,6 +405,27 @@ function clearDraft() {
   localStorage.removeItem(DRAFT_KEY);
 }
 
+function loadCurrentSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem(CURRENT_SESSION_KEY) || 'null');
+    if (!session || typeof session !== 'object') return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function saveCurrentSession(session) {
+  try {
+    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({
+      ...session,
+      updatedAt: new Date().toISOString()
+    }));
+  } catch {
+    // The active canvas is a convenience cache; generation/history still work if storage is full.
+  }
+}
+
 function templateKey(item) {
   return String(item?.id ?? item?.title ?? '').trim();
 }
@@ -357,6 +444,35 @@ function saveTemplateFavorites(favorites) {
     localStorage.setItem(TEMPLATE_FAVORITES_KEY, JSON.stringify([...favorites]));
   } catch {
     // Favorite state is a convenience layer; Studio still works if storage is unavailable.
+  }
+}
+
+function loadWorkbenchLayout() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WORKBENCH_LAYOUT_KEY) || 'null');
+    return {
+      prompt: stored?.prompt === true,
+      references: stored?.references === true,
+      parameters: stored?.parameters !== false,
+      parametersRail: stored?.parametersRail !== false,
+      bottomComposer: stored?.bottomComposer === true
+    };
+  } catch {
+    return {
+      prompt: false,
+      references: false,
+      parameters: true,
+      parametersRail: true,
+      bottomComposer: false
+    };
+  }
+}
+
+function saveWorkbenchLayout(layout) {
+  try {
+    localStorage.setItem(WORKBENCH_LAYOUT_KEY, JSON.stringify(layout));
+  } catch {
+    // Layout state is optional; keep the in-memory UI responsive even if storage fails.
   }
 }
 
@@ -791,6 +907,26 @@ function dataUrlToFile(dataUrl, filename = 'mask.png') {
   return new File([bytes], filename, { type: mime });
 }
 
+function imageMimeExtension(mime) {
+  const value = String(mime || '').toLowerCase();
+  if (value.includes('jpeg') || value.includes('jpg')) return 'jpg';
+  if (value.includes('webp')) return 'webp';
+  return 'png';
+}
+
+async function imageUrlToFile(url, filename = 'canvas-reference.png') {
+  const source = String(url || '');
+  if (!source) throw new Error('CANVAS_IMAGE_EMPTY');
+  if (source.startsWith('data:')) return dataUrlToFile(source, filename);
+  const response = await fetch(assetPath(source));
+  if (!response.ok) throw new Error(`CANVAS_IMAGE_HTTP_${response.status}`);
+  const blob = await response.blob();
+  const type = blob.type || 'image/png';
+  if (!SUPPORTED_IMAGE_TYPES.has(type)) throw new Error('CANVAS_IMAGE_UNSUPPORTED');
+  const cleanName = filename.replace(/\.[a-z0-9]+$/i, '');
+  return new File([blob], `${cleanName}.${imageMimeExtension(type)}`, { type });
+}
+
 function referenceRoleLabel(value) {
   return REFERENCE_ROLES.find((item) => item.value === value)?.label || REFERENCE_ROLES[0].label;
 }
@@ -845,6 +981,7 @@ function categoryLabel(value) {
   if (value === 'All') return '全部分类';
   return CATEGORY_LABELS[value] || value || '未分类';
 }
+
 
 function categoryCover(value, variant = 'thumb') {
   const slug = CATEGORY_COVERS[value] || CATEGORY_COVERS['Other Use Cases'];
@@ -932,6 +1069,26 @@ function parseOptimizedPrompt(text) {
   }
 }
 
+function parseAssistantReply(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  const jsonText = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+  try {
+    const parsed = JSON.parse(jsonText);
+    return {
+      reply: parsed.reply || parsed.message || raw,
+      finalPrompt: parsed.finalPrompt || parsed.prompt || '',
+      raw
+    };
+  } catch {
+    return {
+      reply: raw,
+      finalPrompt: '',
+      raw
+    };
+  }
+}
+
 function formatUsageValue(value) {
   if (value === undefined || value === null || value === '') return '后台未返回';
   if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString('zh-CN');
@@ -1005,8 +1162,35 @@ function riskLabel(value) {
 }
 
 function routeLabel(value) {
-  return ROUTES.find((item) => item.value === value)?.label || '响应接口';
+  return ROUTES.find((item) => item.value === value)?.label || '生图接口';
 }
+
+function modelLooksLikeImage(item) {
+  const raw = item?.raw || {};
+  const source = [
+    item?.id,
+    item?.label,
+    item?.type,
+    item?.category,
+    item?.mode,
+    item?.modality,
+    item?.endpoint,
+    raw.id,
+    raw.model,
+    raw.name,
+    raw.type,
+    raw.category,
+    raw.mode,
+    raw.modality,
+    raw.endpoint,
+    raw.group,
+    raw.platform,
+    ...(Array.isArray(item?.capabilities) ? item.capabilities : []),
+    ...(Array.isArray(raw.capabilities) ? raw.capabilities : [])
+  ].filter(Boolean).join(' ');
+  return IMAGE_MODEL_PATTERN.test(source) || String(source).toLowerCase().includes('images/edits');
+}
+
 
 function connectionReady(settings, apiKey, isAuthenticated) {
   if (settings.apiKeySource === 'manual') {
@@ -1105,14 +1289,6 @@ function Topbar({
         </button>
         {isAuthenticated ? (
           <>
-            <div className="balancePill">
-              <span>{profile?.email || profile?.username || '已登录用户'}</span>
-              <strong>{formatMoney(profile?.balance)}</strong>
-            </div>
-            <button type="button" className="keyPill" title={apiKeyDisplay(apiKey)} onClick={onOpenSettings}>
-              <KeyRound size={15} />
-              <span>{apiKeyDisplay(apiKey)}</span>
-            </button>
             <button type="button" className="iconButton themeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? '切换浅色' : '切换深色'}>
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -1160,7 +1336,7 @@ function CategoryCard({ group, selected, onSelect }) {
   );
 }
 
-function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite }) {
+function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppend }) {
   const image = templateThumbnail(item);
   const fallback = imageFallback(item);
   const risks = Array.isArray(item.riskTags) ? item.riskTags.slice(0, 3) : [];
@@ -1186,6 +1362,20 @@ function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite }) {
         ) : null}
       </button>
       <div className="caseTileActions">
+        {onAppend ? (
+          <button
+            type="button"
+            className="appendMiniButton"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAppend(item);
+            }}
+            aria-label="追加模板提示词"
+            title="追加到当前提示词"
+          >
+            <CirclePlus size={13} />
+          </button>
+        ) : null}
         <button
           type="button"
           className={`favoriteMiniButton ${favorite ? 'active' : ''}`}
@@ -1229,6 +1419,12 @@ function HistoryCard({ item, selected, onSelect, onDelete }) {
   const thumbnail = resultUrl || item.case?.image || '';
   const usage = item.usageSummary || item.costSummary || '';
   const isVideo = item.mode === 'video' || item.kind === 'video';
+  const extension = isVideo ? resultVideoExtension(resultUrl) : resultExtension(resultUrl, item.outputFormat || 'png');
+  const downloadName = buildStudioDownloadFilename({
+    ...downloadMetaFromHistoryItem(item, isVideo),
+    index: 0,
+    extension
+  });
   const meta = isVideo
     ? [item.model, item.aspectRatio || item.aspect, item.duration ? `${item.duration}s` : '', item.fps ? `${item.fps}fps` : '', usage].filter(Boolean)
     : [item.model, item.resolutionTier ? (RESOLUTION_TIER_LABELS[item.resolutionTier] || item.resolutionTier) : item.size, item.quality ? QUALITY_LABELS[item.quality] || item.quality : '', item.outputFormat ? OUTPUT_FORMAT_LABELS[item.outputFormat] || item.outputFormat : '', usage].filter(Boolean);
@@ -1247,7 +1443,7 @@ function HistoryCard({ item, selected, onSelect, onDelete }) {
       </button>
       <div className="historyActions">
         {resultUrl ? (
-          <a href={resolveResultUrl(resultUrl)} download={`image-sub2api-studio-${item.id}.${isVideo ? resultVideoExtension(resultUrl) : resultExtension(resultUrl, item.outputFormat || 'png')}`} onClick={(event) => event.stopPropagation()}>
+          <a href={resolveResultUrl(resultUrl)} download={downloadName} onClick={(event) => event.stopPropagation()}>
             <Download size={14} /> 下载
           </a>
         ) : null}
@@ -1261,6 +1457,13 @@ function HistoryCard({ item, selected, onSelect, onDelete }) {
 
 function LeftRail({
   activeWorkspace,
+  onWorkspaceChange,
+  profile,
+  apiKey,
+  isAuthenticated,
+  onOpenSettings,
+  theme,
+  onThemeToggle,
   cases,
   categoryGroups,
   selected,
@@ -1284,13 +1487,15 @@ function LeftRail({
   favoriteTemplates,
   showFavoritesOnly,
   onToggleFavoritesOnly,
-  onToggleTemplateFavorite
+  onToggleTemplateFavorite,
+  onAppendTemplate
 }) {
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_TEMPLATE_LIMIT);
+  const [libraryPanel, setLibraryPanel] = useState('');
   const isVideoWorkspace = activeWorkspace === 'video';
   const isHistoryWorkspace = activeWorkspace === 'history';
   const videoNeedle = query.trim().toLowerCase();
-  const visibleVideoInspirations = isVideoWorkspace
+  const visibleVideoInspirations = libraryPanel === 'video'
     ? (videoInspirations || []).filter((item) => {
       if (!videoNeedle) return true;
       return `${item.title} ${item.intent} ${item.summary}`.toLowerCase().includes(videoNeedle);
@@ -1298,19 +1503,42 @@ function LeftRail({
     : [];
   const browsingCategory = !isVideoWorkspace && (category !== 'All' || query.trim());
   const visibleCases = isVideoWorkspace ? [] : cases.slice(0, visibleLimit);
+  const accountLabel = isAuthenticated ? (profile?.email || profile?.username || '已登录用户') : '未登录';
+  const accountDetail = isAuthenticated ? (apiKeyDisplay(apiKey) || 'Key 已隐藏') : '选择 Key';
+  const recentItems = historyItems.slice(0, 5);
+
   useEffect(() => {
     setVisibleLimit(INITIAL_TEMPLATE_LIMIT);
   }, [category, query]);
+
+  const selectLibraryItem = (item) => {
+    onSelect(item);
+    onAppendTemplate?.(item);
+    setLibraryPanel('');
+  };
+  const appendLibraryItem = (item) => {
+    onAppendTemplate?.(item);
+    setLibraryPanel('');
+  };
+  const openLibraryPanel = (nextPanel) => {
+    if (nextPanel === 'video') onWorkspaceChange('video');
+    if (nextPanel === 'image') onWorkspaceChange('image');
+    setLibraryPanel((current) => current === nextPanel ? '' : nextPanel);
+  };
+
   if (collapsed) {
     return (
-      <aside className="templateRail collapsed" aria-label="模板侧栏">
+      <aside className="templateRail collapsed" aria-label="创作侧栏">
         <button type="button" className="railIconAction" onClick={onToggleCollapse} aria-label="展开侧栏">
           <PanelLeftOpen size={18} />
         </button>
+        <button type="button" className="railIconAction active" onClick={onToggleCollapse} aria-label="会话">
+          <MessageSquareText size={18} />
+        </button>
         <button
           type="button"
-          className={`railIconAction ${!isHistoryWorkspace ? 'active' : ''}`}
-          onClick={onToggleCollapse}
+          className="railIconAction"
+          onClick={() => { onWorkspaceChange('image'); onToggleCollapse(); }}
           aria-label={activeWorkspace === 'video' ? '视频灵感' : '图片灵感'}
         >
           {activeWorkspace === 'video' ? <Video size={18} /> : <ImageIcon size={18} />}
@@ -1319,17 +1547,164 @@ function LeftRail({
         <button
           type="button"
           className={`railIconAction ${isHistoryWorkspace ? 'active' : ''}`}
-          onClick={onToggleCollapse}
+          onClick={() => { onWorkspaceChange('history'); onToggleCollapse(); }}
           aria-label="历史"
         >
           <History size={18} />
           <span>{historyItems.length}</span>
         </button>
+        <button type="button" className="railAvatarButton" onClick={onOpenSettings} aria-label="连接设置">
+          <span className="collapsedRailAvatar">{String(accountLabel).slice(0, 1).toUpperCase()}</span>
+        </button>
       </aside>
     );
   }
+
   return (
-    <aside className="templateRail">
+    <aside className="templateRail" aria-label="创作侧栏">
+      <div className="sideBrand">
+        <span className="sideBrandMark"><WandSparkles size={15} /></span>
+        <span>
+          <strong>创作工作台</strong>
+          <em>AI 图像工坊</em>
+        </span>
+        <button type="button" className="sideCollapseButton" onClick={onToggleCollapse} aria-label="收起侧栏">
+          <PanelLeftClose size={15} />
+        </button>
+      </div>
+      <button type="button" className="newChatButton" onClick={() => onWorkspaceChange('image')}>
+        <CirclePlus size={16} />
+        新建创作
+      </button>
+      <nav className="sidePrimaryNav" aria-label="工作区">
+        <button type="button" className={activeWorkspace !== 'history' ? 'active' : ''} onClick={() => onWorkspaceChange('image')}>
+          <Sparkles size={16} />
+          生成
+        </button>
+        <button type="button" onClick={() => onWorkspaceChange('image')}>
+          <WandSparkles size={16} />
+          灵感
+        </button>
+        <button type="button" className={isHistoryWorkspace ? 'active' : ''} onClick={() => onWorkspaceChange('history')}>
+          <History size={16} />
+          历史
+        </button>
+      </nav>
+      <div className="sideChatBlock">
+        <span className="sideSectionLabel">会话</span>
+        <button type="button" className="sideChatCard active" onClick={() => onWorkspaceChange(activeWorkspace === 'video' ? 'video' : 'image')}>
+          <span className="sideChatIcon"><BotMessageSquare size={16} /></span>
+          <span>
+            <strong>{activeWorkspace === 'video' ? '视频创作' : '图片创作'}</strong>
+            <em>{selected?.title || selected?.summary || '从画布继续优化你的作品'}</em>
+          </span>
+        </button>
+      </div>
+      <div className="sideRecentBlock">
+        <span className="sideSectionLabel">最近生成</span>
+        {recentItems.length ? recentItems.map((item) => (
+          <button type="button" className="sideRecentItem" key={item.id} onClick={() => onSelectHistory(item)}>
+            <span className="sideRecentThumb">
+              {item.displayResultUrls?.[0] || item.resultUrls?.[0] ? (
+                <img src={resolveResultUrl(item.displayResultUrls?.[0] || item.resultUrls?.[0])} alt="" />
+              ) : item.mode === 'video' ? <Video size={16} /> : <ImageIcon size={16} />}
+            </span>
+            <span>
+              <strong>{item.mode === 'video' ? '视频生成' : item.case?.title || compact(item.prompt, 18) || '生成任务'}</strong>
+              <em>{new Date(item.createdAt || Date.now()).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</em>
+            </span>
+            <i />
+          </button>
+        )) : (
+          <div className="sideRecentEmpty">生成后会留在当前会话和历史里</div>
+        )}
+      </div>
+      <div className="sideLibraryBlock">
+        <span className="sideSectionLabel">资料</span>
+        <button type="button" className={`sideLibraryItem ${libraryPanel === 'image' ? 'active' : ''}`} onClick={() => openLibraryPanel('image')} aria-expanded={libraryPanel === 'image'}>
+          <SquarePen size={15} />
+          <span>模板库</span>
+        </button>
+        <button type="button" className={`sideLibraryItem ${libraryPanel === 'video' ? 'active' : ''}`} onClick={() => openLibraryPanel('video')} aria-expanded={libraryPanel === 'video'}>
+          <Video size={15} />
+          <span>视频灵感</span>
+        </button>
+      </div>
+      {libraryPanel ? (
+        <div className="sideLibraryDrawer" role="dialog" aria-label={libraryPanel === 'video' ? '视频灵感' : '模板库'}>
+          <div className="sideLibraryDrawerHead">
+            <span>{libraryPanel === 'video' ? <Video size={15} /> : <SquarePen size={15} />}</span>
+            <strong>{libraryPanel === 'video' ? '视频灵感' : '模板库'}</strong>
+            <button type="button" onClick={() => setLibraryPanel('')} aria-label="关闭资料面板">
+              <X size={15} />
+            </button>
+          </div>
+          <label className="sideLibrarySearch">
+            <Search size={15} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={libraryPanel === 'video' ? '搜索视频灵感' : '搜索图片模板'} />
+          </label>
+          <p className="sideLibraryHint">
+            {libraryPanel === 'video' ? '选择视频灵感会切换到视频创作，并带入对应的运动与场景。' : '点击模板会写入下方提示词，点 + 只追加到当前提示词。'}
+          </p>
+          {libraryPanel === 'image' ? (
+            <div className="sideLibraryFilters">
+              <button
+                type="button"
+                className={showFavoritesOnly ? 'active' : ''}
+                onClick={onToggleFavoritesOnly}
+              >
+                <Star size={14} />
+                {showFavoritesOnly ? '已收藏' : `收藏 ${favoriteTemplates.size}`}
+              </button>
+              {browsingCategory ? (
+                <button type="button" onClick={() => { setCategory('All'); setQuery(''); }}>
+                  返回分类
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="sideLibraryDrawerList">
+            {loading ? (
+              <div className="emptyHistory templateLoading">
+                <ImageIcon size={24} />
+                <p>正在加载资料...</p>
+              </div>
+            ) : libraryPanel === 'video' ? (
+              visibleVideoInspirations.length ? visibleVideoInspirations.map((item) => (
+                <VideoInspirationCard item={item} selected={selected?.id === item.id} onSelect={selectLibraryItem} key={item.id} />
+              )) : (
+                <div className="emptyHistory">
+                  <Video size={24} />
+                  <p>没有匹配的视频灵感</p>
+                </div>
+              )
+            ) : browsingCategory ? visibleCases.map((item) => (
+              <CaseCard
+                item={item}
+                selected={selected?.id === item.id}
+                onSelect={selectLibraryItem}
+                favorite={favoriteTemplates.has(templateKey(item))}
+                onToggleFavorite={onToggleTemplateFavorite}
+                onAppend={appendLibraryItem}
+                key={item.id}
+              />
+            )) : categoryGroups.map((group) => (
+              <CategoryCard group={group} selected={category === group.id} onSelect={setCategory} key={group.id} />
+            ))}
+            {!loading && libraryPanel === 'image' && browsingCategory && visibleLimit < cases.length ? (
+              <button type="button" className="loadMoreButton sideLibraryLoadMore" onClick={() => setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE)}>
+                加载更多 {Math.min(visibleLimit, cases.length)}/{cases.length}
+              </button>
+            ) : null}
+          </div>
+          {libraryPanel === 'image' ? (
+            <div className="sideLibraryLicense">
+              <span>{licenseNotice?.name || COMMUNITY_LICENSE_NOTICE.name}</span>
+              <a href={licenseNotice?.url || COMMUNITY_LICENSE_NOTICE.url} target="_blank" rel="noreferrer">CC BY 4.0</a>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="railHead">
         <div className="railTabs">
           <button type="button" className="active">
@@ -1345,7 +1720,7 @@ function LeftRail({
             <Trash2 size={15} />
           </button>
         ) : null}
-        <button type="button" className="railCollapseButton" onClick={onToggleCollapse} aria-label="折叠侧栏">
+        <button type="button" className="railCollapseButton" onClick={onToggleCollapse} aria-label="收起侧栏">
           <PanelLeftClose size={17} />
         </button>
       </div>
@@ -1362,19 +1737,19 @@ function LeftRail({
               onClick={onToggleFavoritesOnly}
             >
               <Star size={15} />
-              {showFavoritesOnly ? '只看收藏' : `收藏模板 ${favoriteTemplates.size}`}
+              {showFavoritesOnly ? '查看全部收藏' : `收藏模板 ${favoriteTemplates.size}`}
             </button>
           ) : null}
           {browsingCategory ? (
             <button type="button" className="backCategoryButton" onClick={() => { setCategory('All'); setQuery(''); }}>
-              返回分类首页
+              返回分类
             </button>
           ) : null}
           <div className="caseList">
             {loading ? (
               <div className="emptyHistory templateLoading">
                 <ImageIcon size={24} />
-                <p>正在加载模板分类。</p>
+                <p>正在加载模板...</p>
               </div>
             ) : isVideoWorkspace ? (
               visibleVideoInspirations.length ? visibleVideoInspirations.map((item) => (
@@ -1382,7 +1757,7 @@ function LeftRail({
               )) : (
                 <div className="emptyHistory">
                   <Video size={24} />
-                  <p>没有匹配的视频灵感。</p>
+                  <p>没有匹配的视频灵感</p>
                 </div>
               )
             ) : browsingCategory ? visibleCases.map((item) => (
@@ -1399,7 +1774,7 @@ function LeftRail({
             ))}
             {!loading && !isVideoWorkspace && browsingCategory && visibleLimit < cases.length ? (
               <button type="button" className="loadMoreButton" onClick={() => setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE)}>
-                加载更多模板（{Math.min(visibleLimit, cases.length)}/{cases.length}）
+                加载更多模板 {Math.min(visibleLimit, cases.length)}/{cases.length}
               </button>
             ) : null}
           </div>
@@ -1411,7 +1786,7 @@ function LeftRail({
             </div>
           ) : null}
         </>
-  ) : (
+      ) : (
         <div className="historyList">
           {historyItems.length ? historyItems.map((item) => (
             <HistoryCard
@@ -1424,15 +1799,27 @@ function LeftRail({
           )) : (
             <div className="emptyHistory">
               <History size={24} />
-              <p>{historyStatus === 'loading' ? '正在读取历史。' : '当前账号还没有历史记录。'}</p>
+              <p>{historyStatus === 'loading' ? '正在加载历史...' : '生成后会在这里保留记录'}</p>
             </div>
           )}
         </div>
       )}
+      <div className="railBottomBar">
+        <button type="button" className="railAccountCard" onClick={onOpenSettings}>
+          <span className="railAvatar">{String(accountLabel).slice(0, 1).toUpperCase()}</span>
+          <span>
+            <strong>{accountLabel}</strong>
+            <em>{accountDetail}</em>
+          </span>
+          <KeyRound size={15} />
+        </button>
+        <button type="button" className="railThemeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? '切换浅色' : '切换深色'}>
+          {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+      </div>
     </aside>
   );
 }
-
 function progressText(progress, fallbackMessage) {
   if (!progress || progress.stage === 'idle') return fallbackMessage || '';
   if (progress.stage === 'request') return '已提交';
@@ -1504,6 +1891,16 @@ function generationErrorMessage(error) {
   );
 
   const lowered = message.toLowerCase();
+  const requestId = errorRequestId(error, message);
+  if (
+    lowered.includes('request was rejected by the safety system')
+    || lowered.includes('rejected by the safety system')
+    || lowered.includes('safety system')
+    || lowered.includes('content policy')
+    || lowered.includes('safety policy')
+  ) {
+    return `提示词或参考图触发了上游安全策略，生成已被拒绝。请弱化敏感描述，去掉真实人物、未成年人、暴力色情、仿冒名人等高风险内容后重试。${requestId ? `请求 ID：${requestId}` : ''}`;
+  }
   if (error?.status === 401 || lowered.includes('unauthorized') || lowered.includes('invalid token')) {
     return '账号登录或密钥已失效，请重新登录或更换密钥。';
   }
@@ -1522,9 +1919,33 @@ function generationErrorMessage(error) {
   return message;
 }
 
-function Lightbox({ url, index, outputFormat = 'png', onClose }) {
+
+function errorRequestId(error, message = '') {
+  const direct = error?.requestId
+    || error?.request_id
+    || error?.payload?.request_id
+    || error?.payload?.requestId
+    || error?.payload?.error?.request_id
+    || error?.payload?.error?.requestId
+    || error?.payload?.response?.request_id
+    || error?.payload?.response?.requestId
+    || error?.payload?.response?.error?.request_id
+    || error?.payload?.response?.error?.requestId;
+  if (direct) return String(direct);
+
+  const match = String(message).match(/request\s*id\s*[:：]?\s*([a-z0-9-]{12,})/i);
+  return match?.[1] || '';
+}
+
+function Lightbox({ url, index, outputFormat = 'png', downloadMeta, onClose }) {
   if (!url) return null;
   const extension = resultExtension(url, outputFormat);
+  const downloadName = buildStudioDownloadFilename({
+    ...(downloadMeta || {}),
+    mode: 'image',
+    index,
+    extension
+  });
   return (
     <div className="lightboxOverlay" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -1536,7 +1957,7 @@ function Lightbox({ url, index, outputFormat = 'png', onClose }) {
       <img src={url} alt={`生成结果 ${index + 1}`} />
         <figcaption>
           <span>#{index + 1}</span>
-          <a href={url} download={`image-sub2api-studio-${index + 1}.${extension}`}>
+          <a href={url} download={downloadName}>
             <Download size={16} />
             下载
           </a>
@@ -1546,8 +1967,15 @@ function Lightbox({ url, index, outputFormat = 'png', onClose }) {
   );
 }
 
-function VideoLightbox({ url, onClose }) {
+function VideoLightbox({ url, index = 0, downloadMeta, onClose }) {
   if (!url) return null;
+  const extension = resultVideoExtension(url);
+  const downloadName = buildStudioDownloadFilename({
+    ...(downloadMeta || {}),
+    mode: 'video',
+    index,
+    extension
+  });
   return (
     <div className="lightboxOverlay" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -1559,7 +1987,7 @@ function VideoLightbox({ url, onClose }) {
         <video src={url} controls playsInline />
         <figcaption>
           <span>视频结果</span>
-          <a href={url} download={`image-sub2api-studio-video.${resultVideoExtension(url)}`}>
+          <a href={url} download={downloadName}>
             <Download size={16} />
             下载
           </a>
@@ -1569,7 +1997,7 @@ function VideoLightbox({ url, onClose }) {
   );
 }
 
-function ResultGrid({ urls, outputFormat = 'png', onPreview }) {
+function ResultGrid({ urls, outputFormat = 'png', downloadMeta, onPreview }) {
   if (!urls.length) {
     return (
       <div className="emptyResult">
@@ -1585,7 +2013,12 @@ function ResultGrid({ urls, outputFormat = 'png', onPreview }) {
           <button type="button" className="resultPreviewButton" onClick={() => onPreview(url, index)}>
             <img src={url} alt={`生成结果 ${index + 1}`} />
           </button>
-          <a href={url} download={`image-sub2api-studio-${index + 1}.${resultExtension(url, outputFormat)}`}>
+          <a href={url} download={buildStudioDownloadFilename({
+            ...(downloadMeta || {}),
+            mode: 'image',
+            index,
+            extension: resultExtension(url, outputFormat)
+          })}>
             <Download size={16} />
             下载
           </a>
@@ -1595,7 +2028,7 @@ function ResultGrid({ urls, outputFormat = 'png', onPreview }) {
   );
 }
 
-function VideoResultGrid({ urls, onPreview }) {
+function VideoResultGrid({ urls, downloadMeta, onPreview }) {
   if (!urls.length) {
     return (
       <div className="emptyResult">
@@ -1608,10 +2041,15 @@ function VideoResultGrid({ urls, onPreview }) {
     <div className="resultGrid videoResultGrid">
       {urls.map((url, index) => (
         <figure key={`${url}-${index}`}>
-          <button type="button" className="resultPreviewButton" onClick={() => onPreview(url)}>
+          <button type="button" className="resultPreviewButton" onClick={() => onPreview(url, index)}>
             <video src={url} muted playsInline preload="metadata" />
           </button>
-          <a href={url} download={`image-sub2api-studio-video-${index + 1}.${resultVideoExtension(url)}`}>
+          <a href={url} download={buildStudioDownloadFilename({
+            ...(downloadMeta || {}),
+            mode: 'video',
+            index,
+            extension: resultVideoExtension(url)
+          })}>
             <Download size={16} />
             下载
           </a>
@@ -1621,16 +2059,22 @@ function VideoResultGrid({ urls, onPreview }) {
   );
 }
 
-function WorkPreviewResultActions({ url, index = 0, outputFormat = 'png', isVideo = false, onPreview }) {
+function WorkPreviewResultActions({ url, index = 0, outputFormat = 'png', isVideo = false, downloadMeta, onPreview }) {
   if (!url) return null;
   const extension = isVideo ? resultVideoExtension(url) : resultExtension(url, outputFormat);
+  const downloadName = buildStudioDownloadFilename({
+    ...(downloadMeta || {}),
+    mode: isVideo ? 'video' : 'image',
+    index,
+    extension
+  });
   return (
     <div className="workPreviewActions">
       <button type="button" onClick={onPreview}>
         {isVideo ? <Video size={15} /> : <ImageIcon size={15} />}
         预览
       </button>
-      <a href={url} download={`image-sub2api-studio-${isVideo ? 'video' : index + 1}.${extension}`}>
+      <a href={url} download={downloadName}>
         <Download size={15} />
         下载
       </a>
@@ -1655,6 +2099,7 @@ function HistoryDetailPanel({ item, onOpenWorkspace }) {
     : Array.isArray(item.resultUrls)
       ? item.resultUrls
       : [];
+  const downloadMeta = downloadMetaFromHistoryItem(item, isVideo);
   const meta = isVideo
     ? [item.model, item.aspectRatio || item.aspect, item.duration ? `${item.duration}s` : '', item.fps ? `${item.fps}fps` : ''].filter(Boolean)
     : [item.model, item.resolutionTier ? (RESOLUTION_TIER_LABELS[item.resolutionTier] || item.resolutionTier) : item.size, item.quality ? QUALITY_LABELS[item.quality] || item.quality : '', item.outputFormat ? OUTPUT_FORMAT_LABELS[item.outputFormat] || item.outputFormat : ''].filter(Boolean);
@@ -1673,7 +2118,11 @@ function HistoryDetailPanel({ item, onOpenWorkspace }) {
           打开{isVideo ? '视频创作' : '图片创作'}
         </button>
       </div>
-      {isVideo ? <VideoResultGrid urls={urls} onPreview={() => {}} /> : <ResultGrid urls={urls} outputFormat={item.outputFormat || 'png'} onPreview={() => {}} />}
+      {isVideo ? (
+        <VideoResultGrid urls={urls} downloadMeta={downloadMeta} onPreview={() => {}} />
+      ) : (
+        <ResultGrid urls={urls} outputFormat={item.outputFormat || 'png'} downloadMeta={downloadMeta} onPreview={() => {}} />
+      )}
     </section>
   );
 }
@@ -1745,7 +2194,6 @@ function CreativeRecipeBar({ recipes, activeId, onApply }) {
     </div>
   );
 }
-
 const MaskEditor = forwardRef(function MaskEditor({
   imageFile,
   imagePreview,
@@ -2065,7 +2513,6 @@ const MaskEditor = forwardRef(function MaskEditor({
     </div>
   );
 });
-
 function CreationDesk({
   activeWorkspace,
   selectedCase,
@@ -2083,11 +2530,15 @@ function CreationDesk({
   onOpenSettings,
   onProfileRefresh,
   onHistoryAdd,
-  promptPresets
+  promptPresets,
+  appendTemplateRequest,
+  onAppendTemplateConsumed
 }) {
   const draftRef = useRef(loadDraft());
+  const currentSessionRef = useRef(loadCurrentSession());
   const generationRef = useRef({ id: 0, controller: null });
   const resolvingCaseRef = useRef({ id: 0 });
+  const appliedCasePromptRef = useRef({ key: '', prompt: '' });
   const maskEditorRef = useRef(null);
   const [mode, setMode] = useState(activeWorkspace === 'video' ? 'video' : 'image');
   const [prompt, setPrompt] = useState(() => draftRef.current?.prompt || selectedCase?.prompt || '');
@@ -2110,18 +2561,25 @@ function CreationDesk({
   const [negativePrompt, setNegativePrompt] = useState(() => draftRef.current?.negativePrompt || '');
   const [videoReferenceFiles, setVideoReferenceFiles] = useState([]);
   const [videoReferencePreviews, setVideoReferencePreviews] = useState([]);
-  const [status, setStatus] = useState('idle');
-  const [message, setMessage] = useState('');
-  const [results, setResults] = useState([]);
-  const [videoResults, setVideoResults] = useState([]);
+  const restoredSession = currentSessionRef.current;
+  const restoredWasGenerating = restoredSession?.status === 'loading';
+  const restoredMode = restoredSession?.mode || (activeWorkspace === 'video' ? 'video' : 'image');
+  const [status, setStatus] = useState(restoredWasGenerating ? 'error' : 'idle');
+  const [message, setMessage] = useState(restoredWasGenerating ? '上次生成因页面刷新中断；已保留本轮会话，可去历史查看已完成记录或重新生成。' : '');
+  const [results, setResults] = useState(() => Array.isArray(restoredSession?.results) ? restoredSession.results : []);
+  const [videoResults, setVideoResults] = useState(() => Array.isArray(restoredSession?.videoResults) ? restoredSession.videoResults : []);
+  const [resultBatchMeta, setResultBatchMeta] = useState(() => restoredSession?.resultBatchMeta || null);
   const [videoTask, setVideoTask] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewVideo, setPreviewVideo] = useState('');
-  const [progress, setProgress] = useState({ stage: 'idle', percent: 0, completed: 0, total: 1 });
-  const [timing, setTiming] = useState(null);
+  const [progress, setProgress] = useState(() => restoredWasGenerating
+    ? { ...(restoredSession?.progress || {}), stage: 'failed', percent: restoredSession?.progress?.percent || 0 }
+    : { stage: 'idle', percent: 0, completed: 0, total: 1 });
+  const [timing, setTiming] = useState(() => restoredSession?.timing || null);
   const [copied, setCopied] = useState(false);
   const [promptInstruction, setPromptInstruction] = useState('');
   const [promptSuggestion, setPromptSuggestion] = useState(null);
+  const [assistantMessages, setAssistantMessages] = useState([]);
   const [activeRecipeId, setActiveRecipeId] = useState('');
   const [optimizingPrompt, setOptimizingPrompt] = useState(false);
   const [caseResolving, setCaseResolving] = useState(false);
@@ -2130,23 +2588,55 @@ function CreationDesk({
   const [referenceDropActive, setReferenceDropActive] = useState(false);
   const [videoDropActive, setVideoDropActive] = useState(false);
   const [maskExportUrl, setMaskExportUrl] = useState('');
+  const [layoutSections, setLayoutSections] = useState(() => loadWorkbenchLayout());
+  const [activeParamPanel, setActiveParamPanel] = useState('');
+  const [canvasView, setCanvasView] = useState(() => restoredSession?.canvasView || { x: 0, y: 0, zoom: 1 });
+  const [canvasNodes, setCanvasNodes] = useState(() => Array.isArray(restoredSession?.canvasNodes) ? restoredSession.canvasNodes : []);
+  const [selectedCanvasNodeId, setSelectedCanvasNodeId] = useState(() => restoredSession?.selectedCanvasNodeId || '');
+  const canvasDragRef = useRef(null);
+  const updateLayoutSections = (patch) => {
+    setLayoutSections((current) => {
+      const next = { ...current, ...patch };
+      saveWorkbenchLayout(next);
+      return next;
+    });
+  };
   const isReady = connectionReady(providerSettings, apiKey, isAuthenticated);
-  const imageModelOptions = modelOptions?.image?.length ? modelOptions.image : IMAGE_MODELS.map((id) => ({ id, label: id }));
-  const responseModelOptions = modelOptions?.responses?.length
-    ? modelOptions.responses
+  const defaultImageModelOptions = IMAGE_MODELS.map((id) => ({ id, label: id }));
+  const imageModelOptions = modelOptions?.image?.length ? modelOptions.image : defaultImageModelOptions;
+  const assistantModelOptions = modelOptions?.responses?.length
+    ? modelOptions.responses.filter((item) => !modelLooksLikeImage(item) && !/video|sora|runway|kling|veo/i.test(`${item.id} ${item.label}`))
+    : [];
+  const responseModelOptions = assistantModelOptions.length
+    ? assistantModelOptions
     : [...new Set([providerSettings.responsesModel, ...RESPONSE_MODELS])].filter(Boolean).map((id) => ({ id, label: id }));
   const videoModelOptions = modelOptions?.video?.length ? modelOptions.video : VIDEO_MODELS.map((id) => ({ id, label: id }));
-  const activeModelInfo = providerSettings.route === 'legacy'
-    ? imageModelOptions.find((item) => item.id === model)
-    : responseModelOptions.find((item) => item.id === providerSettings.responsesModel);
+  const activeModelInfo = imageModelOptions.find((item) => item.id === model);
   const activeVideoModelInfo = videoModelOptions.find((item) => item.id === videoModel);
   const hasVideoModels = videoModelOptions.length > 0;
   const size = sizeFromAspect(aspect, customSize);
   const countValue = normalizeCount(count);
   const videoSize = videoSizeFromAspect(videoAspect);
+  const currentDownloadMeta = resultBatchMeta || {
+    mode: mode === 'video' ? 'video' : 'image',
+    providerId: mode === 'video'
+      ? videoModel
+      : model,
+    createdAt: timing?.startedAt || Date.now(),
+    prompt,
+    id: timing?.startedAt || selectedHistory?.id || selectedCase?.id || ''
+  };
   const visiblePromptPresets = (promptPresets || PROMPT_PRESETS).filter((item) => item.mode === mode);
   const referenceFiles = referenceItems.map((item) => item.file);
   const isImageEditMode = mode === 'edit' || mode === 'mask';
+  const selectedCanvasNode = canvasNodes.find((node) => node.id === selectedCanvasNodeId) || null;
+  const canvasEdges = canvasNodes
+    .filter((node) => node.parentId && canvasNodes.some((parent) => parent.id === node.parentId))
+    .map((node) => ({
+      id: `${node.parentId}-${node.id}`,
+      from: canvasNodes.find((parent) => parent.id === node.parentId),
+      to: node
+    }));
   const draftParameters = () => ({
     aspect,
     aspectRatio: aspect,
@@ -2171,6 +2661,196 @@ function CreationDesk({
     videoQuality,
     negativePrompt
   });
+
+  useEffect(() => {
+    saveCurrentSession({
+      mode,
+      prompt,
+      model,
+      results,
+      videoResults,
+      resultBatchMeta,
+      canvasNodes,
+      selectedCanvasNodeId,
+      canvasView,
+      status,
+      message,
+      progress,
+      timing,
+      selectedCase: selectedCase ? {
+        id: selectedCase.id,
+        title: selectedCase.title,
+        image: selectedCase.image || selectedCase.image_url || '',
+        imageAlt: selectedCase.imageAlt,
+        promptPreview: selectedCase.promptPreview,
+        category: selectedCase.category
+      } : null,
+      parameters: {
+        ...draftParameters(),
+        ...videoDraftParameters()
+      }
+    });
+  }, [
+    mode,
+    prompt,
+    model,
+    results,
+    videoResults,
+    resultBatchMeta,
+    canvasNodes,
+    selectedCanvasNodeId,
+    canvasView,
+    status,
+    message,
+    progress,
+    timing,
+    selectedCase?.id,
+    aspect,
+    customSize,
+    quality,
+    resolutionTier,
+    outputFormat,
+    moderation,
+    countValue,
+    videoModel,
+    videoAspect,
+    videoDuration,
+    videoFps,
+    videoMotion,
+    videoStyle,
+    videoQuality,
+    negativePrompt
+  ]);
+
+  function toggleLayoutSection(key) {
+    updateLayoutSections({ [key]: !layoutSections[key] });
+  }
+
+  function openParamPanel(panel) {
+    setActiveParamPanel(panel);
+    setLayoutSections((current) => {
+      if (current.parameters && current.parametersRail !== false) return current;
+      const next = { ...current, parameters: true, parametersRail: true };
+      saveWorkbenchLayout(next);
+      return next;
+    });
+  }
+
+  function setCanvasZoom(nextZoom) {
+    setCanvasView((current) => ({
+      ...current,
+      zoom: Math.max(0.55, Math.min(1.8, typeof nextZoom === 'function' ? nextZoom(current.zoom) : nextZoom))
+    }));
+  }
+
+  function resetCanvasView() {
+    setCanvasView({ x: 0, y: 0, zoom: 1 });
+  }
+
+  function startCanvasPan(event) {
+    if (event.button !== 0) return;
+    if (event.target.closest?.('button, a, video, input, select, textarea')) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    canvasDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: canvasView.x,
+      originY: canvasView.y
+    };
+  }
+
+  function moveCanvasPan(event) {
+    const drag = canvasDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setCanvasView((current) => ({
+      ...current,
+      x: drag.originX + event.clientX - drag.startX,
+      y: drag.originY + event.clientY - drag.startY
+    }));
+  }
+
+  function endCanvasPan(event) {
+    if (canvasDragRef.current?.pointerId === event.pointerId) {
+      canvasDragRef.current = null;
+    }
+  }
+
+  function appendCanvasNodes(urls, { kind = 'image', parentId = '', promptText = '', title = '生成结果', downloadMeta } = {}) {
+    if (!urls.length) return;
+    const activeDownloadMeta = downloadMeta || resultBatchMeta;
+    setCanvasNodes((current) => {
+      const siblings = parentId ? current.filter((node) => node.parentId === parentId).length : current.filter((node) => !node.parentId).length;
+      const parent = parentId ? current.find((node) => node.id === parentId) : null;
+      const baseX = parent ? parent.x + 360 : 0;
+      const baseY = parent ? parent.y + (siblings - 0.5) * 250 : (current.length % 4) * 250 - 250;
+      const nextNodes = urls.map((url, index) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${index}`,
+        parentId,
+        canvasIndex: current.length + index + 1,
+        kind,
+        url,
+        prompt: promptText,
+        downloadMeta: {
+          mode: kind === 'video' ? 'video' : 'image',
+          providerId: activeDownloadMeta?.providerId || '',
+          createdAt: activeDownloadMeta?.createdAt || new Date().toISOString(),
+          prompt: promptText,
+          id: activeDownloadMeta?.id || ''
+        },
+        title: urls.length > 1 ? `${title} ${index + 1}` : title,
+        x: baseX + index * 32,
+        y: baseY + index * 42,
+        createdAt: new Date().toISOString()
+      }));
+      setSelectedCanvasNodeId(nextNodes[0]?.id || '');
+      return [...current, ...nextNodes];
+    });
+  }
+
+  function composedGenerationPrompt() {
+    const currentPrompt = prompt.trim();
+    if (!currentPrompt) return selectedCanvasNode?.prompt?.trim() || '';
+    if (!selectedCanvasNode?.prompt) return currentPrompt;
+    const parentPrompt = selectedCanvasNode.prompt.trim();
+    if (!parentPrompt || currentPrompt.startsWith(parentPrompt)) return currentPrompt;
+    return `${parentPrompt}\n\n基于画布 ${selectedCanvasNode.canvasIndex || ''} 继续优化：${currentPrompt}`.trim();
+  }
+
+  async function selectedCanvasReferenceFiles() {
+    if (!selectedCanvasNode || selectedCanvasNode.kind === 'video' || !selectedCanvasNode.url) return [];
+    try {
+      const file = await imageUrlToFile(selectedCanvasNode.url, `canvas-${selectedCanvasNode.canvasIndex || 1}.png`);
+      return [file];
+    } catch (error) {
+      throw new Error('选中的画布图片无法作为参考图读取，请重新选择图片节点或从历史里打开。');
+    }
+  }
+
+  function selectCanvasNode(node) {
+    setSelectedCanvasNodeId(node.id);
+    updateLayoutSections({ bottomComposer: true });
+    setMode((current) => current === 'video' ? 'video' : 'edit');
+    setStatus('idle');
+    setMessage(`已选中画布 ${node.canvasIndex || ''}，可以在底部输入修改要求后继续生成。`);
+  }
+
+  function casePromptKey(item) {
+    if (!item) return '';
+    return `${item.kind || 'case'}:${item.id ?? item.title ?? item.promptPreview ?? ''}`;
+  }
+
+  function applySelectedCasePrompt(item, nextPrompt) {
+    const key = casePromptKey(item);
+    const value = nextPrompt || '';
+    setPrompt((current) => {
+      const applied = appliedCasePromptRef.current;
+      const sameCase = applied.key === key;
+      if (sameCase && current && current !== applied.prompt) return current;
+      appliedCasePromptRef.current = { key, prompt: value };
+      return value;
+    });
+  }
 
   useEffect(() => {
     if (activeWorkspace === 'video') {
@@ -2198,13 +2878,14 @@ function CreationDesk({
         const requestId = resolvingCaseRef.current.id + 1;
         resolvingCaseRef.current = { id: requestId };
         setCaseResolving(true);
-        setPrompt('');
+        applySelectedCasePrompt(selectedCase, '');
         setNegativePrompt('');
         onResolveCase(selectedCase)
           .then((resolvedCase) => {
             if (resolvingCaseRef.current.id !== requestId || !resolvedCase) return;
-            setPrompt(resolvedCase.prompt || '');
+            applySelectedCasePrompt(selectedCase, resolvedCase.prompt || '');
             setNegativePrompt(resolvedCase.negativePrompt || '');
+            updateLayoutSections({ bottomComposer: true });
           })
           .catch((error) => {
             if (resolvingCaseRef.current.id !== requestId) return;
@@ -2216,19 +2897,21 @@ function CreationDesk({
           });
         return;
       }
-      setPrompt(selectedCase.prompt || '');
+      applySelectedCasePrompt(selectedCase, selectedCase.prompt || '');
       setNegativePrompt(selectedCase.negativePrompt || '');
+      if (selectedCase.prompt) updateLayoutSections({ bottomComposer: true });
       return;
     }
     if (!selectedCase.prompt && selectedCase.id && onResolveCase) {
       const requestId = resolvingCaseRef.current.id + 1;
       resolvingCaseRef.current = { id: requestId };
       setCaseResolving(true);
-      setPrompt(selectedCase.promptPreview || '');
+      applySelectedCasePrompt(selectedCase, selectedCase.promptPreview || '');
       onResolveCase(selectedCase)
         .then((resolvedCase) => {
           if (resolvingCaseRef.current.id !== requestId || !resolvedCase) return;
-          setPrompt(resolvedCase.prompt || resolvedCase.promptPreview || '');
+          applySelectedCasePrompt(selectedCase, resolvedCase.prompt || resolvedCase.promptPreview || '');
+          updateLayoutSections({ bottomComposer: true });
           setPromptSuggestion(null);
           setPreviewImage(null);
         })
@@ -2244,6 +2927,7 @@ function CreationDesk({
     }
     if (draftRef.current?.prompt) {
       setMode(draftRef.current.mode || 'image');
+      appliedCasePromptRef.current = { key: '', prompt: '' };
       setPrompt(draftRef.current.prompt);
       setModel(draftRef.current.model || IMAGE_MODELS[0]);
       const nextSize = normalizeSize(draftRef.current.size || '1024x1024');
@@ -2262,14 +2946,26 @@ function CreationDesk({
       setVideoStyle(normalizeVideoStyle(draftRef.current.videoStyle));
       setVideoQuality(normalizeVideoQuality(draftRef.current.videoQuality));
       setNegativePrompt(draftRef.current.negativePrompt || '');
+      updateLayoutSections({ bottomComposer: true });
       draftRef.current = null;
       clearDraft();
       return;
     }
-    setPrompt(selectedCase?.prompt || selectedCase?.promptPreview || '');
+    applySelectedCasePrompt(selectedCase, selectedCase?.prompt || selectedCase?.promptPreview || '');
+    if (selectedCase?.prompt || selectedCase?.promptPreview) updateLayoutSections({ bottomComposer: true });
     setPromptSuggestion(null);
     setPreviewImage(null);
-  }, [selectedCase, onResolveCase]);
+  }, [selectedCase]);
+
+  useEffect(() => {
+    if (!appendTemplateRequest?.prompt) return;
+    setPrompt((current) => `${current.trim()}${current.trim() ? '\n\n' : ''}${appendTemplateRequest.prompt}`.trim());
+    updateLayoutSections({ bottomComposer: true });
+    setStatus('success');
+    setMessage('已追加模板提示词。');
+    window.setTimeout(() => setStatus('idle'), 1200);
+    onAppendTemplateConsumed?.(appendTemplateRequest.id);
+  }, [appendTemplateRequest?.id]);
 
   useEffect(() => {
     const previews = referenceItems.map((item) => filePreviewUrl(item.file));
@@ -2294,6 +2990,7 @@ function CreationDesk({
       setMessage('只支持 PNG / JPG / WebP 参考图。');
       return;
     }
+    if (mode === 'image') setMode('edit');
     setReferenceItems((current) => [
       ...current,
       ...nextFiles.map((file, index) => createReferenceItem(file, current.length + index === 0 ? 'identity' : 'style'))
@@ -2419,6 +3116,7 @@ function CreationDesk({
         : [];
     setResults(selectedHistory.mode === 'video' ? [] : nextUrls);
     setVideoResults(selectedHistory.mode === 'video' ? nextUrls : []);
+    setResultBatchMeta(downloadMetaFromHistoryItem(selectedHistory, selectedHistory.mode === 'video'));
     setStatus('idle');
     setPromptSuggestion(null);
     setProgress({ stage: 'idle', percent: 0, completed: 0, total: normalizeCount(selectedHistory.count) });
@@ -2426,13 +3124,10 @@ function CreationDesk({
   }, [selectedHistory?.id]);
 
   useEffect(() => {
-    if (providerSettings.route === 'legacy') {
-      if (!imageModelOptions.some((item) => item.id === model)) {
-        setModel(imageModelOptions[0]?.id || IMAGE_MODELS[0]);
-      }
-      return;
+    if (!imageModelOptions.some((item) => item.id === model)) {
+      setModel(imageModelOptions[0]?.id || IMAGE_MODELS[0]);
     }
-    if (!responseModelOptions.some((item) => item.id === providerSettings.responsesModel)) {
+    if (assistantModelOptions.length && !responseModelOptions.some((item) => item.id === providerSettings.responsesModel)) {
       onProviderChange({ ...providerSettings, responsesModel: responseModelOptions[0]?.id || providerSettings.responsesModel });
     }
   }, [providerSettings.route, modelOptions?.image, modelOptions?.responses]);
@@ -2444,10 +3139,10 @@ function CreationDesk({
   }, [modelOptions?.video]);
 
   useEffect(() => {
-    if (mode === 'mask' && providerSettings.route !== 'legacy') {
+    if ((mode === 'mask' || (mode === 'edit' && referenceFiles.length > 0)) && providerSettings.route !== 'legacy') {
       onProviderChange({ ...providerSettings, route: 'legacy' });
     }
-  }, [mode, providerSettings.route]);
+  }, [mode, referenceFiles.length, providerSettings.route]);
 
   useEffect(() => () => {
     generationRef.current.controller?.abort();
@@ -2482,7 +3177,10 @@ function CreationDesk({
     try {
       const historyClient = new StudioHistoryClient({ session: loadSession() });
       const preset = await historyClient.getPromptPreset(item.id);
-      if (preset?.prompt) setPrompt(preset.prompt);
+      if (preset?.prompt) {
+        setPrompt(preset.prompt);
+        updateLayoutSections({ bottomComposer: true });
+      }
     } catch (error) {
       setStatus('error');
       setMessage(error?.message || '快捷提示词读取失败。');
@@ -2501,7 +3199,7 @@ function CreationDesk({
     const currentPrompt = prompt.trim();
     if (!currentPrompt) {
       setStatus('error');
-      setMessage(caseResolving ? '模板提示词正在读取，请稍后。' : '请先填写提示词。');
+      setMessage(caseResolving ? '模板提示词正在读取，请稍后。' : '请先填写提示词，或先选中一个画布节点继续。');
       return;
     }
     if (caseResolving) {
@@ -2559,6 +3257,104 @@ function CreationDesk({
     }
   }
 
+  async function sendAssistantMessage() {
+    const userText = prompt.trim();
+    if (!userText) {
+      setStatus('error');
+      setMessage('请先输入你想让 AI 帮你整理的创作想法。');
+      return;
+    }
+    if (caseResolving) {
+      setStatus('error');
+      setMessage('模板提示词正在读取，请稍后。');
+      return;
+    }
+    if (optimizingPrompt) return;
+    if (providerSettings.apiKeySource === 'sub2api' && !isAuthenticated) {
+      saveDraft({
+        caseId: selectedCase?.id || null,
+        mode,
+        prompt: userText,
+        model,
+        ...draftParameters(),
+        ...videoDraftParameters()
+      });
+      onRequireLogin();
+      return;
+    }
+    const providerRequest = resolveProviderRequest(providerSettings, apiKey);
+    if (!providerRequest.apiKey) {
+      setStatus('error');
+      setMessage(providerSettings.apiKeySource === 'manual' ? '请先填写密钥。' : '账号连接还在准备中。');
+      onOpenSettings();
+      return;
+    }
+
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: userText
+    };
+    const pendingMessage = {
+      id: `assistant-${Date.now()}`,
+      role: 'assistant',
+      content: '正在整理创作提示词...',
+      pending: true
+    };
+    const nextMessages = [...assistantMessages, userMessage];
+    setAssistantMessages([...nextMessages, pendingMessage]);
+    setOptimizingPrompt(true);
+    setStatus('loading');
+    setMessage('正在调用对话模型');
+    try {
+      const result = await client.chatPromptAssistant({
+        ...providerRequest,
+        prompt: composedGenerationPrompt(),
+        messages: nextMessages.map((item) => ({ role: item.role, content: item.content })),
+        size,
+        aspectRatio: aspect,
+        quality,
+        resolutionTier: RESOLUTION_TIER_LABELS[resolutionTier] || resolutionTier,
+        onPartial: (text) => {
+          const parsed = parseAssistantReply(text);
+          setAssistantMessages((current) => current.map((item) => item.id === pendingMessage.id ? {
+            ...item,
+            content: parsed?.reply || text || '正在整理创作提示词...',
+            pending: true
+          } : item));
+        }
+      });
+      const parsed = parseAssistantReply(result.text);
+      if (parsed?.finalPrompt) {
+        setPrompt(parsed.finalPrompt);
+        setPromptSuggestion({
+          finalPrompt: parsed.finalPrompt,
+          raw: result.text
+        });
+      }
+      setAssistantMessages((current) => current.map((item) => item.id === pendingMessage.id ? {
+        ...item,
+        content: parsed?.reply || result.text,
+        finalPrompt: parsed?.finalPrompt || '',
+        pending: false
+      } : item));
+      setStatus('success');
+      setMessage(parsed?.finalPrompt ? '已整理为可生成提示词。' : '助手已回复。');
+      window.setTimeout(() => setStatus('idle'), 1200);
+    } catch (error) {
+      setAssistantMessages((current) => current.map((item) => item.id === pendingMessage.id ? {
+        ...item,
+        content: error?.message || '对话模型调用失败。',
+        pending: false,
+        failed: true
+      } : item));
+      setStatus('error');
+      setMessage(error?.message || '对话模型调用失败');
+    } finally {
+      setOptimizingPrompt(false);
+    }
+  }
+
   function mergeSuggestion() {
     const nextPrompt = promptSuggestion?.finalPrompt || promptSuggestion?.raw || '';
     if (!nextPrompt) return;
@@ -2594,9 +3390,11 @@ function CreationDesk({
   }
 
   async function generate() {
-    if (!prompt.trim()) {
+    const basePrompt = composedGenerationPrompt();
+    const lineageParentId = selectedCanvasNode?.id || '';
+    if (!basePrompt) {
       setStatus('error');
-      setMessage(caseResolving ? '模板提示词正在读取，请稍后。' : '请先填写提示词。');
+      setMessage(caseResolving ? '模板提示词正在读取，请稍后。' : '请先填写提示词，或先选中一个画布节点继续。');
       return;
     }
     if (caseResolving) {
@@ -2604,7 +3402,8 @@ function CreationDesk({
       setMessage('模板提示词正在读取，请稍后。');
       return;
     }
-    if (isImageEditMode && !referenceFiles.length) {
+    const willUseCanvasReference = Boolean(selectedCanvasNode && selectedCanvasNode.kind !== 'video' && selectedCanvasNode.url && mode !== 'video');
+    if (isImageEditMode && !referenceFiles.length && !willUseCanvasReference) {
       setStatus('error');
       setMessage(mode === 'mask' ? '请先在 Mask 模式上传参考图。' : '请先上传参考图。');
       return;
@@ -2618,9 +3417,9 @@ function CreationDesk({
         return;
       }
     }
-    if (mode === 'mask' && providerSettings.route !== 'legacy') {
+    if ((mode === 'mask' || (mode === 'edit' && referenceFiles.length > 0)) && providerSettings.route !== 'legacy') {
       setStatus('error');
-      setMessage('Mask 局部重绘需要走图片接口，请先把接口切到“图片”。');
+      setMessage('参考图编辑和 Mask 局部重绘需要走 /v1/images/edits，请先把接口切到“编辑”。');
       return;
     }
     if (providerSettings.apiKeySource === 'sub2api' && !isAuthenticated) {
@@ -2647,18 +3446,29 @@ function CreationDesk({
     const requestId = generationRef.current.id + 1;
     const controller = new AbortController();
     const startedAt = Date.now();
+    const generationId = `${startedAt}-${Math.random().toString(36).slice(2, 8)}`;
+    const generationMeta = {
+      mode: mode === 'video' ? 'video' : 'image',
+      providerId: mode === 'video'
+        ? videoModel
+        : model,
+      createdAt: new Date(startedAt).toISOString(),
+      prompt: basePrompt,
+      id: generationId
+    };
     let firstByteAt = null;
     generationRef.current = { id: requestId, controller };
     const isCurrentRequest = () => generationRef.current.id === requestId;
 
     setStatus('loading');
+    setResultBatchMeta(generationMeta);
     setProgress({ stage: 'request', percent: 8, completed: 0, total: countValue });
     setTiming({
       status: 'running',
       startedAt,
       firstByteAt: null,
       completedAt: null,
-      model: mode === 'video' ? videoModel : providerSettings.route === 'responses' ? providerSettings.responsesModel : model,
+      model: mode === 'video' ? videoModel : model,
       spec: mode === 'video' ? `${videoAspect} · ${videoDuration}s · ${videoFps}fps` : `${size} · ${quality} · ${RESOLUTION_TIER_LABELS[resolutionTier] || resolutionTier}`
     });
     setMessage('已提交');
@@ -2675,7 +3485,7 @@ function CreationDesk({
         const payload = await client.generateVideo({
           ...providerRequest,
           model: videoModel,
-          prompt: prompt.trim(),
+          prompt: basePrompt,
           image: referenceImage,
           duration: videoDuration,
           width: videoSize.width,
@@ -2709,19 +3519,30 @@ function CreationDesk({
         }
         setResults([]);
         setVideoResults(urls);
+        appendCanvasNodes(urls, {
+          kind: 'video',
+          parentId: lineageParentId,
+          promptText: basePrompt,
+          downloadMeta: generationMeta,
+          title: '视频结果'
+        });
         setVideoTask(payload);
         setProgress({ stage: 'completed', percent: 100, completed: 1, total: 1 });
         const completedAt = Date.now();
         setTiming((current) => current ? { ...current, status: 'completed', firstByteAt: current.firstByteAt || firstByteAt || completedAt, completedAt } : current);
         clearDraft();
+        setPrompt('');
         setStatus('success');
         setMessage('视频生成完成。');
+        const historyId = generationMeta.id;
+        const historyCreatedAt = generationMeta.createdAt;
         onHistoryAdd({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          createdAt: new Date().toISOString(),
+          id: historyId,
+          createdAt: historyCreatedAt,
           mode: 'video',
           kind: 'video',
-          prompt: prompt.trim(),
+          providerId: generationMeta.providerId,
+          prompt: basePrompt,
           model: videoModel,
           aspect: videoAspect,
           aspectRatio: videoAspect,
@@ -2758,7 +3579,11 @@ function CreationDesk({
         return;
       }
 
-      const effectivePrompt = withResolutionHint(prompt.trim(), resolutionTier);
+      const canvasReferenceFiles = willUseCanvasReference ? await selectedCanvasReferenceFiles() : [];
+      if (!isCurrentRequest()) return;
+      const editReferenceFiles = [...canvasReferenceFiles, ...referenceFiles].slice(0, IMAGE_REFERENCE_LIMIT);
+      const shouldUseImageEdits = mode === 'mask' || (mode === 'edit' && editReferenceFiles.length > 0) || providerSettings.route === 'legacy';
+      const effectivePrompt = withResolutionHint(basePrompt, resolutionTier);
       const request = {
         ...providerRequest,
         model,
@@ -2788,28 +3613,39 @@ function CreationDesk({
           setMessage(progressText(nextProgress, '生成中'));
         }
       };
-      const payload = isImageEditMode
-        ? await client.editImage({ ...request, images: referenceFiles, mask: maskFile })
-        : await client.generateImage(request);
+      const payload = shouldUseImageEdits
+        ? await client.editImage({ ...request, images: editReferenceFiles, mask: maskFile })
+        : await client.generateImage({ ...request, referenceImages: editReferenceFiles });
       if (!isCurrentRequest()) return;
       const urls = getImageUrls(payload);
       if (!urls.length) {
         throw new Error('请求完成，但没有返回图片。');
       }
       setResults(urls);
+      appendCanvasNodes(urls, {
+        kind: 'image',
+        parentId: lineageParentId,
+        promptText: basePrompt,
+        downloadMeta: generationMeta,
+        title: '生成结果'
+      });
       setProgress({ stage: 'completed', percent: 100, completed: urls.length, total: countValue || urls.length || 1 });
       const completedAt = Date.now();
       setTiming((current) => current ? { ...current, status: 'completed', firstByteAt: current.firstByteAt || firstByteAt || completedAt, completedAt } : current);
       clearDraft();
+      setPrompt('');
       setStatus('success');
       setMessage(urls.length ? '生成完成。' : '请求完成，但没有返回图片。');
+      const historyId = generationMeta.id;
+      const historyCreatedAt = generationMeta.createdAt;
       onHistoryAdd({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        createdAt: new Date().toISOString(),
+        id: historyId,
+        createdAt: historyCreatedAt,
         mode,
-        prompt: prompt.trim(),
+        providerId: generationMeta.providerId,
+        prompt: basePrompt,
         generationPrompt: effectivePrompt,
-        model: providerSettings.route === 'responses' ? providerSettings.responsesModel : model,
+        model,
         aspect,
         aspectRatio: aspect,
         customSize,
@@ -2878,40 +3714,91 @@ function CreationDesk({
     : selectedCase?.imageAlt || selectedCase?.title || 'Preview';
 
   return (
-    <section className="creationDesk">
-      <div className={`workPreview ${hasPrimaryResult ? 'hasResult' : ''}`}>
-        {primaryVideoResult ? (
-          <>
-            <video src={primaryVideoResult} controls playsInline preload="metadata" />
-            <WorkPreviewResultActions
-              url={primaryVideoResult}
-              isVideo
-              onPreview={() => setPreviewVideo(primaryVideoResult)}
-            />
-          </>
-        ) : workPreviewImage ? (
-          <>
-          <img
-            src={workPreviewImage}
-            alt={previewAlt}
-            onError={(event) => handleImageFallback(event, workPreviewFallback)}
-          />
-            {primaryImageResult ? (
-              <WorkPreviewResultActions
-                url={primaryImageResult}
-                index={0}
-                outputFormat={outputFormat}
-                onPreview={() => setPreviewImage({ url: primaryImageResult, index: 0 })}
+    <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${layoutSections.parametersRail === false ? 'paramRailCollapsed' : ''}`}>
+      <div
+        className={`workPreview infiniteCanvas ${hasPrimaryResult ? 'hasResult' : ''}`}
+        onPointerDown={startCanvasPan}
+        onPointerMove={moveCanvasPan}
+        onPointerUp={endCanvasPan}
+        onPointerCancel={endCanvasPan}
+      >
+        <div className="canvasToolbar" aria-label="画布工具">
+          <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label="缩小画布">-</button>
+          <span>{Math.round(canvasView.zoom * 100)}%</span>
+          <button type="button" onClick={() => setCanvasZoom((value) => value + 0.1)} aria-label="放大画布">+</button>
+          <button type="button" onClick={resetCanvasView}>重置</button>
+        </div>
+        <div
+          className="canvasPlane"
+          style={{
+            width: CANVAS_PLANE_WIDTH,
+            height: CANVAS_PLANE_HEIGHT,
+            transform: `translate(calc(-50% + ${canvasView.x}px), calc(-50% + ${canvasView.y}px)) scale(${canvasView.zoom})`
+          }}
+        >
+          {canvasEdges.length ? (
+            <svg className="canvasLinks" width={CANVAS_PLANE_WIDTH} height={CANVAS_PLANE_HEIGHT} viewBox={`0 0 ${CANVAS_PLANE_WIDTH} ${CANVAS_PLANE_HEIGHT}`} aria-hidden="true">
+              {canvasEdges.map((edge) => {
+                const x1 = CANVAS_PLANE_WIDTH / 2 + edge.from.x + CANVAS_NODE_WIDTH / 2;
+                const y1 = CANVAS_PLANE_HEIGHT / 2 + edge.from.y + CANVAS_NODE_HEIGHT / 2;
+                const x2 = CANVAS_PLANE_WIDTH / 2 + edge.to.x + CANVAS_NODE_WIDTH / 2;
+                const y2 = CANVAS_PLANE_HEIGHT / 2 + edge.to.y + CANVAS_NODE_HEIGHT / 2;
+                const mid = Math.max(80, Math.abs(x2 - x1) / 2);
+                return (
+                  <path
+                    key={edge.id}
+                    d={`M ${x1} ${y1} C ${x1 + mid} ${y1}, ${x2 - mid} ${y2}, ${x2} ${y2}`}
+                  />
+                );
+              })}
+            </svg>
+          ) : null}
+          {canvasNodes.length ? canvasNodes.map((node) => (
+            <button
+              type="button"
+              className={`canvasNode resultNode graphNode ${selectedCanvasNodeId === node.id ? 'selected' : ''}`}
+              key={node.id}
+              style={{
+                left: `calc(50% + ${node.x}px)`,
+                top: `calc(50% + ${node.y}px)`
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                selectCanvasNode(node);
+              }}
+            >
+              {node.kind === 'video' ? (
+                <video src={node.url} playsInline preload="metadata" />
+              ) : (
+                <img src={node.url} alt={node.title} />
+              )}
+              <span className="canvasNodeLabel">画布 {node.canvasIndex || ''}{node.parentId ? ' · 延续' : ''}</span>
+              <span className="canvasNodeAction">{selectedCanvasNodeId === node.id ? '正在续作' : '点击续作'}</span>
+              <small>{compact(node.prompt, 46)}</small>
+            </button>
+          )) : primaryVideoResult ? (
+            <div className="canvasNode emptyCanvasNode previewFallbackNode">
+              <Video size={28} />
+              <strong>视频结果</strong>
+              <span>下一次生成会在画布里形成节点关系。</span>
+            </div>
+          ) : workPreviewImage ? (
+            <div className="canvasNode sourceNode previewFallbackNode">
+              <img
+                src={workPreviewImage}
+                alt={previewAlt}
+                onError={(event) => handleImageFallback(event, workPreviewFallback)}
               />
-            ) : null}
-          </>
-        ) : (
-          <div className="workPreviewEmpty">
-            <ImageIcon size={28} />
-            <strong>选择一个模板开始</strong>
-            <span>从分类进入模板，选择后在这里预览。</span>
-          </div>
-        )}
+              <span className="canvasNodeLabel">{selectedCase?.title || '参考画面'}</span>
+            </div>
+          ) : (
+            <div className="canvasNode emptyCanvasNode">
+              <ImageIcon size={28} />
+              <strong>画布</strong>
+              <span>第一次生成会成为画布 1；选中它再生成，会自动连到画布 2。</span>
+            </div>
+          )}
+        </div>
       </div>
       <div className="deskPanel">
         {activeWorkspace === 'image' ? (
@@ -2957,28 +3844,20 @@ function CreationDesk({
             onApply={applyCreativeRecipe}
           />
         ) : null}
-        <div className="promptTools">
-          <label className="instructionField">
-            <span>优化要求</span>
-            <input
-              value={promptInstruction}
-              onChange={(event) => setPromptInstruction(event.target.value)}
-              placeholder="例如：更商业一点，保留主体，增加夜景氛围"
-            />
-          </label>
-          <button type="button" className="ghostAction" onClick={optimizeCurrentPrompt} disabled={optimizingPrompt}>
-            {optimizingPrompt ? <LoaderCircle className="spin" size={16} /> : <WandSparkles size={16} />}
-            {optimizingPrompt ? '优化中' : '优化提示词'}
-          </button>
-        </div>
         <PromptSuggestion
           suggestion={promptSuggestion}
           onMerge={mergeSuggestion}
           onReplace={replaceSuggestion}
           onCopy={copySuggestion}
         />
-        {mode === 'edit' ? (
+        {mode !== 'video' && mode !== 'mask' && layoutSections.references ? (
           <div className="referenceBox">
+            <div className="miniPanelHead">
+              <strong>参考图（可选）</strong>
+              <button type="button" onClick={() => toggleLayoutSection('references')} aria-label="收起参考图">
+                <PanelLeftClose size={15} />
+              </button>
+            </div>
             <label
               className={`uploadDrop ${referenceDropActive ? 'isDragging' : ''}`}
               tabIndex={0}
@@ -3043,9 +3922,20 @@ function CreationDesk({
               </div>
             ) : null}
           </div>
+        ) : mode !== 'video' && mode !== 'mask' ? (
+          <button type="button" className="collapsedWorkbenchBlock referenceCollapsedBlock" onClick={() => toggleLayoutSection('references')}>
+            <Upload size={16} />
+            <span>{referenceFiles.length ? `参考图已收起，共 ${referenceFiles.length} 张` : '参考图已收起，点击展开拖拽、粘贴或上传。'}</span>
+          </button>
         ) : null}
-        {mode === 'mask' ? (
+        {mode === 'mask' && layoutSections.references ? (
           <div className="referenceBox maskReferenceBox">
+            <div className="miniPanelHead">
+              <strong>参考图与蒙版</strong>
+              <button type="button" onClick={() => toggleLayoutSection('references')} aria-label="收起参考图">
+                <PanelLeftClose size={15} />
+              </button>
+            </div>
             <MaskEditor
               ref={maskEditorRef}
               imageFile={referenceFiles[0] || null}
@@ -3079,9 +3969,20 @@ function CreationDesk({
               </div>
             ) : null}
           </div>
+        ) : mode === 'mask' ? (
+          <button type="button" className="collapsedWorkbenchBlock referenceCollapsedBlock" onClick={() => toggleLayoutSection('references')}>
+            <Upload size={16} />
+            <span>参考图与蒙版已收起，点击展开继续编辑。</span>
+          </button>
         ) : null}
-        {mode === 'video' ? (
+        {mode === 'video' && layoutSections.references ? (
           <div className="referenceBox">
+            <div className="miniPanelHead">
+              <strong>参考图（可选）</strong>
+              <button type="button" onClick={() => toggleLayoutSection('references')} aria-label="收起参考图">
+                <PanelLeftClose size={15} />
+              </button>
+            </div>
             <label
               className={`uploadDrop ${videoDropActive ? 'isDragging' : ''}`}
               tabIndex={0}
@@ -3125,12 +4026,13 @@ function CreationDesk({
               </div>
             ) : null}
           </div>
+        ) : mode === 'video' ? (
+          <button type="button" className="collapsedWorkbenchBlock referenceCollapsedBlock" onClick={() => toggleLayoutSection('references')}>
+            <Upload size={16} />
+            <span>{videoReferenceFiles.length ? '参考图已收起，共 1 张' : '参考图已收起，点击展开。'}</span>
+          </button>
         ) : null}
-        <label className="promptEditor">
-          <span>{caseResolving ? '提示词读取中' : '提示词'}</span>
-          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={6000} disabled={caseResolving} />
-        </label>
-        {mode !== 'video' ? (
+        {layoutSections.parameters && mode !== 'video' ? (
           <div className="routeStrip">
             <span><SlidersHorizontal size={15} /> 接口</span>
             <div>
@@ -3146,13 +4048,13 @@ function CreationDesk({
               ))}
             </div>
           </div>
-        ) : (
+        ) : layoutSections.parameters ? (
           <div className="routeStrip">
             <span><Video size={15} /> 视频接口</span>
             <div><button type="button" className="active">任务</button></div>
           </div>
-        )}
-        <div className="controlGrid">
+        ) : null}
+        {layoutSections.parameters ? <div className="controlGrid">
           {mode === 'video' ? (
             <>
                 <label className="controlField modelField">
@@ -3238,21 +4140,12 @@ function CreationDesk({
             </>
           ) : (
             <>
-              {providerSettings.route === 'legacy' ? (
-                <label className="controlField modelField">
-                  <span>模型</span>
-                  <select value={model} onChange={(event) => setModel(event.target.value)}>
-                    {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
-                  </select>
-                </label>
-              ) : (
-                <label className="controlField modelField">
-                  <span>模型</span>
-                  <select value={providerSettings.responsesModel} onChange={(event) => onProviderChange({ ...providerSettings, responsesModel: event.target.value })}>
-                    {responseModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
-                  </select>
-                </label>
-              )}
+              <label className="controlField modelField">
+                <span>图片模型</span>
+                <select value={model} onChange={(event) => setModel(event.target.value)}>
+                  {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
+                </select>
+              </label>
               <div className="controlField countField">
                 <div className="fieldHead">
                   <span>图片数量</span>
@@ -3284,9 +4177,12 @@ function CreationDesk({
                   ))}
                 </div>
                 {aspect === 'custom' ? (
-                  <select className="compactSelect" value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
-                    {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
+                  <>
+                    <select className="compactSelect" aria-label="接口尺寸" value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
+                      {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                    <small className="sizeLimitHint">这里是当前生图/编辑接口的 size 枚举；2K/4K 会写进提示词作为目标清晰度。</small>
+                  </>
                 ) : null}
               </div>
               <div className="controlField">
@@ -3331,39 +4227,294 @@ function CreationDesk({
               </div>
             </>
           )}
-        </div>
-        <div className="billingStrip">
+        </div> : (
+          <button type="button" className="collapsedWorkbenchBlock" onClick={() => toggleLayoutSection('parameters')}>
+            <SlidersHorizontal size={16} />
+            <span>{mode === 'video' ? `${videoAspect} · ${videoDuration}s · ${videoFps}fps` : `${size} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${QUALITY_LABELS[quality]}`}</span>
+          </button>
+        )}
+        {layoutSections.parameters ? <div className="billingStrip">
           <span>模型来源：{mode === 'video' ? (modelsStatus === 'loading' ? '正在读取视频模型' : hasVideoModels ? '当前 Key 可用视频模型' : '当前 Key 未开放视频模型') : modelsStatus === 'ready' ? '当前 Key 可用模型' : modelsStatus === 'loading' ? '正在读取模型' : '默认模型'}</span>
           <span>计费口径：{mode === 'video' ? modelBillingUnitLabel(activeVideoModelInfo, '段', 1) : modelBillingLabel(activeModelInfo, countValue)}</span>
           {mode === 'video' && videoTask?.task_id ? <span>任务：{videoTask.task_id}</span> : null}
           <span>账户用量：{usageSummary || '生成后以后台记录为准'}</span>
-        </div>
+        </div> : null}
         <div className="deskActions">
-          <button type="button" onClick={copyPrompt}>
-            {copied ? <Check size={18} /> : <Copy size={18} />}
-            {copied ? '已复制' : '复制提示词'}
+          <button type="button" onClick={optimizeCurrentPrompt} disabled={optimizingPrompt}>
+            {optimizingPrompt ? <LoaderCircle className="spin" size={18} /> : <WandSparkles size={18} />}
+            {optimizingPrompt ? '优化中' : 'AI 优化'}
           </button>
           <button type="button" className="primaryAction" onClick={generate} disabled={status === 'loading'}>
             {status === 'loading' ? <LoaderCircle className="spin" size={18} /> : <Sparkles size={18} />}
-            {isReady ? (mode === 'video' && !hasVideoModels ? '未开放视频模型' : mode === 'video' ? '生成视频' : mode === 'mask' ? '局部重绘' : mode === 'edit' ? '按图生成' : '开始生成') : '先选择密钥'}
+            生成
           </button>
         </div>
         <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed'} />
         <GenerationTimingPanel timing={timing} />
         {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
       </div>
-      {mode === 'video' ? (
-        <VideoResultGrid urls={videoResults} onPreview={(url) => setPreviewVideo(url)} />
-      ) : (
-        <ResultGrid urls={results} outputFormat={outputFormat} onPreview={(url, index) => setPreviewImage({ url, index })} />
-      )}
+      <section className={`resultStage ${hasPrimaryResult ? 'hasResult' : ''}`}>
+        <div className="resultStageHead">
+          <strong>{mode === 'video' ? '视频结果' : '生成结果'}</strong>
+          <span>{hasPrimaryResult ? `共 ${mode === 'video' ? videoResults.length : results.length} 张` : '待生成'}</span>
+        </div>
+        {mode === 'video' ? (
+          <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} />
+        ) : (
+          <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} />
+        )}
+      </section>
+      <div className={`bottomComposerBar ${selectedCanvasNode ? 'hasLineage' : ''} ${layoutSections.bottomComposer && assistantMessages.length ? 'hasThread' : ''}`}>
+        <button
+          type="button"
+          className={`bottomComposerToggle ${layoutSections.bottomComposer ? 'isOpen' : 'isClosed'}`}
+          onClick={() => toggleLayoutSection('bottomComposer')}
+          aria-label={layoutSections.bottomComposer ? '收起对话' : '展开对话'}
+          title={layoutSections.bottomComposer ? '收起对话' : '展开对话'}
+        >
+          {layoutSections.bottomComposer ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+        </button>
+        <label className="bottomComposerInput">
+          <textarea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            onFocus={() => {
+              if (!layoutSections.bottomComposer) toggleLayoutSection('bottomComposer');
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendAssistantMessage();
+              }
+            }}
+            placeholder={selectedCanvasNode ? '和 AI 说你想怎样延续这张画布：换背景、加产品、调整风格...' : '和 AI 说你的创作想法，它会帮你整理成可生成的提示词。'}
+          />
+        </label>
+        {layoutSections.bottomComposer && assistantMessages.length ? (
+          <div className="composerThread" aria-label="AI 对话记录">
+            {assistantMessages.slice(-4).map((item) => (
+              <div className={`composerMessage ${item.role} ${item.pending ? 'pending' : ''} ${item.failed ? 'failed' : ''}`} key={item.id}>
+                <span>{item.role === 'assistant' ? 'AI' : '你'}</span>
+                <p>{item.content}</p>
+                {item.finalPrompt ? <button type="button" onClick={() => setPrompt(item.finalPrompt)}>使用这版提示词</button> : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {layoutSections.bottomComposer && selectedCanvasNode ? (
+          <div className="composerAssistGroup">
+            <div className="composerQuotaHint composerLineageHint">
+              <span>基于画布 {selectedCanvasNode.canvasIndex || ''}</span>
+              <button type="button" onClick={() => setSelectedCanvasNodeId('')} aria-label="新作品" title="新作品">新</button>
+            </div>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="primaryAction composerPrimaryAction"
+          onClick={sendAssistantMessage}
+          disabled={status === 'loading' || optimizingPrompt || caseResolving}
+          aria-label="发送到提示词助手，会调用对话模型并使用当前 Key 额度"
+          title="发送到提示词助手，会调用对话模型并使用当前 Key 额度"
+        >
+          {optimizingPrompt ? <LoaderCircle className="spin" size={17} /> : <SendHorizontal size={17} />}
+        </button>
+      </div>
+      <aside className="paramRail" aria-label="参数">
+        <button
+          type="button"
+          className="paramRailHead"
+          onClick={() => {
+            setActiveParamPanel('');
+            updateLayoutSections({ parametersRail: layoutSections.parametersRail === false });
+          }}
+          aria-label={layoutSections.parametersRail === false ? '展开参数栏' : '收起参数栏'}
+          title={layoutSections.parametersRail === false ? '展开参数栏' : '收起参数栏'}
+        >
+          <span>{layoutSections.parametersRail === false ? '‹' : '›'}</span>
+          参数
+        </button>
+        <button type="button" className={activeParamPanel === 'model' ? 'active' : ''} onClick={() => openParamPanel('model')}>
+          <Server size={18} />
+          <span>模型</span>
+        </button>
+        <button type="button" className={activeParamPanel === 'size' ? 'active' : ''} onClick={() => openParamPanel('size')}>
+          <ScanLine size={18} />
+          <span>尺寸</span>
+        </button>
+        <button type="button" className={activeParamPanel === 'quality' ? 'active' : ''} onClick={() => openParamPanel('quality')}>
+          <span className="paramRailBadge">HD</span>
+          <span>质量</span>
+        </button>
+        <button type="button" className={activeParamPanel === 'count' ? 'active' : ''} onClick={() => openParamPanel('count')}>
+          <Images size={18} />
+          <span>数量</span>
+        </button>
+        <button type="button" className="paramGenerateAction" onClick={generate} disabled={status === 'loading'}>
+          {status === 'loading' ? <LoaderCircle className="spin" size={18} /> : <Sparkles size={18} />}
+          <span>生成</span>
+        </button>
+      </aside>
+      {layoutSections.parameters && activeParamPanel ? (
+        <aside className="paramDrawer" aria-label="当前参数">
+          <div className="paramDrawerHead">
+            <strong>{activeParamPanel === 'model' ? '模型' : activeParamPanel === 'size' ? '尺寸' : activeParamPanel === 'quality' ? '质量' : '数量'}</strong>
+            <button type="button" onClick={() => toggleLayoutSection('parameters')} aria-label="收起参数">
+              <PanelLeftClose size={15} />
+            </button>
+          </div>
+          {activeParamPanel === 'model' ? (
+            <div className="paramDrawerBody">
+              {mode === 'video' ? (
+                <label className="paramField">
+                  <span>视频模型</span>
+                  <select value={hasVideoModels ? videoModel : ''} onChange={(event) => setVideoModel(event.target.value)} disabled={!hasVideoModels}>
+                    {hasVideoModels ? videoModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>) : (
+                      <option value="">当前 Key 未开放视频模型</option>
+                    )}
+                  </select>
+                </label>
+              ) : (
+                <label className="paramField">
+                  <span>图片模型</span>
+                  <select value={model} onChange={(event) => setModel(event.target.value)}>
+                    {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
+                  </select>
+                </label>
+              )}
+              {mode !== 'video' ? (
+                <div className="paramSegment">
+                  {ROUTES.map((item) => (
+                    <button type="button" className={providerSettings.route === item.value ? 'active' : ''} key={item.value} onClick={() => onProviderChange({ ...providerSettings, route: item.value })}>
+                      {item.shortLabel}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {activeParamPanel === 'size' ? (
+            <div className="paramDrawerBody">
+              {mode === 'video' ? (
+                <>
+                  <div className="paramSegment">
+                    {VIDEO_ASPECT_OPTIONS.map((item) => (
+                      <button type="button" className={videoAspect === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoAspect(item.value)}>{item.label}</button>
+                    ))}
+                  </div>
+                  <div className="paramHint">输出 {videoSize.width} x {videoSize.height}</div>
+                </>
+              ) : (
+                <>
+                  <div className="paramSegment">
+                    {ASPECT_OPTIONS.map((item) => (
+                      <button
+                        type="button"
+                        className={aspect === item.value ? 'active' : ''}
+                        key={item.value}
+                        onClick={() => {
+                          setAspect(item.value);
+                          if (item.value !== 'custom') setCustomSize(item.size);
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  {aspect === 'custom' ? (
+                    <label className="paramField">
+                      <span>接口尺寸</span>
+                      <select value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
+                        {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
+                  <div className="paramHint">当前请求 size 为 {size}；2K/4K 会作为目标分辨率追加到提示词里。</div>
+                </>
+              )}
+            </div>
+          ) : null}
+          {activeParamPanel === 'quality' ? (
+            <div className="paramDrawerBody">
+              {mode === 'video' ? (
+                <div className="paramSegment">
+                  {VIDEO_QUALITY.map((item) => (
+                    <button type="button" className={videoQuality === item ? 'active' : ''} key={item} onClick={() => setVideoQuality(item)}>
+                      {item === 'auto' ? '自动' : item === 'high' ? '高' : '标准'}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="paramSegment">
+                    {QUALITY.filter((item) => item !== 'auto').map((item) => (
+                      <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
+                        {QUALITY_LABELS[item] || item}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="paramSegment">
+                    {RESOLUTION_TIERS.map((item) => (
+                      <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="paramHint">分辨率档位会追加到生成要求里</div>
+                </>
+              )}
+            </div>
+          ) : null}
+          {activeParamPanel === 'count' ? (
+            <div className="paramDrawerBody">
+              {mode === 'video' ? (
+                <>
+                  <div className="paramSegment">
+                    {VIDEO_DURATIONS.map((item) => (
+                      <button type="button" className={videoDuration === item ? 'active' : ''} key={item} onClick={() => setVideoDuration(item)}>{item}s</button>
+                    ))}
+                  </div>
+                  <div className="paramSegment">
+                    {VIDEO_FPS_OPTIONS.map((item) => (
+                      <button type="button" className={videoFps === item ? 'active' : ''} key={item} onClick={() => setVideoFps(item)}>{item} fps</button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="paramRange">
+                    <span>图片数量</span>
+                    <strong>{countValue}</strong>
+                    <input type="range" min="1" max="10" value={countValue} onChange={(event) => setCount(normalizeCount(event.target.value))} />
+                  </label>
+                  <div className="paramSegment">
+                    {OUTPUT_FORMATS.map((item) => (
+                      <button type="button" className={outputFormat === item ? 'active' : ''} key={item} onClick={() => setOutputFormat(item)}>{OUTPUT_FORMAT_LABELS[item] || item}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+          <button type="button" className="paramDrawerGenerate" onClick={generate} disabled={status === 'loading'}>
+            {status === 'loading' ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />}
+            {mode === 'video' ? '按当前参数生成视频' : '按当前参数生成图片'}
+          </button>
+        </aside>
+      ) : null}
       <Lightbox
         url={previewImage?.url}
         index={previewImage?.index || 0}
         outputFormat={outputFormat}
+        downloadMeta={currentDownloadMeta}
         onClose={() => setPreviewImage(null)}
       />
-      <VideoLightbox url={previewVideo} onClose={() => setPreviewVideo('')} />
+      <VideoLightbox
+        url={previewVideo?.url || previewVideo}
+        index={previewVideo?.index || 0}
+        downloadMeta={currentDownloadMeta}
+        onClose={() => setPreviewVideo('')}
+      />
     </section>
   );
 }
@@ -3471,8 +4622,9 @@ function SettingsPanel({
 
         {providerSettings.route === 'responses' ? (
           <div className="manualFields">
+            <p className="settingsHint">生图会使用当前选择的图片模型直连 /v1/responses；助手模型只用于底部提示词助手。</p>
             <label>
-              <span>响应模型</span>
+              <span>助手模型</span>
               <input
                 value={providerSettings.responsesModel}
                 onChange={(event) => onProviderChange({ ...providerSettings, responsesModel: event.target.value })}
@@ -3531,6 +4683,7 @@ function StudioApp() {
   const [theme, setTheme] = useState(() => loadTheme());
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState('image');
+  const [appendTemplateRequest, setAppendTemplateRequest] = useState(null);
   const isLibraryLocked = LIBRARY_AUTH_REQUIRED && !session?.accessToken;
 
   function historyScope() {
@@ -3700,10 +4853,10 @@ function StudioApp() {
     setModelsStatus('loading');
       nextClient.listGatewayModels({ ...providerRequest, signal: controller.signal })
       .then((models) => {
-        const image = models.filter((item) => /image|gpt-image|dall|flux|midjourney|mj/i.test(`${item.id} ${item.label}`));
+        const image = models.filter(modelLooksLikeImage);
         const video = models.filter(modelMatchesVideo);
         setModelOptions({
-          image: image.length ? image : models,
+          image: image.length ? image : [],
           responses: models,
           video
         });
@@ -3843,6 +4996,17 @@ function StudioApp() {
     setSelectedCase(item);
   }
 
+  async function handleAppendTemplate(item) {
+    setSelectedHistory(null);
+    const resolved = await resolveLibraryCase(item, { updateSelection: false }).catch(() => item);
+    const nextPrompt = resolved?.prompt || resolved?.promptPreview || item?.prompt || item?.promptPreview || item?.summary || '';
+    if (!nextPrompt) return;
+    setAppendTemplateRequest({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      prompt: nextPrompt
+    });
+  }
+
   function handleToggleTemplateFavorite(item) {
     const key = templateKey(item);
     if (!key) return;
@@ -3855,7 +5019,8 @@ function StudioApp() {
     });
   }
 
-  async function resolveLibraryCase(item) {
+  async function resolveLibraryCase(item, options = {}) {
+    const updateSelection = options.updateSelection !== false;
     if (!session?.accessToken || item?.prompt || item?.staticLibrary) return item;
     const historyClient = new StudioHistoryClient({ session });
     if (item?.kind === 'video-inspiration') {
@@ -3869,7 +5034,9 @@ function StudioApp() {
           videoInspirations: current.videoInspirations.map((inspiration) => String(inspiration.id) === String(nextCase.id) ? nextCase : inspiration)
         };
       });
-      setSelectedCase((current) => (current && String(current.id) === String(nextCase.id) ? nextCase : current));
+      if (updateSelection) {
+        setSelectedCase((current) => (current && String(current.id) === String(nextCase.id) ? nextCase : current));
+      }
       return nextCase;
     }
     const resolvedCase = await historyClient.getLibraryCase(item.id);
@@ -3882,7 +5049,9 @@ function StudioApp() {
         cases: current.cases.map((caseItem) => String(caseItem.id) === String(nextCase.id) ? nextCase : caseItem)
       };
     });
-    setSelectedCase((current) => (current && String(current.id) === String(nextCase.id) ? nextCase : current));
+    if (updateSelection) {
+      setSelectedCase((current) => (current && String(current.id) === String(nextCase.id) ? nextCase : current));
+    }
     return nextCase;
   }
 
@@ -3972,6 +5141,13 @@ function handleSelectHistory(item) {
       <div className={`studioLayout ${railCollapsed ? 'railCollapsed' : ''}`}>
         <LeftRail
           activeWorkspace={activeWorkspace}
+          onWorkspaceChange={handleWorkspaceChange}
+          profile={profile}
+          apiKey={apiKey}
+          isAuthenticated={Boolean(session?.accessToken)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          theme={theme}
+          onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
           cases={visibleCases}
           categoryGroups={categoryGroups}
           selected={selectedCase}
@@ -3996,6 +5172,7 @@ function handleSelectHistory(item) {
           showFavoritesOnly={showFavoritesOnly}
           onToggleFavoritesOnly={() => setShowFavoritesOnly((value) => !value)}
           onToggleTemplateFavorite={handleToggleTemplateFavorite}
+          onAppendTemplate={handleAppendTemplate}
         />
         {activeWorkspace !== 'history' ? (
           <CreationDesk
@@ -4016,6 +5193,10 @@ function handleSelectHistory(item) {
             onProfileRefresh={refreshProfile}
             onHistoryAdd={handleHistoryAdd}
             promptPresets={siteData?.promptPresets || PROMPT_PRESETS}
+            appendTemplateRequest={appendTemplateRequest}
+            onAppendTemplateConsumed={(requestId) => {
+              setAppendTemplateRequest((current) => current?.id === requestId ? null : current);
+            }}
           />
         ) : (
           <HistoryDetailPanel item={selectedHistory} onOpenWorkspace={handleWorkspaceChange} />
