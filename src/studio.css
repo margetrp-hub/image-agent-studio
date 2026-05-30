@@ -5276,6 +5276,10 @@ label span,
   pointer-events: none;
 }
 
+.canvasLinks.isLinking {
+  opacity: 1;
+}
+
 .canvasLinkArrow,
 .canvasLinkArrowActive {
   fill: color-mix(in srgb, var(--studio-primary) 84%, var(--studio-info));
@@ -5289,7 +5293,8 @@ label span,
 
 .canvasLinkGlow,
 .canvasLinkPulse,
-.canvasLinkPath {
+.canvasLinkPath,
+.canvasLinkPreview {
   fill: none;
   stroke-linecap: round;
 }
@@ -5317,6 +5322,17 @@ label span,
   opacity: 0.62;
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--studio-primary) 30%, transparent));
   animation: canvasLinkDash 18s linear infinite;
+}
+
+.canvasLinkPreview {
+  stroke: color-mix(in srgb, var(--studio-accent) 70%, var(--studio-primary));
+  stroke-width: 2;
+  stroke-dasharray: 8 9;
+  opacity: 0.9;
+  filter:
+    drop-shadow(0 0 6px color-mix(in srgb, var(--studio-primary) 38%, transparent))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--studio-accent) 24%, transparent));
+  animation: canvasLinkDash 5.8s linear infinite;
 }
 
 .canvasLinkJoint {
@@ -5402,6 +5418,15 @@ label span,
   opacity: 0.94;
 }
 
+.canvasLinkGroup.custom .canvasLinkPath {
+  stroke: color-mix(in srgb, var(--studio-accent) 58%, var(--studio-primary));
+  stroke-dasharray: 7 8;
+}
+
+.canvasLinkGroup.custom .canvasLinkGlow {
+  stroke: color-mix(in srgb, var(--studio-accent) 55%, var(--studio-primary));
+}
+
 @keyframes canvasLinkDash {
   to {
     stroke-dashoffset: -152;
@@ -5430,7 +5455,12 @@ label span,
   place-items: stretch;
   text-align: left;
   overflow: visible;
+  cursor: grab;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.graphNode:active {
+  cursor: grabbing;
 }
 
 .graphNode:hover,
@@ -5451,6 +5481,18 @@ label span,
     0 0 34px color-mix(in srgb, var(--studio-primary) 30%, transparent),
     0 28px 72px rgba(10, 163, 156, 0.24);
   transform: translateY(-2px);
+}
+
+.graphNode.linkingSource {
+  border-color: color-mix(in srgb, var(--studio-accent) 68%, var(--studio-primary));
+  box-shadow:
+    0 0 0 7px color-mix(in srgb, var(--studio-accent) 10%, transparent),
+    0 0 30px color-mix(in srgb, var(--studio-accent) 28%, transparent),
+    0 28px 72px rgba(10, 163, 156, 0.2);
+}
+
+.graphNode.linkingRelated:not(.linkingSource) {
+  border-color: color-mix(in srgb, var(--studio-primary) 46%, var(--studio-border));
 }
 
 .graphNode.lineageChild {
@@ -5475,6 +5517,7 @@ label span,
   z-index: 6;
   width: 14px;
   height: 14px;
+  padding: 0;
   border: 2px solid color-mix(in srgb, var(--studio-primary) 72%, #fff);
   border-radius: 999px;
   background:
@@ -5483,7 +5526,9 @@ label span,
   box-shadow:
     0 0 0 4px color-mix(in srgb, var(--studio-primary) 12%, transparent),
     0 0 18px color-mix(in srgb, var(--studio-primary) 44%, transparent);
-  pointer-events: none;
+  cursor: crosshair;
+  pointer-events: auto;
+  appearance: none;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
@@ -5493,6 +5538,16 @@ label span,
 
 .canvasPortOut {
   right: -8px;
+}
+
+.canvasPort:hover,
+.canvasPort:focus-visible {
+  border-color: #fff;
+  transform: scale(1.18);
+  box-shadow:
+    0 0 0 8px color-mix(in srgb, var(--studio-primary) 20%, transparent),
+    0 0 30px color-mix(in srgb, var(--studio-primary) 70%, transparent);
+  outline: none;
 }
 
 .graphNode:hover .canvasPort,

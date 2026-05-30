@@ -94,8 +94,9 @@ const CANVAS_NODE_MAX_WIDTH = 620;
 const CANVAS_NODE_MAX_HEIGHT = 520;
 const CANVAS_NODE_HORIZONTAL_GAP = 170;
 const CANVAS_NODE_VERTICAL_GAP = 88;
+const CANVAS_DRAG_CLICK_TOLERANCE = 4;
 const GENERATION_STALL_NOTICE_MS = 90 * 1000;
-const GENERATION_TIMEOUT_MS = 15 * 60 * 1000;
+const GENERATION_TIMEOUT_MS = 45 * 60 * 1000;
 const VIDEO_ASPECT_OPTIONS = [
   { value: '16:9', label: '16:9', width: 1280, height: 720 },
   { value: '9:16', label: '9:16', width: 720, height: 1280 },
@@ -2813,12 +2814,15 @@ function CreationDesk({
   const [activeParamPanel, setActiveParamPanel] = useState('');
   const [canvasView, setCanvasView] = useState(() => restoredSession?.canvasView || { x: 0, y: 0, zoom: 1 });
   const [canvasNodes, setCanvasNodes] = useState(() => Array.isArray(restoredSession?.canvasNodes) ? restoredSession.canvasNodes : []);
+  const [canvasCustomLinks, setCanvasCustomLinks] = useState(() => Array.isArray(restoredSession?.canvasCustomLinks) ? restoredSession.canvasCustomLinks : []);
   const [selectedCanvasNodeId, setSelectedCanvasNodeId] = useState(() => restoredSession?.selectedCanvasNodeId || '');
+  const [canvasLinkDraft, setCanvasLinkDraft] = useState(null);
   const [canvasEditorNodeId, setCanvasEditorNodeId] = useState('');
   const [canvasEditorPrompt, setCanvasEditorPrompt] = useState('');
-  const [canvasEditorMode, setCanvasEditorMode] = useState('edit');
+  const [canvasEditorMode, setCanvasEditorMode] = useState('image');
   const [pendingCanvasGenerate, setPendingCanvasGenerate] = useState(null);
   const canvasDragRef = useRef(null);
+  const suppressCanvasClickRef = useRef(false);
   const appliedRemoteSessionRef = useRef('');
   const updateLayoutSections = (patch) => {
     setLayoutSections((current) => {
@@ -2856,13 +2860,30 @@ function CreationDesk({
   const referenceFiles = referenceItems.map((item) => item.file);
   const isImageEditMode = mode === 'edit' || mode === 'mask';
   const selectedCanvasNode = canvasNodes.find((node) => node.id === selectedCanvasNodeId) || null;
-  const canvasEdges = canvasNodes
-    .filter((node) => node.parentId && canvasNodes.some((parent) => parent.id === node.parentId))
-    .map((node) => ({
-      id: `${node.parentId}-${node.id}`,
-      from: canvasNodes.find((parent) => parent.id === node.parentId),
-      to: node
-    }));
+  const canvasNodeMap = useMemo(() => new Map(canvasNodes.map((node) => [node.id, node])), [canvasNodes]);
+  const canvasEdges = useMemo(() => {
+    const edges = [];
+    const seen = new Set();
+    const pushEdge = (fromId, toId, type = 'lineage') => {
+      if (!fromId || !toId || fromId === toId) return;
+      const from = canvasNodeMap.get(fromId);
+      const to = canvasNodeMap.get(toId);
+      if (!from || !to) return;
+      const id = `${fromId}-${toId}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      edges.push({ id, from, to, type });
+    };
+    canvasNodes.forEach((node) => pushEdge(node.parentId, node.id, 'lineage'));
+    canvasCustomLinks.forEach((link) => pushEdge(link.fromId, link.toId, 'custom'));
+    return edges;
+  }, [canvasNodes, canvasCustomLinks, canvasNodeMap]);
+  const canvasLinkPreview = useMemo(() => {
+    if (!canvasLinkDraft?.fromId) return null;
+    const from = canvasNodeMap.get(canvasLinkDraft.fromId);
+    if (!from) return null;
+    return { from, point: canvasLinkDraft.point || null };
+  }, [canvasLinkDraft, canvasNodeMap]);
   const childNodeIds = useMemo(() => {
     if (!selectedCanvasNodeId) return new Set();
     const ids = new Set();
@@ -2870,25 +2891,112 @@ function CreationDesk({
     while (changed) {
       changed = false;
       for (const node of canvasNodes) {
-        if (!ids.has(node.id) && (node.parentId === selectedCanvasNodeId || ids.has(node.parentId))) {
+        const isCustomChild = canvasCustomLinks.some((link) => link.toId === node.id && (link.fromId === selectedCanvasNodeId || ids.has(link.fromId)));
+        if (!ids.has(node.id) && (node.parentId === selectedCanvasNodeId || ids.has(node.parentId) || isCustomChild)) {
           ids.add(node.id);
           changed = true;
         }
       }
     }
     return ids;
-  }, [canvasNodes, selectedCanvasNodeId]);
+  }, [canvasNodes, canvasCustomLinks, selectedCanvasNodeId]);
   const parentNodeIds = useMemo(() => {
     if (!selectedCanvasNodeId) return new Set();
-    const byId = new Map(canvasNodes.map((node) => [node.id, node]));
     const ids = new Set();
-    let current = byId.get(selectedCanvasNodeId);
-    while (current?.parentId && byId.has(current.parentId)) {
-      ids.add(current.parentId);
-      current = byId.get(current.parentId);
-    }
+    const visit = (nodeId) => {
+      const current = canvasNodeMap.get(nodeId);
+      const parentIds = [
+        current?.parentId,
+        ...canvasCustomLinks.filter((link) => link.toId === nodeId).map((link) => link.fromId)
+      ].filter(Boolean);
+      parentIds.forEach((parentId) => {
+        if (ids.has(parentId) || !canvasNodeMap.has(parentId)) return;
+        ids.add(parentId);
+        visit(parentId);
+      });
+    };
+    visit(selectedCanvasNodeId);
     return ids;
-  }, [canvasNodes, selectedCanvasNodeId]);
+  }, [canvasNodeMap, canvasCustomLinks, selectedCanvasNodeId]);
+  const linkedNodeIds = useMemo(() => {
+    if (!canvasLinkDraft?.fromId) return new Set();
+    return new Set([
+      canvasLinkDraft.fromId,
+      ...canvasEdges
+        .filter((edge) => edge.from.id === canvasLinkDraft.fromId || edge.to.id === canvasLinkDraft.fromId)
+        .flatMap((edge) => [edge.from.id, edge.to.id])
+    ]);
+  }, [canvasEdges, canvasLinkDraft?.fromId]);
+  function canvasPlanePointFromEvent(event) {
+    const eventTarget = event.currentTarget || event.target;
+    const rect = eventTarget?.closest?.('.infiniteCanvas')?.getBoundingClientRect();
+    const zoom = canvasView.zoom || 1;
+    if (!rect) {
+      return {
+        x: CANVAS_PLANE_WIDTH / 2,
+        y: CANVAS_PLANE_HEIGHT / 2
+      };
+    }
+    return {
+      x: (event.clientX - rect.left - rect.width / 2 - canvasView.x) / zoom + CANVAS_PLANE_WIDTH / 2,
+      y: (event.clientY - rect.top - rect.height / 2 - canvasView.y) / zoom + CANVAS_PLANE_HEIGHT / 2
+    };
+  }
+  function addCanvasCustomLink(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return false;
+    if (!canvasNodeMap.has(fromId) || !canvasNodeMap.has(toId)) return false;
+    const toNode = canvasNodeMap.get(toId);
+    const alreadyLinked = toNode?.parentId === fromId || canvasCustomLinks.some((link) => link.fromId === fromId && link.toId === toId);
+    if (alreadyLinked) return false;
+    const visited = new Set();
+    const reachesFromTarget = (nodeId) => {
+      if (!nodeId || visited.has(nodeId)) return false;
+      if (nodeId === fromId) return true;
+      visited.add(nodeId);
+      return canvasEdges.some((edge) => edge.from.id === nodeId && reachesFromTarget(edge.to.id));
+    };
+    if (reachesFromTarget(toId)) {
+      setStatus('error');
+      setMessage('这条关联会形成循环，请换一个方向连接。');
+      window.setTimeout(() => setStatus('idle'), 1600);
+      return false;
+    }
+    setCanvasCustomLinks((current) => [
+      ...current,
+      {
+        id: `${fromId}-${toId}-${Date.now()}`,
+        fromId,
+        toId,
+        createdAt: new Date().toISOString()
+      }
+    ]);
+    setSelectedCanvasNodeId(toId);
+    setStatus('success');
+    setMessage('已建立画布关联。');
+    window.setTimeout(() => setStatus('idle'), 1200);
+    return true;
+  }
+
+  function findCanvasLinkTarget(event, fromId) {
+    const targetElement = document.elementFromPoint(event.clientX, event.clientY);
+    const domNodeId = targetElement?.dataset?.nodeId || targetElement?.closest?.('.graphNode')?.dataset?.nodeId;
+    if (domNodeId && domNodeId !== fromId && canvasNodeMap.has(domNodeId)) return domNodeId;
+
+    const point = canvasPlanePointFromEvent(event);
+    const threshold = 56 / (canvasView.zoom || 1);
+    let closest = null;
+    for (const node of canvasNodes) {
+      if (!node?.id || node.id === fromId) continue;
+      const portX = CANVAS_PLANE_WIDTH / 2 + Number(node.x || 0);
+      const portY = CANVAS_PLANE_HEIGHT / 2 + Number(node.y || 0) + nodeHeight(node) * 0.48;
+      const distance = Math.hypot(point.x - portX, point.y - portY);
+      if (distance <= threshold && (!closest || distance < closest.distance)) {
+        closest = { nodeId: node.id, distance };
+      }
+    }
+    return closest?.nodeId || '';
+  }
+
   function canvasEdgeLineageClass(edge) {
     if (!selectedCanvasNodeId) return 'idle';
     const fromSelected = edge.from.id === selectedCanvasNodeId;
@@ -2959,8 +3067,10 @@ function CreationDesk({
     setVideoResults(Array.isArray(sessionSnapshot.videoResults) ? sessionSnapshot.videoResults : []);
     setResultBatchMeta(sessionSnapshot.resultBatchMeta || null);
     setCanvasNodes(Array.isArray(sessionSnapshot.canvasNodes) ? sessionSnapshot.canvasNodes : []);
+    setCanvasCustomLinks(Array.isArray(sessionSnapshot.canvasCustomLinks) ? sessionSnapshot.canvasCustomLinks : []);
     setSelectedCanvasNodeId(sessionSnapshot.selectedCanvasNodeId || '');
     setCanvasEditorNodeId(sessionSnapshot.canvasEditorNodeId || '');
+    setCanvasLinkDraft(null);
     setCanvasView(sessionSnapshot.canvasView || { x: 0, y: 0, zoom: 1 });
     setStatus(sessionSnapshot.status === 'loading' ? 'error' : (sessionSnapshot.status || 'idle'));
     const interruptedHasResult = sessionSnapshot.status === 'loading' && (
@@ -3025,6 +3135,7 @@ function CreationDesk({
       persistedVideoResults: currentSessionRef.current?.persistedVideoResults || [],
       resultBatchMeta,
       canvasNodes,
+      canvasCustomLinks,
       selectedCanvasNodeId,
       canvasEditorNodeId,
       canvasView,
@@ -3056,6 +3167,7 @@ function CreationDesk({
     videoResults,
     resultBatchMeta,
     canvasNodes,
+    canvasCustomLinks,
     selectedCanvasNodeId,
     canvasEditorNodeId,
     canvasView,
@@ -3108,9 +3220,11 @@ function CreationDesk({
 
   function startCanvasPan(event) {
     if (event.button !== 0) return;
-    if (event.target.closest?.('button, a, video, input, select, textarea')) return;
+    if (event.target.closest?.('button, a, video, input, select, textarea, .graphNode, .canvasPort')) return;
+    if (canvasLinkDraft) setCanvasLinkDraft(null);
     event.currentTarget.setPointerCapture?.(event.pointerId);
     canvasDragRef.current = {
+      type: 'pan',
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
@@ -3126,6 +3240,18 @@ function CreationDesk({
       resizeCanvasNode(event, drag);
       return;
     }
+    if (drag.type === 'node-move') {
+      moveCanvasNode(event, drag);
+      return;
+    }
+    if (drag.type === 'link-create') {
+      const point = canvasPlanePointFromEvent(event);
+      setCanvasLinkDraft((current) => current?.fromId === drag.fromId ? {
+        ...current,
+        point
+      } : current);
+      return;
+    }
     setCanvasView((current) => ({
       ...current,
       x: drag.originX + event.clientX - drag.startX,
@@ -3134,9 +3260,26 @@ function CreationDesk({
   }
 
   function endCanvasPan(event) {
-    if (canvasDragRef.current?.pointerId === event.pointerId) {
-      canvasDragRef.current = null;
+    const drag = canvasDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.type === 'node-move' && drag.moved) {
+      suppressCanvasClickRef.current = true;
+      window.setTimeout(() => {
+        suppressCanvasClickRef.current = false;
+      }, 0);
     }
+    if (drag.type === 'link-create') {
+      const targetNodeId = findCanvasLinkTarget(event, drag.fromId);
+      const linked = addCanvasCustomLink(drag.fromId, targetNodeId);
+      const moved = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE;
+      if (linked || moved) {
+        setCanvasLinkDraft(null);
+      } else {
+        setCanvasLinkDraft((current) => current?.fromId === drag.fromId ? { fromId: drag.fromId, point: null } : { fromId: drag.fromId, point: null });
+        setMessage('选择另一张图左侧圆点，或拖到目标图片上建立关联。');
+      }
+    }
+    canvasDragRef.current = null;
   }
 
   function nodeWidth(node) {
@@ -3164,6 +3307,25 @@ function CreationDesk({
     setSelectedCanvasNodeId(node.id);
   }
 
+  function startCanvasNodeDrag(event, node) {
+    if (!node?.id || event.button !== 0) return;
+    if (event.target.closest?.('a, input, select, textarea, .canvasPort, .canvasNodeResize, .canvasInlineEditor, .canvasNodeToolbar, .canvasNodeContinue')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    canvasDragRef.current = {
+      type: 'node-move',
+      pointerId: event.pointerId,
+      nodeId: node.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: Number(node.x) || 0,
+      originY: Number(node.y) || 0,
+      moved: false
+    };
+    setSelectedCanvasNodeId(node.id);
+  }
+
   function resizeCanvasNode(event, drag) {
     const zoom = canvasView.zoom || 1;
     const nextWidth = clamp(
@@ -3181,6 +3343,59 @@ function CreationDesk({
         ? { ...node, width: Math.round(nextWidth), height: Math.round(nextHeight) }
         : node
     )));
+  }
+
+  function moveCanvasNode(event, drag) {
+    const zoom = canvasView.zoom || 1;
+    const dx = (event.clientX - drag.startX) / zoom;
+    const dy = (event.clientY - drag.startY) / zoom;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE) {
+      drag.moved = true;
+    }
+    setCanvasNodes((current) => current.map((node) => (
+      node.id === drag.nodeId
+        ? {
+          ...node,
+          x: Math.round(drag.originX + dx),
+          y: Math.round(drag.originY + dy)
+        }
+        : node
+    )));
+  }
+
+  function startCanvasLink(event, node) {
+    if (!node?.id || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const point = canvasPlanePointFromEvent(event);
+    canvasDragRef.current = {
+      type: 'link-create',
+      pointerId: event.pointerId,
+      fromId: node.id,
+      startX: event.clientX,
+      startY: event.clientY
+    };
+    setSelectedCanvasNodeId(node.id);
+    setCanvasLinkDraft({ fromId: node.id, point });
+    setStatus('idle');
+    setMessage('');
+  }
+
+  function finishCanvasLink(event, node) {
+    event.preventDefault();
+    event.stopPropagation();
+    const draft = canvasLinkDraft;
+    if (!draft?.fromId) return;
+    addCanvasCustomLink(draft.fromId, node.id);
+    setCanvasLinkDraft(null);
+    canvasDragRef.current = null;
+  }
+
+  function handleCanvasNodeMediaClick(event, node) {
+    event.stopPropagation();
+    if (suppressCanvasClickRef.current) return;
+    selectCanvasNode(node);
   }
 
   function appendCanvasNodes(urls, { kind = 'image', parentId = '', promptText = '', title = '生成结果', downloadMeta, replaceBatchId = '' } = {}) {
@@ -3295,9 +3510,9 @@ function CreationDesk({
   function deleteCanvasNode(node) {
     if (!node?.id) return;
     const deletedIds = new Set([node.id]);
-    setCanvasNodes((current) => {
-      let changed = true;
-      while (changed) {
+      setCanvasNodes((current) => {
+        let changed = true;
+        while (changed) {
         changed = false;
         for (const item of current) {
           if (!deletedIds.has(item.id) && deletedIds.has(item.parentId)) {
@@ -3308,6 +3523,8 @@ function CreationDesk({
       }
       return current.filter((item) => !deletedIds.has(item.id));
     });
+    setCanvasCustomLinks((current) => current.filter((link) => !deletedIds.has(link.fromId) && !deletedIds.has(link.toId)));
+    setCanvasLinkDraft((current) => current && deletedIds.has(current.fromId) ? null : current);
     if (deletedIds.has(selectedCanvasNodeId)) setSelectedCanvasNodeId('');
     if (deletedIds.has(canvasEditorNodeId)) closeCanvasEditor();
     setStatus('success');
@@ -3315,7 +3532,7 @@ function CreationDesk({
     window.setTimeout(() => setStatus('idle'), 1200);
   }
 
-  function openCanvasEditor(node, nextMode = 'edit') {
+  function openCanvasEditor(node, nextMode = 'image') {
     if (!node) return;
     setSelectedCanvasNodeId(node.id);
     setCanvasEditorNodeId(node.id);
@@ -3383,12 +3600,12 @@ function CreationDesk({
   function selectCanvasNode(node) {
     setSelectedCanvasNodeId(node.id);
     setCanvasEditorNodeId(node.id);
-    setCanvasEditorMode('edit');
+    setCanvasEditorMode('image');
     setCanvasEditorPrompt('');
     const nextPrompt = node.prompt ? `继续优化 #${node.canvasIndex || ''}：` : '';
     setPrompt(nextPrompt);
     updateLayoutSections({ bottomComposer: true });
-    setMode((current) => current === 'video' ? 'video' : 'edit');
+    setMode((current) => current === 'video' ? 'video' : 'image');
     setStatus('idle');
     setMessage('');
   }
@@ -3973,7 +4190,7 @@ function CreationDesk({
       setMessage('模板提示词正在读取，请稍后。');
       return;
     }
-    const willUseCanvasReference = Boolean(selectedCanvasNode && selectedCanvasNode.kind !== 'video' && selectedCanvasNode.url && mode !== 'video');
+    const willUseCanvasReference = Boolean(selectedCanvasNode && selectedCanvasNode.kind !== 'video' && selectedCanvasNode.url && (mode === 'edit' || mode === 'mask'));
     if (isImageEditMode && !referenceFiles.length && !willUseCanvasReference) {
       setStatus('error');
       setMessage(mode === 'mask' ? '请先在 Mask 模式上传参考图。' : '请先上传参考图。');
@@ -4376,8 +4593,8 @@ function CreationDesk({
             transform: `translate(calc(-50% + ${canvasView.x}px), calc(-50% + ${canvasView.y}px)) scale(${canvasView.zoom})`
           }}
         >
-          {canvasEdges.length ? (
-            <svg className={`canvasLinks ${selectedCanvasNodeId ? 'hasSelection' : ''}`} width={CANVAS_PLANE_WIDTH} height={CANVAS_PLANE_HEIGHT} viewBox={`0 0 ${CANVAS_PLANE_WIDTH} ${CANVAS_PLANE_HEIGHT}`} aria-hidden="true">
+          {canvasEdges.length || canvasLinkPreview ? (
+            <svg className={`canvasLinks ${selectedCanvasNodeId ? 'hasSelection' : ''} ${canvasLinkDraft ? 'isLinking' : ''}`} width={CANVAS_PLANE_WIDTH} height={CANVAS_PLANE_HEIGHT} viewBox={`0 0 ${CANVAS_PLANE_WIDTH} ${CANVAS_PLANE_HEIGHT}`} aria-hidden="true">
               <defs>
                 <marker id="canvasLinkArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse">
                   <path className="canvasLinkArrow" d="M 1 2 L 10 6 L 1 10 z" />
@@ -4408,7 +4625,7 @@ function CreationDesk({
                 const edgeClass = canvasEdgeLineageClass(edge);
                 const isEdgeActive = edgeClass.includes('active');
                 return (
-                  <g className={`canvasLinkGroup ${edgeClass}`} key={edge.id}>
+                  <g className={`canvasLinkGroup ${edgeClass} ${edge.type === 'custom' ? 'custom' : 'lineage'}`} key={edge.id}>
                     <path className="canvasLinkGlow" d={path} filter="url(#canvasLinkGlow)" />
                     <path className="canvasLinkPulse" d={path} />
                     <path className="canvasLinkPath" d={path} markerEnd={isEdgeActive ? 'url(#canvasLinkArrowActive)' : 'url(#canvasLinkArrow)'} />
@@ -4420,6 +4637,17 @@ function CreationDesk({
                   </g>
                 );
               })}
+              {canvasLinkPreview?.point ? (() => {
+                const fromWidth = nodeWidth(canvasLinkPreview.from);
+                const fromHeight = nodeHeight(canvasLinkPreview.from);
+                const x1 = CANVAS_PLANE_WIDTH / 2 + canvasLinkPreview.from.x + fromWidth + 2;
+                const y1 = CANVAS_PLANE_HEIGHT / 2 + canvasLinkPreview.from.y + fromHeight * 0.48;
+                const x2 = canvasLinkPreview.point.x;
+                const y2 = canvasLinkPreview.point.y;
+                const bend = Math.max(70, Math.abs(x2 - x1) * 0.38);
+                const path = `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+                return <path className="canvasLinkPreview" d={path} />;
+              })() : null}
             </svg>
           ) : null}
           {canvasNodes.length ? canvasNodes.map((node) => {
@@ -4435,7 +4663,7 @@ function CreationDesk({
             });
             return (
               <div
-                className={`canvasNode resultNode graphNode ${selectedCanvasNodeId === node.id ? 'selected' : ''} ${childNodeIds.has(node.id) ? 'lineageChild' : ''} ${parentNodeIds.has(node.id) ? 'lineageParent' : ''} ${canvasEditorNodeId === node.id ? 'editing' : ''}`}
+                className={`canvasNode resultNode graphNode ${selectedCanvasNodeId === node.id ? 'selected' : ''} ${childNodeIds.has(node.id) ? 'lineageChild' : ''} ${parentNodeIds.has(node.id) ? 'lineageParent' : ''} ${linkedNodeIds.has(node.id) ? 'linkingRelated' : ''} ${canvasLinkDraft?.fromId === node.id ? 'linkingSource' : ''} ${canvasEditorNodeId === node.id ? 'editing' : ''}`}
                 key={node.id}
                 style={{
                   left: `calc(50% + ${node.x}px)`,
@@ -4443,20 +4671,33 @@ function CreationDesk({
                   width: currentNodeWidth,
                   height: currentNodeHeight
                 }}
+                data-node-id={node.id}
+                onPointerDown={(event) => startCanvasNodeDrag(event, node)}
                 onDoubleClick={(event) => {
                   event.stopPropagation();
                   openCanvasEditor(node);
                 }}
               >
-                {node.parentId ? <span className="canvasPort canvasPortIn" aria-hidden="true" /> : null}
-                <span className="canvasPort canvasPortOut" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="canvasPort canvasPortIn"
+                  data-node-id={node.id}
+                  onPointerDown={(event) => finishCanvasLink(event, node)}
+                  aria-label={`连接到 #${node.canvasIndex || ''}`}
+                  title="连接到这张图"
+                />
+                <button
+                  type="button"
+                  className="canvasPort canvasPortOut"
+                  data-node-id={node.id}
+                  onPointerDown={(event) => startCanvasLink(event, node)}
+                  aria-label={`从 #${node.canvasIndex || ''} 开始连线`}
+                  title="拖到另一张图建立关联"
+                />
                 <button
                   type="button"
                   className="canvasNodeMedia"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    selectCanvasNode(node);
-                  }}
+                  onClick={(event) => handleCanvasNodeMediaClick(event, node)}
                   onDoubleClick={(event) => {
                     event.stopPropagation();
                     openCanvasEditor(node);
@@ -4531,9 +4772,12 @@ function CreationDesk({
                       autoFocus
                     />
                     <div className="canvasInlineModes" role="group" aria-label="续作方式">
-                      <button type="button" className={canvasEditorMode === 'edit' ? 'active' : ''} onClick={() => changeCanvasEditorMode('edit')}>编辑</button>
+                      <button type="button" className={canvasEditorMode === 'image' ? 'active' : ''} onClick={() => changeCanvasEditorMode('image')}>衍生</button>
+                      <button type="button" className={canvasEditorMode === 'edit' ? 'active' : ''} onClick={() => changeCanvasEditorMode('edit')}>参考编辑</button>
                       <button type="button" className={canvasEditorMode === 'mask' ? 'active' : ''} onClick={() => changeCanvasEditorMode('mask')}>Mask</button>
                     </div>
+                    {canvasEditorMode === 'image' ? <p>只继承提示词和画布关系，不把原图作为参考图。</p> : null}
+                    {canvasEditorMode === 'edit' ? <p>会把这张图作为参考图，调用 /v1/images/edits。</p> : null}
                     {canvasEditorMode === 'mask' ? <p>先在右侧 Mask 面板涂抹要重绘的区域，也可以直接点“用这个生成”。</p> : null}
                     <button
                       type="button"
@@ -4823,7 +5067,7 @@ function CreationDesk({
         {layoutSections.parameters && mode !== 'video' ? (
           <div className="routeStrip autoRouteStrip">
             <span><SlidersHorizontal size={15} /> 接口</span>
-            <p>{mode === 'mask' || (mode === 'edit' && referenceFiles.length) ? '参考图 / Mask 会自动走 /v1/images/edits' : '文生图会自动走 /v1/responses image_generation'}</p>
+            <p>{mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url)) ? '参考图 / Mask 会自动走 /v1/images/edits' : '文生图 / 继续衍生会走 /v1/responses image_generation'}</p>
           </div>
         ) : layoutSections.parameters ? (
           <div className="routeStrip">
@@ -5218,7 +5462,7 @@ function CreationDesk({
               )}
               {mode !== 'video' ? (
                 <div className="paramHint">
-                  {mode === 'mask' || (mode === 'edit' && referenceFiles.length) ? '当前会自动使用参考图 / Mask 通道。' : '当前会自动使用文生图通道。'}
+                  {mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url)) ? '当前会自动使用参考图 / Mask 通道。' : '当前会自动使用文生图通道。'}
                 </div>
               ) : null}
             </div>
