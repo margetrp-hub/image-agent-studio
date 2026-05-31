@@ -2327,25 +2327,33 @@ function HistoryDetailPanel({ item, onOpenWorkspace }) {
   );
 }
 
-function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy }) {
+function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy, onUse }) {
   if (!suggestion) return null;
   const rows = [
-    ['主体', suggestion.subject],
-    ['场景', suggestion.scene],
-    ['构图', suggestion.composition],
-    ['风格', suggestion.style],
-    ['光线', suggestion.lighting],
-    ['细节', suggestion.details],
-    ['文字要求', suggestion.textRules],
-    ['限制', suggestion.constraints]
+    ['保留主体', suggestion.subject],
+    ['场景变化', suggestion.scene],
+    ['构图方向', suggestion.composition],
+    ['风格语气', suggestion.style],
+    ['光线色彩', suggestion.lighting],
+    ['补充细节', suggestion.details],
+    ['文字规则', suggestion.textRules],
+    ['避免事项', suggestion.constraints]
   ].filter(([, value]) => String(value || '').trim());
   const finalPrompt = suggestion.finalPrompt || suggestion.raw || '';
 
   return (
     <div className="promptSuggestion">
       <div className="promptSuggestionHead">
-        <strong>优化建议</strong>
-        <span>不会自动覆盖原文</span>
+        <div>
+          <strong>本轮提示词建议</strong>
+          <span>AI 只整理方向，不自动覆盖当前输入</span>
+        </div>
+        {onUse ? (
+          <button type="button" onClick={onUse}>
+            <Sparkles size={13} />
+            用这版生成
+          </button>
+        ) : null}
       </div>
       {rows.length ? (
         <div className="promptBlocks">
@@ -2358,13 +2366,13 @@ function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy }) {
         </div>
       ) : null}
       <label className="finalPromptBox">
-        <span>整理后的提示词</span>
+        <span>可执行提示词</span>
         <textarea value={finalPrompt} readOnly />
       </label>
       <div className="promptSuggestionActions">
-        <button type="button" onClick={onMerge}>合并到原文</button>
-        <button type="button" onClick={onReplace}>替换原文</button>
-        <button type="button" onClick={onCopy}>复制建议</button>
+        <button type="button" onClick={onMerge}>追加到输入</button>
+        <button type="button" onClick={onReplace}>替换输入</button>
+        <button type="button" onClick={onCopy}>复制</button>
       </div>
     </div>
   );
@@ -2821,6 +2829,7 @@ function CreationDesk({
   const [canvasEditorPrompt, setCanvasEditorPrompt] = useState('');
   const [canvasEditorMode, setCanvasEditorMode] = useState('image');
   const [pendingCanvasGenerate, setPendingCanvasGenerate] = useState(null);
+  const [pendingSuggestionGenerate, setPendingSuggestionGenerate] = useState(null);
   const canvasDragRef = useRef(null);
   const suppressCanvasClickRef = useRef(false);
   const appliedRemoteSessionRef = useRef('');
@@ -3933,6 +3942,13 @@ function CreationDesk({
     generate();
   }, [pendingCanvasGenerate?.requestId, selectedCanvasNodeId, mode, prompt]);
 
+  useEffect(() => {
+    if (!pendingSuggestionGenerate) return;
+    if (prompt !== pendingSuggestionGenerate.prompt) return;
+    setPendingSuggestionGenerate(null);
+    generate();
+  }, [pendingSuggestionGenerate?.requestId, prompt]);
+
   function applyCreativeRecipe(recipe) {
     if (!recipe) return;
     setMode((current) => current === 'video' ? current : current);
@@ -4114,7 +4130,6 @@ function CreationDesk({
       });
       const parsed = parseAssistantReply(result.text);
       if (parsed?.finalPrompt) {
-        setPrompt(parsed.finalPrompt);
         setPromptSuggestion({
           finalPrompt: parsed.finalPrompt,
           raw: result.text
@@ -4164,6 +4179,17 @@ function CreationDesk({
     setStatus('success');
     setMessage('优化建议已复制。');
     window.setTimeout(() => setStatus('idle'), 1200);
+  }
+
+  function useSuggestionForGenerate() {
+    const nextPrompt = promptSuggestion?.finalPrompt || promptSuggestion?.raw || '';
+    if (!nextPrompt) return;
+    setPrompt(nextPrompt);
+    setPromptSuggestion(null);
+    setPendingSuggestionGenerate({
+      prompt: nextPrompt,
+      requestId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    });
   }
 
   async function videoReferenceDataUrl() {
@@ -4569,6 +4595,27 @@ function CreationDesk({
   };
   const maskSourcePreview = referencePreviews[0] || (mode === 'mask' && selectedCanvasNode?.kind !== 'video' ? selectedCanvasNode.url : '');
   const maskSourceFile = referenceFiles[0] || (maskSourcePreview ? { name: selectedCanvasNode ? `#${selectedCanvasNode.canvasIndex || 1}.png` : 'reference.png' } : null);
+  const composerUsesEditRoute = mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url));
+  const composerRouteLabel = mode === 'video'
+    ? '视频任务接口'
+    : composerUsesEditRoute
+      ? '/v1/images/edits'
+      : '/v1/responses image_generation';
+  const composerContextTitle = selectedCanvasNode
+    ? `基于 #${selectedCanvasNode.canvasIndex || ''} 继续创作`
+    : selectedCase?.title
+      ? `来自模板：${selectedCase.title}`
+      : '新的创作会话';
+  const composerContextMeta = selectedCanvasNode
+    ? composerUsesEditRoute
+      ? '当前会把选中图片作为参考图'
+      : '当前只继承提示词和画布关系'
+    : mode === 'video'
+      ? '视频参数在右侧设置'
+      : '输入自然语言，先整理提示词，也可以直接生成';
+  const composerGenerationVisible = status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review' || Boolean(message);
+  const composerQuickRecipes = CREATIVE_RECIPES.slice(0, 5);
+  const composerQuickPresets = visiblePromptPresets.slice(0, 4);
 
   return (
     <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${layoutSections.parametersRail === false ? 'paramRailCollapsed' : ''}`}>
@@ -4874,12 +4921,6 @@ function CreationDesk({
             onApply={applyCreativeRecipe}
           />
         ) : null}
-        <PromptSuggestion
-          suggestion={promptSuggestion}
-          onMerge={mergeSuggestion}
-          onReplace={replaceSuggestion}
-          onCopy={copySuggestion}
-        />
         {mode !== 'video' && mode !== 'mask' && layoutSections.references ? (
           <div className="referenceBox">
             <div className="miniPanelHead">
@@ -5270,9 +5311,13 @@ function CreationDesk({
             {generationActionLabel}
           </button>
         </div>
-        <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} />
-        <GenerationTimingPanel timing={timing} />
-        {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
+        {!layoutSections.bottomComposer ? (
+          <>
+            <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} />
+            <GenerationTimingPanel timing={timing} />
+            {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
+          </>
+        ) : null}
       </div>
       <section className={`resultStage ${hasPrimaryResult ? 'hasResult' : ''}`}>
         <div className="resultStageHead">
@@ -5337,16 +5382,63 @@ function CreationDesk({
         </div>
         {layoutSections.bottomComposer ? (
           <div className="composerThread" aria-label="AI 对话记录">
+            <div className={`composerContextBar ${composerUsesEditRoute ? 'editRoute' : 'responseRoute'}`}>
+              <div>
+                <strong>{composerContextTitle}</strong>
+                <span>{composerContextMeta}</span>
+              </div>
+              <em>{composerRouteLabel}</em>
+              {selectedCanvasNode ? (
+                <button type="button" onClick={() => setSelectedCanvasNodeId('')}>
+                  作为新作品
+                </button>
+              ) : null}
+            </div>
+            <div className="composerQuickChips" aria-label="快速灵感">
+              {composerQuickRecipes.map((recipe) => (
+                <button type="button" key={recipe.id} onClick={() => applyCreativeRecipe(recipe)}>
+                  {recipe.title}
+                </button>
+              ))}
+              {composerQuickPresets.map((item) => (
+                <button type="button" key={item.id || item.title} onClick={() => applyPromptPreset(item)} disabled={caseResolving}>
+                  {item.title}
+                </button>
+              ))}
+              <button type="button" onClick={() => setComposerInspirationOpen((value) => !value)}>
+                {composerInspirationOpen ? '收起灵感' : '更多灵感'}
+              </button>
+            </div>
+            <PromptSuggestion
+              suggestion={promptSuggestion}
+              onMerge={mergeSuggestion}
+              onReplace={replaceSuggestion}
+              onCopy={copySuggestion}
+              onUse={useSuggestionForGenerate}
+            />
+            {composerGenerationVisible ? (
+              <div className={`composerGenerationCard ${status} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`}>
+                <div className="composerGenerationHead">
+                  <strong>{isGenerating ? '正在生成' : status === 'success' ? '生成完成' : progress.stage === 'pending_review' ? '需要确认' : status === 'error' ? '生成异常' : '生成状态'}</strong>
+                  <span>{mode === 'video' ? videoModel : model}</span>
+                  <em>{composerRouteLabel}</em>
+                </div>
+                <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} />
+                <GenerationTimingPanel timing={timing} />
+                {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
+              </div>
+            ) : null}
             {assistantMessages.length ? assistantMessages.slice(-8).map((item) => (
               <div className={`composerMessage ${item.role} ${item.pending ? 'pending' : ''} ${item.failed ? 'failed' : ''}`} key={item.id}>
                 <span>{item.role === 'assistant' ? 'AI' : '你'}</span>
                 <p>{item.content}</p>
-                {item.finalPrompt ? <button type="button" onClick={() => setPrompt(item.finalPrompt)}>使用这版提示词</button> : null}
+                {item.finalPrompt ? <button type="button" onClick={() => setPrompt(item.finalPrompt)}>放入输入框</button> : null}
               </div>
             )) : (
               <div className="composerEmptyThread">
                 <MessageSquareText size={18} />
-                <strong>开始一轮创作</strong>
+                <strong>把想法说出来，先整理，再生成</strong>
+                <span>例如：基于 #1 保留人物，换成清晨城市背景，画面更安静。</span>
               </div>
             )}
           </div>

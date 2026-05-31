@@ -8485,3 +8485,408 @@ label span,
   border-radius: 14px;
   background: color-mix(in srgb, var(--studio-surface-soft) 40%, transparent);
 }
+
+/* Prompt workspace v2: keep context, prompt cards, and generation state in one session pane. */
+.creationDesk.composerOpen {
+  grid-template-rows: minmax(300px, 1fr) clamp(330px, 40vh, 460px);
+}
+
+.creationDesk.composerOpen .bottomComposerBar,
+.creationDesk.composerOpen .bottomComposerBar.hasLineage,
+.creationDesk.composerOpen .bottomComposerBar.hasThread,
+.creationDesk.composerOpen .bottomComposerBar.hasThread.hasLineage {
+  grid-template-rows: 40px minmax(0, 1fr) 84px !important;
+  padding: 12px 14px 14px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 14% 0%, color-mix(in srgb, var(--studio-primary) 12%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 96%, transparent), color-mix(in srgb, var(--studio-surface) 94%, transparent));
+}
+
+.creationDesk.composerOpen .composerThread {
+  padding: 12px !important;
+  gap: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-soft) 74%, transparent), color-mix(in srgb, var(--studio-surface-strong) 78%, transparent)) !important;
+  scroll-padding: 12px;
+}
+
+.composerContextBar {
+  width: 100%;
+  min-height: 48px;
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 24%, var(--studio-border));
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 10%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-surface-strong) 88%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 28%, transparent);
+}
+
+.composerContextBar.editRoute {
+  border-color: color-mix(in srgb, #b7791f 30%, var(--studio-border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #b7791f 10%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-surface-strong) 88%, transparent));
+}
+
+.composerContextBar strong,
+.composerContextBar span {
+  overflow: hidden;
+  display: block;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composerContextBar strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.composerContextBar span {
+  margin-top: 2px;
+  color: var(--studio-muted);
+  font-size: 10.5px;
+  font-weight: 820;
+}
+
+.composerContextBar em {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-primary) 11%, var(--studio-surface-soft));
+  color: var(--studio-primary);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.composerContextBar.editRoute em {
+  background: color-mix(in srgb, #b7791f 12%, var(--studio-surface-soft));
+  color: #9a5e16;
+}
+
+.composerContextBar button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 24%, var(--studio-border));
+  border-radius: 999px;
+  background: var(--studio-surface-soft);
+  color: var(--studio-primary);
+  font-size: 10.5px;
+  font-weight: 950;
+}
+
+.composerQuickChips {
+  width: 100%;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+.composerQuickChips::-webkit-scrollbar {
+  display: none;
+}
+
+.composerQuickChips button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent);
+  color: var(--studio-text);
+  font-size: 10.5px;
+  font-weight: 880;
+  white-space: nowrap;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.composerQuickChips button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--studio-primary) 32%, var(--studio-border));
+  background: color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-strong));
+}
+
+.creationDesk.composerOpen .composerThread .promptSuggestion {
+  width: min(860px, 100%);
+  margin: 0;
+  align-self: flex-start;
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--studio-primary) 28%, var(--studio-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 94%, transparent), color-mix(in srgb, var(--studio-surface-soft) 88%, transparent));
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.09),
+    inset 0 1px 0 color-mix(in srgb, #fff 36%, transparent);
+}
+
+.creationDesk.composerOpen .promptSuggestionHead {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.creationDesk.composerOpen .promptSuggestionHead div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.creationDesk.composerOpen .promptSuggestionHead button {
+  min-height: 30px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--studio-primary), var(--studio-accent));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--studio-primary) 22%, transparent);
+}
+
+.creationDesk.composerOpen .promptBlocks {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.creationDesk.composerOpen .promptBlocks div {
+  min-height: 58px;
+  padding: 8px;
+}
+
+.creationDesk.composerOpen .finalPromptBox textarea {
+  min-height: 78px;
+  max-height: 136px;
+  resize: vertical;
+}
+
+.composerGenerationCard {
+  width: min(760px, 100%);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  align-self: flex-start;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 66%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 86%, transparent);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
+}
+
+.composerGenerationCard.loading {
+  border-color: color-mix(in srgb, var(--studio-primary) 28%, var(--studio-border));
+}
+
+.composerGenerationCard.error,
+.composerGenerationCard.pendingReview {
+  border-color: color-mix(in srgb, #b7791f 38%, var(--studio-border));
+}
+
+.composerGenerationHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.composerGenerationHead strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.composerGenerationHead span,
+.composerGenerationHead em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 80%, transparent);
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 860;
+  white-space: nowrap;
+}
+
+.composerGenerationHead em {
+  margin-left: auto;
+  color: var(--studio-primary);
+}
+
+.composerGenerationCard .generationProgress,
+.composerGenerationCard .statusLine {
+  width: 100%;
+  margin: 0;
+}
+
+.composerGenerationCard .generationTimingPanel {
+  margin: 0;
+}
+
+.creationDesk.composerOpen .composerEmptyThread {
+  min-height: 76px;
+  padding: 14px;
+}
+
+.creationDesk.composerOpen .composerEmptyThread span {
+  max-width: 460px;
+  color: var(--studio-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.creationDesk.composerOpen .composerPromptRow {
+  grid-template-columns: minmax(0, 1fr) 142px !important;
+  min-height: 84px;
+}
+
+.creationDesk.composerOpen .bottomComposerInput textarea {
+  min-height: 74px;
+  max-height: 84px;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.creationDesk.composerOpen .composerActionGroup {
+  width: 142px;
+  grid-template-columns: 42px 92px !important;
+  align-content: stretch;
+}
+
+.creationDesk.composerOpen .composerAssistantAction {
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px;
+  align-self: end;
+}
+
+.creationDesk.composerOpen .composerGenerateAction {
+  width: 92px !important;
+  min-width: 92px !important;
+  height: 42px;
+  align-self: end;
+}
+
+@media (max-width: 980px) {
+  .creationDesk.composerOpen {
+    grid-template-rows: minmax(260px, 1fr) minmax(340px, 46vh);
+  }
+
+  .creationDesk.composerOpen .bottomComposerBar,
+  .creationDesk.composerOpen .bottomComposerBar.hasLineage,
+  .creationDesk.composerOpen .bottomComposerBar.hasThread,
+  .creationDesk.composerOpen .bottomComposerBar.hasThread.hasLineage {
+    grid-template-rows: 40px minmax(0, 1fr) 128px !important;
+  }
+
+  .composerContextBar {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    align-items: start;
+  }
+
+  .composerContextBar em,
+  .composerContextBar button {
+    justify-self: start;
+  }
+
+  .composerContextBar em {
+    white-space: normal;
+  }
+
+  .creationDesk.composerOpen .promptBlocks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .creationDesk.composerOpen .composerPromptRow {
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-height: 126px;
+  }
+
+  .creationDesk.composerOpen .composerActionGroup {
+    width: 100%;
+    grid-column: 1;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .creationDesk.composerOpen .composerAssistantAction,
+  .creationDesk.composerOpen .composerGenerateAction {
+    width: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .studioLayout,
+  .studioLayout.railCollapsed {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .templateRail,
+  .templateRail:not(.collapsed),
+  .templateRail.collapsed {
+    width: 58px;
+    min-width: 58px;
+  }
+
+  .templateRail .railBrandText,
+  .templateRail .railNav span,
+  .templateRail .railSectionTitle,
+  .templateRail .projectCard,
+  .templateRail .railAvatarMeta {
+    display: none !important;
+  }
+
+  .creationDesk,
+  .creationDesk.paramRailCollapsed {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+
+  .creationDesk .paramRail {
+    width: 42px;
+    padding: 4px;
+    border-radius: 999px;
+  }
+
+  .creationDesk .paramRail button {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+  }
+
+  .creationDesk .paramRail button span:not(.paramRailBadge) {
+    display: none;
+  }
+
+  .creationDesk.composerOpen .bottomComposerBar {
+    margin-left: 6px;
+    margin-right: 4px;
+    padding: 10px;
+  }
+
+  .creationDesk.composerOpen .composerThread {
+    padding: 10px !important;
+  }
+
+  .composerQuickChips button:nth-of-type(n + 5) {
+    display: none;
+  }
+
+  .composerGenerationHead {
+    flex-wrap: wrap;
+  }
+
+  .composerGenerationHead em {
+    margin-left: 0;
+  }
+}
