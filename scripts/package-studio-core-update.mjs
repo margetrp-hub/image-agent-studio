@@ -23,9 +23,11 @@ const serviceInclude = [
   'package.json',
   'package-lock.json',
   'scripts/image-sub2api-studio-history-service.mjs',
+  'deploy/sync-from-git.sh',
   'deploy/image-sub2api-studio-history.service',
   'deploy/nginx-sub2api-studio.conf',
-  'deploy/UPDATE-SERVER.zh-CN.md'
+  'deploy/UPDATE-SERVER.zh-CN.md',
+  'docs/VPS-GIT-SYNC.zh-CN.md'
 ];
 
 function pad(value) {

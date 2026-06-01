@@ -1,5 +1,7 @@
 # image-sub2api-studio
 
+## Project Story
+
 I built `image-sub2api-studio` because Sub2API already solves the backend layer: models, keys, quota, billing, and OpenAI-compatible routes. What I wanted was a lighter creation workstation on top of it.
 
 I did not want users to manually assemble image API payloads every time. I wanted prompt writing, reference images, model selection, quality settings, generation results, canvas iteration, and history gallery to live in one focused page.
@@ -9,6 +11,10 @@ I did not want users to manually assemble image API payloads every time. I wante
 This repository does not include the production home page or the full private image library. It only open-sources the Sub2API image studio.
 
 Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
+
+## Community
+
+If you are using Sub2API for image generation or want to discuss deployment, model routing, prompt workflows, and future improvements, you are welcome to join the QQ group: `260789529`.
 
 <p align="center">
   <a href="https://github.com/margetrp-hub/image-sub2api-studio"><img src="https://img.shields.io/badge/project-image--sub2api--studio-0f766e?style=flat-square" alt="project"></a>
@@ -145,11 +151,28 @@ More details:
 
 - [Deployment guide](docs/DEPLOY.zh-CN.md)
 - [Docker production guide](docs/DOCKER.zh-CN.md)
+- [VPS Git sync guide](docs/VPS-GIT-SYNC.zh-CN.md)
 - [Server update guide](deploy/UPDATE-SERVER.zh-CN.md)
 - [Security boundary](SECURITY.md)
 - [Release notes](RELEASE_NOTES.md)
 
-If the server already has an image library, normal front-end updates do not need the image library again:
+For a long-running VPS, prefer Git sync deployment so the server pulls the repository, builds locally, updates static files, restarts the service, and verifies the live state:
+
+```bash
+cd /opt/image-sub2api-studio-repo
+
+sudo BRANCH=main \
+  REPO_DIR=/opt/image-sub2api-studio-repo \
+  STATIC_DIR=/var/www/ohlaoo-studio \
+  SERVICE_DIR=/opt/image-sub2api-studio \
+  DATA_DIR=/var/lib/image-sub2api-studio \
+  BASE_PATH=/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  REQUIRE_LIBRARY=1 \
+  bash deploy/sync-from-git.sh
+```
+
+If the server already has an image library, zip-based front-end updates do not need the image library again. With Git sync deployment, you no longer need to upload zip packages manually.
 
 ```bash
 node scripts/package-studio-core-update.mjs

@@ -195,7 +195,7 @@ const THEME_KEY = 'image-sub2api-studio:theme:v1';
 const LEGACY_THEME_KEY = 'ohlaoo-studio:theme:v1';
 const TEMPLATE_FAVORITES_KEY = 'image-sub2api-studio:template-favorites:v1';
 const LEGACY_TEMPLATE_FAVORITES_KEY = 'ohlaoo-studio:template-favorites:v1';
-const WORKBENCH_LAYOUT_KEY = 'image-sub2api-studio:workbench-layout:v3';
+const WORKBENCH_LAYOUT_KEY = 'image-sub2api-studio:workbench-layout:v5';
 const CURRENT_SESSION_KEY = 'image-sub2api-studio:current-session:v1';
 const LOCAL_HISTORY_LIMIT = 30;
 const REFERENCE_ROLES = [
@@ -522,18 +522,20 @@ function loadWorkbenchLayout() {
     const stored = JSON.parse(localStorage.getItem(WORKBENCH_LAYOUT_KEY) || 'null');
     return {
       prompt: stored?.prompt === true,
-      references: stored?.references === true,
+      references: stored?.references !== false,
       parameters: stored?.parameters !== false,
-      parametersRail: stored?.parametersRail !== false,
-      bottomComposer: stored?.bottomComposer === true
+      parametersRail: stored?.parametersRail === true,
+      bottomComposer: stored?.bottomComposer !== false,
+      composerParameters: stored?.composerParameters !== false
     };
   } catch {
     return {
       prompt: false,
-      references: false,
+      references: true,
       parameters: true,
-      parametersRail: true,
-      bottomComposer: false
+      parametersRail: false,
+      bottomComposer: true,
+      composerParameters: true
     };
   }
 }
@@ -1152,6 +1154,15 @@ function displayResultUrl(url) {
   return assetPath(resolveResultUrl(url));
 }
 
+function safeImageCandidate(url) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  if (value.startsWith('/studio-api/history/') || value.startsWith('/studio-api/generation-jobs/')) return value;
+  if (/^(https?:|data:image\/|blob:)/i.test(value)) return value;
+  if (/\.(png|jpe?g|webp|gif|avif|svg)(?:[?#].*)?$/i.test(value)) return value;
+  return '';
+}
+
 function providerLabel(settings, apiKey) {
   if (settings.apiKeySource === 'manual') return settings.manualGatewayBaseUrl ? '自定义 API' : '自定义连接';
   return apiKey?.name || 'Sub2API';
@@ -1619,7 +1630,7 @@ function VideoInspirationCard({ item, selected, onSelect }) {
 
 function HistoryCard({ item, selected, onSelect, onDelete }) {
   const resultUrl = item.displayResultUrls?.[0] || item.resultUrls?.[0] || '';
-  const thumbnail = resultUrl || item.case?.image || '';
+  const thumbnail = safeImageCandidate(resultUrl || item.case?.image || '');
   const resultCount = (item.displayResultUrls?.length || item.resultUrls?.length || 0);
   const usage = item.usageSummary || item.costSummary || '';
   const isVideo = item.mode === 'video' || item.kind === 'video';
@@ -1636,7 +1647,13 @@ function HistoryCard({ item, selected, onSelect, onDelete }) {
     <div className={`historyTile ${selected ? 'selected' : ''}`}>
       <button className="historyOpen" type="button" onClick={() => onSelect(item)}>
         <div className={`historyThumb ${isVideo ? 'videoThumb' : ''}`}>
-          {thumbnail && !isVideo ? <img src={displayResultUrl(thumbnail)} alt={item.case?.title || 'History'} loading="lazy" /> : isVideo ? <Video size={22} /> : <History size={22} />}
+          {thumbnail && !isVideo ? (
+            <ProtectedHistoryThumb
+              src={thumbnail}
+              alt={item.case?.title || 'History'}
+              fallback={<span className="historyThumbFallback"><History size={22} /></span>}
+            />
+          ) : isVideo ? <Video size={22} /> : <History size={22} />}
           <small>{isVideo ? '视频' : `${Math.max(1, resultCount)} 张`}</small>
         </div>
         <div>
@@ -1648,7 +1665,7 @@ function HistoryCard({ item, selected, onSelect, onDelete }) {
       </button>
       <div className="historyActions">
         {resultUrl ? (
-          <a href={resolveResultUrl(resultUrl)} download={downloadName} onClick={(event) => event.stopPropagation()}>
+          <a href={displayResultUrl(resultUrl)} download={downloadName} onClick={(event) => event.stopPropagation()}>
             <Download size={14} /> 下载
           </a>
         ) : null}
@@ -1871,6 +1888,7 @@ function LeftRail({
   selectedHistoryId,
   onSelectHistory,
   onDeleteHistory,
+  onFocusCurrentProject,
   collapsed,
   onToggleCollapse,
   language,
@@ -1910,6 +1928,14 @@ function LeftRail({
         >
           <History size={18} />
           <span>{historyItems.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`railIconAction ${isInspirationWorkspace ? 'active' : ''}`}
+          onClick={() => { onWorkspaceChange('inspiration'); onToggleCollapse(); }}
+          aria-label={t('rail.inspiration', '灵感库')}
+        >
+          <Sparkles size={18} />
         </button>
         <div className="collapsedRailBottom">
           <button
@@ -1955,6 +1981,10 @@ function LeftRail({
           <History size={16} />
           {t('workspace.history', '历史图库')}
         </button>
+        <button type="button" className={isInspirationWorkspace ? 'active' : ''} onClick={() => onWorkspaceChange('inspiration')}>
+          <Sparkles size={16} />
+          {t('workspace.inspiration', '灵感库')}
+        </button>
       </nav>
       <div className="sideChatBlock">
         <div className="sideProjectHead">
@@ -1968,7 +1998,7 @@ function LeftRail({
               const urls = historyResultUrls(item);
               const title = item.title || (isVideo ? t('rail.videoGeneration', '视频生成') : item.case?.title || compact(item.prompt, 24) || t('rail.unnamedSession', '未命名会话'));
               const count = urls.length;
-              const thumb = urls[0] || item.case?.image || item.case?.thumbnail || '';
+              const thumb = safeImageCandidate(urls[0] || item.case?.image || item.case?.thumbnail || '');
               const orderLabel = item.current ? t('rail.current', '当前') : `#${index}`;
               const meta = [
                 formatHistoryTime(item.createdAt),
@@ -1982,12 +2012,26 @@ function LeftRail({
               const summary = compact(item.prompt || item.generationPrompt || item.case?.promptPreview || '', 34);
               return (
                 <div className={`sideProjectItem ${item.current || selectedHistoryId === item.id ? 'active' : ''}`} key={item.id}>
-                  <button type="button" className="sideProjectOpen" onClick={() => item.current ? onWorkspaceChange('image') : onSelectHistory(item)}>
+                  <button
+                    type="button"
+                    className="sideProjectOpen"
+                    onClick={() => {
+                      if (item.current) {
+                        onWorkspaceChange('image');
+                        onFocusCurrentProject?.();
+                        return;
+                      }
+                      onSelectHistory(item);
+                    }}
+                  >
                     <span className="sideProjectThumb">
                       {thumb ? (
-                        <img src={displayResultUrl(thumb)} alt="" loading="lazy" />
+                        <ProtectedHistoryThumb
+                          src={thumb}
+                          fallback={<span className="sideProjectFallback">{isVideo ? <Video size={16} /> : <Images size={16} />}</span>}
+                        />
                       ) : (
-                        <span className="sideChatIcon">{isVideo ? <Video size={14} /> : <Images size={14} />}</span>
+                        <span className="sideProjectFallback">{isVideo ? <Video size={16} /> : <Images size={16} />}</span>
                       )}
                       <span className="sideProjectIndex">{orderLabel}</span>
                     </span>
@@ -2062,11 +2106,16 @@ function progressText(progress, fallbackMessage) {
   if (progress.stage === 'request') return '已提交';
   if (progress.stage === 'connected') return '已连接';
   if (progress.stage === 'queued') return '排队中';
+  if (progress.stage === 'dispatching') return '提交上游';
+  if (progress.stage === 'upstream') return '生成中';
   if (progress.stage === 'video') return '视频生成中';
   if (progress.stage === 'partial') return `预览 ${progress.partials || 1}`;
   if (progress.stage === 'pending_review') return '待确认';
   if (progress.stage === 'image') return `${progress.completed || 1}/${progress.total || 1}`;
+  if (progress.stage === 'saving') return '保存中';
   if (progress.stage === 'completed') return '完成';
+  if (progress.stage === 'succeeded') return '完成';
+  if (progress.stage === 'canceled') return '已取消';
   if (progress.stage === 'failed') return '已停止';
   return fallbackMessage || '';
 }
@@ -2074,6 +2123,31 @@ function progressText(progress, fallbackMessage) {
 function ProgressBar({ progress, active }) {
   if (!active && progress.stage !== 'completed' && progress.stage !== 'failed' && progress.stage !== 'pending_review') return null;
   const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
+  const steps = [
+    { key: 'request', label: '提交' },
+    { key: 'queued', label: '排队' },
+    { key: 'image', label: '生成' },
+    { key: 'saving', label: '保存' },
+    { key: 'completed', label: '完成' }
+  ];
+  const stageOrder = {
+    idle: -1,
+    request: 0,
+    connected: 0,
+    queued: 1,
+    dispatching: 1,
+    upstream: 2,
+    video: 2,
+    partial: 2,
+    image: 2,
+    saving: 3,
+    completed: 4,
+    succeeded: 4,
+    canceled: 2,
+    failed: 2,
+    pending_review: 3
+  };
+  const activeIndex = stageOrder[progress.stage] ?? 0;
   return (
     <div className={`generationProgress ${progress.stage === 'failed' ? 'failed' : ''} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`} aria-label="生成进度">
       <div>
@@ -2082,6 +2156,11 @@ function ProgressBar({ progress, active }) {
       </div>
       <div className="progressTrack">
         <i style={{ width: `${percent}%` }} />
+      </div>
+      <div className="progressSteps" aria-hidden="true">
+        {steps.map((step, index) => (
+          <span className={index <= activeIndex ? 'active' : ''} key={step.key}>{step.label}</span>
+        ))}
       </div>
     </div>
   );
@@ -2424,7 +2503,9 @@ function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy, onUse }) {
   const finalPrompt = suggestion.finalPrompt || suggestion.raw || '';
 
   return (
-    <div className="promptSuggestion">
+    <div className="promptSuggestion composerMessage assistant">
+      <span>AI</span>
+      <div className="promptSuggestionBody">
       <div className="promptSuggestionHead">
         <div>
           <strong>本轮提示词建议</strong>
@@ -2449,14 +2530,60 @@ function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy, onUse }) {
       ) : null}
       <label className="finalPromptBox">
         <span>可执行提示词</span>
-        <textarea value={finalPrompt} readOnly />
+        <p>{finalPrompt}</p>
       </label>
       <div className="promptSuggestionActions">
         <button type="button" onClick={onMerge}>追加到输入</button>
         <button type="button" onClick={onReplace}>替换输入</button>
         <button type="button" onClick={onCopy}>复制</button>
       </div>
+      </div>
     </div>
+  );
+}
+
+function ProtectedHistoryThumb({ src, alt = '', fallback = null }) {
+  const [resolvedSrc, setResolvedSrc] = useState(() => displayResultUrl(src));
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let objectUrl = '';
+    const value = String(src || '');
+    setFailed(false);
+    setResolvedSrc(displayResultUrl(value));
+    if (!value.startsWith('/studio-api/history/') && !value.startsWith('/studio-api/generation-jobs/')) return () => {
+      active = false;
+    };
+    const session = loadSession();
+    if (!session?.accessToken) return () => {
+      active = false;
+    };
+    const historyClient = new StudioHistoryClient({ session });
+    historyClient.resolveAssetUrl(value)
+      .then((url) => {
+        if (active && url) {
+          if (url.startsWith('blob:')) objectUrl = url;
+          setResolvedSrc(url);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
+  if (!src || failed) return fallback;
+  return (
+    <img
+      src={resolvedSrc}
+      alt={alt}
+      loading="lazy"
+      onError={(event) => {
+        event.currentTarget.hidden = true;
+        setFailed(true);
+      }}
+    />
   );
 }
 
@@ -2839,6 +2966,7 @@ function CreationDesk({
   appendTemplateRequest,
   onAppendTemplateConsumed,
   onOpenWorkspace,
+  focusSignal = 0,
   t
 }) {
   const draftRef = useRef(loadDraft());
@@ -2847,6 +2975,7 @@ function CreationDesk({
   const resolvingCaseRef = useRef({ id: 0 });
   const appliedCasePromptRef = useRef({ key: '', prompt: '' });
   const maskEditorRef = useRef(null);
+  const composerThreadRef = useRef(null);
   const [mode, setMode] = useState(activeWorkspace === 'video' ? 'video' : 'image');
   const [prompt, setPrompt] = useState(() => draftRef.current?.prompt || selectedCase?.prompt || '');
   const [model, setModel] = useState(() => draftRef.current?.model || IMAGE_MODELS[0]);
@@ -3333,6 +3462,24 @@ function CreationDesk({
     negativePrompt
   ]);
 
+  useEffect(() => {
+    const thread = composerThreadRef.current;
+    if (!layoutSections.bottomComposer || !thread) return;
+    thread.scrollTo({
+      top: thread.scrollHeight,
+      behavior: 'smooth'
+    });
+  }, [
+    assistantMessages,
+    promptSuggestion?.finalPrompt,
+    promptSuggestion?.raw,
+    status,
+    progress.stage,
+    generationQueue.length,
+    layoutSections.bottomComposer,
+    message
+  ]);
+
   function toggleLayoutSection(key) {
     updateLayoutSections({ [key]: !layoutSections[key] });
   }
@@ -3340,8 +3487,8 @@ function CreationDesk({
   function openParamPanel(panel) {
     setActiveParamPanel(panel);
     setLayoutSections((current) => {
-      if (current.parameters && current.parametersRail !== false) return current;
-      const next = { ...current, parameters: true, parametersRail: true };
+      if (current.parameters && current.parametersRail === false) return current;
+      const next = { ...current, parameters: true, parametersRail: false };
       saveWorkbenchLayout(next);
       return next;
     });
@@ -3428,6 +3575,26 @@ function CreationDesk({
 
   function nodeHeight(node) {
     return clamp(Number(node?.height) || CANVAS_NODE_HEIGHT, CANVAS_NODE_MIN_HEIGHT, CANVAS_NODE_MAX_HEIGHT);
+  }
+
+  function canvasViewForNodes(nodes = [], preferredId = '') {
+    const visibleNodes = Array.isArray(nodes) ? nodes.filter(Boolean) : [];
+    if (!visibleNodes.length) return { x: 0, y: 0, zoom: 1 };
+    const preferred = preferredId ? visibleNodes.find((node) => node.id === preferredId) : null;
+    const focusNodes = preferred ? [preferred] : visibleNodes;
+    const left = Math.min(...focusNodes.map((node) => node.x));
+    const top = Math.min(...focusNodes.map((node) => node.y));
+    const right = Math.max(...focusNodes.map((node) => node.x + nodeWidth(node)));
+    const bottom = Math.max(...focusNodes.map((node) => node.y + nodeHeight(node)));
+    return {
+      x: -((left + right) / 2),
+      y: -((top + bottom) / 2),
+      zoom: 1
+    };
+  }
+
+  function focusCanvasOnNodes(nodes = canvasNodes, preferredId = selectedCanvasNodeId) {
+    setCanvasView(canvasViewForNodes(nodes, preferredId));
   }
 
   function startCanvasNodeResize(event, node) {
@@ -4124,13 +4291,18 @@ function CreationDesk({
       const nextNodes = nextUrls.map((url, index) => buildCanvasNodeFromHistoryItem(selectedHistory, url, index));
       setCanvasNodes(nextNodes);
       setSelectedCanvasNodeId(nextNodes[0]?.id || '');
-      setCanvasView({ x: 0, y: 0, zoom: 1 });
+      setCanvasView(canvasViewForNodes(nextNodes, nextNodes[0]?.id || ''));
     }
     setStatus('idle');
     setPromptSuggestion(null);
     setProgress({ stage: 'idle', percent: 0, completed: 0, total: normalizeCount(selectedHistory.count) });
     setMessage('');
   }, [selectedHistory?.id]);
+
+  useEffect(() => {
+    if (!focusSignal || !canvasNodes.length) return;
+    focusCanvasOnNodes(canvasNodes, selectedCanvasNodeId);
+  }, [focusSignal]);
 
   useEffect(() => {
     if (!imageModelOptions.some((item) => item.id === model)) {
@@ -5095,12 +5267,12 @@ function CreationDesk({
     : mode === 'video'
       ? t('composer.contextVideo', '视频参数在右侧设置')
       : t('composer.title', '把想法说出来，先整理，再生成');
-  const composerGenerationVisible = status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review' || Boolean(message);
+  const composerGenerationVisible = status === 'loading' || progress.stage === 'failed' || progress.stage === 'pending_review' || (status === 'error' && Boolean(message));
   const composerQuickRecipes = CREATIVE_RECIPES.slice(0, 5);
   const composerQuickPresets = visiblePromptPresets.slice(0, 4);
 
   return (
-    <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${layoutSections.parametersRail === false ? 'paramRailCollapsed' : ''}`}>
+    <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} ${layoutSections.parametersRail === false ? 'paramRailCollapsed' : ''}`}>
       <div
         className={`workPreview infiniteCanvas ${hasPrimaryResult ? 'hasResult' : ''}`}
         onPointerDown={startCanvasPan}
@@ -5359,6 +5531,175 @@ function CreationDesk({
           )}
         </div>
       </div>
+      <aside className={`referenceSidePanel ${layoutSections.references ? 'isOpen' : 'isCollapsed'}`} aria-label={t('references.title', '参考图（可选）')}>
+        {layoutSections.references ? (
+          <>
+            <div className="referenceSideHead">
+              <div>
+                <strong>{mode === 'mask' ? t('references.maskTitle', '参考图与蒙版') : t('references.title', '参考图（可选）')}</strong>
+                <span>{mode === 'mask' ? 'Mask / edits' : referenceFiles.length || videoReferenceFiles.length ? t('references.selected', '已选择 {count} 张', { count: mode === 'video' ? videoReferenceFiles.length : referenceFiles.length }) : t('references.sideHint', '拖拽、粘贴或上传')}</span>
+              </div>
+              <button type="button" onClick={() => toggleLayoutSection('references')} aria-label={t('references.collapse', '收起参考图')}>
+                <PanelLeftClose size={15} />
+              </button>
+            </div>
+            {mode === 'mask' ? (
+              <div className="referenceSideBody maskReferenceSideBody">
+                <MaskEditor
+                  ref={maskEditorRef}
+                  imageFile={maskSourceFile}
+                  imagePreview={maskSourcePreview}
+                  onUpload={(files) => {
+                    const nextFile = supportedReferenceFiles(files, 1)[0];
+                    if (!nextFile) {
+                      setStatus('error');
+                      setMessage('只支持 PNG / JPG / WebP 参考图。');
+                      return;
+                    }
+                    setReferenceItems([createReferenceItem(nextFile, 'identity')]);
+                    if (maskExportUrl) {
+                      URL.revokeObjectURL(maskExportUrl);
+                      setMaskExportUrl('');
+                    }
+                    setStatus('idle');
+                    setMessage('');
+                  }}
+                  onClearImage={clearReferenceImages}
+                  onExportReady={handleMaskExportReady}
+                  onError={(nextMessage) => {
+                    setStatus('error');
+                    setMessage(nextMessage);
+                  }}
+                  onGenerate={selectedCanvasNode ? generateMaskFromPanel : null}
+                  generating={status === 'loading'}
+                />
+                {maskExportUrl ? (
+                  <div className="maskExportPreview">
+                    <img src={maskExportUrl} alt="已导出的 mask" />
+                    <span>{t('references.exportedMask', '已导出 mask.png')}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : mode === 'video' ? (
+              <div className="referenceSideBody">
+                <label
+                  className={`uploadDrop sideUploadDrop ${videoDropActive ? 'isDragging' : ''}`}
+                  tabIndex={0}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setVideoDropActive(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setVideoDropActive(true);
+                  }}
+                  onDragLeave={() => setVideoDropActive(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setVideoDropActive(false);
+                    appendVideoReferenceImage(event.dataTransfer?.files);
+                  }}
+                  onPaste={videoReferencePasteFiles}
+                >
+                  <Upload size={18} />
+                  <span>{videoReferenceFiles.length ? t('references.selectedVideo', '已选择视频参考图') : t('references.optionalUpload', '拖拽 / 粘贴 / 上传参考图，可选')}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => {
+                      appendVideoReferenceImage(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                </label>
+                {videoReferencePreviews.length ? (
+                  <div className="referenceThumbs sideReferenceThumbs videoReferenceThumbs">
+                    {videoReferencePreviews.map((url, index) => (
+                      <figure key={url}>
+                        <img src={url} alt={videoReferenceFiles[index]?.name || t('references.videoReference', '视频参考图')} />
+                        <button type="button" onClick={removeVideoReferenceImage} aria-label={t('references.remove', '移除参考图')}>
+                          <X size={13} />
+                        </button>
+                      </figure>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="referenceSideBody">
+                <label
+                  className={`uploadDrop sideUploadDrop ${referenceDropActive ? 'isDragging' : ''}`}
+                  tabIndex={0}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setReferenceDropActive(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setReferenceDropActive(true);
+                  }}
+                  onDragLeave={() => setReferenceDropActive(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setReferenceDropActive(false);
+                    appendReferenceImages(event.dataTransfer?.files);
+                  }}
+                  onPaste={referencePasteFiles}
+                >
+                  <Upload size={18} />
+                  <span>{referenceFiles.length ? t('references.selected', '已选择 {count} 张', { count: referenceFiles.length }) : t('references.upload', '拖拽 / 粘贴 / 上传参考图')}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={(event) => {
+                      appendReferenceImages(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                </label>
+                {referencePreviews.length ? (
+                  <div className="referenceThumbs sideReferenceThumbs">
+                    {referencePreviews.map((url, index) => (
+                      <figure key={url}>
+                        <img src={url} alt={referenceItems[index]?.file?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })} />
+                        <figcaption>
+                          <select
+                            value={referenceItems[index]?.role || 'identity'}
+                            onChange={(event) => updateReferenceRole(index, event.target.value)}
+                            aria-label={t('references.role', '参考图 {index} 角色', { index: index + 1 })}
+                          >
+                            {REFERENCE_ROLES.map((role) => (
+                              <option key={role.value} value={role.value}>{role.label}</option>
+                            ))}
+                          </select>
+                          <span>{index === 0 ? t('references.mainReference', '主参考') : t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</span>
+                        </figcaption>
+                        <div className="referenceThumbActions">
+                          <button type="button" onClick={() => moveReferenceImage(index, -1)} disabled={index === 0} aria-label={t('references.moveBefore', '前移参考图')}>
+                            <ArrowUp size={13} />
+                          </button>
+                          <button type="button" onClick={() => moveReferenceImage(index, 1)} disabled={index === referencePreviews.length - 1} aria-label={t('references.moveAfter', '后移参考图')}>
+                            <ArrowDown size={13} />
+                          </button>
+                          <button type="button" onClick={() => removeReferenceImage(index)} aria-label={t('references.remove', '移除参考图')}>
+                            <X size={13} />
+                          </button>
+                        </div>
+                      </figure>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </>
+        ) : (
+          <button type="button" className="referenceSideCollapsed" onClick={() => toggleLayoutSection('references')}>
+            <Upload size={17} />
+            <span>{t('references.title', '参考图')}</span>
+          </button>
+        )}
+      </aside>
       <div className="deskPanel">
         {activeWorkspace === 'image' ? (
           <div className="modeTabs imageModeTabs">
@@ -5403,7 +5744,7 @@ function CreationDesk({
             onApply={applyCreativeRecipe}
           />
         ) : null}
-        {mode !== 'video' && mode !== 'mask' && layoutSections.references ? (
+        {false && mode !== 'video' && mode !== 'mask' && layoutSections.references ? (
           <div className="referenceBox">
             <div className="miniPanelHead">
               <strong>{t('references.title', '参考图（可选）')}</strong>
@@ -5481,7 +5822,7 @@ function CreationDesk({
             <span>{referenceFiles.length ? t('references.collapsedSelected', '参考图已收起，共 {count} 张', { count: referenceFiles.length }) : t('references.collapsedEmpty', '参考图已收起，点击展开拖拽、粘贴或上传。')}</span>
           </button>
         ) : null}
-        {mode === 'mask' && layoutSections.references ? (
+        {false && mode === 'mask' && layoutSections.references ? (
           <div className="referenceBox maskReferenceBox">
             <div className="miniPanelHead">
               <strong>{t('references.maskTitle', '参考图与蒙版')}</strong>
@@ -5530,7 +5871,7 @@ function CreationDesk({
             <span>{t('references.maskCollapsed', '参考图与蒙版已收起，点击展开继续编辑。')}</span>
           </button>
         ) : null}
-        {mode === 'video' && layoutSections.references ? (
+        {false && mode === 'video' && layoutSections.references ? (
           <div className="referenceBox">
             <div className="miniPanelHead">
               <strong>{t('references.title', '参考图（可选）')}</strong>
@@ -5818,7 +6159,7 @@ function CreationDesk({
           <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} />
         )}
       </section>
-      <div className={`bottomComposerBar ${selectedCanvasNode ? 'hasLineage' : ''} ${layoutSections.bottomComposer && assistantMessages.length ? 'hasThread' : ''}`}>
+      <div className={`bottomComposerBar ${selectedCanvasNode ? 'hasLineage' : ''} ${layoutSections.bottomComposer && assistantMessages.length ? 'hasThread' : ''} ${layoutSections.composerParameters === false ? 'paramsCollapsed' : 'paramsExpanded'}`}>
         <div className="composerPanelHead">
           <button
             type="button"
@@ -5833,48 +6174,9 @@ function CreationDesk({
             <strong>{t('composer.conversation', '创作会话')}</strong>
             <span>{selectedCanvasNode ? t('composer.selected', '基于画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' }) : t('composer.defaultTitle', '提示词优化与生成')}</span>
           </div>
-          {layoutSections.bottomComposer && selectedCanvasNode ? (
-            <button type="button" className="composerNewRootAction" onClick={() => setSelectedCanvasNodeId('')} aria-label={t('composer.newWork', '新作品')} title={t('composer.newWork', '新作品')}>
-              {t('composer.newWork', '新作品')}
-            </button>
-          ) : null}
           {layoutSections.bottomComposer ? (
-            <div className={`composerInspirationDock ${composerInspirationOpen ? 'isOpen' : ''}`}>
-              <button
-                type="button"
-                className="composerInspirationToggle"
-                onClick={() => setComposerInspirationOpen((value) => !value)}
-                aria-expanded={composerInspirationOpen}
-              >
-                <WandSparkles size={14} />
-                {t('composer.inspiration', '灵感')}
-              </button>
-              {composerInspirationOpen ? (
-                <div className="composerInspirationPanel">
-                  <div className="composerInspirationHead">
-                    <strong>{t('composer.inspirationTitle', '灵感推荐')}</strong>
-                    <button type="button" onClick={() => onOpenWorkspace?.('inspiration')}>{t('composer.viewMore', '查看更多')}</button>
-                  </div>
-                  <div className="composerRecipeList">
-                    {CREATIVE_RECIPES.slice(0, 4).map((recipe) => (
-                      <button type="button" key={recipe.id} onClick={() => applyCreativeRecipe(recipe)}>
-                        <strong>{recipe.title}</strong>
-                        <span>{recipe.tone}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        {layoutSections.bottomComposer ? (
-          <div className="composerThread" aria-label={t('composer.aiThread', 'AI 对话记录')}>
-            <div className={`composerContextBar ${composerUsesEditRoute ? 'editRoute' : 'responseRoute'}`}>
-              <div>
-                <strong>{composerContextTitle}</strong>
-                <span>{composerContextMeta}</span>
-              </div>
+            <div className="composerSessionContext">
+              <span>{composerContextTitle}</span>
               <em>{composerRouteLabel}</em>
               {selectedCanvasNode ? (
                 <button type="button" onClick={() => setSelectedCanvasNodeId('')}>
@@ -5882,21 +6184,10 @@ function CreationDesk({
                 </button>
               ) : null}
             </div>
-            <div className="composerQuickChips" aria-label={t('composer.quickInspiration', '快速灵感')}>
-              {composerQuickRecipes.map((recipe) => (
-                <button type="button" key={recipe.id} onClick={() => applyCreativeRecipe(recipe)}>
-                  {recipe.title}
-                </button>
-              ))}
-              {composerQuickPresets.map((item) => (
-                <button type="button" key={item.id || item.title} onClick={() => applyPromptPreset(item)} disabled={caseResolving}>
-                  {item.title}
-                </button>
-              ))}
-          <button type="button" onClick={() => setComposerInspirationOpen((value) => !value)}>
-                {composerInspirationOpen ? t('composer.lessInspiration', '收起灵感') : t('composer.moreInspiration', '更多灵感')}
-              </button>
-            </div>
+          ) : null}
+        </div>
+        {layoutSections.bottomComposer ? (
+          <div className="composerThread" ref={composerThreadRef} aria-label={t('composer.aiThread', 'AI 对话记录')}>
             {generationQueue.length ? (
               <div className="composerQueuePanel" aria-label={t('composer.queue', '生成队列')}>
                 <div className="composerQueueHead">
@@ -5914,13 +6205,6 @@ function CreationDesk({
                 </div>
               </div>
             ) : null}
-            <PromptSuggestion
-              suggestion={promptSuggestion}
-              onMerge={mergeSuggestion}
-              onReplace={replaceSuggestion}
-              onCopy={copySuggestion}
-              onUse={useSuggestionForGenerate}
-            />
             {composerGenerationVisible ? (
               <div className={`composerGenerationCard ${status} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`}>
                 <div className="composerGenerationHead">
@@ -5952,6 +6236,13 @@ function CreationDesk({
                 <span>{t('composer.example', '例如：基于 #1 保留人物，换成清晨城市背景，画面更安静。')}</span>
               </div>
             )}
+            <PromptSuggestion
+              suggestion={promptSuggestion}
+              onMerge={mergeSuggestion}
+              onReplace={replaceSuggestion}
+              onCopy={copySuggestion}
+              onUse={useSuggestionForGenerate}
+            />
           </div>
         ) : null}
         <div className="composerPromptRow">
@@ -5994,14 +6285,144 @@ function CreationDesk({
             </button>
           </div>
         </div>
+        {layoutSections.bottomComposer ? (
+          <div className={`composerParamShelf ${layoutSections.composerParameters === false ? 'isCollapsed' : 'isExpanded'}`} aria-label={t('params.current', '当前参数')}>
+            {layoutSections.composerParameters === false ? (
+              <button
+                type="button"
+                className="composerParamSummary"
+                onClick={() => toggleLayoutSection('composerParameters')}
+                aria-label={t('params.expand', '展开参数')}
+                aria-expanded="false"
+                title={t('params.expand', '展开参数')}
+              >
+                <SlidersHorizontal size={14} />
+                <span>{mode === 'video' ? t('workspace.video', '视频创作') : DESK_MODES.find((item) => item.value === mode)?.label || t('workspace.image', '图片创作')}</span>
+                <em>{mode === 'video' ? videoModel : model}</em>
+                <strong>{mode === 'video' ? `${videoAspect} · ${videoDuration}s` : `${aspect} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${QUALITY_LABELS[quality] || quality} · ${countValue}张`}</strong>
+                <ArrowUp size={13} />
+              </button>
+            ) : (
+              <>
+              <button
+                type="button"
+                className="composerParamFoldButton"
+                onClick={() => toggleLayoutSection('composerParameters')}
+                aria-label={t('params.collapse', '收起参数')}
+                aria-expanded="true"
+                title={t('params.collapse', '收起参数')}
+              >
+                <ArrowDown size={13} />
+              </button>
+              <div className="composerParamLane primary">
+              {activeWorkspace === 'image' ? (
+                <div className="composerModeSegment" role="group" aria-label={t('workspace.image', '图片创作')}>
+                  {DESK_MODES.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button type="button" className={mode === item.value ? 'active' : ''} key={item.value} onClick={() => setMode(item.value)}>
+                        <Icon size={14} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="composerModeSegment singleMode">
+                  <Video size={14} />
+                  <span>{t('workspace.video', '视频创作')}</span>
+                </div>
+              )}
+              {mode === 'video' ? (
+                <label className="composerParamField wide">
+                  <span>{t('params.videoModel', '视频模型')}</span>
+                  <select value={hasVideoModels ? videoModel : ''} onChange={(event) => setVideoModel(event.target.value)} disabled={!hasVideoModels}>
+                    {hasVideoModels ? videoModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>) : (
+                      <option value="">{t('params.currentKeyNoVideo', '当前 Key 未开放视频模型')}</option>
+                    )}
+                  </select>
+                </label>
+              ) : (
+                <label className="composerParamField wide">
+                  <span>{t('params.imageModel', '图片模型')}</span>
+                  <select value={model} onChange={(event) => setModel(event.target.value)}>
+                    {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
+                  </select>
+                </label>
+              )}
+              {mode === 'video' ? (
+                <div className="composerMiniSegment">
+                  {VIDEO_ASPECT_OPTIONS.map((item) => (
+                    <button type="button" className={videoAspect === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoAspect(item.value)}>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="composerMiniSegment">
+                  {ASPECT_OPTIONS.map((item) => (
+                    <button
+                      type="button"
+                      className={aspect === item.value ? 'active' : ''}
+                      key={item.value}
+                      onClick={() => {
+                        setAspect(item.value);
+                        if (item.value !== 'custom') setCustomSize(item.size);
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="composerParamLane secondary">
+              {mode === 'video' ? (
+                <div className="composerMiniSegment">
+                  {VIDEO_DURATIONS.map((item) => (
+                    <button type="button" className={videoDuration === item ? 'active' : ''} key={item} onClick={() => setVideoDuration(item)}>
+                      {item}s
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                <div className="composerMiniSegment">
+                  {QUALITY.filter((item) => item !== 'auto').map((item) => (
+                    <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
+                      {QUALITY_LABELS[item] || item}
+                    </button>
+                  ))}
+                </div>
+                <div className="composerMiniSegment">
+                  {RESOLUTION_TIERS.map((item) => (
+                    <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                <label className="composerCountField">
+                  <span>{t('params.count', '数量')}</span>
+                  <input type="range" min="1" max="10" value={countValue} onChange={(event) => setCount(normalizeCount(event.target.value))} />
+                  <strong>{countValue}</strong>
+                </label>
+                </>
+              )}
+            </div>
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
       <aside className="paramRail" aria-label={t('params.aria', '参数')}>
         <button
           type="button"
           className="paramRailHead"
           onClick={() => {
-            setActiveParamPanel('');
-            updateLayoutSections({ parametersRail: layoutSections.parametersRail === false });
+            const nextExpanded = layoutSections.parametersRail === false;
+            if (nextExpanded && !activeParamPanel) setActiveParamPanel('model');
+            if (!nextExpanded) setActiveParamPanel('');
+            updateLayoutSections({ parametersRail: nextExpanded, parameters: true });
           }}
           aria-label={layoutSections.parametersRail === false ? t('params.expand', '展开参数栏') : t('params.collapse', '收起参数栏')}
           title={layoutSections.parametersRail === false ? t('params.expand', '展开参数栏') : t('params.collapse', '收起参数栏')}
@@ -6204,6 +6625,8 @@ function SettingsPanel({
   onSelectKey,
   providerSettings,
   onProviderChange,
+  modelOptions = { image: [], responses: [], video: [] },
+  modelsStatus = 'idle',
   isAuthenticated,
   onLogin,
   t
@@ -6211,6 +6634,18 @@ function SettingsPanel({
   if (!open) return null;
 
   const sub2ApiDisabled = providerSettings.apiKeySource === 'manual';
+  const modelSyncLabel = modelsStatus === 'loading'
+    ? t('settings.modelsSyncing', '正在从上游同步模型')
+    : modelsStatus === 'ready'
+      ? t('settings.modelsSynced', '上游模型已同步')
+      : modelsStatus === 'fallback'
+        ? t('settings.modelsFallback', '未读取到上游模型，暂用默认列表')
+        : t('settings.modelsIdle', '填写接口和密钥后自动同步模型');
+  const modelSyncMeta = t('settings.modelsSyncMeta', '图片 {image} · 对话 {responses} · 视频 {video}', {
+    image: modelOptions.image?.length || 0,
+    responses: modelOptions.responses?.length || 0,
+    video: modelOptions.video?.length || 0
+  });
 
   return (
     <div className="settingsOverlay" onMouseDown={(event) => {
@@ -6284,6 +6719,11 @@ function SettingsPanel({
 
         <div className="manualFields">
           <p className="settingsHint">{t('settings.hint', '接口会自动选择：普通生图走 /v1/images/generations；参考图编辑和 Mask 走 /v1/images/edits。助手模型只用于底部提示词优化，会消耗当前 Key 额度。')}</p>
+          <div className={`settingsModelSync ${modelsStatus}`}>
+            <span>{modelSyncLabel}</span>
+            <em>{modelSyncMeta}</em>
+            <small>{t('settings.modelsProviderHint', '兼容 OpenAI / NewAPI 风格的上游；后续可继续扩展为多 Provider 调用策略。')}</small>
+          </div>
           <label>
             <span>{t('settings.assistantModel', '助手模型')}</span>
             <input
@@ -6349,6 +6789,7 @@ function StudioApp() {
   const [remoteSessionReady, setRemoteSessionReady] = useState(() => !loadSession()?.accessToken);
   const [currentSessionSnapshot, setCurrentSessionSnapshot] = useState(() => loadCurrentSession());
   const [deskSessionId, setDeskSessionId] = useState(() => loadCurrentSession()?.sessionId || `desk-${Date.now()}`);
+  const [canvasFocusSignal, setCanvasFocusSignal] = useState(0);
   const sessionSaveRef = useRef({ timer: null, lastPayload: '' });
   const isLibraryLocked = LIBRARY_AUTH_REQUIRED && !session?.accessToken;
   const t = useMemo(() => createTranslator(language), [language]);
@@ -6921,6 +7362,7 @@ function handleSelectHistory(item) {
           selectedHistoryId={selectedHistory?.id}
           onSelectHistory={handleSelectHistory}
           onDeleteHistory={handleDeleteHistory}
+          onFocusCurrentProject={() => setCanvasFocusSignal((value) => value + 1)}
           collapsed={railCollapsed}
           onToggleCollapse={() => setRailCollapsed((value) => !value)}
         />
@@ -6952,6 +7394,7 @@ function handleSelectHistory(item) {
               setAppendTemplateRequest((current) => current?.id === requestId ? null : current);
             }}
             onOpenWorkspace={handleWorkspaceChange}
+            focusSignal={canvasFocusSignal}
             t={t}
           />
         ) : activeWorkspace === 'inspiration' ? (
@@ -7020,6 +7463,8 @@ function handleSelectHistory(item) {
         onSelectKey={handleSelectKey}
         providerSettings={providerSettings}
         onProviderChange={handleProviderChange}
+        modelOptions={modelOptions}
+        modelsStatus={modelsStatus}
         isAuthenticated={Boolean(session?.accessToken)}
         onLogin={handleRequireLogin}
         t={t}

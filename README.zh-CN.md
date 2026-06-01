@@ -1,5 +1,7 @@
 # image-sub2api-studio
 
+## 项目介绍
+
 我做 `image-sub2api-studio`，是因为 Sub2API 已经把模型、Key、额度和 OpenAI 兼容接口接好了，但真正面向创作者的生图工作台还缺一层。
 
 我不想让用户每次都去拼接口参数，也不想把提示词模板、参考图、历史图库和生成结果散在一堆页面里。所以这个项目把这些东西收进一个轻量的 Web 工作台：登录 Sub2API、选择自己的 Key、写提示词、拖拽或粘贴参考图、调整尺寸和画质、生成图片，再沿着上一张图一步步继续迭代。
@@ -9,6 +11,10 @@
 这个仓库不包含线上首页，也不包含完整私有图库；它只开源这个基于 Sub2API 的生图工作站。
 
 演示入口：[studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
+
+## 交流
+
+如果你也在用 Sub2API 做图片生成，或者想一起讨论部署、模型调用、提示词工作流和后续改进，欢迎进 QQ 交流群：`260789529`。
 
 <p align="center">
   <a href="https://github.com/margetrp-hub/image-sub2api-studio"><img src="https://img.shields.io/badge/project-image--sub2api--studio-0f766e?style=flat-square" alt="project"></a>
@@ -145,11 +151,28 @@ VITE_DEV_SUB2API_PROXY_TARGET=https://sub2api.example.com
 
 - [部署指南](docs/DEPLOY.zh-CN.md)
 - [Docker 生产部署](docs/DOCKER.zh-CN.md)
+- [VPS 直接同步 Git 仓库部署](docs/VPS-GIT-SYNC.zh-CN.md)
 - [服务器更新说明](deploy/UPDATE-SERVER.zh-CN.md)
 - [安全边界说明](SECURITY.md)
 - [Release Notes](RELEASE_NOTES.md)
 
-服务器上如果已经有图片库，后续更新通常只需要上传核心包，不需要重复上传图库。
+如果是自己的长期 VPS，推荐使用 Git 同步部署，让服务器直接从仓库拉取、构建、覆盖静态目录并重启服务：
+
+```bash
+cd /opt/image-sub2api-studio-repo
+
+sudo BRANCH=main \
+  REPO_DIR=/opt/image-sub2api-studio-repo \
+  STATIC_DIR=/var/www/ohlaoo-studio \
+  SERVICE_DIR=/opt/image-sub2api-studio \
+  DATA_DIR=/var/lib/image-sub2api-studio \
+  BASE_PATH=/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  REQUIRE_LIBRARY=1 \
+  bash deploy/sync-from-git.sh
+```
+
+服务器上如果已经有图片库，后续 zip 更新通常只需要上传核心包，不需要重复上传图库。Git 同步模式下则不需要再手动上传 zip。
 
 ```bash
 node scripts/package-studio-core-update.mjs

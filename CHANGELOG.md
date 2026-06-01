@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Added a VPS Git sync deployment path so production can pull the repository, build locally, update static/service files, and verify protected data instead of relying on manual zip uploads.
+- Documented the production data split between repository-managed code and `/var/lib/image-sub2api-studio` persistent history/library assets.
+- Simplified the creation composer into a Codex-like bottom conversation, moved image parameters below the input, moved reference images into a right-side panel, and made generation progress easier to scan.
+- Refined the bottom composer into a lighter two-line parameter dock to prevent controls from overlapping on narrower desktop viewports.
+- Moved the session/route badge into the composer header, restored the left-side Inspiration Library entry, exposed upstream model-sync status for custom gateways, centered canvas nodes when reopening sessions, and aligned History Gallery actions.
+- Added an independent collapsed state for the bottom parameter dock so the canvas/composer can gain vertical space while keeping a one-line parameter summary visible.
+- Polished the parameter dock interaction with clearer hover/focus states, touch-friendly horizontal scrolling, scroll cues, and stable control sizing to reduce overlap risk.
+
 ## 0.8.1 - 2026-06-01
 
 - Expanded the English UI pass across the canvas node controls, reference panel, bottom creation conversation, and parameter rail.
