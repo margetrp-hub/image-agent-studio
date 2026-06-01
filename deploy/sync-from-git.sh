@@ -9,6 +9,7 @@ STATIC_DIR="${STATIC_DIR:-/var/www/ohlaoo-studio}"
 DATA_DIR="${DATA_DIR:-/var/lib/image-sub2api-studio}"
 BASE_PATH="${BASE_PATH:-/studio/}"
 SERVICE_NAME="${SERVICE_NAME:-image-sub2api-studio-history}"
+LEGACY_SERVICE_NAME="${LEGACY_SERVICE_NAME:-ohlaoo-studio-history}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8787/studio-api/health}"
 PUBLIC_STUDIO_URL="${PUBLIC_STUDIO_URL:-}"
 REQUIRE_LIBRARY="${REQUIRE_LIBRARY:-0}"
@@ -170,6 +171,10 @@ if [ "$INSTALL_SYSTEMD_UNIT" = "1" ] || [ ! -f "/etc/systemd/system/${SERVICE_NA
 fi
 
 systemctl daemon-reload
+if [ "$LEGACY_SERVICE_NAME" != "$SERVICE_NAME" ] && systemctl list-unit-files "$LEGACY_SERVICE_NAME.service" >/dev/null 2>&1; then
+  info "Disable legacy service: $LEGACY_SERVICE_NAME"
+  systemctl disable --now "$LEGACY_SERVICE_NAME" || true
+fi
 systemctl enable --now "$SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
 
