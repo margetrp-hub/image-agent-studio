@@ -24,6 +24,17 @@ const dictionaries = {
       history: '历史图库',
       desk: '工作台'
     },
+    mode: {
+      textToImage: '文生图',
+      referenceEdit: '参考图',
+      mask: 'Mask'
+    },
+    quality: {
+      auto: '自动',
+      low: '低',
+      medium: '中',
+      high: '高'
+    },
     topbar: {
       navAria: '创作工作区',
       login: '登录',
@@ -102,6 +113,7 @@ const dictionaries = {
       title: '参考图（可选）',
       maskTitle: '参考图与蒙版',
       collapse: '收起参考图',
+      sideHint: '拖拽、粘贴或上传',
       selected: '已选择 {count} 张',
       upload: '拖拽 / 粘贴 / 上传参考图',
       collapsedSelected: '参考图已收起，共 {count} 张',
@@ -211,10 +223,21 @@ const dictionaries = {
       routeEdits: '当前会自动使用 /v1/images/edits。',
       outputSize: '输出 {width} x {height}',
       currentSizeHint: '当前请求 size 为 {size}；2K/4K 会作为目标分辨率追加到提示词里。',
+      manual: '手动',
+      imageCountSuffix: '张',
+      videoUnit: '段',
+      videoTask: '任务：{value}',
       standard: '标准',
       high: '高',
       auto: '自动',
       currentKeyNoVideo: '当前 Key 未开放视频模型'
+    },
+    lightbox: {
+      imageAlt: '生成结果',
+      promptLabel: '完整提示词',
+      promptDefaultTitle: '提示词',
+      noPrompt: '没有记录提示词',
+      copyPrompt: '复制'
     },
     settings: {
       title: '连接',
@@ -248,6 +271,17 @@ const dictionaries = {
       video: 'Video',
       history: 'History',
       desk: 'Desk'
+    },
+    mode: {
+      textToImage: 'Text to image',
+      referenceEdit: 'Reference edit',
+      mask: 'Mask'
+    },
+    quality: {
+      auto: 'Auto',
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High'
     },
     topbar: {
       navAria: 'Creation workspace',
@@ -327,6 +361,7 @@ const dictionaries = {
       title: 'Reference images (optional)',
       maskTitle: 'References and mask',
       collapse: 'Collapse references',
+      sideHint: 'Drag, paste, or upload',
       selected: '{count} selected',
       upload: 'Drag, paste, or upload references',
       collapsedSelected: 'References collapsed, {count} selected',
@@ -436,10 +471,21 @@ const dictionaries = {
       routeEdits: 'This request will use /v1/images/edits.',
       outputSize: 'Output {width} x {height}',
       currentSizeHint: 'Current request size is {size}; 2K/4K is appended as target resolution.',
+      manual: 'Manual',
+      imageCountSuffix: ' images',
+      videoUnit: 'clip',
+      videoTask: 'Task: {value}',
       standard: 'Standard',
       high: 'High',
       auto: 'Auto',
       currentKeyNoVideo: 'No video models enabled for this key'
+    },
+    lightbox: {
+      imageAlt: 'Generated image',
+      promptLabel: 'Full prompt',
+      promptDefaultTitle: 'Prompt',
+      noPrompt: 'No prompt was saved',
+      copyPrompt: 'Copy'
     },
     settings: {
       title: 'Connection',

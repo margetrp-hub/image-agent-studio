@@ -2,19 +2,21 @@
 
 ## Project Story
 
-I built `image-sub2api-studio` because Sub2API already solves the backend layer: models, keys, quota, billing, and OpenAI-compatible routes. What I wanted was a lighter creation workstation on top of it.
+I started `image-sub2api-studio` from a very practical need: image models were already available through OpenAI-compatible gateways, but the actual creation workflow still felt scattered.
 
-I did not want users to manually assemble image API payloads every time. I wanted prompt writing, reference images, model selection, quality settings, generation results, canvas iteration, and history gallery to live in one focused page.
+I did not want users to manually assemble payloads, switch between prompt notes, upload references in one place, check results somewhere else, and then lose the thread after a refresh. I wanted a lighter image creation workstation where prompt writing, reference images, model selection, quality settings, generation results, canvas iteration, and history gallery all stay in one focused page.
 
-`0.8.0` moves the project from a usable web page toward a real creation desk. The interface now centers on an infinite canvas and a bottom creation conversation. The first generation becomes #1; selecting #1 and generating again creates #2 / #3, with visible lineage lines. History is grouped by creation session rather than by single image, and refreshes, timeouts, or manual stops preserve as much current canvas state as possible.
+Sub2API was the first gateway I built around because it already handled accounts, keys, quota, billing, and OpenAI-compatible image routes. The project is now moving beyond a single gateway: it is designed to work with official OpenAI-style endpoints, custom compatible gateways, Sub2API, NewAPI, and similar providers as long as they expose compatible image generation/editing routes.
 
-This repository does not include the production home page or the full private image library. It only open-sources the Sub2API image studio.
+`0.8.1` keeps that direction: the interface centers on an infinite canvas and a bottom creation conversation. The first generation becomes #1; selecting #1 and generating again creates #2 / #3, with visible lineage lines. Each image can be opened to inspect the full saved prompt in readable sections. History is grouped by creation session rather than by single image, and refreshes, timeouts, or manual stops preserve as much current canvas state as possible.
+
+This repository only includes the studio app. It does not include any private production homepage, private production image library, real keys, or gateway backend implementation.
 
 Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
 
 ## Community
 
-If you are using Sub2API for image generation or want to discuss deployment, model routing, prompt workflows, and future improvements, you are welcome to join the QQ group: `260789529`.
+If you are exploring AI image workflows, OpenAI-compatible image endpoints, gateway deployment, model routing, prompt workflows, or future workstation improvements, you are welcome to join the QQ group: `260789529`.
 
 <p align="center">
   <a href="https://github.com/margetrp-hub/image-sub2api-studio"><img src="https://img.shields.io/badge/project-image--sub2api--studio-0f766e?style=flat-square" alt="project"></a>
@@ -22,18 +24,20 @@ If you are using Sub2API for image generation or want to discuss deployment, mod
   <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-简体中文-blue?style=flat-square" alt="简体中文"></a>
 </p>
 
-## What 0.8 Does
+## What 0.8.x Does
 
 - Image generation uses `/v1/images/generations` by default and calls image models such as `gpt-image-2` directly, avoiding accidental `/v1/responses` fallback paths.
 - Reference-image editing and mask redraw use `/v1/images/edits`.
-- The bottom creation conversation can call a chat model to refine prompts and uses the current Sub2API key quota.
+- The same workstation can connect to official OpenAI-style endpoints, custom OpenAI-compatible gateways, Sub2API, NewAPI, and similar providers.
+- The bottom creation conversation can call a chat model to refine prompts and uses the current selected key quota.
 - Selecting a canvas node and generating again keeps #1 -> #2 / #3 lineage.
+- Opening a single generated image shows the full saved prompt, split into readable sections instead of one long line.
 - The prompt assistant respects directions such as derive, local edit, rewrite, remove, and replace; it should not reintroduce details the user has rejected.
-- Current canvas sessions are saved through `/studio-api/session`, isolated by the authenticated Sub2API user.
+- Current canvas sessions are saved through `/studio-api/session`, isolated by the authenticated user scope.
 - Authenticated image requests are submitted to `/studio-api/generation-jobs`; the server then calls `/v1/images/generations` or `/v1/images/edits`, stores the result assets, and lets the canvas/history recover after refresh.
 - Timeout, stop, and network interruption states are shown as pending review when the upstream request may still be processing or charged.
 - The history gallery is grouped by creation session, while the left project list no longer splits one session into one project per image.
-- Sub2API keys are masked in the UI.
+- Keys are masked in the UI.
 - The lower-left account area includes Chinese/English UI switching and light/dark theme controls.
 - Starter prompt and inspiration data can remain static for demos, or move behind `/studio-api/library` for protected production deployments.
 
@@ -41,25 +45,24 @@ If you are using Sub2API for image generation or want to discuss deployment, mod
 
 Screenshots come from the current workspace and use demo data with masked keys.
 
-![Main studio workspace](docs/screenshots/studio-main.png)
+![Main studio workspace Chinese](docs/screenshots/workstation-zh.png)
 
-![Canvas continuation and generation state](docs/screenshots/canvas-flow.png)
+![Main studio workspace English](docs/screenshots/workstation-en.png)
 
-![Image controls](docs/screenshots/image-controls.png)
+Older feature screenshots:
 
-![Reference upload](docs/screenshots/reference-upload.png)
-
-![Bottom inspiration and template entry](docs/screenshots/template-library.png)
-
-![Masked key settings](docs/screenshots/key-settings.png)
-
-![History gallery](docs/screenshots/history.png)
+- ![Canvas continuation and generation state](docs/screenshots/canvas-flow.png)
+- ![Image controls](docs/screenshots/image-controls.png)
+- ![Reference upload](docs/screenshots/reference-upload.png)
+- ![Bottom inspiration and template entry](docs/screenshots/template-library.png)
+- ![Masked key settings](docs/screenshots/key-settings.png)
+- ![History gallery](docs/screenshots/history.png)
 
 ## Boundary
 
-This repository is not Sub2API itself and not a model gateway.
+This repository is not a model provider and not a gateway backend.
 
-Sub2API owns accounts, keys, quota, models, billing, and OpenAI-compatible gateway routes.
+Official APIs, custom gateways, Sub2API, NewAPI, and similar services own accounts, keys, quota, models, billing, and gateway routing.
 
 `image-sub2api-studio` owns the creation UI: prompts, reference upload, parameter controls, infinite canvas, canvas continuation, history gallery, current-session persistence, and deployment samples.
 
@@ -67,7 +70,7 @@ Community prompt templates are used as learning/reference material. Where applic
 
 ## Review and Security Boundary
 
-The open-source package does not include real API keys, the private production image library, the production home page, or Sub2API's backend implementation. A production deployment should connect this studio to an existing Sub2API gateway and configure Nginx, Docker, HTTPS, and persistent storage explicitly.
+The open-source package does not include real API keys, the private production image library, the production home page, or any gateway backend implementation. A production deployment should connect this studio to an existing official API account or OpenAI-compatible gateway, then configure Nginx, Docker, HTTPS, and persistent storage explicitly.
 
 - Security boundary, key handling, stored data, and production hardening notes: [SECURITY.md](SECURITY.md).
 - 0.8 release notes, migration impact, and verification checklist: [RELEASE_NOTES.md](RELEASE_NOTES.md).

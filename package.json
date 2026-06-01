@@ -19,7 +19,7 @@
     "react-dom": "^19.2.1",
     "vite": "^7.2.7"
   },
-  "description": "基于 Sub2API 的开源生图工作台，支持图片模型直连、参考图编辑、无限画布续作、历史图库和当前会话持久化。",
+  "description": "OpenAI-compatible AI image creation workstation with prompt workflows, references, infinite canvas, history gallery, and persistence.",
   "main": "vite.config.js",
   "directories": {
     "doc": "docs"

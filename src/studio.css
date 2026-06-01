@@ -10793,3 +10793,146 @@ html[lang="en"] .bottomComposerToggle.isClosed::before {
     display: none;
   }
 }
+
+/* Image preview: keep the image inspectable and make the saved prompt readable. */
+.lightboxPanel {
+  width: min(1180px, calc(100vw - 32px)) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr) !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+}
+
+.lightboxImageStage {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #0f1713;
+}
+
+.lightboxImageStage img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  background: #0f1713;
+}
+
+.lightboxPromptPanel {
+  min-width: 0;
+  min-height: 0;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  border-left: 1px solid var(--studio-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 5%, transparent), transparent 130px),
+    var(--studio-surface-strong);
+}
+
+.lightboxPromptHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lightboxPromptHead div {
+  display: grid;
+  gap: 4px;
+}
+
+.lightboxPromptHead span {
+  color: var(--studio-muted);
+  font-size: 12px;
+}
+
+.lightboxPromptHead strong {
+  color: var(--studio-text-strong);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.lightboxPromptHead button {
+  min-height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-soft);
+  color: var(--studio-text);
+  cursor: pointer;
+}
+
+.lightboxMetaChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lightboxMetaChips span {
+  min-height: 24px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  color: var(--studio-muted);
+  font-size: 11px;
+}
+
+.promptSectionList {
+  display: grid;
+  gap: 10px;
+}
+
+.promptSection {
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 86%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 82%, transparent);
+}
+
+.promptSection span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--studio-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.promptSection p,
+.promptEmptyText {
+  margin: 0;
+  color: var(--studio-text);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.lightboxPanel figcaption {
+  grid-column: 1 / -1;
+}
+
+.historyPromptSection {
+  margin-top: 14px;
+  max-width: 880px;
+}
+
+@media (max-width: 900px) {
+  .lightboxPanel {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: minmax(0, 1fr) minmax(180px, 34vh) auto !important;
+  }
+
+  .lightboxPromptPanel {
+    border-left: 0;
+    border-top: 1px solid var(--studio-border);
+  }
+}

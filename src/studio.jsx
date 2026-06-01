@@ -2298,7 +2298,98 @@ function errorRequestId(error, message = '') {
   return match?.[1] || '';
 }
 
-function Lightbox({ url, index, outputFormat = 'png', downloadMeta, onClose }) {
+const PROMPT_SECTION_LABELS = [
+  '主体', '人物', '角色', '产品', '场景', '背景', '风格', '构图', '镜头', '视角', '光线', '色彩', '材质', '细节', '动作', '文字',
+  '负面提示词', '避免事项', '分辨率要求', '质量', '参考图', '延续关系', '基于画布',
+  'Subject', 'Character', 'Product', 'Scene', 'Background', 'Style', 'Composition', 'Camera', 'View', 'Lighting',
+  'Color', 'Material', 'Details', 'Action', 'Text', 'Negative prompt', 'Avoid', 'Resolution', 'Reference', 'Lineage'
+];
+
+const PROMPT_SECTION_PATTERN = new RegExp(`(${PROMPT_SECTION_LABELS.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*[:：]`, 'gi');
+
+function trimPromptBody(value) {
+  return String(value || '')
+    .replace(/^[\s,，;；。:：-]+/, '')
+    .replace(/[\s,，;；]+$/, '')
+    .trim();
+}
+
+function splitLabeledPromptBlock(block) {
+  const text = String(block || '').trim();
+  if (!text) return [];
+  const matches = [...text.matchAll(PROMPT_SECTION_PATTERN)];
+  if (!matches.length) return [];
+  return matches.map((match, index) => {
+    const nextMatch = matches[index + 1];
+    const body = trimPromptBody(text.slice(match.index + match[0].length, nextMatch?.index ?? text.length));
+    return {
+      title: match[1],
+      body
+    };
+  }).filter((item) => item.body);
+}
+
+function promptSectionsFromText(value, t = (key, fallback) => fallback || key) {
+  const text = String(value || '').replace(/\r\n/g, '\n').trim();
+  if (!text) return [];
+  const fallbackTitle = t('lightbox.promptDefaultTitle', '提示词');
+  const blocks = text.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
+  const sections = [];
+
+  blocks.forEach((block) => {
+    const labeled = splitLabeledPromptBlock(block);
+    if (labeled.length) {
+      sections.push(...labeled);
+      return;
+    }
+
+    const lines = block.split('\n').map((item) => item.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      lines.forEach((line, lineIndex) => {
+        const lineLabeled = splitLabeledPromptBlock(line);
+        if (lineLabeled.length) {
+          sections.push(...lineLabeled);
+        } else {
+          sections.push({ title: `${fallbackTitle} ${sections.length + lineIndex + 1}`, body: line });
+        }
+      });
+      return;
+    }
+
+    const sentenceParts = block.length > 140
+      ? block.split(/(?:；|;\s+|。\s+|(?<=\.)\s+)/).map((item) => trimPromptBody(item)).filter(Boolean)
+      : [];
+    if (sentenceParts.length > 1) {
+      sentenceParts.forEach((part, partIndex) => {
+        sections.push({ title: `${fallbackTitle} ${sections.length + partIndex + 1}`, body: part });
+      });
+      return;
+    }
+
+    sections.push({ title: fallbackTitle, body: block });
+  });
+
+  return sections;
+}
+
+function PromptSectionList({ prompt, t = (key, fallback) => fallback || key }) {
+  const sections = promptSectionsFromText(prompt, t);
+  if (!sections.length) {
+    return <p className="promptEmptyText">{t('lightbox.noPrompt', '没有记录提示词')}</p>;
+  }
+  return (
+    <div className="promptSectionList">
+      {sections.map((section, index) => (
+        <section className="promptSection" key={`${section.title}-${index}`}>
+          <span>{section.title}</span>
+          <p>{section.body}</p>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function Lightbox({ url, index, outputFormat = 'png', downloadMeta, onClose, t = (key, fallback) => fallback || key }) {
   if (!url) return null;
   const extension = resultExtension(url, outputFormat);
   const downloadName = buildStudioDownloadFilename({
@@ -2307,6 +2398,14 @@ function Lightbox({ url, index, outputFormat = 'png', downloadMeta, onClose }) {
     index,
     extension
   });
+  const promptText = downloadMeta?.prompt || downloadMeta?.generationPrompt || '';
+  const meta = [
+    downloadMeta?.providerId,
+    downloadMeta?.size,
+    downloadMeta?.resolutionTier ? RESOLUTION_TIER_LABELS[downloadMeta.resolutionTier] || downloadMeta.resolutionTier : '',
+    downloadMeta?.quality ? downloadMeta.quality : '',
+    downloadMeta?.createdAt ? formatHistoryTime(downloadMeta.createdAt) : ''
+  ].filter(Boolean);
   return (
     <div className="lightboxOverlay" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -2315,7 +2414,29 @@ function Lightbox({ url, index, outputFormat = 'png', downloadMeta, onClose }) {
         <button type="button" className="iconButton" onClick={onClose} aria-label="关闭">
           <X size={18} />
         </button>
-      <img src={url} alt={`生成结果 ${index + 1}`} />
+        <div className="lightboxImageStage">
+          <img src={url} alt={`${t('lightbox.imageAlt', '生成结果')} ${index + 1}`} />
+        </div>
+        <aside className="lightboxPromptPanel">
+          <div className="lightboxPromptHead">
+            <div>
+              <span>{t('lightbox.promptLabel', '完整提示词')}</span>
+              <strong>#{index + 1}</strong>
+            </div>
+            {promptText ? (
+              <button type="button" onClick={() => navigator.clipboard?.writeText(promptText)}>
+                <Copy size={14} />
+                {t('lightbox.copyPrompt', '复制')}
+              </button>
+            ) : null}
+          </div>
+          {meta.length ? (
+            <div className="lightboxMetaChips">
+              {meta.map((item) => <span key={item}>{item}</span>)}
+            </div>
+          ) : null}
+          <PromptSectionList prompt={promptText} t={t} />
+        </aside>
         <figcaption>
           <span>#{index + 1}</span>
           <a href={url} download={downloadName}>
@@ -2443,7 +2564,7 @@ function WorkPreviewResultActions({ url, index = 0, outputFormat = 'png', isVide
   );
 }
 
-function HistoryDetailPanel({ item, onOpenWorkspace }) {
+function HistoryDetailPanel({ item, onOpenWorkspace, t = (key, fallback) => fallback || key }) {
   if (!item) {
     return (
       <section className="workspaceEmptyPanel">
@@ -2471,7 +2592,9 @@ function HistoryDetailPanel({ item, onOpenWorkspace }) {
         <div>
           <span>{isVideo ? '视频任务' : '图片任务'} · {formatHistoryTime(item.createdAt)}</span>
           <h2>{isVideo ? '视频生成' : item.case?.title || '图片生成'}</h2>
-          <p>{compact(item.prompt, 180)}</p>
+          <div className="historyPromptSection">
+            <PromptSectionList prompt={item.generationPrompt || item.prompt} t={t} />
+          </div>
           <em>{meta.join(' · ') || '参数以历史图库记录为准'}</em>
         </div>
         <button type="button" className="primaryAction" onClick={() => onOpenWorkspace(isVideo ? 'video' : 'image')}>
@@ -3083,6 +3206,10 @@ function CreationDesk({
       : model,
     createdAt: timing?.startedAt || Date.now(),
     prompt,
+    size,
+    quality,
+    resolutionTier,
+    outputFormat,
     id: timing?.startedAt || selectedHistory?.id || selectedCase?.id || ''
   };
   const visiblePromptPresets = (promptPresets || PROMPT_PRESETS).filter((item) => item.mode === mode);
@@ -3092,6 +3219,25 @@ function CreationDesk({
   const runningQueueItem = generationQueue.find((item) => item.status === 'running') || null;
   const selectedCanvasNode = canvasNodes.find((node) => node.id === selectedCanvasNodeId) || null;
   const canvasNodeMap = useMemo(() => new Map(canvasNodes.map((node) => [node.id, node])), [canvasNodes]);
+  const deskModeLabel = (value) => {
+    if (value === 'image') return t('mode.textToImage', '文生图');
+    if (value === 'edit') return t('mode.referenceEdit', '参考图');
+    if (value === 'mask') return t('mode.mask', 'Mask');
+    return value;
+  };
+  const qualityLabel = (value) => {
+    if (value === 'auto') return t('quality.auto', '自动');
+    if (value === 'low') return t('quality.low', '低');
+    if (value === 'medium') return t('quality.medium', '中');
+    if (value === 'high') return t('quality.high', '高');
+    return value;
+  };
+  const aspectLabel = (item) => (item.value === 'custom' ? t('params.manual', '手动') : item.label);
+  const customSizeLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
+  const videoMotionLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
+  const videoStyleLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
+  const resolutionTierLabel = (item) => RESOLUTION_TIER_LABELS[item.value] || item.label;
+  const imageCountSuffix = t('params.imageCountSuffix', '张');
   const canvasEdges = useMemo(() => {
     const edges = [];
     const seen = new Set();
@@ -4836,6 +4982,10 @@ function CreationDesk({
         : activeModel,
       createdAt: new Date(startedAt).toISOString(),
       prompt: basePrompt,
+      size: activeSize,
+      quality: activeQuality,
+      resolutionTier: activeResolutionTier,
+      outputFormat: activeOutputFormat,
       sessionId,
       id: generationId
     };
@@ -5707,7 +5857,7 @@ function CreationDesk({
               const Icon = item.icon;
               return (
                 <button type="button" className={mode === item.value ? 'active' : ''} key={item.value} onClick={() => setMode(item.value)}>
-                  <Icon size={17} /> {item.label}
+                  <Icon size={17} /> {deskModeLabel(item.value)}
                 </button>
               );
             })}
@@ -5946,7 +6096,7 @@ function CreationDesk({
                   <span>视频模型</span>
                   <select value={hasVideoModels ? videoModel : ''} onChange={(event) => setVideoModel(event.target.value)} disabled={!hasVideoModels}>
                     {hasVideoModels ? videoModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>) : (
-                      <option value="">当前 Key 未开放视频模型</option>
+                      <option value="">{t('params.currentKeyNoVideo', '当前 Key 未开放视频模型')}</option>
                     )}
                   </select>
                 </label>
@@ -5989,7 +6139,7 @@ function CreationDesk({
                 <div className="optionSegment motionSegment">
                   {VIDEO_MOTIONS.map((item) => (
                     <button type="button" className={videoMotion === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoMotion(item.value)}>
-                      {item.label}
+                      {videoMotionLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -5999,7 +6149,7 @@ function CreationDesk({
                 <div className="optionSegment videoStyleSegment">
                   {VIDEO_STYLES.map((item) => (
                     <button type="button" className={videoStyle === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoStyle(item.value)}>
-                      {item.label}
+                      {videoStyleLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -6009,7 +6159,7 @@ function CreationDesk({
                 <div className="optionSegment videoQualitySegment">
                   {VIDEO_QUALITY.map((item) => (
                     <button type="button" className={videoQuality === item ? 'active' : ''} key={item} onClick={() => setVideoQuality(item)}>
-                      {item === 'auto' ? '自动' : item === 'high' ? '高' : '标准'}
+                      {item === 'auto' ? t('params.auto', '自动') : item === 'high' ? t('params.high', '高') : t('params.standard', '标准')}
                     </button>
                   ))}
                 </div>
@@ -6057,16 +6207,16 @@ function CreationDesk({
                         if (item.value !== 'custom') setCustomSize(item.size);
                       }}
                     >
-                      {item.label}
+                      {resolutionTierLabel(item)}
                     </button>
                   ))}
                 </div>
                 {aspect === 'custom' ? (
                   <>
                     <select className="compactSelect" aria-label="接口尺寸" value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
-                      {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{customSizeLabel(item)}</option>)}
                     </select>
-                    <small className="sizeLimitHint">这里是当前模型支持的 size 枚举；2K/4K 会写进提示词作为目标清晰度。</small>
+                    <small className="sizeLimitHint">{t('params.sizeHint', '这里是当前模型支持的 size 枚举；2K/4K 会写进提示词作为目标清晰度。')}</small>
                   </>
                 ) : null}
               </div>
@@ -6075,7 +6225,7 @@ function CreationDesk({
                 <div className="optionSegment qualitySegment">
                   {QUALITY.filter((item) => item !== 'auto').map((item) => (
                     <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
-                      {QUALITY_LABELS[item] || item}
+                      {qualityLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -6085,7 +6235,7 @@ function CreationDesk({
                 <div className="optionSegment resolutionSegment">
                   {RESOLUTION_TIERS.map((item) => (
                     <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
-                      {item.label}
+                      {resolutionTierLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -6115,14 +6265,22 @@ function CreationDesk({
         </div> : (
           <button type="button" className="collapsedWorkbenchBlock" onClick={() => toggleLayoutSection('parameters')}>
             <SlidersHorizontal size={16} />
-            <span>{mode === 'video' ? `${videoAspect} · ${videoDuration}s · ${videoFps}fps` : `${size} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${QUALITY_LABELS[quality]}`}</span>
+            <span>{mode === 'video' ? `${videoAspect} · ${videoDuration}s · ${videoFps}fps` : `${size} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${qualityLabel(quality)}`}</span>
           </button>
         )}
         {layoutSections.parameters ? <div className="billingStrip">
-          <span>模型来源：{mode === 'video' ? (modelsStatus === 'loading' ? '正在读取视频模型' : hasVideoModels ? '当前 Key 可用视频模型' : '当前 Key 未开放视频模型') : modelsStatus === 'ready' ? '当前 Key 可用模型' : modelsStatus === 'loading' ? '正在读取模型' : '默认模型'}</span>
-          <span>计费口径：{mode === 'video' ? modelBillingUnitLabel(activeVideoModelInfo, '段', 1) : modelBillingLabel(activeModelInfo, countValue)}</span>
-          {mode === 'video' && videoTask?.task_id ? <span>任务：{videoTask.task_id}</span> : null}
-          <span>账户用量：{usageSummary || '生成后以后台记录为准'}</span>
+          <span>{t('params.billingModelSource', '模型来源：{value}', {
+            value: mode === 'video'
+              ? (modelsStatus === 'loading' ? t('params.loadingVideoModels', '正在读取视频模型') : hasVideoModels ? t('params.availableVideoModels', '当前 Key 可用视频模型') : t('params.unavailableVideoModels', '当前 Key 未开放视频模型'))
+              : modelsStatus === 'ready'
+                ? t('params.availableModels', '当前 Key 可用模型')
+                : modelsStatus === 'loading'
+                  ? t('params.loadingModels', '正在读取模型')
+                  : t('params.defaultModels', '默认模型')
+          })}</span>
+          <span>{t('params.billingUnit', '计费口径：{value}', { value: mode === 'video' ? modelBillingUnitLabel(activeVideoModelInfo, t('params.videoUnit', '段'), 1) : modelBillingLabel(activeModelInfo, countValue) })}</span>
+          {mode === 'video' && videoTask?.task_id ? <span>{t('params.videoTask', '任务：{value}', { value: videoTask.task_id })}</span> : null}
+          <span>{t('params.usage', '账户用量：{value}', { value: usageSummary || t('params.usageFallback', '生成后以后台记录为准') })}</span>
         </div> : null}
         <div className="deskActions">
           <button type="button" onClick={optimizeCurrentPrompt} disabled={optimizingPrompt}>
@@ -6297,9 +6455,9 @@ function CreationDesk({
                 title={t('params.expand', '展开参数')}
               >
                 <SlidersHorizontal size={14} />
-                <span>{mode === 'video' ? t('workspace.video', '视频创作') : DESK_MODES.find((item) => item.value === mode)?.label || t('workspace.image', '图片创作')}</span>
+                <span>{mode === 'video' ? t('workspace.video', '视频创作') : deskModeLabel(mode) || t('workspace.image', '图片创作')}</span>
                 <em>{mode === 'video' ? videoModel : model}</em>
-                <strong>{mode === 'video' ? `${videoAspect} · ${videoDuration}s` : `${aspect} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${QUALITY_LABELS[quality] || quality} · ${countValue}张`}</strong>
+                <strong>{mode === 'video' ? `${videoAspect} · ${videoDuration}s` : `${aspect} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${qualityLabel(quality)} · ${countValue}${imageCountSuffix}`}</strong>
                 <ArrowUp size={13} />
               </button>
             ) : (
@@ -6322,7 +6480,7 @@ function CreationDesk({
                     return (
                       <button type="button" className={mode === item.value ? 'active' : ''} key={item.value} onClick={() => setMode(item.value)}>
                         <Icon size={14} />
-                        <span>{item.label}</span>
+                        <span>{deskModeLabel(item.value)}</span>
                       </button>
                     );
                   })}
@@ -6354,7 +6512,7 @@ function CreationDesk({
                 <div className="composerMiniSegment">
                   {VIDEO_ASPECT_OPTIONS.map((item) => (
                     <button type="button" className={videoAspect === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoAspect(item.value)}>
-                      {item.label}
+                      {aspectLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -6370,7 +6528,7 @@ function CreationDesk({
                         if (item.value !== 'custom') setCustomSize(item.size);
                       }}
                     >
-                      {item.label}
+                      {aspectLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -6390,14 +6548,14 @@ function CreationDesk({
                 <div className="composerMiniSegment">
                   {QUALITY.filter((item) => item !== 'auto').map((item) => (
                     <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
-                      {QUALITY_LABELS[item] || item}
+                      {qualityLabel(item)}
                     </button>
                   ))}
                 </div>
                 <div className="composerMiniSegment">
                   {RESOLUTION_TIERS.map((item) => (
                     <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
-                      {item.label}
+                      {resolutionTierLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -6515,7 +6673,7 @@ function CreationDesk({
                           if (item.value !== 'custom') setCustomSize(item.size);
                         }}
                       >
-                        {item.label}
+                        {aspectLabel(item)}
                       </button>
                     ))}
                   </div>
@@ -6523,7 +6681,7 @@ function CreationDesk({
                     <label className="paramField">
                       <span>{t('params.apiSize', '接口尺寸')}</span>
                       <select value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
-                        {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        {CUSTOM_SIZE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{customSizeLabel(item)}</option>)}
                       </select>
                     </label>
                   ) : null}
@@ -6547,14 +6705,14 @@ function CreationDesk({
                   <div className="paramSegment">
                     {QUALITY.filter((item) => item !== 'auto').map((item) => (
                       <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
-                        {QUALITY_LABELS[item] || item}
+                        {qualityLabel(item)}
                       </button>
                     ))}
                   </div>
                   <div className="paramSegment">
                     {RESOLUTION_TIERS.map((item) => (
                       <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
-                        {item.label}
+                        {resolutionTierLabel(item)}
                       </button>
                     ))}
                   </div>
@@ -6605,6 +6763,7 @@ function CreationDesk({
         index={previewImage?.index || 0}
         outputFormat={outputFormat}
         downloadMeta={previewImage?.downloadMeta || currentDownloadMeta}
+        t={t}
         onClose={() => setPreviewImage(null)}
       />
       <VideoLightbox
