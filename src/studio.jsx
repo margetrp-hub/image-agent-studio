@@ -1154,10 +1154,17 @@ function displayResultUrl(url) {
   return assetPath(resolveResultUrl(url));
 }
 
+function isProtectedStudioAsset(url) {
+  const value = String(url || '');
+  return value.startsWith('/studio-api/history/')
+    || value.startsWith('/studio-api/generation-jobs/')
+    || value.startsWith('/studio-api/library-assets/');
+}
+
 function safeImageCandidate(url) {
   const value = String(url || '').trim();
   if (!value) return '';
-  if (value.startsWith('/studio-api/history/') || value.startsWith('/studio-api/generation-jobs/')) return value;
+  if (isProtectedStudioAsset(value)) return value;
   if (/^(https?:|data:image\/|blob:)/i.test(value)) return value;
   if (/\.(png|jpe?g|webp|gif|avif|svg)(?:[?#].*)?$/i.test(value)) return value;
   return '';
@@ -1237,6 +1244,10 @@ function handleImageFallback(event, fallback) {
   }
   image.hidden = true;
   image.closest('.categoryThumbs, .caseMedia')?.classList.add('imageMissing');
+}
+
+function libraryFallbackImage(item) {
+  return templateThumbnail(item) || imageFallback(item);
 }
 
 function buildCategoryGroups(cases) {
@@ -1527,16 +1538,16 @@ function Topbar({
 }
 
 function CategoryCard({ group, selected, onSelect }) {
-  const fallback = group.coverFallback || templateThumbnail(group.featured) || imageFallback(group.featured);
+  const sampleFallback = (group.samples || []).map(libraryFallbackImage).find(Boolean) || libraryFallbackImage(group.featured);
+  const fallback = sampleFallback || group.coverFallback || '';
   return (
     <button className={`categoryTile ${selected ? 'selected' : ''}`} type="button" onClick={() => onSelect(group.id)}>
       <div className="categoryThumbs">
-        {group.cover ? (
-          <img
-            src={assetPath(group.cover)}
+        {(group.cover || fallback) ? (
+          <ProtectedStudioImage
+            src={group.cover || fallback}
+            fallbackSrc={fallback}
             alt={group.label}
-            loading="lazy"
-            onError={(event) => handleImageFallback(event, fallback)}
           />
         ) : null}
         <ImageIcon size={22} />
@@ -1559,11 +1570,10 @@ function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppe
       <button className="caseTileMain" type="button" onClick={() => onSelect(item)}>
         <div className="caseMedia">
           {(image || fallback) ? (
-            <img
-              src={assetPath(image || fallback)}
+            <ProtectedStudioImage
+              src={image || fallback}
+              fallbackSrc={image && fallback !== image ? fallback : ''}
               alt={item.imageAlt || item.title}
-              loading="lazy"
-              onError={(event) => handleImageFallback(event, image && fallback !== image ? fallback : '')}
             />
           ) : null}
           <ImageIcon size={18} />
@@ -2665,49 +2675,85 @@ function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy, onUse }) {
   );
 }
 
-function ProtectedHistoryThumb({ src, alt = '', fallback = null }) {
-  const [resolvedSrc, setResolvedSrc] = useState(() => displayResultUrl(src));
+function ProtectedStudioImage({ src, fallbackSrc = '', alt = '', fallback = null }) {
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const [resolvedSrc, setResolvedSrc] = useState(() => {
+    const value = String(src || '');
+    return value && !isProtectedStudioAsset(value) ? displayResultUrl(value) : '';
+  });
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
-    let objectUrl = '';
-    const value = String(src || '');
-    setFailed(false);
-    setResolvedSrc(displayResultUrl(value));
-    if (!value.startsWith('/studio-api/history/') && !value.startsWith('/studio-api/generation-jobs/')) return () => {
-      active = false;
-    };
-    const session = loadSession();
-    if (!session?.accessToken) return () => {
-      active = false;
-    };
-    const historyClient = new StudioHistoryClient({ session });
-    historyClient.resolveAssetUrl(value)
-      .then((url) => {
-        if (active && url) {
-          if (url.startsWith('blob:')) objectUrl = url;
-          setResolvedSrc(url);
+    const objectUrls = [];
+    const candidates = [src, fallbackSrc]
+      .map((value) => String(value || '').trim())
+      .filter((value, index, list) => value && list.indexOf(value) === index);
+
+    async function resolveCandidate(value) {
+      if (!isProtectedStudioAsset(value)) return displayResultUrl(value);
+      const session = loadSession();
+      if (!session?.accessToken) return '';
+      const historyClient = new StudioHistoryClient({ session });
+      return await historyClient.resolveAssetUrl(value) || '';
+    }
+
+    async function resolveImage() {
+      for (const value of candidates) {
+        try {
+          const url = await resolveCandidate(value);
+          if (active && url) {
+            if (url.startsWith('blob:')) objectUrls.push(url);
+            setCandidateIndex(candidates.indexOf(value));
+            setResolvedSrc(url);
+            return;
+          }
+          if (!active && url?.startsWith('blob:')) URL.revokeObjectURL(url);
+        } catch {
+          // Try the next candidate before showing the empty-state icon.
         }
-      })
-      .catch(() => {});
+      }
+      if (active) {
+        setResolvedSrc('');
+        setFailed(true);
+      }
+    }
+
+    setFailed(false);
+    setCandidateIndex(0);
+    setResolvedSrc(candidates[0] && !isProtectedStudioAsset(candidates[0]) ? displayResultUrl(candidates[0]) : '');
+    resolveImage();
+
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [src]);
+  }, [src, fallbackSrc]);
 
-  if (!src || failed) return fallback;
+  if (!src || failed || !resolvedSrc) return fallback;
   return (
     <img
       src={resolvedSrc}
       alt={alt}
       loading="lazy"
       onError={(event) => {
+        const candidates = [src, fallbackSrc]
+          .map((value) => String(value || '').trim())
+          .filter((value, index, list) => value && list.indexOf(value) === index);
+        const next = candidates[candidateIndex + 1];
+        if (next && !isProtectedStudioAsset(next)) {
+          setCandidateIndex((value) => value + 1);
+          setResolvedSrc(displayResultUrl(next));
+          return;
+        }
         event.currentTarget.hidden = true;
         setFailed(true);
       }}
     />
   );
+}
+
+function ProtectedHistoryThumb(props) {
+  return <ProtectedStudioImage {...props} />;
 }
 
 function CreativeRecipeBar({ recipes, activeId, onApply }) {

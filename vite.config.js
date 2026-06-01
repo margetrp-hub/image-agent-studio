@@ -3,8 +3,15 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
 const devProxyTarget = process.env.VITE_DEV_SUB2API_PROXY_TARGET || process.env.SUB2API_BASE_URL || '';
-const devProxy = devProxyTarget
-  ? {
+const studioHistoryProxyTarget = process.env.VITE_STUDIO_HISTORY_PROXY_TARGET || process.env.STUDIO_HISTORY_BASE_URL || 'http://127.0.0.1:8787';
+const devProxy = {
+  '/studio-api': {
+    target: studioHistoryProxyTarget,
+    changeOrigin: true,
+    secure: true
+  },
+  ...(devProxyTarget
+    ? {
     '/v1': {
       target: devProxyTarget,
       changeOrigin: true,
@@ -21,13 +28,14 @@ const devProxy = devProxyTarget
       secure: true
     }
   }
-  : undefined;
+    : {})
+};
 
 export default defineConfig({
   base: process.env.STUDIO_BASE_PATH || process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   publicDir: 'public',
-  server: devProxy ? { proxy: devProxy } : undefined,
+  server: { proxy: devProxy },
   build: {
     outDir: 'dist',
     sourcemap: false,

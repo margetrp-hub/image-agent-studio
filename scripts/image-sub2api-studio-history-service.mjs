@@ -514,7 +514,7 @@ function protectedLibraryAssetUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
   if (/^\/studio-api\/library-assets\//i.test(raw)) return raw;
-  if (/^\/images\//i.test(raw)) return `/studio-api/library-assets/${raw.replace(/^\/images\//i, '')}`;
+  if (/^(?:\.\/)?\/?images\//i.test(raw)) return `/studio-api/library-assets/${raw.replace(/^(?:\.\/)?\/?images\//i, '')}`;
   if (/^https?:\/\//i.test(raw)) return raw;
   return '';
 }

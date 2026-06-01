@@ -10936,3 +10936,84 @@ html[lang="en"] .bottomComposerToggle.isClosed::before {
     border-top: 1px solid var(--studio-border);
   }
 }
+
+/* Final collapsed composer guard: when folded, it should tuck down to the bottom edge and give the canvas the space above. */
+.creationDesk:not(.composerOpen),
+.creationDesk:not(.composerOpen).paramRailCollapsed,
+.creationDesk:not(.composerOpen).composerParamsCollapsed,
+.creationDesk:not(.composerOpen).paramRailCollapsed.composerParamsCollapsed {
+  grid-template-rows: minmax(320px, 1fr) 58px !important;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerBar,
+.creationDesk:not(.composerOpen) .bottomComposerBar.hasLineage,
+.creationDesk:not(.composerOpen) .bottomComposerBar.hasThread,
+.creationDesk:not(.composerOpen) .bottomComposerBar.hasThread.hasLineage {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  align-self: end !important;
+  width: auto !important;
+  min-height: 46px !important;
+  height: 46px !important;
+  max-height: 46px !important;
+  margin: 0 12px 8px !important;
+  padding: 5px 8px !important;
+  display: grid !important;
+  grid-template-columns: 32px minmax(0, 1fr) 48px !important;
+  grid-template-rows: 1fr !important;
+  gap: 6px !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+  transform-origin: bottom center;
+  animation: none !important;
+}
+
+.creationDesk:not(.composerOpen) .composerPanelHead,
+.creationDesk:not(.composerOpen) .composerPromptRow {
+  display: contents !important;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle,
+.creationDesk:not(.composerOpen) .bottomComposerInput,
+.creationDesk:not(.composerOpen) .bottomComposerInput textarea,
+.creationDesk:not(.composerOpen) .composerGenerateAction {
+  align-self: center !important;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerInput textarea {
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 8px 12px !important;
+  border-radius: 999px !important;
+}
+
+.creationDesk:not(.composerOpen) .composerActionGroup {
+  display: contents !important;
+}
+
+.creationDesk:not(.composerOpen) .composerAssistantAction,
+.creationDesk:not(.composerOpen) .composerParamShelf,
+.creationDesk:not(.composerOpen) .composerThread,
+.creationDesk:not(.composerOpen) .composerPanelTitle,
+.creationDesk:not(.composerOpen) .composerNewRootAction,
+.creationDesk:not(.composerOpen) .composerInspirationDock,
+.creationDesk:not(.composerOpen) .composerSessionContext {
+  display: none !important;
+}
+
+.creationDesk:not(.composerOpen) .composerGenerateAction {
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+}
+
+@media (max-width: 760px) {
+  .creationDesk:not(.composerOpen),
+  .creationDesk:not(.composerOpen).paramRailCollapsed,
+  .creationDesk:not(.composerOpen).composerParamsCollapsed,
+  .creationDesk:not(.composerOpen).paramRailCollapsed.composerParamsCollapsed {
+    grid-template-rows: minmax(260px, 1fr) 58px !important;
+  }
+}

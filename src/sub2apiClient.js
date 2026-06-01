@@ -1558,7 +1558,11 @@ export class StudioHistoryClient {
 
   async resolveAssetUrl(url) {
     const value = String(url || '');
-    if (!value.startsWith('/studio-api/history/') && !value.startsWith('/studio-api/generation-jobs/')) return value;
+    if (
+      !value.startsWith('/studio-api/history/')
+      && !value.startsWith('/studio-api/generation-jobs/')
+      && !value.startsWith('/studio-api/library-assets/')
+    ) return value;
     if (!this.session?.accessToken) return value;
 
     const response = await fetch(`${this.baseUrl}${value}`, {
