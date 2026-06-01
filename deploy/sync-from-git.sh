@@ -10,8 +10,10 @@ DATA_DIR="${DATA_DIR:-/var/lib/image-sub2api-studio}"
 BASE_PATH="${BASE_PATH:-/studio/}"
 SERVICE_NAME="${SERVICE_NAME:-image-sub2api-studio-history}"
 LEGACY_SERVICE_NAME="${LEGACY_SERVICE_NAME:-ohlaoo-studio-history}"
+SUB2API_BASE_URL="${SUB2API_BASE_URL:-http://127.0.0.1:8080}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8787/studio-api/health}"
 PUBLIC_STUDIO_URL="${PUBLIC_STUDIO_URL:-}"
+STUDIO_ALLOWED_ORIGINS="${STUDIO_ALLOWED_ORIGINS:-}"
 REQUIRE_LIBRARY="${REQUIRE_LIBRARY:-0}"
 INSTALL_SYSTEMD_UNIT="${INSTALL_SYSTEMD_UNIT:-0}"
 RUN_NGINX_TEST="${RUN_NGINX_TEST:-1}"
@@ -108,6 +110,29 @@ if (requireLibrary && (cases === 0 || inspirations === 0 || images === 0)) {
 NODE
 }
 
+allowed_origins() {
+  node - "$PUBLIC_STUDIO_URL" "$STUDIO_ALLOWED_ORIGINS" <<'NODE'
+const publicUrl = String(process.argv[2] || '').trim();
+const configured = String(process.argv[3] || '').trim();
+const origins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+
+for (const value of configured.split(',')) {
+  const origin = value.trim().replace(/\/+$/, '');
+  if (origin) origins.add(origin);
+}
+
+if (publicUrl) {
+  try {
+    origins.add(new URL(publicUrl).origin);
+  } catch {
+    // Keep the local defaults if PUBLIC_STUDIO_URL is not a full URL.
+  }
+}
+
+console.log([...origins].join(','));
+NODE
+}
+
 require_root
 require_cmd git
 require_cmd npm
@@ -169,6 +194,18 @@ if [ "$INSTALL_SYSTEMD_UNIT" = "1" ] || [ ! -f "/etc/systemd/system/${SERVICE_NA
   info "Install systemd unit"
   cp "$SERVICE_DIR/deploy/image-sub2api-studio-history.service" "/etc/systemd/system/${SERVICE_NAME}.service"
 fi
+
+info "Write systemd runtime overrides"
+UNIT_DROPIN_DIR="/etc/systemd/system/${SERVICE_NAME}.service.d"
+mkdir -p "$UNIT_DROPIN_DIR"
+cat > "$UNIT_DROPIN_DIR/10-sync-overrides.conf" <<EOF
+[Service]
+Environment="SUB2API_BASE_URL=$SUB2API_BASE_URL"
+Environment="STUDIO_DATA_DIR=$DATA_DIR"
+Environment="STUDIO_LIBRARY_DIR=$DATA_DIR/library"
+Environment="STUDIO_LIBRARY_ASSET_DIR=$DATA_DIR/library/images"
+Environment="STUDIO_ALLOWED_ORIGINS=$(allowed_origins)"
+EOF
 
 systemctl daemon-reload
 if [ "$LEGACY_SERVICE_NAME" != "$SERVICE_NAME" ] && systemctl list-unit-files "$LEGACY_SERVICE_NAME.service" >/dev/null 2>&1; then

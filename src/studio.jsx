@@ -5711,10 +5711,10 @@ function CreationDesk({
             </div>
           ) : workPreviewImage ? (
             <div className="canvasNode sourceNode previewFallbackNode">
-              <img
+              <ProtectedStudioImage
                 src={workPreviewImage}
+                fallbackSrc={workPreviewFallback}
                 alt={previewAlt}
-                onError={(event) => handleImageFallback(event, workPreviewFallback)}
               />
               <span className="canvasNodeLabel">{hasPrimaryResult ? '#1' : selectedCase?.title || t('canvas.sourceImage', '参考画面')}</span>
             </div>
