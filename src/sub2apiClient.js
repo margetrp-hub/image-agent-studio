@@ -1578,21 +1578,13 @@ export class StudioHistoryClient {
     const resultUrls = Array.isArray(session.results) ? session.results : [];
     const videoUrls = Array.isArray(session.videoResults) ? session.videoResults : [];
     const canvasNodes = Array.isArray(session.canvasNodes) ? session.canvasNodes : [];
-    const [results, videoResults, resolvedCanvasNodes] = await Promise.all([
-      Promise.all(resultUrls.map((url) => this.resolveAssetUrl(url).catch(() => url))),
-      Promise.all(videoUrls.map((url) => this.resolveAssetUrl(url).catch(() => url))),
-      Promise.all(canvasNodes.map(async (node) => ({
-        ...node,
-        url: await this.resolveAssetUrl(node?.url).catch(() => node?.url || '')
-      })))
-    ]);
     return {
       ...session,
       persistedResults: resultUrls,
       persistedVideoResults: videoUrls,
-      results,
-      videoResults,
-      canvasNodes: resolvedCanvasNodes.map((node, index) => ({
+      results: resultUrls,
+      videoResults: videoUrls,
+      canvasNodes: canvasNodes.map((node, index) => ({
         ...node,
         persistedUrl: canvasNodes[index]?.url || ''
       }))
@@ -1601,10 +1593,9 @@ export class StudioHistoryClient {
 
   async resolveRecordAssets(record) {
     const resultUrls = Array.isArray(record?.resultUrls) ? record.resultUrls : [];
-    const displayResultUrls = await Promise.all(resultUrls.map((url) => this.resolveAssetUrl(url).catch(() => url)));
     return {
       ...record,
-      displayResultUrls
+      displayResultUrls: resultUrls
     };
   }
 }

@@ -135,8 +135,8 @@ const DESK_MODES = [
 ];
 const MASK_HISTORY_LIMIT = 6;
 const MASK_FILL_COLOR = 'rgba(178, 39, 50, 0.34)';
-const INITIAL_TEMPLATE_LIMIT = 24;
-const TEMPLATE_PAGE_SIZE = 24;
+const INITIAL_TEMPLATE_LIMIT = 12;
+const TEMPLATE_PAGE_SIZE = 12;
 const CATEGORY_LABELS = {
   'Architecture & Spaces': '建筑空间',
   'Brand & Logos': '品牌标识',
@@ -2676,12 +2676,45 @@ function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy, onUse }) {
 }
 
 function ProtectedStudioImage({ src, fallbackSrc = '', alt = '', fallback = null }) {
+  const holderRef = useRef(null);
+  const [shouldResolve, setShouldResolve] = useState(() => {
+    const value = String(src || '');
+    return Boolean(value && !isProtectedStudioAsset(value));
+  });
   const [candidateIndex, setCandidateIndex] = useState(0);
   const [resolvedSrc, setResolvedSrc] = useState(() => {
     const value = String(src || '');
     return value && !isProtectedStudioAsset(value) ? displayResultUrl(value) : '';
   });
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const candidates = [src, fallbackSrc]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+    if (!candidates.some(isProtectedStudioAsset)) {
+      setShouldResolve(true);
+      return undefined;
+    }
+
+    setShouldResolve(false);
+    if (!('IntersectionObserver' in window)) {
+      const timer = window.setTimeout(() => setShouldResolve(true), 150);
+      return () => window.clearTimeout(timer);
+    }
+
+    const node = holderRef.current?.parentElement || holderRef.current;
+    if (!node) return undefined;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setShouldResolve(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '180px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [src, fallbackSrc]);
+
   useEffect(() => {
     let active = true;
     const objectUrls = [];
@@ -2721,34 +2754,40 @@ function ProtectedStudioImage({ src, fallbackSrc = '', alt = '', fallback = null
     setFailed(false);
     setCandidateIndex(0);
     setResolvedSrc(candidates[0] && !isProtectedStudioAsset(candidates[0]) ? displayResultUrl(candidates[0]) : '');
+    if (!shouldResolve) return () => {
+      active = false;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
     resolveImage();
 
     return () => {
       active = false;
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [src, fallbackSrc]);
+  }, [src, fallbackSrc, shouldResolve]);
 
-  if (!src || failed || !resolvedSrc) return fallback;
+  if (!src || failed || !resolvedSrc) return <span ref={holderRef}>{fallback}</span>;
   return (
-    <img
-      src={resolvedSrc}
-      alt={alt}
-      loading="lazy"
-      onError={(event) => {
-        const candidates = [src, fallbackSrc]
-          .map((value) => String(value || '').trim())
-          .filter((value, index, list) => value && list.indexOf(value) === index);
-        const next = candidates[candidateIndex + 1];
-        if (next && !isProtectedStudioAsset(next)) {
-          setCandidateIndex((value) => value + 1);
-          setResolvedSrc(displayResultUrl(next));
-          return;
-        }
-        event.currentTarget.hidden = true;
-        setFailed(true);
-      }}
-    />
+    <span ref={holderRef}>
+      <img
+        src={resolvedSrc}
+        alt={alt}
+        loading="lazy"
+        onError={(event) => {
+          const candidates = [src, fallbackSrc]
+            .map((value) => String(value || '').trim())
+            .filter((value, index, list) => value && list.indexOf(value) === index);
+          const next = candidates[candidateIndex + 1];
+          if (next && !isProtectedStudioAsset(next)) {
+            setCandidateIndex((value) => value + 1);
+            setResolvedSrc(displayResultUrl(next));
+            return;
+          }
+          event.currentTarget.hidden = true;
+          setFailed(true);
+        }}
+      />
+    </span>
   );
 }
 
@@ -5604,19 +5643,11 @@ function CreationDesk({
                     <video src={displayResultUrl(node.url)} playsInline preload="metadata" />
                   ) : (
                     <>
-                      <img
+                      <ProtectedStudioImage
                         src={displayResultUrl(node.url)}
                         alt={node.title}
-                        onError={(event) => {
-                          event.currentTarget.closest('.graphNode')?.classList.add('imageMissing');
-                        }}
-                        onLoad={(event) => {
-                          event.currentTarget.closest('.graphNode')?.classList.remove('imageMissing');
-                        }}
+                        fallback={<span className="canvasNodeMissing">{t('canvas.recovering', '图片正在恢复，若仍为空请从历史图库重新打开本次会话')}</span>}
                       />
-                      <span className="canvasNodeMissing">
-                        {t('canvas.recovering', '图片正在恢复，若仍为空请从历史图库重新打开本次会话')}
-                      </span>
                     </>
                   )}
                 </button>
