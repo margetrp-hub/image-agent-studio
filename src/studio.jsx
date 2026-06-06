@@ -7600,8 +7600,10 @@ function CreationDesk({
             {assistantMessages.length ? assistantMessages.slice(-8).map((item) => (
               <div className={`composerMessage ${item.role} ${item.pending ? 'pending' : ''} ${item.failed ? 'failed' : ''}`} key={item.id}>
                 <span>{item.role === 'assistant' ? 'AI' : t('composer.you', '你')}</span>
-                <p>{item.content}</p>
-                {item.finalPrompt ? <button type="button" onClick={() => setPrompt(item.finalPrompt)}>{t('composer.putIntoInput', '放入输入框')}</button> : null}
+                <div className="composerMessageBubble">
+                  <p>{item.content}</p>
+                  {item.finalPrompt && !promptSuggestion ? <button type="button" onClick={() => setPrompt(item.finalPrompt)}>{t('composer.putIntoInput', '放入输入框')}</button> : null}
+                </div>
               </div>
             )) : null}
             <PromptSuggestion
@@ -7874,7 +7876,7 @@ function CreationDesk({
         </button>
       </aside>
       {layoutSections.parameters && activeParamPanel ? (
-        <aside className="paramDrawer" aria-label={t('params.current', '当前参数')}>
+        <aside className={`paramDrawer paramDrawer-${activeParamPanel}`} aria-label={t('params.current', '当前参数')}>
           <div className="paramDrawerHead">
             <strong>{activeParamPanel === 'model' ? t('params.model', '模型') : activeParamPanel === 'size' ? t('params.size', '尺寸') : activeParamPanel === 'quality' ? t('params.quality', '质量') : t('params.count', '数量')}</strong>
             <button type="button" onClick={() => toggleLayoutSection('parameters')} aria-label={t('params.close', '收起参数')}>
