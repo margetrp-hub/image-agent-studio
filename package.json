@@ -57,7 +57,7 @@
     "react-dom": "^19.2.1",
     "vite": "^7.2.7"
   },
-  "description": "OpenAI-compatible AI image creation workstation with prompt workflows, references, infinite canvas, history gallery, and persistence.",
+  "description": "Self-hosted AI image creation workstation for OpenAI-compatible generation and editing gateways.",
   "main": "vite.config.js",
   "directories": {
     "doc": "docs"

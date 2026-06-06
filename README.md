@@ -2,13 +2,15 @@
 
 ## Project Story
 
-I started this project from a very practical need: image models were already available through OpenAI-compatible APIs and gateways, but the actual creation workflow still felt scattered.
+AI Image Workbench is a self-hosted image creation workstation for OpenAI-compatible image generation and editing gateways.
 
-I did not want users to manually assemble payloads, switch between prompt notes, upload references in one place, check results somewhere else, and then lose the thread after a refresh. I wanted a lightweight image creation workstation where prompt writing, reference images, model selection, quality settings, generation results, canvas iteration, queues, and history gallery stay in one focused page.
+I built it because the early image-generation workflow was too scattered: prompt writing lived in one place, reference images in another, generation settings in a payload, results in a temporary browser state, and follow-up edits were easy to lose after refresh.
 
-Sub2API was the first gateway I built around because it already handled accounts, keys, quota, billing, and OpenAI-compatible image routes. The project is now deliberately moving beyond a single gateway. It is meant to become a general AI image workbench that can connect to official OpenAI-style APIs, custom compatible gateways, Sub2API, NewAPI, and similar providers as long as they expose compatible image generation/editing routes.
+The workstation keeps that loop in one focused page: write or refine a prompt, add reference images, choose a provider/model, generate through `/v1/images/generations` or edit through `/v1/images/edits`, continue from any canvas image, keep visual lineage between results, and restore sessions/history through the optional persistence service.
 
-This repository only includes the workstation app. It does not include any private production homepage, private production image library, real keys, or gateway backend implementation.
+It can run with official OpenAI-style APIs, custom compatible gateways, Sub2API, NewAPI, and similar providers. Sub2API was one of the first gateways used during development, but it is now treated as one supported gateway rather than the identity of the project.
+
+This repository only includes the workstation app and deployment examples. It does not include any private production homepage, private production image library, real keys, or gateway backend implementation.
 
 Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
 
