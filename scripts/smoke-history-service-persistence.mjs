@@ -7,7 +7,7 @@ import path from 'node:path';
 
 const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ai-image-workbench-service-smoke-'));
 const token = 'local-smoke-token';
-const secret = 'sk-service-smoke-secret-should-not-persist';
+const secret = 'test-key-service-smoke-secret-should-not-persist';
 const port = 19000 + Math.floor(Math.random() * 1000);
 const baseUrl = `http://127.0.0.1:${port}`;
 const gatewayPort = port + 2000;

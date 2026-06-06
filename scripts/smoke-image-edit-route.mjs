@@ -8,7 +8,7 @@ const screenshotPath = `${screenshotDir}/image-edit-route.png`;
 const fixtureDir = `${screenshotDir}/fixtures`;
 const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';
 const manualSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
-const fakeSecret = 'sk-image-edit-route-smoke-session-only';
+const fakeSecret = 'test-key-image-edit-route-smoke-session-only';
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAWElEQVR42u3OQQ0AAAgDMMTrf2YKBhhoKrQydc1wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgOwQ0AAEEp43RAAAAAElFTkSuQmCC';
 
 function assert(condition, message, evidence) {

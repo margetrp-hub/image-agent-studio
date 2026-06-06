@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.9.0-beta.1
+## 0.9.8
 
 This release is the first step toward a real 1.0 beta, but it is intentionally not labeled 1.0 yet.
 

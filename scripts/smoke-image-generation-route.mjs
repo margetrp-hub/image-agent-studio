@@ -5,7 +5,7 @@ const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/image-generation-route.png`;
 const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';
 const manualSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
-const fakeSecret = 'sk-image-route-smoke-session-only';
+const fakeSecret = 'test-key-image-route-smoke-session-only';
 
 function assert(condition, message, evidence) {
   if (!condition) {

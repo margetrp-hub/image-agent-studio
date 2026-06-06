@@ -6,7 +6,7 @@ const screenshotPath = `${screenshotDir}/provider-settings-security.png`;
 const storageKey = 'image-sub2api-studio:provider-settings:v1';
 const legacyStorageKey = 'ohlaoo-studio:provider-settings:v1';
 const sessionSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
-const fakeSecret = 'sk-provider-security-smoke-should-not-persist';
+const fakeSecret = 'test-key-provider-security-smoke-should-not-persist';
 
 function assert(condition, message, evidence) {
   if (!condition) {
@@ -100,7 +100,7 @@ try {
 
   const gatewayInput = page.locator('.settingsDialog input:not([type="password"])').first();
   await gatewayInput.fill('https://manual.example/v1');
-  await page.locator('.settingsDialog input[type="password"]').first().fill('sk-provider-security-smoke-updated');
+  await page.locator('.settingsDialog input[type="password"]').first().fill('test-key-provider-security-smoke-updated');
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const updated = await page.evaluate(({ storageKey, legacyStorageKey, sessionSecretKey }) => ({
@@ -109,9 +109,9 @@ try {
     sessionSecret: sessionStorage.getItem(sessionSecretKey) || '',
     inputTypes: [...document.querySelectorAll('.settingsDialog input')].map((input) => input.type)
   }), { storageKey, legacyStorageKey, sessionSecretKey });
-  assert(!updated.persisted.includes('sk-provider-security-smoke'), 'Updated manual API key was persisted in localStorage.', updated);
-  assert(!updated.legacyPersisted.includes('sk-provider-security-smoke'), 'Updated manual API key was persisted in legacy localStorage.', updated);
-  assert(updated.sessionSecret === 'sk-provider-security-smoke-updated', 'Updated manual API key was not retained for the current browser session.', updated);
+  assert(!updated.persisted.includes('test-key-provider-security-smoke'), 'Updated manual API key was persisted in localStorage.', updated);
+  assert(!updated.legacyPersisted.includes('test-key-provider-security-smoke'), 'Updated manual API key was persisted in legacy localStorage.', updated);
+  assert(updated.sessionSecret === 'test-key-provider-security-smoke-updated', 'Updated manual API key was not retained for the current browser session.', updated);
   assert(updated.persisted.includes('https://manual.example/v1'), 'Manual gateway URL should remain persistent configuration.', updated);
 
   console.log(JSON.stringify({

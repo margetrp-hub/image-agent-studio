@@ -102,7 +102,7 @@ async function installCommonRoutes(page) {
   await page.route('**/api-keys**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify([{ id: 1, key: 'sk-smoke-visible-prefix' }])
+    body: JSON.stringify([{ id: 1, key: 'test-key-smoke-visible-prefix' }])
   }));
   await page.route('**/v1/models**', (route) => route.fulfill({
     status: 200,
