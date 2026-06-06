@@ -56,14 +56,7 @@ AI Image Workbench 是一个可以自托管的 AI 图像创作工作站，面向
 
 ![创作工作台英文界面](docs/screenshots/workstation-en.png)
 
-旧版功能截图：
-
-- ![画布续作与生成状态](docs/screenshots/canvas-flow.png)
-- ![图片参数与生成控制](docs/screenshots/image-controls.png)
-- ![参考图上传](docs/screenshots/reference-upload.png)
-- ![底部灵感与模板入口](docs/screenshots/template-library.png)
-- ![Key 设置与打码展示](docs/screenshots/key-settings.png)
-- ![历史图库](docs/screenshots/history.png)
+旧版拆分功能截图仍保留在 `docs/screenshots/` 里用于版本对比，但项目首页现在只展示当前新版工作台布局。
 
 ## 边界说明
 

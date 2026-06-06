@@ -59,14 +59,7 @@ Screenshots come from the current workspace and use demo data with masked keys.
 
 ![Main studio workspace English](docs/screenshots/workstation-en.png)
 
-Older feature screenshots:
-
-- ![Canvas continuation and generation state](docs/screenshots/canvas-flow.png)
-- ![Image controls](docs/screenshots/image-controls.png)
-- ![Reference upload](docs/screenshots/reference-upload.png)
-- ![Bottom inspiration and template entry](docs/screenshots/template-library.png)
-- ![Masked key settings](docs/screenshots/key-settings.png)
-- ![History gallery](docs/screenshots/history.png)
+The older feature-by-feature screenshots are kept in `docs/screenshots/` for version comparison, but the project page now only presents the current workstation layout.
 
 ## Boundary
 
