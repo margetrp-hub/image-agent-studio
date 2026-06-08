@@ -36,6 +36,7 @@
     "smoke:projects": "npm exec --yes --package=playwright -- node scripts/smoke-project-session-grouping.mjs",
     "smoke:history:queue": "npm exec --yes --package=playwright -- node scripts/smoke-generation-queue-recovery.mjs",
     "smoke:image:route": "npm exec --yes --package=playwright -- node scripts/smoke-image-generation-route.mjs",
+    "smoke:public:route": "npm exec --yes --package=playwright -- node scripts/smoke-public-studio-route.mjs",
     "smoke:image:edit-route": "npm exec --yes --package=playwright -- node scripts/smoke-image-edit-route.mjs",
     "smoke:references": "npm exec --yes --package=playwright -- node scripts/smoke-reference-upload-preview.mjs",
     "smoke:session:modes": "npm exec --yes --package=playwright -- node scripts/smoke-current-session-mode-recovery.mjs",
