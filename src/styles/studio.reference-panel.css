@@ -1585,3 +1585,62 @@
     inset: 0 !important;
   }
 }
+.libraryReferencePreview {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgba(140, 151, 170, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 30px rgba(20, 27, 44, 0.08);
+}
+
+.libraryReferencePreview .referencePreviewButton {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 0;
+  border-radius: 13px;
+  background: #eef2f7;
+  cursor: zoom-in;
+}
+
+.libraryReferencePreview img,
+.libraryReferencePreview .lazyImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.libraryReferencePreview .referencePreviewButton:hover img,
+.libraryReferencePreview .referencePreviewButton:focus-visible img {
+  transform: scale(1.035);
+  filter: saturate(1.04);
+}
+
+.libraryReferencePreview figcaption {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.libraryReferencePreview figcaption span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.libraryReferencePreview figcaption strong {
+  overflow: hidden;
+  color: #1d2939;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referenceSideBody.hasLibraryReference:not(.hasReferenceItems) {
+  align-content: start;
+}

@@ -257,7 +257,15 @@ function sendJson(res, status, payload) {
 
 function sendCors(req, res) {
   const origin = String(req.headers.origin || '').replace(/\/+$/, '');
-  const allowOrigin = !origin || ALLOWED_ORIGINS.includes(origin) ? origin : '';
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').trim();
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || 'https';
+  const sameHostOrigins = new Set();
+  if (host) {
+    sameHostOrigins.add(`https://${host}`);
+    sameHostOrigins.add(`http://${host}`);
+    sameHostOrigins.add(`${forwardedProto}://${host}`);
+  }
+  const allowOrigin = !origin || ALLOWED_ORIGINS.includes(origin) || sameHostOrigins.has(origin) ? origin : '';
   if (allowOrigin) {
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDown, ArrowUp, Images, SlidersHorizontal, Video } from 'lucide-react';
+import { ArrowDown, ArrowUp, SlidersHorizontal, Video } from 'lucide-react';
 
 export function ComposerParamShelf({
   activeWorkspace,
@@ -14,7 +14,6 @@ export function ComposerParamShelf({
   imageCountSuffix,
   imageModelOptions,
   imageQualityOptions,
-  imageReferenceCount,
   imageResolutionTierOptions,
   layoutSections,
   mode,
@@ -24,7 +23,6 @@ export function ComposerParamShelf({
   onModeChange,
   onModelChange,
   onQualityChange,
-  onReferenceToggle,
   onResolutionTierChange,
   onVideoAspectChange,
   onVideoDurationChange,
@@ -43,11 +41,9 @@ export function ComposerParamShelf({
   videoDuration,
   videoDurations,
   videoModel,
-  videoModelOptions,
-  videoReferenceCount
+  videoModelOptions
 }) {
   const parametersExpanded = layoutSections.composerParameters !== false;
-  const referenceCount = mode === 'video' ? videoReferenceCount : imageReferenceCount;
 
   return (
     <div className={`composerParamShelf ${parametersExpanded ? 'isExpanded' : 'isCollapsed'}`} aria-label={t('params.current', '当前参数')}>
@@ -173,17 +169,6 @@ export function ComposerParamShelf({
               </>
             )}
           </div>
-          <button
-            type="button"
-            className="composerReferenceParamButton"
-            onClick={onReferenceToggle}
-            aria-label={layoutSections.references ? t('references.collapse', '收起参考图') : t('references.title', '参考图')}
-            title={layoutSections.references ? t('references.collapse', '收起参考图') : t('references.title', '参考图')}
-          >
-            <Images size={15} />
-            <span>{t('references.title', '参考图')}</span>
-            <em>{referenceCount}</em>
-          </button>
         </>
       )}
     </div>

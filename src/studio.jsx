@@ -1560,6 +1560,10 @@ function resolveProviderRequest(settings, apiKey) {
   };
 }
 
+function canUseClientGenerationFallback() {
+  return Boolean(import.meta.env.DEV);
+}
+
 function modelMatchesVideo(item) {
   const raw = item?.raw || {};
   const values = [
@@ -2096,6 +2100,9 @@ function generationErrorMessage(error, t = (key, fallback, values) => {
   const requestSuffix = requestId ? t('errors.requestIdSuffix', ' 请求 ID：{requestId}', { requestId }) : '';
   if (error?.code === 'GENERATION_STOPPED' || lowered.includes('generation_stopped')) {
     return t('errors.stopped', '已停止本页等待。若请求已经到达上游，仍可能继续处理或产生扣费；请先查看当前画布/历史图库，确认没有新结果后再重试。');
+  }
+  if (error?.code === 'SERVICE_QUEUE_UNAVAILABLE' || lowered.includes('service_queue_unavailable')) {
+    return t('errors.serviceQueueUnavailable', '服务端生成队列暂不可用，这次没有切换到浏览器直连。请检查 /studio-api/generation-jobs、history/session 服务和来源白名单后再试。');
   }
   if (error?.code === 'GENERATION_TIMEOUT' || error?.code === 'JOB_TIMEOUT' || lowered.includes('generation_timeout') || lowered.includes('job_timeout') || lowered.includes('timed out') || lowered.includes('timeout')) {
     return `${t('errors.timeout', '前端等待超时，这次页面已结束等待；这不代表上游已经取消。本次请求可能仍在处理、排队或已经扣费，请稍后查看历史图库/当前画布，再决定是否重试。')}${requestSuffix}`;
@@ -4108,7 +4115,10 @@ function CreationDesk({
         .then((resolvedCase) => {
           if (resolvingCaseRef.current.id !== requestId || !resolvedCase) return;
           applySelectedCasePrompt(selectedCase, resolvedCase.prompt || resolvedCase.promptPreview || '');
-          updateLayoutSections({ bottomComposer: true });
+          updateLayoutSections({
+            bottomComposer: true,
+            references: Boolean(templatePreviewImage(resolvedCase || selectedCase))
+          });
           setPromptSuggestion(null);
           setPreviewImage(null);
         })
@@ -4149,7 +4159,12 @@ function CreationDesk({
       return;
     }
     applySelectedCasePrompt(selectedCase, selectedCase?.prompt || selectedCase?.promptPreview || '');
-    if (selectedCase?.prompt || selectedCase?.promptPreview) updateLayoutSections({ bottomComposer: true });
+    if (selectedCase?.prompt || selectedCase?.promptPreview) {
+      updateLayoutSections({
+        bottomComposer: true,
+        references: Boolean(templatePreviewImage(selectedCase))
+      });
+    }
     setPromptSuggestion(null);
     setPreviewImage(null);
   }, [selectedCase]);
@@ -5276,6 +5291,13 @@ function CreationDesk({
           }
         } catch (error) {
           if (generationRef.current.remoteJobId) throw error;
+          if (!canUseClientGenerationFallback()) {
+            const queueError = new Error('SERVICE_QUEUE_UNAVAILABLE');
+            queueError.code = 'SERVICE_QUEUE_UNAVAILABLE';
+            queueError.cause = error;
+            queueError.payload = error?.payload;
+            throw queueError;
+          }
           setMessage(t('statusMessages.serviceQueueFallback', '服务端队列暂不可用，已切换为本页直连生成。'));
         }
       }
@@ -5505,6 +5527,8 @@ function CreationDesk({
   };
   const maskSourcePreview = referencePreviews[0] || (mode === 'mask' && selectedCanvasNode && selectedCanvasNode.kind !== 'video' ? selectedCanvasNode.url : '');
   const maskSourceFile = referenceFiles[0] || (maskSourcePreview ? { name: selectedCanvasNode ? `#${selectedCanvasNode.canvasIndex || 1}.png` : 'reference.png' } : null);
+  const selectedLibraryReferenceUrl = mode === 'image' && selectedCase ? assetPath(templatePreviewImage(selectedCase)) : '';
+  const selectedLibraryReferenceTitle = selectedCase?.title || t('references.libraryPreview', '灵感图');
   const referenceSideCount = mode === 'mask'
     ? (maskSourcePreview ? 1 : 0)
     : mode === 'video'
@@ -5983,7 +6007,32 @@ function CreationDesk({
                 ) : null}
               </div>
             ) : (
-              <div className={`referenceSideBody ${referencePreviews.length ? 'hasReferenceItems' : ''}`}>
+              <div className={`referenceSideBody ${referencePreviews.length ? 'hasReferenceItems' : ''} ${selectedLibraryReferenceUrl ? 'hasLibraryReference' : ''}`}>
+                {selectedLibraryReferenceUrl ? (
+                  <figure className="libraryReferencePreview">
+                    <button
+                      type="button"
+                      className="referencePreviewButton"
+                      onClick={() => setPreviewImage({
+                        url: selectedLibraryReferenceUrl,
+                        index: 0,
+                        downloadMeta: {
+                          mode: 'library-reference',
+                          providerId: model,
+                          prompt: selectedCase?.prompt || selectedCase?.promptPreview || prompt.trim(),
+                          createdAt: new Date().toISOString()
+                        }
+                      })}
+                      aria-label={t('references.preview', '查看参考图')}
+                    >
+                      <LazyImage src={selectedLibraryReferenceUrl} alt={selectedCase?.imageAlt || selectedLibraryReferenceTitle} />
+                    </button>
+                    <figcaption>
+                      <span>{t('references.libraryPreview', '灵感图')}</span>
+                      <strong>{selectedLibraryReferenceTitle}</strong>
+                    </figcaption>
+                  </figure>
+                ) : null}
                 <label
                   className={`uploadDrop sideUploadDrop ${referenceDropActive ? 'isDragging' : ''}`}
                   tabIndex={0}
@@ -6628,7 +6677,6 @@ function CreationDesk({
             imageCountSuffix={imageCountSuffix}
             imageModelOptions={imageModelOptions}
             imageQualityOptions={imageQualityOptions}
-            imageReferenceCount={referenceFiles.length}
             imageResolutionTierOptions={imageResolutionTierOptions}
             layoutSections={layoutSections}
             mode={mode}
@@ -6638,7 +6686,6 @@ function CreationDesk({
             onModeChange={setMode}
             onModelChange={setModel}
             onQualityChange={setQuality}
-            onReferenceToggle={() => toggleLayoutSection('references')}
             onResolutionTierChange={setResolutionTier}
             onVideoAspectChange={setVideoAspect}
             onVideoDurationChange={setVideoDuration}
@@ -6658,7 +6705,6 @@ function CreationDesk({
             videoDurations={VIDEO_DURATIONS}
             videoModel={videoModel}
             videoModelOptions={videoModelOptions}
-            videoReferenceCount={videoReferenceFiles.length}
           />
         ) : null}
       </BottomComposerPanel>
