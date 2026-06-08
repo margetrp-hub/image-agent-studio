@@ -1,0 +1,1587 @@
+/* Reference panel guardrails. Keep after composer layout until legacy duplicates are removed. */
+@media (max-width: 760px) {
+  .creationDesk.composerOpen .referenceSidePanel.isCollapsed,
+  .studioLayout .creationDesk .referenceSidePanel.isCollapsed {
+    top: 78px !important;
+    right: 6px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    opacity: 0.92 !important;
+    z-index: 21 !important;
+    transform: none !important;
+  }
+
+  .creationDesk.composerOpen .referenceSidePanel.isCollapsed .referenceSideCollapsed,
+  .studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
+}
+
+/* Reference thumbnail shell guardrails. */
+.studioLayout .creationDesk .referenceSidePanel.isOpen {
+  padding: 14px 12px 12px !important;
+  gap: 12px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead {
+  min-height: 40px !important;
+  padding-bottom: 10px !important;
+  gap: 10px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead button {
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+  gap: 12px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideUploadDrop {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 12px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+  padding: 1px 6px 12px 1px !important;
+  grid-auto-rows: minmax(118px, auto) !important;
+  gap: 12px !important;
+  contain: content !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+  min-height: 118px !important;
+  padding: 0 28px 0 0 !important;
+  border-radius: 13px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure::before {
+  content: "" !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  min-height: 112px !important;
+  aspect-ratio: 4 / 3 !important;
+  border-radius: 13px !important;
+  cursor: zoom-in !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton .lazyImage,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs img {
+  object-fit: cover !important;
+  padding: 0 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions {
+  right: 0 !important;
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 32px !important;
+  opacity: 0.78 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions button:last-child,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .videoReferenceThumbs > figure > button:not(.referencePreviewButton) {
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed {
+  transition:
+    transform 190ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed:hover {
+  transform: translateX(-2px) !important;
+}
+
+/* Migrated final reference rail rules from studio.css. */
+/* Final reference drawer: right-side image rail with a real collapsed entry. */
+.studioLayout .creationDesk .referenceSidePanel {
+  box-sizing: border-box !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen {
+  position: absolute !important;
+  top: 22px !important;
+  right: 22px !important;
+  bottom: auto !important;
+  z-index: 34 !important;
+  width: min(286px, calc(100vw - var(--rail-width, 320px) - 44px)) !important;
+  min-width: min(286px, calc(100vw - var(--rail-width, 320px) - 44px)) !important;
+  max-width: min(286px, calc(100vw - var(--rail-width, 320px) - 44px)) !important;
+  height: min(620px, calc(100dvh - 176px)) !important;
+  min-height: min(430px, calc(100dvh - 176px)) !important;
+  max-height: min(620px, calc(100dvh - 176px)) !important;
+  margin: 0 !important;
+  padding: 12px !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 98%, transparent), color-mix(in srgb, var(--studio-surface) 93%, transparent)) !important;
+  box-shadow:
+    0 22px 58px color-mix(in srgb, var(--studio-text-strong) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 52%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.08) !important;
+  transform: translateX(0) !important;
+  opacity: 1 !important;
+  transition:
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease,
+    box-shadow 180ms ease !important;
+}
+
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen {
+  width: min(286px, calc(100vw - 102px)) !important;
+  min-width: min(286px, calc(100vw - 102px)) !important;
+  max-width: min(286px, calc(100vw - 102px)) !important;
+}
+
+.studioLayout .creationDesk .referenceSideHead {
+  min-height: 36px !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 32px !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.studioLayout .creationDesk .referenceSideHead div {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.studioLayout .creationDesk .referenceSideHead strong {
+  color: var(--studio-text-strong) !important;
+  font-size: 13px !important;
+  font-weight: 950 !important;
+  line-height: 1.1 !important;
+}
+
+.studioLayout .creationDesk .referenceSideHead span {
+  color: var(--studio-muted) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+}
+
+.studioLayout .creationDesk .referenceSideHead button {
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 11px !important;
+  transition:
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSideHead button:hover {
+  transform: translateY(-1px) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody {
+  min-height: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) {
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+  min-height: 0 !important;
+  grid-template-rows: 44px minmax(0, 1fr) !important;
+  gap: 10px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideUploadDrop {
+  width: 100% !important;
+  min-height: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+  border-radius: 13px !important;
+  border-style: dashed !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) .sideUploadDrop {
+  min-height: 100% !important;
+  height: 100% !important;
+  border-radius: 16px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop svg {
+  flex: 0 0 auto !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+  min-height: 0 !important;
+  max-height: none !important;
+  height: 100% !important;
+  padding: 1px 2px 6px 1px !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  grid-auto-rows: minmax(168px, auto) !important;
+  align-content: start !important;
+  gap: 12px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-gutter: stable !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs::-webkit-scrollbar-thumb {
+  border: 2px solid transparent !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--studio-muted) 32%, transparent) !important;
+  background-clip: padding-box !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+  position: relative !important;
+  min-width: 0 !important;
+  min-height: 168px !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 8px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 30px !important;
+  grid-template-rows: minmax(124px, 1fr) auto auto !important;
+  gap: 7px !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 62%, transparent) !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-soft) 94%, transparent), color-mix(in srgb, var(--studio-surface-strong) 84%, transparent)) !important;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--studio-text-strong) 8%, transparent) !important;
+  transform: translateZ(0) !important;
+  transition:
+    transform 170ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 170ms ease,
+    box-shadow 170ms ease,
+    background 170ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure:hover,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure:focus-within {
+  border-color: color-mix(in srgb, var(--studio-primary) 46%, var(--studio-border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 6%, var(--studio-surface-soft)), color-mix(in srgb, var(--studio-surface-strong) 88%, transparent)) !important;
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--studio-primary) 12%, transparent),
+    0 10px 26px color-mix(in srgb, var(--studio-text-strong) 9%, transparent) !important;
+  transform: translateY(-2px) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 124px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 54%, transparent) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 7%, transparent), transparent 56%),
+    color-mix(in srgb, var(--studio-surface) 78%, var(--studio-surface-soft)) !important;
+  cursor: zoom-in !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton .lazyImage,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  aspect-ratio: auto !important;
+  object-fit: contain !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:hover img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:focus-visible img {
+  transform: scale(1.035) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figcaption {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  min-width: 0 !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 7px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figcaption select {
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 24px 0 9px !important;
+  border-radius: 10px !important;
+  font-size: 11px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figcaption span {
+  max-width: 62px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: var(--studio-muted) !important;
+  font-size: 10.5px !important;
+  font-weight: 900 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta strong,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta strong {
+  color: var(--studio-text-strong) !important;
+  font-size: 10.5px !important;
+  font-weight: 900 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta span {
+  color: var(--studio-muted) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions {
+  grid-column: 2 !important;
+  grid-row: 2 / 4 !important;
+  position: static !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-content: start !important;
+  justify-items: center !important;
+  gap: 5px !important;
+  opacity: 0.66 !important;
+  transform: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure:hover .referenceThumbActions,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure:focus-within .referenceThumbActions {
+  opacity: 1 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions button,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .videoReferenceThumbs > figure > button:not(.referencePreviewButton) {
+  width: 27px !important;
+  min-width: 27px !important;
+  height: 27px !important;
+  min-height: 27px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .videoReferenceThumbs > figure > button:not(.referencePreviewButton) {
+  position: absolute !important;
+  right: 10px !important;
+  top: 10px !important;
+  z-index: 2 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed {
+  position: absolute !important;
+  top: 28px !important;
+  right: 24px !important;
+  z-index: 35 !important;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  overflow: visible !important;
+  border-radius: 16px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed {
+  position: relative !important;
+  width: 46px !important;
+  min-width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 16px !important;
+  writing-mode: horizontal-tb !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-surface-soft) 88%, transparent)) !important;
+  box-shadow:
+    0 12px 30px color-mix(in srgb, var(--studio-primary) 12%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 54%, transparent) !important;
+  color: var(--studio-primary) !important;
+  transition:
+    transform 170ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 170ms ease,
+    background 170ms ease,
+    box-shadow 170ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
+  box-shadow:
+    0 16px 34px color-mix(in srgb, var(--studio-primary) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 58%, transparent) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed span {
+  display: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed svg {
+  width: 18px !important;
+  height: 18px !important;
+  transform: none !important;
+}
+
+@media (max-width: 1180px) {
+  .studioLayout .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen {
+    width: min(260px, calc(100vw - var(--rail-width, 58px) - 34px)) !important;
+    min-width: min(260px, calc(100vw - var(--rail-width, 58px) - 34px)) !important;
+    max-width: min(260px, calc(100vw - var(--rail-width, 58px) - 34px)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen {
+    top: 14px !important;
+    right: 10px !important;
+    width: min(238px, calc(100vw - 78px)) !important;
+    min-width: min(238px, calc(100vw - 78px)) !important;
+    max-width: min(238px, calc(100vw - 78px)) !important;
+    height: min(360px, calc(100dvh - 176px)) !important;
+    min-height: min(252px, calc(100dvh - 176px)) !important;
+    max-height: min(360px, calc(100dvh - 176px)) !important;
+    padding: 10px !important;
+    border-radius: 16px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead {
+    min-height: 32px !important;
+    grid-template-columns: minmax(0, 1fr) 30px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+    grid-template-rows: 38px minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop,
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideUploadDrop {
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+    grid-auto-rows: minmax(138px, auto) !important;
+    gap: 9px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+    min-height: 138px !important;
+    padding: 7px !important;
+    grid-template-rows: minmax(94px, 1fr) auto auto !important;
+    border-radius: 14px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+    min-height: 94px !important;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studioLayout .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .sideReferenceThumbs figure,
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referencePreviewButton img,
+  .studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}
+
+/* Reference drawer collision lock: when the chat composer is open, the drawer lives above it and scrolls internally. */
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen {
+  height: min(306px, calc(100dvh - 560px)) !important;
+  min-height: min(252px, calc(100dvh - 560px)) !important;
+  max-height: min(306px, calc(100dvh - 560px)) !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+  grid-auto-rows: minmax(156px, auto) !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+  min-height: 156px !important;
+  grid-template-rows: minmax(112px, 1fr) auto auto !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  min-height: 112px !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+  height: min(620px, calc(100dvh - 112px)) !important;
+  min-height: min(420px, calc(100dvh - 112px)) !important;
+  max-height: min(620px, calc(100dvh - 112px)) !important;
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+  .studioLayout.railCollapsed .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen {
+    top: 12px !important;
+    height: min(220px, calc(100dvh - 620px)) !important;
+    min-height: min(188px, calc(100dvh - 620px)) !important;
+    max-height: min(220px, calc(100dvh - 620px)) !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+    grid-auto-rows: minmax(122px, auto) !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+    min-height: 122px !important;
+    grid-template-rows: minmax(82px, 1fr) auto auto !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+    min-height: 82px !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+    height: min(360px, calc(100dvh - 96px)) !important;
+    min-height: min(260px, calc(100dvh - 96px)) !important;
+    max-height: min(360px, calc(100dvh - 96px)) !important;
+  }
+}
+
+/* Absolute final reference sidebar: a full-height right rail, not a floating drawer. */
+.studioLayout .creationDesk {
+  --reference-sidebar-width: clamp(286px, 22vw, 332px);
+}
+
+.studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
+  inset: 0 var(--reference-sidebar-width) 0 0 !important;
+  transition:
+    inset 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms ease-out !important;
+}
+
+.studioLayout .creationDesk.referencesOpen .canvasToolbar,
+.studioLayout .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
+  right: calc(var(--reference-sidebar-width) + 18px) !important;
+  transition:
+    right 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 170ms ease,
+    box-shadow 170ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen,
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  z-index: 36 !important;
+  width: var(--reference-sidebar-width) !important;
+  min-width: var(--reference-sidebar-width) !important;
+  max-width: var(--reference-sidebar-width) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 16px 14px 12px !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-left: 1px solid color-mix(in srgb, var(--studio-border) 74%, transparent) !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 96%, transparent), color-mix(in srgb, var(--studio-surface) 92%, transparent)),
+    var(--studio-surface-strong) !important;
+  box-shadow:
+    -24px 0 58px rgba(15, 23, 42, 0.12),
+    inset 1px 0 0 color-mix(in srgb, #fff 42%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.06) !important;
+  opacity: 1 !important;
+  transform: none !important;
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    box-shadow 180ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead {
+  min-height: 44px !important;
+  padding: 0 0 11px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 34px !important;
+  align-items: start !important;
+  gap: 10px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead strong {
+  font-size: 14px !important;
+  font-weight: 950 !important;
+  line-height: 1.15 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead span {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-weight: 820 !important;
+  line-height: 1.25 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead button {
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 12px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+  min-height: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-rows: 52px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) {
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideUploadDrop {
+  width: 100% !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  margin: 0 !important;
+  padding: 0 13px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 9px !important;
+  overflow: hidden !important;
+  border-radius: 14px !important;
+  border-style: dashed !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) .sideUploadDrop {
+  height: 100% !important;
+  min-height: 100% !important;
+  justify-content: center !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) .sideUploadDrop {
+  min-height: 320px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  font-size: 11.5px !important;
+  font-weight: 900 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+  padding: 2px 4px 8px 1px !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  grid-auto-rows: minmax(188px, auto) !important;
+  align-content: start !important;
+  gap: 12px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-gutter: stable !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+  min-width: 0 !important;
+  min-height: 188px !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 9px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 30px !important;
+  grid-template-rows: minmax(138px, 1fr) auto auto !important;
+  gap: 8px !important;
+  border-radius: 17px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 138px !important;
+  aspect-ratio: 4 / 3 !important;
+  border-radius: 13px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 9%, transparent), transparent 44%),
+    color-mix(in srgb, var(--studio-surface-soft) 88%, #fff) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton .lazyImage,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:hover img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:focus-visible img {
+  transform: scale(1.025) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figcaption {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figcaption select {
+  height: 31px !important;
+  min-height: 31px !important;
+  border-radius: 11px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  min-width: 0 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions {
+  grid-column: 2 !important;
+  grid-row: 2 / 4 !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-content: start !important;
+  gap: 5px !important;
+}
+
+.referenceSideFoot {
+  min-height: 36px !important;
+  padding: 10px 2px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent) !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+}
+
+.referenceSideFoot span {
+  color: var(--studio-text-strong) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.referenceSideFoot strong {
+  overflow: hidden !important;
+  color: var(--studio-muted) !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed,
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isCollapsed {
+  position: absolute !important;
+  top: 50% !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 37 !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 150px !important;
+  min-height: 150px !important;
+  max-height: 150px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border-radius: 18px 0 0 18px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(-50%) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 150px !important;
+  min-height: 150px !important;
+  padding: 12px 0 !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  border-radius: 18px 0 0 18px !important;
+  writing-mode: vertical-rl !important;
+  text-orientation: mixed !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed span {
+  display: inline !important;
+  max-height: 72px !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed svg {
+  width: 18px !important;
+  height: 18px !important;
+  transform: none !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLineage,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.paramsCollapsed,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.paramsExpanded {
+  left: calc((100% - var(--reference-sidebar-width)) / 2) !important;
+  width: min(1080px, calc(100% - var(--reference-sidebar-width) - 56px)) !important;
+  min-width: 0 !important;
+  max-width: calc(100% - var(--reference-sidebar-width) - 56px) !important;
+  transform: translateX(-50%) !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread {
+  left: calc((100% - var(--reference-sidebar-width)) / 2) !important;
+  width: min(760px, calc(100% - var(--reference-sidebar-width) - 56px)) !important;
+  min-width: 0 !important;
+  max-width: calc(100% - var(--reference-sidebar-width) - 56px) !important;
+  transform: translateX(-50%) !important;
+}
+
+@media (max-width: 1180px) {
+  .studioLayout .creationDesk {
+    --reference-sidebar-width: clamp(260px, 26vw, 304px);
+  }
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk {
+    --reference-sidebar-width: min(238px, 64vw);
+  }
+
+  .studioLayout .creationDesk.referencesOpen .canvasToolbar,
+  .studioLayout .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
+    right: calc(var(--reference-sidebar-width) + 10px) !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: var(--reference-sidebar-width) !important;
+    min-width: var(--reference-sidebar-width) !important;
+    max-width: var(--reference-sidebar-width) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 12px 10px 10px !important;
+    border-radius: 0 !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+    grid-auto-rows: minmax(152px, auto) !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+    min-height: 152px !important;
+    grid-template-rows: minmax(104px, 1fr) auto auto !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+    min-height: 104px !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+  .studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded {
+    left: calc((100% - var(--reference-sidebar-width)) / 2) !important;
+    width: calc(100% - var(--reference-sidebar-width) - 22px) !important;
+    max-width: calc(100% - var(--reference-sidebar-width) - 22px) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas,
+  .studioLayout .creationDesk.referencesOpen .canvasToolbar,
+  .studioLayout .creationDesk .referenceSidePanel.isOpen {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* References-only sidebar: keep the right rail focused on uploaded images. */
+.studioLayout .creationDesk .referenceSidePanel.isOpen,
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: var(--reference-sidebar-width) !important;
+  min-width: var(--reference-sidebar-width) !important;
+  max-width: var(--reference-sidebar-width) !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  padding: 14px 10px 12px !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 10px !important;
+  border-left: 1px solid color-mix(in srgb, var(--studio-border) 74%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 98%, transparent), color-mix(in srgb, var(--studio-surface) 94%, transparent)),
+    var(--studio-surface-strong) !important;
+  box-shadow:
+    -18px 0 46px rgba(15, 23, 42, 0.1),
+    inset 1px 0 0 color-mix(in srgb, #fff 44%, transparent) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead {
+  min-height: 38px !important;
+  padding: 0 0 10px !important;
+  grid-template-columns: minmax(0, 1fr) 34px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead strong {
+  font-size: 14px !important;
+  font-weight: 950 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead span,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideFoot {
+  display: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 12px !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) {
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideUploadDrop {
+  width: fit-content !important;
+  max-width: 100% !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 13px !important;
+  justify-self: start !important;
+  border-style: solid !important;
+  border-radius: 9px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 96%, transparent) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody:not(.hasReferenceItems) .sideUploadDrop {
+  width: 100% !important;
+  min-height: 132px !important;
+  justify-content: center !important;
+  border-style: dashed !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody .sideUploadDrop span {
+  font-size: 12px !important;
+  font-weight: 850 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+  padding: 0 4px 10px 0 !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  grid-auto-rows: minmax(86px, auto) !important;
+  align-content: start !important;
+  gap: 13px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: stable !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+  position: relative !important;
+  min-height: 86px !important;
+  max-height: none !important;
+  padding: 0 26px 0 20px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(82px, auto) !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure::before {
+  content: "⋮⋮";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 12px;
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--studio-muted) 62%, transparent);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 0.62;
+  letter-spacing: -5px;
+  pointer-events: none;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure:first-child .referencePreviewButton {
+  border-color: color-mix(in srgb, var(--studio-primary) 86%, var(--studio-border)) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--studio-primary) 32%, transparent),
+    0 10px 24px rgba(15, 23, 42, 0.1) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 82px !important;
+  aspect-ratio: 16 / 9 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent) !important;
+  border-radius: 9px !important;
+  background: color-mix(in srgb, var(--studio-surface-soft) 72%, transparent) !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton .lazyImage,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs img {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:hover img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:focus-visible img {
+  transform: scale(1.035) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figcaption,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referenceFileMeta {
+  display: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions {
+  position: absolute !important;
+  right: 0 !important;
+  top: 50% !important;
+  z-index: 3 !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 28px !important;
+  display: grid !important;
+  place-items: center !important;
+  opacity: 0.72 !important;
+  transform: translateY(-50%) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions button:not(:last-child) {
+  display: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions button:last-child,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .videoReferenceThumbs > figure > button:not(.referencePreviewButton) {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--studio-muted) !important;
+  box-shadow: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .videoReferenceThumbs > figure > button:not(.referencePreviewButton) {
+  right: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs .referenceThumbActions button:last-child:hover,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .videoReferenceThumbs > figure > button:not(.referencePreviewButton):hover {
+  background: color-mix(in srgb, var(--studio-primary) 10%, var(--studio-surface-soft)) !important;
+  color: var(--studio-primary) !important;
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk {
+    --reference-sidebar-width: min(220px, 58vw) !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
+    inset: 0 !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen .canvasToolbar,
+  .studioLayout .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
+    right: 12px !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasThread,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLineage,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.paramsCollapsed,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.paramsExpanded,
+  .studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread,
+  .studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread {
+    left: calc((100vw - var(--rail-width, 58px)) / 2) !important;
+    width: min(320px, calc(100vw - var(--rail-width, 58px) - 24px)) !important;
+    min-width: min(286px, calc(100vw - var(--rail-width, 58px) - 24px)) !important;
+    max-width: min(320px, calc(100vw - var(--rail-width, 58px) - 24px)) !important;
+    transform: translateX(-50%) !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+    width: var(--reference-sidebar-width) !important;
+    min-width: var(--reference-sidebar-width) !important;
+    max-width: var(--reference-sidebar-width) !important;
+  }
+}
+
+/* Reference panel base folded/open sizing moved out of the base studio stylesheet. */
+.referenceSidePanel.isOpen {
+  top: 26px !important;
+  width: min(314px, calc(100vw - 96px)) !important;
+  min-height: 0 !important;
+  max-height: min(326px, calc(100vh - 136px)) !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 12px !important;
+  overflow: hidden !important;
+  transition:
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms ease,
+    opacity 160ms ease !important;
+}
+
+.referenceSidePanel.isOpen .referenceSideBody {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+  min-height: 0 !important;
+  grid-template-rows: 42px minmax(0, 1fr) !important;
+  gap: 9px !important;
+}
+
+.referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+  min-height: 0 !important;
+  max-height: 172px !important;
+  padding-bottom: 6px !important;
+}
+
+.referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+  min-height: 132px !important;
+}
+
+.referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  min-height: 80px !important;
+}
+
+.referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs img {
+  object-fit: contain !important;
+}
+
+.referenceSidePanel.isCollapsed {
+  top: 30px !important;
+  right: 28px !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  padding: 0 !important;
+  display: block !important;
+  overflow: visible !important;
+  border-radius: 16px !important;
+}
+
+.referenceSidePanel.isCollapsed .referenceSideCollapsed {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  writing-mode: horizontal-tb !important;
+  border-radius: 16px !important;
+}
+
+.referenceSidePanel.isCollapsed .referenceSideCollapsed span {
+  display: none !important;
+}
+
+.referenceSidePanel.isCollapsed .referenceSideCollapsed svg {
+  transform: none !important;
+}
+
+@media (max-width: 760px) {
+  .referenceSidePanel.isOpen {
+    top: 18px !important;
+    right: 10px !important;
+    width: min(248px, calc(100vw - 84px)) !important;
+    max-height: 232px !important;
+    padding: 9px !important;
+  }
+
+  .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems {
+    grid-template-rows: 36px minmax(0, 1fr) !important;
+    gap: 7px !important;
+  }
+
+  .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+    max-height: 128px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+    min-height: 104px !important;
+  }
+
+  .referenceSidePanel.isCollapsed {
+    top: 74px !important;
+    right: 12px !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+  }
+
+  .referenceSidePanel.isCollapsed .referenceSideCollapsed {
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+  }
+}
+
+/* Reference rail guardrail: collapsed state is an icon entry, never vertical text. */
+.studioLayout .creationDesk {
+  --reference-sidebar-width: clamp(276px, 22vw, 326px);
+}
+
+.studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
+  inset: 0 var(--reference-sidebar-width) 0 0 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen,
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  width: var(--reference-sidebar-width) !important;
+  min-width: var(--reference-sidebar-width) !important;
+  max-width: var(--reference-sidebar-width) !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+  transform: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead strong,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideHead span,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .sideUploadDrop span {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed,
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isCollapsed {
+  position: absolute !important;
+  top: 50% !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 38 !important;
+  width: 58px !important;
+  min-width: 58px !important;
+  max-width: 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  max-height: 58px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(-50%) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed {
+  position: relative !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  max-width: 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 16px 0 0 16px !important;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 98%, transparent), color-mix(in srgb, var(--studio-surface-soft) 90%, transparent)) !important;
+  box-shadow:
+    -12px 0 28px rgba(15, 23, 42, 0.12),
+    inset 1px 0 0 color-mix(in srgb, #fff 44%, transparent) !important;
+  transform: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--studio-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 16%, transparent);
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed span {
+  display: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed svg {
+  width: 19px !important;
+  height: 19px !important;
+  transform: none !important;
+}
+
+.lightboxOverlay {
+  z-index: 90 !important;
+}
+
+.lightboxPanel {
+  position: relative !important;
+  z-index: 91 !important;
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk {
+    --reference-sidebar-width: min(286px, calc(100vw - var(--rail-width, 58px) - 12px)) !important;
+  }
+
+  .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
+    inset: 0 !important;
+  }
+}

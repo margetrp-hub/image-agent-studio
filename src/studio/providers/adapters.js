@@ -12,7 +12,8 @@ function providerCapabilitySnapshot(provider) {
     referenceImages: Boolean(provider?.capabilities?.referenceImages),
     mask: Boolean(provider?.capabilities?.mask),
     modelSync: Boolean(provider?.capabilities?.modelSync),
-    accountKeys: Boolean(provider?.capabilities?.accountKeys)
+    accountKeys: Boolean(provider?.capabilities?.accountKeys),
+    videoGeneration: Boolean(provider?.capabilities?.videoGeneration)
   };
 }
 
@@ -57,6 +58,7 @@ export function resolveProviderAdapter({ providerId, authMode } = {}) {
     type: adapterTypeForProvider(provider),
     provider,
     capabilities: providerCapabilitySnapshot(provider),
+    descriptor: provider?.descriptor || null,
     normalizeImageParameters(parameters = {}) {
       return normalizeProviderImageParameters(provider, parameters);
     },

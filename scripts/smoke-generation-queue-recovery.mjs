@@ -5,6 +5,9 @@ const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/generation-queue-recovery.png`;
 const failedScreenshotPath = `${screenshotDir}/generation-queue-failed-message.png`;
 const runningScreenshotPath = `${screenshotDir}/generation-queue-running-cancel.png`;
+const localQueuedScreenshotPath = `${screenshotDir}/generation-queue-local-restored.png`;
+const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';
+const manualSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
 
 function assert(condition, message, evidence) {
   if (!condition) {
@@ -87,6 +90,32 @@ function runningSession() {
       size: '1024x1024',
       quality: 'high',
       count: 1
+    }],
+    assistantMessages: [],
+    canvasNodes: []
+  };
+}
+
+function localQueuedSession() {
+  return {
+    sessionId: 'queue-local-session',
+    mode: 'image',
+    status: 'idle',
+    message: '',
+    prompt: 'A restored local queued task should continue safely',
+    model: 'gpt-image-2',
+    progress: { stage: 'idle', percent: 0, completed: 0, total: 1 },
+    generationQueue: [{
+      id: 'task-local-queued-1',
+      status: 'queued',
+      mode: 'image',
+      prompt: 'A restored local queued task should continue safely',
+      summary: 'A restored local queued task should continue safely',
+      model: 'gpt-image-2',
+      size: '1024x1024',
+      quality: 'medium',
+      count: 1,
+      restorable: true
     }],
     assistantMessages: [],
     canvasNodes: []
@@ -445,18 +474,147 @@ try {
   assert(!runningResult.body.includes('正在生成'), 'Canceled running job left the main composer in a generating state.', runningResult);
   await runningPage.close();
 
+  const localQueuedContext = await browser.newContext({ viewport: { width: 1440, height: 980 } });
+  const localQueuedPage = await localQueuedContext.newPage();
+  let localJobCreateCount = 0;
+  await installCommonRoutes(localQueuedPage);
+  await localQueuedPage.route('**/studio-api/session', async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, session: body })
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, session: { ...localQueuedSession(), updatedAt: '2020-01-01T00:00:00.000Z', generationQueue: [] } })
+    });
+  });
+  await localQueuedPage.route('**/studio-api/generation-jobs?**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ok: true, jobs: [] })
+  }));
+  await localQueuedPage.route('**/studio-api/generation-jobs', async (route) => {
+    if (route.request().method() === 'POST') {
+      localJobCreateCount += 1;
+      const body = route.request().postDataJSON();
+      return route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          job: {
+            id: 'job-local-restored-1',
+            sessionId: 'queue-local-session',
+            status: 'succeeded',
+            stage: 'succeeded',
+            prompt: body?.request?.prompt || '',
+            model: body?.request?.model || 'gpt-image-2',
+            size: body?.request?.size || '1024x1024',
+            quality: body?.request?.quality || 'medium',
+            count: 1,
+            completed: 1,
+            total: 1,
+            resultUrls: ['/studio-api/history/job-local-restored-1/assets/0.png']
+          }
+        })
+      });
+    }
+    return route.continue();
+  });
+  await localQueuedPage.route('**/studio-api/generation-jobs/job-local-restored-1', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ok: true,
+      job: {
+        id: 'job-local-restored-1',
+        sessionId: 'queue-local-session',
+        status: 'succeeded',
+        stage: 'succeeded',
+        prompt: 'A restored local queued task should continue safely',
+        model: 'gpt-image-2',
+        size: '1024x1024',
+        quality: 'medium',
+        count: 1,
+        completed: 1,
+        total: 1,
+        resultUrls: ['/studio-api/history/job-local-restored-1/assets/0.png']
+      }
+    })
+  }));
+  await localQueuedPage.route('**/studio-api/history/job-local-restored-1/assets/0.png', (route) => route.fulfill({
+    status: 200,
+    contentType: 'image/png',
+    body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l0X9WQAAAABJRU5ErkJggg==', 'base64')
+  }));
+  await localQueuedPage.route('https://queue-local-restored.example/v1/images/generations', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: [{
+        b64_json: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l0X9WQAAAABJRU5ErkJggg=='
+      }]
+    })
+  }));
+  const localQueuedSnapshot = {
+    ...localQueuedSession(),
+    updatedAt: new Date().toISOString()
+  };
+  await localQueuedPage.addInitScript(({ snapshot, providerSettingsKey, manualSecretKey }) => {
+    localStorage.setItem('auth_token', 'queue-smoke-token');
+    localStorage.setItem('auth_user', JSON.stringify({ id: 1, email: 'queue-smoke@example.com' }));
+    localStorage.setItem(providerSettingsKey, JSON.stringify({
+      providerId: 'openai-compatible',
+      apiKeySource: 'manual',
+      manualGatewayBaseUrl: 'https://queue-local-restored.example/v1',
+      route: 'auto',
+      responsesModel: 'gpt-5.5',
+      partialImages: 2
+    }));
+    sessionStorage.setItem(manualSecretKey, 'queue-local-restored-secret');
+    localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify(snapshot));
+  }, { snapshot: localQueuedSnapshot, providerSettingsKey, manualSecretKey });
+  await localQueuedPage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+  await localQueuedPage.waitForFunction(() => {
+    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+    return stored.canvasNodes?.length >= 1 && stored.status === 'success';
+  }, null, { timeout: 10000 });
+  await localQueuedPage.screenshot({ path: localQueuedScreenshotPath, fullPage: true });
+  const localQueuedResult = await localQueuedPage.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+    return {
+      storedStatus: stored.generationQueue?.[0]?.status || '',
+      appStatus: stored.status || '',
+      canvasNodes: stored.canvasNodes?.length || 0,
+      body: document.body.innerText.slice(0, 1400)
+    };
+  });
+  assert(localJobCreateCount === 1, 'Restored local queued task did not create exactly one server generation job.', { localJobCreateCount, localQueuedResult });
+  assert(localQueuedResult.appStatus === 'success', 'Restored local queued task did not finish with a success session status.', localQueuedResult);
+  assert(localQueuedResult.storedStatus !== 'failed', 'Restored local queued task was marked failed even though the result was recovered.', localQueuedResult);
+  assert(localQueuedResult.canvasNodes >= 1, 'Restored local queued task did not restore the generated result into the canvas.', localQueuedResult);
+  await localQueuedContext.close();
+
   console.log(JSON.stringify({
     ok: true,
     screenshotPath,
     failedScreenshotPath,
     runningScreenshotPath,
+    localQueuedScreenshotPath,
     jobPollCount,
     sessionSaveCount,
     runningPollCount,
     runningCancelCount,
+    localJobCreateCount,
     result,
     failedResult,
-    runningResult
+    runningResult,
+    localQueuedResult
   }, null, 2));
 } finally {
   if (browser) await browser.close();

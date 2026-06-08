@@ -2,6 +2,7 @@ import {
   IMAGE_PROVIDER_REGISTRY,
   PROVIDER_ADAPTER_TYPES,
   PROVIDER_ROUTE_MODES,
+  PROVIDER_WORKSPACES,
   resolveProviderAdapter,
   resolveImageEditDispatch,
   resolveImageGenerationDispatch
@@ -33,10 +34,12 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   });
   const editPlan = adapter.buildEditPlan();
   const parameters = provider.parameters || {};
+  const descriptor = provider.descriptor || {};
 
   rows.push({
     provider: provider.id,
     auth: provider.authMode,
+    workspaces: Array.isArray(descriptor.workspaces) ? descriptor.workspaces.join(',') : '',
     generation: generation.endpoint,
     generationTransport: generation.transport,
     edit: edit.endpoint,
@@ -98,6 +101,30 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   }
   if (editPlan.adapterType !== provider.adapterType) {
     failures.push(`${provider.id}: edit plan adapterType must match registry adapterType`);
+  }
+  if (!adapter.descriptor) {
+    failures.push(`${provider.id}: adapter must expose the provider descriptor`);
+  }
+  if (!Array.isArray(descriptor.workspaces) || !descriptor.workspaces.includes(PROVIDER_WORKSPACES.IMAGE)) {
+    failures.push(`${provider.id}: descriptor must include the image workspace`);
+  }
+  if (!Array.isArray(descriptor.authFields) || !descriptor.authFields.length) {
+    failures.push(`${provider.id}: descriptor must declare authFields`);
+  }
+  if (!Array.isArray(descriptor.modelSlots) || !descriptor.modelSlots.length) {
+    failures.push(`${provider.id}: descriptor must declare modelSlots`);
+  }
+  if (!descriptor.modelSlots?.some((slot) => slot?.key === 'imageGenerationModel' && slot?.route === 'generations')) {
+    failures.push(`${provider.id}: descriptor must include an imageGenerationModel slot for generations`);
+  }
+  if (!descriptor.modelSlots?.some((slot) => slot?.key === 'imageEditModel' && slot?.route === 'edits')) {
+    failures.push(`${provider.id}: descriptor must include an imageEditModel slot for edits`);
+  }
+  if (provider.capabilities?.modelSync && descriptor.modelSync?.endpoint !== '/v1/models') {
+    failures.push(`${provider.id}: modelSync providers must declare /v1/models as the sync endpoint`);
+  }
+  if (provider.capabilities?.videoGeneration && !descriptor.workspaces.includes(PROVIDER_WORKSPACES.VIDEO)) {
+    failures.push(`${provider.id}: videoGeneration capability must include the video workspace`);
   }
 }
 

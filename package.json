@@ -12,6 +12,7 @@
     "check:i18n": "node scripts/check-i18n-keys.mjs",
     "check:env": "node scripts/check-env-contract.mjs",
     "check:public-data": "node scripts/check-public-data.mjs",
+    "check:css": "node scripts/check-css-cascade-map.mjs",
     "check:source": "node scripts/check-source-encoding.mjs",
     "check:repo": "node scripts/check-repo-clean.mjs",
     "check:release": "node scripts/check-release-packages.mjs",

@@ -1,0 +1,27 @@
+/* Last-resort state guard. Keep owned layout rules in their feature CSS modules. */
+.templateRail,
+.referenceSidePanel,
+.bottomComposerBar,
+.bottomComposerReopenDock {
+  box-sizing: border-box !important;
+}
+
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+.creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+.creationDesk.paramRailCollapsed.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer {
+  box-sizing: border-box !important;
+}
+
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerThread,
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread .composerThread,
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noReferences .composerThread {
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+}
+
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerPromptRow,
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf {
+  box-sizing: border-box !important;
+}

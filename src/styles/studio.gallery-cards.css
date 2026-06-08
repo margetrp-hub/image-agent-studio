@@ -1,0 +1,265 @@
+/* Main inspiration/template gallery card lock. Scoped away from side drawers. */
+.galleryWorkspacePanel.inspirationWorkspace {
+  min-height: 100dvh !important;
+  grid-template-rows: auto auto auto minmax(0, auto) auto !important;
+  align-content: start !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid:empty {
+  display: none !important;
+}
+
+.galleryWorkspacePanel.inspirationWorkspace .galleryLicenseNotice {
+  margin-top: 4px !important;
+}
+
+.gallerySelectionPreview {
+  min-height: 118px !important;
+  padding: 12px !important;
+  display: grid !important;
+  grid-template-columns: 118px minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  align-items: center !important;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 22%, var(--studio-border)) !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 10%, transparent), transparent 44%),
+    color-mix(in srgb, var(--studio-surface-strong) 92%, transparent) !important;
+  box-shadow: var(--studio-shadow-soft) !important;
+}
+
+.gallerySelectionMedia {
+  width: 118px !important;
+  height: 92px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+  background: color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-soft)) !important;
+  color: var(--studio-primary) !important;
+}
+
+.gallerySelectionMedia > span,
+.gallerySelectionMedia img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+.gallerySelectionMedia img {
+  object-fit: cover !important;
+}
+
+.gallerySelectionBody {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 5px !important;
+}
+
+.gallerySelectionBody span {
+  color: var(--studio-primary) !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+}
+
+.gallerySelectionBody strong {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: var(--studio-text-strong) !important;
+  font-size: 16px !important;
+  font-weight: 950 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.gallerySelectionBody p {
+  max-height: 42px !important;
+  margin: 0 !important;
+  display: -webkit-box !important;
+  overflow: hidden !important;
+  color: var(--studio-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.galleryUseTemplateButton {
+  min-width: 92px !important;
+  white-space: nowrap !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTile {
+  min-height: 220px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 220px !important;
+  padding: 10px 10px 48px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: 128px auto auto !important;
+  gap: 8px !important;
+  align-content: start !important;
+  align-items: start !important;
+  background: transparent !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia {
+  position: relative !important;
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: 100% !important;
+  height: 128px !important;
+  min-height: 128px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border-radius: 10px !important;
+  background:
+    radial-gradient(circle at 20% 12%, color-mix(in srgb, #fff 36%, transparent), transparent 34%),
+    color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-soft)) !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia::after {
+  background: linear-gradient(180deg, transparent 68%, rgba(15, 23, 42, 0.08)) !important;
+  opacity: 0.42 !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: cover !important;
+  border-radius: inherit !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia > span {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  overflow: hidden !important;
+  border-radius: inherit !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia > svg {
+  position: absolute !important;
+  z-index: 1 !important;
+  color: color-mix(in srgb, var(--studio-primary) 72%, transparent) !important;
+  opacity: 0.72 !important;
+  pointer-events: none !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > span {
+  position: absolute !important;
+  left: 18px !important;
+  top: 18px !important;
+  z-index: 2 !important;
+  max-width: calc(100% - 92px) !important;
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, #071b1f 78%, transparent) !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > strong {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  display: -webkit-box !important;
+  overflow: hidden !important;
+  color: var(--studio-text-strong) !important;
+  font-size: 14px !important;
+  font-weight: 950 !important;
+  line-height: 1.22 !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > em,
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > small {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+  font-weight: 780 !important;
+  line-height: 1.25 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileActions {
+  position: absolute !important;
+  top: auto !important;
+  right: 10px !important;
+  bottom: 10px !important;
+  z-index: 3 !important;
+  display: flex !important;
+  gap: 7px !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTileActions button {
+  width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+}
+
+@media (max-width: 760px) {
+  .gallerySelectionPreview {
+    grid-template-columns: 88px minmax(0, 1fr) !important;
+  }
+
+  .gallerySelectionMedia {
+    width: 88px !important;
+    height: 72px !important;
+  }
+
+  .galleryUseTemplateButton {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+
+  .galleryWorkspacePanel .inspirationCanvasGrid .caseTile,
+  .galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain {
+    min-height: 204px !important;
+  }
+
+  .galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain {
+    grid-template-rows: 116px auto auto !important;
+  }
+
+  .galleryWorkspacePanel .inspirationCanvasGrid .caseMedia {
+    height: 116px !important;
+    min-height: 116px !important;
+  }
+}

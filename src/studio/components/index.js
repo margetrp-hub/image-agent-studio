@@ -1,6 +1,50 @@
-// `src/studio/components/` 目录入口（占位）。
-//
-// 后续任务会在此 re-export `CostPreviewDialog`、`CompareView`、`Lightbox`、
-// `PresetEditor` 等可拆分组件。v1 暂无成员。
+export {
+  ComposerLiveStatus,
+  GenerationTimingPanel,
+  ProgressBar,
+  progressText
+} from './generationStatus.jsx';
 
-export {};
+export {
+  BottomComposerPanel
+} from './bottomComposerPanel.jsx';
+
+export {
+  ComposerPromptRow
+} from './composerPromptRow.jsx';
+
+export {
+  ComposerParamShelf
+} from './composerParamShelf.jsx';
+
+export {
+  ComposerThread
+} from './composerThread.jsx';
+
+export {
+  GenerationQueueDock
+} from './generationQueue.jsx';
+
+export {
+  LeftRail
+} from './leftRail.jsx';
+
+export {
+  CreativeRecipeBar,
+  PromptSectionList,
+  PromptSuggestion
+} from './promptTools.jsx';
+
+export {
+  LazyImage,
+  ProtectedHistoryThumb,
+  ProtectedStudioImage
+} from './media.jsx';
+
+export {
+  Lightbox,
+  ResultGrid,
+  VideoLightbox,
+  VideoResultGrid,
+  WorkPreviewResultActions
+} from './resultDisplay.jsx';

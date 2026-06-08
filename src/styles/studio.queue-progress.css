@@ -1,0 +1,424 @@
+/* Canvas generation queue and live-progress guardrails. */
+.canvasQueueDock {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  z-index: 18;
+  width: min(440px, calc(100% - 36px));
+  max-height: min(340px, calc(100% - 128px));
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+  box-shadow: 0 18px 52px color-mix(in srgb, var(--studio-text-strong) 12%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.canvasQueueHead {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvasQueueHead strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.canvasQueueHead span {
+  margin-left: auto;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.canvasQueueList {
+  min-height: 0;
+  display: grid;
+  gap: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.canvasQueueItem {
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) repeat(2, 26px);
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 48%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 72%, transparent);
+}
+
+.canvasQueueItem.running {
+  border-color: color-mix(in srgb, var(--studio-primary) 32%, var(--studio-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--studio-primary) 12%, transparent), transparent 42%),
+    color-mix(in srgb, var(--studio-surface-strong) 80%, transparent);
+}
+
+.canvasQueueItem.done,
+.canvasQueueItem.failed,
+.canvasQueueItem.canceled,
+.canvasQueueItem.unknown {
+  opacity: 0.68;
+}
+
+.canvasQueueItem.unknown span {
+  background: color-mix(in srgb, #c084fc 12%, var(--studio-surface-strong));
+  color: color-mix(in srgb, #7c3aed 82%, var(--studio-text-strong));
+}
+
+.canvasQueueItem b {
+  color: var(--studio-primary);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.canvasQueueItem span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 86%, transparent);
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.canvasQueueItem p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--studio-text);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvasQueueItem button {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-text-strong) 8%, transparent);
+  color: var(--studio-muted);
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.canvasQueueItem button:hover {
+  background: color-mix(in srgb, #b22732 12%, var(--studio-surface-soft));
+  color: #b22732;
+  transform: translateY(-1px);
+}
+
+.canvasQueueItem .retryQueueAction:hover {
+  background: color-mix(in srgb, var(--studio-primary) 14%, var(--studio-surface-soft));
+  color: var(--studio-primary);
+}
+
+.canvasQueueDock {
+  left: 16px !important;
+  top: 16px !important;
+  width: min(360px, calc(100% - 32px)) !important;
+  max-height: min(250px, calc(100% - 110px)) !important;
+  padding: 8px !important;
+  gap: 6px !important;
+  border-radius: 15px !important;
+  pointer-events: auto;
+}
+
+.canvasQueueHead strong {
+  font-size: 11.5px !important;
+}
+
+.canvasQueueHead span {
+  font-size: 10.5px !important;
+}
+
+.canvasQueueItem {
+  min-height: 34px !important;
+  padding: 6px !important;
+  grid-template-columns: auto auto minmax(0, 1fr) repeat(2, 23px) !important;
+  gap: 6px !important;
+  border-radius: 11px !important;
+}
+
+.canvasQueueItem b,
+.canvasQueueItem p {
+  font-size: 10.5px !important;
+}
+
+.canvasQueueItem span {
+  padding: 3px 6px !important;
+  font-size: 9.5px !important;
+}
+
+.canvasQueueItem button {
+  width: 23px !important;
+  min-width: 23px !important;
+  height: 23px !important;
+  min-height: 23px !important;
+}
+
+.studioLayout .creationDesk .canvasQueueDock {
+  width: min(330px, calc(100vw - var(--rail-width, 58px) - 36px)) !important;
+  padding: 10px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 94%, transparent), color-mix(in srgb, var(--studio-surface-soft) 88%, transparent)) !important;
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent) !important;
+  backdrop-filter: blur(14px) saturate(1.08) !important;
+}
+
+.studioLayout .creationDesk .canvasQueueHead {
+  height: 22px !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.studioLayout .creationDesk .canvasQueueHead strong {
+  color: var(--studio-text-strong) !important;
+  font-size: 12px !important;
+  font-weight: 920 !important;
+}
+
+.studioLayout .creationDesk .canvasQueueHead span {
+  min-width: 0 !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-weight: 820 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  text-align: right !important;
+}
+
+.studioLayout .creationDesk .canvasQueueList {
+  margin-top: 8px !important;
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem {
+  min-height: 36px !important;
+  padding: 5px 7px !important;
+  display: grid !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 52%, transparent) !important;
+  border-radius: 13px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent) !important;
+  box-shadow: none !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem.running {
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--studio-primary) 12%, transparent), transparent 36%),
+    color-mix(in srgb, var(--studio-surface-strong) 88%, transparent) !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem b {
+  width: 24px !important;
+  height: 24px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-soft)) !important;
+  color: var(--studio-primary) !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem span {
+  max-width: 58px !important;
+  color: var(--studio-text-strong) !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem p {
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--studio-text) !important;
+  font-size: 11px !important;
+  font-weight: 760 !important;
+  line-height: 1.25 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem button {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent) !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent) !important;
+  color: var(--studio-muted) !important;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem button:hover {
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 36%, var(--studio-border)) !important;
+  color: var(--studio-primary) !important;
+  background: color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-strong)) !important;
+}
+
+.canvasQueueDock {
+  top: 18px !important;
+  left: 18px !important;
+  z-index: 28 !important;
+  width: min(320px, calc(100% - 36px)) !important;
+  border-radius: 18px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent) !important;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12) !important;
+  backdrop-filter: blur(14px) !important;
+}
+
+.canvasQueueDock button:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-border) 76%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 94%, transparent), color-mix(in srgb, var(--studio-surface-soft) 78%, transparent)) !important;
+  color: var(--studio-text-strong) !important;
+  box-shadow:
+    0 7px 18px rgba(15, 23, 42, 0.055),
+    0 1px 0 color-mix(in srgb, #fff 68%, transparent) inset !important;
+}
+
+.canvasQueueDock button:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 38%, var(--studio-border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 9%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-primary) 6%, var(--studio-surface-soft))) !important;
+  color: var(--studio-primary) !important;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.09),
+    0 0 0 1px color-mix(in srgb, var(--studio-primary) 9%, transparent) inset !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem,
+.studioLayout .creationDesk .canvasQueueItem.failed,
+.studioLayout .creationDesk .canvasQueueItem.unknown,
+.studioLayout .creationDesk .canvasQueueItem.canceled,
+.studioLayout .creationDesk .canvasQueueItem.done {
+  grid-template-columns: 24px auto minmax(0, 1fr) repeat(2, 24px) !important;
+}
+
+.studioLayout .creationDesk .canvasQueueItem button {
+  grid-column: auto !important;
+}
+
+.composerLiveMeta {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 5px 7px !important;
+  align-items: center !important;
+}
+
+.composerLiveMeta span {
+  max-width: 100% !important;
+  min-height: 20px !important;
+  padding: 2px 7px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 52%, transparent) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent) !important;
+  color: var(--studio-muted) !important;
+  font-size: 10.5px !important;
+  font-weight: 850 !important;
+  line-height: 1.2 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 760px) {
+  .canvasQueueDock {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    width: auto;
+  }
+
+  .canvasQueueItem {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .canvasQueueItem span {
+    display: none;
+  }
+
+  .studioLayout .creationDesk .canvasQueueDock {
+    width: min(286px, calc(100vw - var(--rail-width, 58px) - 24px)) !important;
+    padding: 8px !important;
+  }
+
+  .studioLayout .creationDesk .canvasQueueDock {
+    left: 8px !important;
+    right: auto !important;
+    top: 10px !important;
+    width: min(292px, calc(100% - 16px)) !important;
+    max-width: 292px !important;
+    z-index: 22 !important;
+  }
+
+  .studioLayout .creationDesk .canvasQueueItem,
+  .studioLayout .creationDesk .canvasQueueItem.failed,
+  .studioLayout .creationDesk .canvasQueueItem.unknown,
+  .studioLayout .creationDesk .canvasQueueItem.canceled,
+  .studioLayout .creationDesk .canvasQueueItem.done {
+    grid-template-columns: 22px minmax(0, 1fr) repeat(2, 22px) !important;
+    gap: 6px !important;
+  }
+
+  .studioLayout .creationDesk .canvasQueueItem span {
+    display: none !important;
+  }
+
+  .studioLayout .creationDesk .canvasQueueItem button {
+    width: 22px !important;
+    min-width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+  }
+}

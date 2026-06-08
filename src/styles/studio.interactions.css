@@ -1,0 +1,298 @@
+/* Interactive affordance pass: clickable controls should read differently from static content. */
+main button,
+main [role="button"],
+.sideProjectOpen,
+.sideChatCard,
+.historyOpen,
+.caseTileMain,
+.categoryTile,
+.videoInspirationTile,
+.sideUploadDrop,
+.referencePreviewButton,
+.resultPreviewButton {
+  cursor: pointer !important;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    filter 160ms ease !important;
+}
+
+main button:disabled,
+main [role="button"][aria-disabled="true"],
+.isDisabled {
+  cursor: not-allowed !important;
+  opacity: 0.48 !important;
+  filter: saturate(0.74) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+main button:not(:disabled):focus-visible,
+main [role="button"]:focus-visible,
+.sideProjectOpen:focus-visible,
+.sideChatCard:focus-visible,
+.historyOpen:focus-visible,
+.caseTileMain:focus-visible,
+.categoryTile:focus-visible,
+.videoInspirationTile:focus-visible,
+.sideUploadDrop:focus-within,
+.referencePreviewButton:focus-visible,
+.resultPreviewButton:focus-visible {
+  outline: 0 !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--studio-primary) 20%, transparent),
+    0 10px 26px rgba(15, 23, 42, 0.12) !important;
+}
+
+main button:not(:disabled):active,
+main [role="button"]:active,
+.sideProjectOpen:active,
+.sideChatCard:active,
+.historyOpen:active,
+.caseTileMain:active,
+.categoryTile:active,
+.videoInspirationTile:active,
+.referencePreviewButton:active,
+.resultPreviewButton:active {
+  transform: translateY(0) scale(0.985) !important;
+}
+
+.primaryAction:not(:disabled),
+.topbarLogin:not(:disabled),
+.newChatButton:not(:disabled),
+.composerGenerateAction:not(:disabled),
+.paramGenerateAction:not(:disabled),
+.paramDrawerGenerate:not(:disabled),
+.maskGenerateButton:not(:disabled),
+.canvasInlineGenerate:not(:disabled) {
+  border-color: transparent !important;
+  background:
+    linear-gradient(135deg, var(--studio-primary), color-mix(in srgb, var(--studio-primary) 74%, #047e77)) !important;
+  color: #fff !important;
+  box-shadow:
+    0 14px 32px color-mix(in srgb, var(--studio-primary) 24%, transparent),
+    0 1px 0 color-mix(in srgb, #fff 34%, transparent) inset !important;
+}
+
+.primaryAction:not(:disabled):hover,
+.topbarLogin:not(:disabled):hover,
+.newChatButton:not(:disabled):hover,
+.composerGenerateAction:not(:disabled):hover,
+.paramGenerateAction:not(:disabled):hover,
+.paramDrawerGenerate:not(:disabled):hover,
+.maskGenerateButton:not(:disabled):hover,
+.canvasInlineGenerate:not(:disabled):hover {
+  transform: translateY(-2px) !important;
+  filter: saturate(1.08) brightness(1.02) !important;
+  box-shadow:
+    0 18px 42px color-mix(in srgb, var(--studio-primary) 30%, transparent),
+    0 1px 0 color-mix(in srgb, #fff 42%, transparent) inset !important;
+}
+
+.composerAssistantAction:not(:disabled),
+.secondaryButton:not(:disabled),
+.loadMoreButton:not(:disabled),
+.galleryFilterButton:not(:disabled),
+.composerHeaderPill:not(:disabled),
+.composerIconPill:not(:disabled),
+.composerParamSummary:not(:disabled),
+.composerParamFoldButton:not(:disabled),
+.composerReferenceParamButton:not(:disabled),
+.composerStopAction:not(:disabled),
+.canvasToolbar button:not(:disabled),
+.referenceSideHead button:not(:disabled),
+.referenceSideCollapsed:not(:disabled),
+.referenceThumbActions button:not(:disabled),
+.sideProjectDelete:not(:disabled),
+.railThemeButton:not(:disabled),
+.railLanguageButton:not(:disabled),
+.railAvatarButton:not(:disabled),
+.iconButton:not(:disabled),
+.settingsActions button:not(:disabled),
+.promptSuggestionActions button:not(:disabled),
+.maskToolbar button:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-border) 76%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 94%, transparent), color-mix(in srgb, var(--studio-surface-soft) 78%, transparent)) !important;
+  color: var(--studio-text-strong) !important;
+  box-shadow:
+    0 7px 18px rgba(15, 23, 42, 0.055),
+    0 1px 0 color-mix(in srgb, #fff 68%, transparent) inset !important;
+}
+
+.composerAssistantAction:not(:disabled):hover,
+.secondaryButton:not(:disabled):hover,
+.loadMoreButton:not(:disabled):hover,
+.galleryFilterButton:not(:disabled):hover,
+.composerHeaderPill:not(:disabled):hover,
+.composerIconPill:not(:disabled):hover,
+.composerParamSummary:not(:disabled):hover,
+.composerParamFoldButton:not(:disabled):hover,
+.composerReferenceParamButton:not(:disabled):hover,
+.composerStopAction:not(:disabled):hover,
+.canvasToolbar button:not(:disabled):hover,
+.referenceSideHead button:not(:disabled):hover,
+.referenceSideCollapsed:not(:disabled):hover,
+.referenceThumbActions button:not(:disabled):hover,
+.sideProjectDelete:not(:disabled):hover,
+.railThemeButton:not(:disabled):hover,
+.railLanguageButton:not(:disabled):hover,
+.railAvatarButton:not(:disabled):hover,
+.iconButton:not(:disabled):hover,
+.settingsActions button:not(:disabled):hover,
+.promptSuggestionActions button:not(:disabled):hover,
+.maskToolbar button:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 38%, var(--studio-border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 9%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-primary) 6%, var(--studio-surface-soft))) !important;
+  color: var(--studio-primary) !important;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.09),
+    0 0 0 1px color-mix(in srgb, var(--studio-primary) 9%, transparent) inset !important;
+}
+
+.railIconAction:not(:disabled),
+.sideNav button:not(:disabled),
+.segmentedControl button:not(:disabled),
+.modeTabs button:not(:disabled),
+.composerModeSegment button:not(:disabled),
+.qualitySegment button:not(:disabled),
+.resolutionSegment button:not(:disabled),
+.sizeSegment button:not(:disabled),
+.videoSizeSegment button:not(:disabled),
+.motionSegment button:not(:disabled),
+.videoStyleSegment button:not(:disabled),
+.videoQualitySegment button:not(:disabled),
+.paramRail button:not(:disabled),
+.paramDrawer button:not(:disabled) {
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--studio-muted) !important;
+}
+
+.railIconAction:not(:disabled):hover,
+.sideNav button:not(:disabled):hover,
+.segmentedControl button:not(:disabled):hover,
+.modeTabs button:not(:disabled):hover,
+.composerModeSegment button:not(:disabled):hover,
+.qualitySegment button:not(:disabled):hover,
+.resolutionSegment button:not(:disabled):hover,
+.sizeSegment button:not(:disabled):hover,
+.videoSizeSegment button:not(:disabled):hover,
+.motionSegment button:not(:disabled):hover,
+.videoStyleSegment button:not(:disabled):hover,
+.videoQualitySegment button:not(:disabled):hover,
+.paramRail button:not(:disabled):hover,
+.paramDrawer button:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-strong)) !important;
+  color: var(--studio-primary) !important;
+}
+
+.railIconAction.active,
+.sideNav button.active,
+.segmentedControl button.active,
+.modeTabs button.active,
+.composerModeSegment button.active,
+.qualitySegment button.active,
+.resolutionSegment button.active,
+.sizeSegment button.active,
+.videoSizeSegment button.active,
+.motionSegment button.active,
+.videoStyleSegment button.active,
+.videoQualitySegment button.active,
+.paramRail button.active,
+.paramDrawer button.active {
+  border-color: color-mix(in srgb, var(--studio-primary) 28%, transparent) !important;
+  background: color-mix(in srgb, var(--studio-primary) 10%, var(--studio-surface-strong)) !important;
+  color: var(--studio-primary) !important;
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--studio-primary) 12%, transparent) !important;
+}
+
+.sideProjectOpen:not(:disabled),
+.sideChatCard:not(:disabled),
+.historyOpen:not(:disabled),
+.caseTileMain:not(:disabled),
+.categoryTile:not(:disabled),
+.videoInspirationTile:not(:disabled),
+.referencePreviewButton:not(:disabled),
+.resultPreviewButton:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-border) 78%, transparent) !important;
+}
+
+.sideProjectOpen:not(:disabled):hover,
+.sideChatCard:not(:disabled):hover,
+.historyOpen:not(:disabled):hover,
+.caseTileMain:not(:disabled):hover,
+.categoryTile:not(:disabled):hover,
+.videoInspirationTile:not(:disabled):hover,
+.referencePreviewButton:not(:disabled):hover,
+.resultPreviewButton:not(:disabled):hover {
+  transform: translateY(-2px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 34%, var(--studio-border)) !important;
+  background: color-mix(in srgb, var(--studio-primary) 6%, var(--studio-surface-strong)) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.1) !important;
+}
+
+.sideUploadDrop:not(:disabled),
+.referenceSideBody .sideUploadDrop {
+  border-color: color-mix(in srgb, var(--studio-primary) 30%, var(--studio-border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 6%, transparent), transparent),
+    color-mix(in srgb, var(--studio-surface-soft) 72%, transparent) !important;
+}
+
+.sideUploadDrop:hover,
+.referenceSideBody .sideUploadDrop:hover {
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 56%, var(--studio-border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 11%, transparent), transparent),
+    color-mix(in srgb, var(--studio-surface-strong) 86%, transparent) !important;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--studio-primary) 13%, transparent) !important;
+}
+
+.composerGenerateAction:not(:disabled)::after,
+.primaryAction:not(:disabled)::after,
+.paramGenerateAction:not(:disabled)::after,
+.paramDrawerGenerate:not(:disabled)::after,
+.maskGenerateButton:not(:disabled)::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 1px !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 24%, transparent), transparent 42%) !important;
+  opacity: 0.68 !important;
+}
+
+.composerGenerateAction,
+.primaryAction,
+.paramGenerateAction,
+.paramDrawerGenerate,
+.maskGenerateButton {
+  position: relative !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main button,
+  main [role="button"],
+  .sideProjectOpen,
+  .sideChatCard,
+  .historyOpen,
+  .caseTileMain,
+  .categoryTile,
+  .videoInspirationTile,
+  .sideUploadDrop,
+  .referencePreviewButton,
+  .resultPreviewButton {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}

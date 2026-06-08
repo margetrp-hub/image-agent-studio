@@ -1,0 +1,98 @@
+/* Left rail stability: collapsed affordances, project text, and language/account controls. */
+.templateRail {
+  transition:
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease !important;
+}
+
+.templateRail.collapsed {
+  width: 64px !important;
+  min-width: 64px !important;
+  max-width: 64px !important;
+  padding: 12px 8px !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.templateRail.collapsed .railIconAction {
+  width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  border-radius: 14px !important;
+}
+
+.templateRail.collapsed .railIconAction:not(.railLanguageButton) span {
+  right: -3px !important;
+  top: -4px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  font-size: 9px !important;
+}
+
+.templateRail.collapsed .railLanguageButton {
+  gap: 2px !important;
+  flex-direction: column !important;
+}
+
+.templateRail.collapsed .railLanguageButton span {
+  position: static !important;
+  min-width: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+.templateRail.collapsed .collapsedRailBottom {
+  width: 100% !important;
+  display: grid !important;
+  justify-items: center !important;
+  gap: 10px !important;
+}
+
+.templateRail:not(.collapsed) .sideProjectOpen {
+  min-width: 0 !important;
+  grid-template-columns: 44px minmax(0, 1fr) !important;
+}
+
+.templateRail:not(.collapsed) .sideProjectText,
+.templateRail:not(.collapsed) .sideProjectTopline {
+  min-width: 0 !important;
+}
+
+.templateRail:not(.collapsed) .sideProjectText strong,
+.templateRail:not(.collapsed) .sideProjectText em,
+.templateRail:not(.collapsed) .sideProjectText small {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 760px) {
+  .templateRail.collapsed {
+    position: relative !important;
+    width: 58px !important;
+    min-width: 58px !important;
+    max-width: 58px !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    padding: 10px 7px !important;
+    overflow: visible !important;
+  }
+
+  .templateRail.collapsed .railIconAction {
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    border-radius: 13px !important;
+  }
+}

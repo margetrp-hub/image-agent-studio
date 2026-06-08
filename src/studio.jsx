@@ -9,9 +9,7 @@ import {
   ArrowUp,
   BotMessageSquare,
   Brush,
-  CirclePlus,
   Eraser,
-  Clock,
   History,
   ImageIcon,
   Images,
@@ -19,13 +17,11 @@ import {
   LoaderCircle,
   LogOut,
   Languages,
-  Maximize2,
   MessageSquareText,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
-  SendHorizontal,
   Server,
   SlidersHorizontal,
   Sparkles,
@@ -43,6 +39,17 @@ import {
   X
 } from 'lucide-react';
 import './studio.css';
+import './styles/studio.left-rail.css';
+import './styles/studio.composer-final-guards.css';
+import './styles/studio.composer-shell.css';
+import './styles/studio.queue-progress.css';
+import './styles/studio.composer-layout.css';
+import './styles/studio.reference-panel.css';
+import './styles/studio.composer-conversation.css';
+import './styles/studio.provider-settings.css';
+import './styles/studio.interactions.css';
+import './styles/studio.gallery-cards.css';
+import './styles/studio.final-state.css';
 import {
   AiGatewayClient,
   StudioHistoryClient,
@@ -56,9 +63,16 @@ import {
   saveProviderSettings,
   saveSelectedKeyId
 } from './aiGatewayClient';
-import { buildPromptSlug, sanitizeProvider } from './studio/util/filename.js';
 import { createTranslator, loadStudioLanguage, nextLanguage, saveStudioLanguage, SUPPORTED_LANGUAGES } from './studio/i18n.js';
-import { IMAGE_PROVIDER_REGISTRY, getImageProvider } from './studio/providers/index.js';
+import {
+  IMAGE_PROVIDER_REGISTRY,
+  clampCountForProvider,
+  getImageProvider,
+  providerAspectOptions,
+  providerCountRange,
+  providerCustomSizeOptions,
+  providerParameterList
+} from './studio/providers/index.js';
 import { resolveProviderAdapter } from './studio/providers/adapters.js';
 import {
   clearHistoryItems,
@@ -66,6 +80,65 @@ import {
   loadHistoryItems,
   saveHistoryItems
 } from './studio/storage/index.js';
+import {
+  assetPath,
+  displayResultUrl,
+  enqueueProtectedImageTask,
+  publicJsonPath
+} from './studio/util/assets.js';
+import {
+  ComposerLiveStatus,
+  GenerationTimingPanel,
+  ProgressBar,
+  progressText
+} from './studio/components/generationStatus.jsx';
+import { BottomComposerPanel } from './studio/components/bottomComposerPanel.jsx';
+import { ComposerParamShelf } from './studio/components/composerParamShelf.jsx';
+import { ComposerPromptRow } from './studio/components/composerPromptRow.jsx';
+import { ComposerThread } from './studio/components/composerThread.jsx';
+import { GenerationQueueDock } from './studio/components/generationQueue.jsx';
+import { LeftRail } from './studio/components/leftRail.jsx';
+import {
+  CreativeRecipeBar,
+  PromptSectionList
+} from './studio/components/promptTools.jsx';
+import {
+  LazyImage,
+  ProtectedHistoryThumb,
+  ProtectedStudioImage
+} from './studio/components/media.jsx';
+import {
+  Lightbox,
+  ResultGrid,
+  VideoLightbox,
+  VideoResultGrid,
+  WorkPreviewResultActions
+} from './studio/components/resultDisplay.jsx';
+import {
+  buildStudioDownloadFilename,
+  downloadMetaFromHistoryItem,
+  formatHistoryTime,
+  OUTPUT_FORMAT_LABELS,
+  QUALITY_LABELS,
+  RESOLUTION_TIER_LABELS,
+  resultExtension,
+  resultVideoExtension
+} from './studio/util/resultFiles.js';
+import {
+  currentSessionProject,
+  groupHistorySessions,
+  historyResultItems,
+  safeImageCandidate
+} from './studio/util/historyView.js';
+import {
+  isActiveServerJobStatus,
+  isFinalServerJobStatus,
+  isRestorableQueueItem,
+  isVisibleServerJob,
+  normalizeQueueStatus,
+  normalizeServerJobError,
+  queueStatusFromServerJob
+} from './studio/util/generationJobs.js';
 
 const IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'gpt-image-1-mini'];
 const RESPONSE_MODELS = ['gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-4.1'];
@@ -154,29 +227,6 @@ const MASK_FILL_COLOR = 'rgba(178, 39, 50, 0.34)';
 const INITIAL_TEMPLATE_LIMIT = 12;
 const TEMPLATE_PAGE_SIZE = 12;
 const HISTORY_PAGE_SIZE = 20;
-const PROTECTED_IMAGE_CONCURRENCY = 4;
-const protectedImageQueue = [];
-let activeProtectedImageRequests = 0;
-
-function runQueuedProtectedImageTasks() {
-  while (activeProtectedImageRequests < PROTECTED_IMAGE_CONCURRENCY && protectedImageQueue.length) {
-    const task = protectedImageQueue.shift();
-    activeProtectedImageRequests += 1;
-    task.run()
-      .then(task.resolve, task.reject)
-      .finally(() => {
-        activeProtectedImageRequests = Math.max(0, activeProtectedImageRequests - 1);
-        runQueuedProtectedImageTasks();
-      });
-  }
-}
-
-function enqueueProtectedImageTask(run) {
-  return new Promise((resolve, reject) => {
-    protectedImageQueue.push({ run, resolve, reject });
-    runQueuedProtectedImageTasks();
-  });
-}
 const CATEGORY_LABELS = {
   'Architecture & Spaces': '建筑空间',
   'Brand & Logos': '品牌标识',
@@ -195,59 +245,10 @@ const CATEGORY_LABELS = {
   'Scenes & Storytelling': '场景叙事',
   'UI & Interfaces': '界面交互'
 };
-const QUALITY_LABELS = {
-  auto: '自动',
-  low: '低',
-  medium: '中',
-  high: '高'
-};
-const RESOLUTION_TIER_LABELS = {
-  '1k': '1K',
-  '2k': '2K',
-  '4k': '4K'
-};
-const OUTPUT_FORMAT_LABELS = {
-  png: 'PNG',
-  jpeg: 'JPEG',
-  webp: 'WebP'
-};
 const MODERATION_LABELS = {
   auto: '自动',
   low: '低'
 };
-function providerParameterList(provider, key, fallback) {
-  const values = provider?.parameters?.[key];
-  return Array.isArray(values) && values.length ? values : fallback;
-}
-
-function providerCountRange(provider) {
-  const [minValue, maxValue] = Array.isArray(provider?.parameters?.countRange)
-    ? provider.parameters.countRange
-    : [1, 10];
-  const min = Math.max(1, Math.round(Number(minValue) || 1));
-  const max = Math.max(min, Math.round(Number(maxValue) || 10));
-  return { min, max };
-}
-
-function providerAspectOptions(provider) {
-  const supportedSizes = new Set(providerParameterList(provider, 'sizes', SIZES));
-  const options = ASPECT_OPTIONS.filter((item) => item.value === 'custom' || supportedSizes.has(item.size));
-  return options.length ? options : ASPECT_OPTIONS;
-}
-
-function providerCustomSizeOptions(provider) {
-  const sizes = providerParameterList(provider, 'sizes', SIZES);
-  return sizes.map((value) => (
-    CUSTOM_SIZE_OPTIONS.find((item) => item.value === value) || { value, label: value === 'auto' ? 'Auto' : value.replace('x', ' x ') }
-  ));
-}
-
-function clampCountForProvider(value, provider) {
-  const range = providerCountRange(provider);
-  const next = normalizeCount(value);
-  return Math.min(range.max, Math.max(range.min, next));
-}
-
 const FALLBACK_PROMPT_PRESETS = [];
 const FALLBACK_VIDEO_INSPIRATIONS = [];
 const BASE_PATH = import.meta.env.BASE_URL || '/';
@@ -372,63 +373,12 @@ function compact(value, length = 180) {
   return text.length > length ? `${text.slice(0, length)}...` : text;
 }
 
-function shortId(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
-    .slice(0, 8) || Math.random().toString(36).slice(2, 10);
-}
-
-function formatDownloadStamp(value) {
-  const date = new Date(value || Date.now());
-  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
-  const pad = (number) => String(number).padStart(2, '0');
-  return [
-    safeDate.getFullYear(),
-    pad(safeDate.getMonth() + 1),
-    pad(safeDate.getDate())
-  ].join('') + '-' + [
-    pad(safeDate.getHours()),
-    pad(safeDate.getMinutes()),
-    pad(safeDate.getSeconds())
-  ].join('');
-}
-
 function formatFileSize(value) {
   const size = Number(value || 0);
   if (!Number.isFinite(size) || size <= 0) return '';
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${Math.round(size / 102.4) / 10} KB`;
   return `${Math.round(size / (1024 * 102.4)) / 10} MB`;
-}
-
-function buildStudioDownloadFilename({
-  mode = 'image',
-  providerId = 'gateway-account',
-  createdAt,
-  prompt,
-  id,
-  index = 0,
-  extension = 'png'
-} = {}) {
-  const type = mode === 'video' ? 'video' : 'image';
-  const provider = sanitizeProvider(providerId);
-  const stamp = formatDownloadStamp(createdAt);
-  const slug = buildPromptSlug(prompt);
-  const suffix = shortId(id || `${stamp}-${slug}-${index}`);
-  const seq = String(Math.max(1, (Number.isFinite(index) ? (index | 0) : 0) + 1)).padStart(2, '0');
-  const ext = String(extension || (type === 'video' ? 'mp4' : 'png')).toLowerCase().replace(/[^a-z0-9]+/g, '') || (type === 'video' ? 'mp4' : 'png');
-  return `ai-image-workbench-${type}-${provider}-${stamp}-${slug}-${suffix}-${seq}.${ext}`;
-}
-
-function downloadMetaFromHistoryItem(item, isVideo = false) {
-  return {
-    mode: isVideo ? 'video' : 'image',
-    providerId: item?.providerId || item?.provider || item?.route || item?.model || 'gateway-account',
-    createdAt: item?.createdAt,
-    prompt: item?.generationPrompt || item?.prompt || item?.case?.title || '',
-    id: item?.taskId || item?.id || item?.createdAt
-  };
 }
 
 function stripCreativeRecipePrompt(value) {
@@ -465,14 +415,6 @@ function orderTemplates(cases) {
     if (Number.isFinite(rightId)) return 1;
     return String(left.title || '').localeCompare(String(right.title || ''), 'zh-CN');
   });
-}
-
-function assetPath(value) {
-  if (!value) return '';
-  if (/^(https?:|data:|blob:)/.test(value)) return value;
-  if (value.startsWith('/studio-api/')) return value;
-  const base = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
-  return value.startsWith('/') ? `${base}${value.slice(1)}` : `${base}${value}`;
 }
 
 function loadDraft() {
@@ -534,6 +476,13 @@ function normalizeCachedCurrentSession(session) {
   const persistedVideoResults = Array.isArray(session.persistedVideoResults) ? session.persistedVideoResults : [];
   const restoredQueueStatus = (item) => {
     if (item?.remote || item?.serverJobId) return item?.status;
+    if (
+      item?.status === 'queued'
+      && item?.restorable !== false
+      && !['edit', 'mask', 'video'].includes(item?.mode)
+    ) {
+      return 'queued';
+    }
     if (item?.status === 'running') return 'failed';
     if (item?.status === 'queued') return 'failed';
     return item?.status;
@@ -605,11 +554,7 @@ function sessionSnapshotComparePayload(session) {
 
 function hasRestorableServerGeneration(session) {
   return Array.isArray(session?.generationQueue)
-    && session.generationQueue.some((item) => (
-      item?.serverJobId
-      && (item.remote || item.status === 'running' || item.status === 'queued')
-      && !['failed', 'canceled', 'unknown', 'done'].includes(item.status)
-    ));
+    && session.generationQueue.some(isRestorableQueueItem);
 }
 
 function serializeAssistantMessage(item) {
@@ -643,7 +588,7 @@ function serializePromptSuggestion(value) {
 
 function serializeGenerationQueueItem(item) {
   if (!item || typeof item !== 'object') return null;
-  const safeStatus = ['queued', 'running', 'failed', 'canceled', 'unknown', 'done'].includes(item.status) ? item.status : item.status || 'queued';
+  const safeStatus = normalizeQueueStatus(item.status);
   return {
     id: String(item.id || ''),
     status: safeStatus,
@@ -839,12 +784,6 @@ function videoSizeFromAspect(aspect) {
   return VIDEO_ASPECT_OPTIONS.find((item) => item.value === aspect) || VIDEO_ASPECT_OPTIONS[0];
 }
 
-function resultVideoExtension(url) {
-  const clean = String(url || '').split('?')[0];
-  const match = clean.match(/\.([a-z0-9]+)$/i);
-  return match?.[1] || 'mp4';
-}
-
 function loadTheme() {
   try {
     const stored = localStorage.getItem(THEME_KEY) || localStorage.getItem(LEGACY_THEME_KEY);
@@ -891,105 +830,6 @@ function mergeHistoryRecords(primary, secondary = []) {
     const rightTime = Date.parse(right.createdAt || '') || 0;
     return rightTime - leftTime;
   });
-}
-
-function historySessionKey(item) {
-  if (item?.sessionId || item?.conversationId || item?.batchId) {
-    return String(item.sessionId || item.conversationId || item.batchId);
-  }
-  const createdAt = Date.parse(item?.createdAt || '') || Number(String(item?.id || '').split('-')[0]) || Date.now();
-  const bucket = Math.floor(createdAt / (24 * 60 * 60 * 1000));
-  const mode = item?.mode || item?.kind || 'image';
-  const model = item?.model || item?.providerId || '';
-  const caseId = item?.case?.id || item?.caseId || '';
-  return `legacy-session:${mode}:${model}:${caseId}:${bucket}`;
-}
-
-function groupHistorySessions(items = []) {
-  const map = new Map();
-  for (const item of items) {
-    if (!item?.id) continue;
-    const key = historySessionKey(item);
-    const urls = historyResultUrls(item);
-    const displayUrls = Array.isArray(item.displayResultUrls) && item.displayResultUrls.length ? item.displayResultUrls : urls;
-    const resultItems = historyResultItems(item);
-    const existing = map.get(key);
-    if (!existing) {
-      map.set(key, {
-        ...item,
-        id: key || item.id,
-        sessionId: item.sessionId || key,
-        recordIds: [item.id],
-        resultUrls: urls,
-        displayResultUrls: displayUrls,
-        resultItems,
-        sessionCount: 1
-      });
-      continue;
-    }
-    const existingTime = Date.parse(existing.createdAt || '') || 0;
-    const itemTime = Date.parse(item.createdAt || '') || 0;
-    const mergedResultItems = dedupeHistoryResultItems([...(existing.resultItems || []), ...resultItems]);
-    map.set(key, {
-      ...(itemTime >= existingTime ? { ...existing, ...item } : existing),
-      id: existing.id,
-      sessionId: existing.sessionId || item.sessionId || existing.id,
-      recordIds: [...new Set([...(existing.recordIds || []), item.id])],
-      resultUrls: [...new Set([...(existing.resultUrls || []), ...urls])],
-      displayResultUrls: [...new Set([...(existing.displayResultUrls || []), ...displayUrls])],
-      resultItems: mergedResultItems,
-      sessionCount: existing.sessionCount + 1
-    });
-  }
-  return [...map.values()].sort((left, right) => {
-    const leftTime = Date.parse(left.createdAt || '') || 0;
-    const rightTime = Date.parse(right.createdAt || '') || 0;
-    return rightTime - leftTime;
-  });
-}
-
-function currentSessionProject(session) {
-  const queueItems = Array.isArray(session?.generationQueue)
-    ? session.generationQueue.filter((item) => CURRENT_PROJECT_QUEUE_STATUSES.has(item?.status))
-    : [];
-  const messages = Array.isArray(session?.assistantMessages) ? session.assistantMessages : [];
-  const hasConversation = Boolean(String(session?.prompt || '').trim()) || messages.length > 0;
-  if (!session?.canvasNodes?.length && !queueItems.length && !hasConversation) return null;
-  const nodes = session.canvasNodes || [];
-  const imageNodes = nodes.filter((node) => node.kind !== 'video');
-  const recordIds = [...new Set(nodes.map((node) => node?.downloadMeta?.id).filter(Boolean))];
-  const firstNode = nodes[0] || {};
-  const firstQueueItem = queueItems[0] || {};
-  const sessionId = session.sessionId || 'current-session';
-  return {
-    id: sessionId,
-    sessionId,
-    current: true,
-    titleKey: 'rail.currentSession',
-    title: '当前会话',
-    prompt: session.prompt || firstNode.prompt || firstQueueItem.prompt || '',
-    createdAt: session.updatedAt || session.timing?.startedAt || Date.now(),
-    model: session.model,
-    resultUrls: nodes.map((node) => node.url).filter(Boolean),
-    displayResultUrls: nodes.map((node) => node.url).filter(Boolean),
-    resultItems: nodes.map((node, index) => ({
-      id: node.id || `${sessionId}-${index}`,
-      recordId: node?.downloadMeta?.id || '',
-      url: node.url,
-      displayUrl: node.url,
-      prompt: node.prompt || '',
-      generationPrompt: node.generationPrompt || node.prompt || '',
-      model: node?.downloadMeta?.model || session.model || '',
-      createdAt: node.createdAt || session.updatedAt || '',
-      index
-    })).filter((item) => item.url || item.displayUrl),
-    recordIds,
-    canvasCount: nodes.length,
-    imageCount: imageNodes.length,
-    queueCount: queueItems.length,
-    messageCount: messages.length,
-    mode: session.mode || 'image'
-  };
 }
 
 function loadHistory(scope = 'guest') {
@@ -1059,11 +899,6 @@ function normalizeLibraryPayload(payload) {
     videoInspirations,
     cases
   };
-}
-
-function publicJsonPath(fileName) {
-  const base = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
-  return `${base}${fileName}`;
 }
 
 async function fetchPublicJson(fileName, fallback = {}) {
@@ -1141,70 +976,6 @@ function clearPersistedHistory(scope = 'guest') {
 
 function storedResultUrls(urls) {
   return urls.slice(0, 4);
-}
-
-function formatHistoryTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-function historyResultUrls(item) {
-  return Array.isArray(item?.displayResultUrls) && item.displayResultUrls.length
-    ? item.displayResultUrls
-    : Array.isArray(item?.resultUrls)
-      ? item.resultUrls
-      : [];
-}
-
-function historyResultItems(item) {
-  if (Array.isArray(item?.resultItems) && item.resultItems.length) {
-    return item.resultItems.map((result, index) => ({
-      id: String(result.id || `${item?.id || 'history'}-${index}`),
-      recordId: String(result.recordId || item?.id || ''),
-      url: result.url || result.displayUrl || '',
-      displayUrl: result.displayUrl || result.url || '',
-      prompt: result.prompt || result.generationPrompt || item?.prompt || item?.generationPrompt || item?.case?.promptPreview || '',
-      generationPrompt: result.generationPrompt || result.prompt || item?.generationPrompt || item?.prompt || item?.case?.promptPreview || '',
-      model: result.model || item?.model || '',
-      providerId: result.providerId || item?.providerId || item?.provider || '',
-      createdAt: result.createdAt || item?.createdAt || '',
-      outputFormat: result.outputFormat || item?.outputFormat || '',
-      index: Number.isFinite(result.index) ? result.index : index
-    })).filter((result) => result.url || result.displayUrl);
-  }
-
-  const displayUrls = Array.isArray(item?.displayResultUrls) && item.displayResultUrls.length ? item.displayResultUrls : [];
-  const resultUrls = Array.isArray(item?.resultUrls) ? item.resultUrls : [];
-  const urls = displayUrls.length ? displayUrls : resultUrls;
-  return urls.map((url, index) => ({
-    id: `${item?.id || 'history'}-${index}`,
-    recordId: item?.id || '',
-    url: resultUrls[index] || url,
-    displayUrl: displayUrls[index] || url,
-    prompt: item?.prompt || item?.generationPrompt || item?.case?.promptPreview || '',
-    generationPrompt: item?.generationPrompt || item?.prompt || item?.case?.promptPreview || '',
-    model: item?.model || '',
-    providerId: item?.providerId || item?.provider || '',
-    createdAt: item?.createdAt || '',
-    outputFormat: item?.outputFormat || '',
-    index
-  })).filter((result) => result.url || result.displayUrl);
-}
-
-function dedupeHistoryResultItems(items = []) {
-  const map = new Map();
-  for (const item of items) {
-    const key = `${item.recordId || ''}:${item.url || item.displayUrl || ''}:${item.index ?? ''}`;
-    if (!key.replace(/[:]/g, '')) continue;
-    if (!map.has(key)) map.set(key, item);
-  }
-  return [...map.values()];
 }
 
 function buildCanvasNodeFromHistoryItem(item, result, index = 0) {
@@ -1460,26 +1231,6 @@ function referenceRoleLabel(value) {
   return REFERENCE_ROLES.find((item) => item.value === value)?.label || REFERENCE_ROLES[0].label;
 }
 
-function formatDuration(ms) {
-  if (!Number.isFinite(Number(ms)) || Number(ms) < 0) return '--';
-  const value = Number(ms);
-  if (value < 1000) return `${Math.round(value)}ms`;
-  if (value < 60000) return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)}s`;
-  const minutes = Math.floor(value / 60000);
-  const seconds = Math.round((value % 60000) / 1000);
-  return `${minutes}m ${seconds}s`;
-}
-
-function resolveResultUrl(url) {
-  if (!url) return '';
-  if (/^(https?:|data:|blob:)/.test(url)) return url;
-  return url.startsWith('/') ? url : `/${url}`;
-}
-
-function displayResultUrl(url) {
-  return assetPath(resolveResultUrl(url));
-}
-
 function collectStateBlobUrls({ results = [], videoResults = [], canvasNodes = [], previewImage = null, previewVideo = null } = {}) {
   const urls = new Set();
   const collect = (value) => {
@@ -1501,22 +1252,6 @@ function revokeBlobUrls(urls) {
   for (const url of urls || []) {
     if (String(url || '').startsWith('blob:')) URL.revokeObjectURL(url);
   }
-}
-
-function isProtectedStudioAsset(url) {
-  const value = String(url || '');
-  return value.startsWith('/studio-api/history/')
-    || value.startsWith('/studio-api/generation-jobs/')
-    || value.startsWith('/studio-api/library-assets/');
-}
-
-function safeImageCandidate(url) {
-  const value = String(url || '').trim();
-  if (!value) return '';
-  if (isProtectedStudioAsset(value)) return value;
-  if (/^(https?:|data:image\/|blob:)/i.test(value)) return value;
-  if (/\.(png|jpe?g|webp|gif|avif|svg)(?:[?#].*)?$/i.test(value)) return value;
-  return '';
 }
 
 function providerLabel(settings, apiKey) {
@@ -1676,12 +1411,6 @@ function pointValue(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return '';
   return (number / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-}
-
-function resultExtension(url, fallback = 'png') {
-  const dataMatch = String(url || '').match(/^data:image\/([^;]+)/i);
-  if (dataMatch?.[1]) return dataMatch[1] === 'jpeg' ? 'jpg' : dataMatch[1];
-  return fallback === 'jpeg' ? 'jpg' : fallback;
 }
 
 function modelBillingLabel(model, count = 1) {
@@ -1851,7 +1580,7 @@ function Topbar({
             <button
               type="button"
               className={activeWorkspace === item.value ? 'active' : ''}
-              data-workspace={item.value}
+              data-top-workspace={item.value}
               key={item.value}
               onClick={() => onWorkspaceChange(item.value)}
             >
@@ -1948,10 +1677,10 @@ function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppe
               event.stopPropagation();
               onAppend(item);
             }}
-            aria-label={t('gallery.appendPrompt', '追加模板提示词')}
-            title={t('gallery.appendToPrompt', '追加到当前提示词')}
+            aria-label={t('gallery.useTemplate', '选用这个模板')}
+            title={t('gallery.useTemplateHint', '选用后带入底部对话框')}
           >
-            <CirclePlus size={13} />
+            <Check size={13} />
           </button>
         ) : null}
         <button
@@ -2089,6 +1818,10 @@ function GalleryWorkspacePanel({
   const historySessionItems = useMemo(() => groupHistorySessions(historyItems || []), [historyItems]);
   const visibleHistoryItems = historySessionItems.slice(0, visibleLimit);
   const historyLocalHasMore = visibleLimit < historySessionItems.length;
+  const selectedTemplate = selected && selected.kind !== 'video-inspiration' ? selected : null;
+  const selectedTemplateImage = selectedTemplate ? templateThumbnail(selectedTemplate) : '';
+  const selectedTemplateFallback = selectedTemplate ? imageFallback(selectedTemplate) : '';
+  const selectedTemplatePrompt = selectedTemplate?.promptPreview || selectedTemplate?.prompt || selectedTemplate?.summary || '';
   const selectedHistoryItem = useMemo(() => {
     if (!isHistory || !selectedHistoryId) return null;
     return historySessionItems.find((item) => (
@@ -2104,7 +1837,6 @@ function GalleryWorkspacePanel({
 
   const selectLibraryItem = (item) => {
     onSelect(item);
-    onOpenWorkspace?.(item?.kind === 'video-inspiration' ? 'video' : 'image');
   };
 
   if (isHistory) {
@@ -2165,7 +1897,9 @@ function GalleryWorkspacePanel({
             <p>{t('gallery.noHistoryHint', '生成完成后会自动出现在当前会话和历史图库里。')}</p>
           </div>
         )}
-        <HistoryDetailPanel item={selectedHistoryItem} onOpenWorkspace={onOpenWorkspace} t={t} />
+        {historyItems.length ? (
+          <HistoryDetailPanel item={selectedHistoryItem} onOpenWorkspace={onOpenWorkspace} t={t} />
+        ) : null}
       </section>
     );
   }
@@ -2218,6 +1952,30 @@ function GalleryWorkspacePanel({
           </>
         ) : null}
       </div>
+      {!isVideo && browsingCategory && selectedTemplate ? (
+        <section className="gallerySelectionPreview" aria-label={t('gallery.selectedPreview', '已选灵感预览')}>
+          <div className="gallerySelectionMedia">
+            {(selectedTemplateImage || selectedTemplateFallback) ? (
+              <ProtectedStudioImage
+                src={selectedTemplateImage || selectedTemplateFallback}
+                fallbackSrc={selectedTemplateImage && selectedTemplateFallback !== selectedTemplateImage ? selectedTemplateFallback : ''}
+                alt={selectedTemplate.imageAlt || selectedTemplate.title}
+              />
+            ) : (
+              <ImageIcon size={20} />
+            )}
+          </div>
+          <div className="gallerySelectionBody">
+            <span>{t('gallery.selectedPreview', '已选灵感预览')}</span>
+            <strong>{selectedTemplate.title}</strong>
+            <p>{selectedTemplatePrompt || t('gallery.selectedNoPrompt', '点击选用后会读取完整提示词并带入底部对话框。')}</p>
+          </div>
+          <button type="button" className="primaryAction galleryUseTemplateButton" onClick={() => onAppendTemplate?.(selectedTemplate)}>
+            <Check size={15} />
+            {t('gallery.useTemplate', '选用')}
+          </button>
+        </section>
+      ) : null}
       <div className="inspirationCanvasGrid">
         {loading ? (
           <div className="workspaceEmptyPanel">
@@ -2280,391 +2038,6 @@ function GalleryWorkspacePanel({
       ) : null}
     </section>
   );
-}
-
-function LeftRail({
-  activeWorkspace,
-  onWorkspaceChange,
-  onNewSession,
-  profile,
-  apiKey,
-  isAuthenticated,
-  onOpenSettings,
-  theme,
-  onThemeToggle,
-  selected,
-  currentProject,
-  historyItems,
-  selectedHistoryId,
-  onSelectHistory,
-  onDeleteHistory,
-  onFocusCurrentProject,
-  collapsed,
-  onToggleCollapse,
-  language,
-  onLanguageToggle,
-  t
-}) {
-  const isInspirationWorkspace = activeWorkspace === 'inspiration';
-  const isHistoryWorkspace = activeWorkspace === 'history';
-  const accountLabel = isAuthenticated ? (profile?.email || profile?.username || t('rail.loggedIn', '已登录用户')) : t('rail.notLoggedIn', '未登录');
-  const accountDetail = isAuthenticated ? (apiKeyDisplay(apiKey) || t('rail.hiddenKey', 'Key 已隐藏')) : t('rail.chooseKey', '选择 Key');
-  const currentProjectId = currentProject?.sessionId || currentProject?.id || '';
-  const currentRecordIds = new Set(currentProject?.recordIds || []);
-  const currentLanguage = SUPPORTED_LANGUAGES.find((item) => item.value === language) || SUPPORTED_LANGUAGES[0];
-  const historySessionItems = groupHistorySessions(historyItems || []);
-  const recentProjectItems = [
-    currentProject,
-    ...historySessionItems.filter((item) => {
-      const itemId = item.sessionId || item.id;
-      if (itemId === currentProjectId) return false;
-      return !(item.recordIds || [item.id]).some((recordId) => currentRecordIds.has(recordId));
-    })
-  ].filter(Boolean).slice(0, 5);
-
-  if (collapsed) {
-    return (
-      <aside className="templateRail collapsed" aria-label={t('rail.aria', '创作侧栏')}>
-        <button type="button" className="railIconAction" onClick={onToggleCollapse} aria-label={t('rail.expand', '展开侧栏')}>
-          <PanelLeftOpen size={18} />
-        </button>
-        <button type="button" className="railIconAction active" onClick={onToggleCollapse} aria-label={t('rail.session', '会话')}>
-          <MessageSquareText size={18} />
-        </button>
-        <button
-          type="button"
-          className={`railIconAction ${isHistoryWorkspace ? 'active' : ''}`}
-          onClick={() => { onWorkspaceChange('history'); onToggleCollapse(); }}
-          aria-label={t('rail.history', '历史图库')}
-        >
-          <History size={18} />
-          <span>{historySessionItems.length}</span>
-        </button>
-        <button
-          type="button"
-          className={`railIconAction ${isInspirationWorkspace ? 'active' : ''}`}
-          onClick={() => { onWorkspaceChange('inspiration'); onToggleCollapse(); }}
-          aria-label={t('rail.inspiration', '灵感库')}
-        >
-          <Sparkles size={18} />
-        </button>
-        <div className="collapsedRailBottom">
-          <button
-            type="button"
-            className="railIconAction railLanguageButton"
-            onClick={onLanguageToggle}
-            aria-label={t('language.switchTo', 'Switch language')}
-            title={`${t('language.current', '当前语言')} · ${t('language.switchTo', 'Switch language')}`}
-          >
-            <Languages size={16} />
-            <span>{currentLanguage.shortLabel}</span>
-          </button>
-          <button type="button" className="railAvatarButton" onClick={onOpenSettings} aria-label={t('rail.settings', '连接设置')}>
-            <span className="collapsedRailAvatar">{String(accountLabel).slice(0, 1).toUpperCase()}</span>
-          </button>
-        </div>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="templateRail" aria-label={t('rail.aria', '创作侧栏')}>
-      <div className="sideBrand">
-        <span className="sideBrandMark"><WandSparkles size={15} /></span>
-        <span>
-          <strong>{t('rail.brand', '工作台')}</strong>
-          <em>{t('rail.brandMeta', '创作')}</em>
-        </span>
-        <button type="button" className="sideCollapseButton" onClick={onToggleCollapse} aria-label={t('rail.collapse', '收起侧栏')}>
-          <PanelLeftClose size={15} />
-        </button>
-      </div>
-      <button type="button" className="newChatButton" onClick={onNewSession}>
-        <CirclePlus size={16} />
-        {t('rail.newSession', '新建会话')}
-      </button>
-      <nav className="sidePrimaryNav" aria-label={t('rail.workspaces', '工作区')}>
-        <button type="button" className={activeWorkspace === 'image' || activeWorkspace === 'video' ? 'active' : ''} onClick={() => onWorkspaceChange('image')}>
-          <MessageSquareText size={16} />
-          {t('workspace.desk', '工作台')}
-        </button>
-        <button type="button" className={isHistoryWorkspace ? 'active' : ''} onClick={() => onWorkspaceChange('history')}>
-          <History size={16} />
-          {t('workspace.history', '历史图库')}
-        </button>
-        <button type="button" className={isInspirationWorkspace ? 'active' : ''} onClick={() => onWorkspaceChange('inspiration')}>
-          <Sparkles size={16} />
-          {t('workspace.inspiration', '灵感库')}
-        </button>
-      </nav>
-      <div className="sideChatBlock">
-        <div className="sideProjectHead">
-          <span className="sideSectionLabel">{t('rail.project', '项目')}</span>
-          <button type="button" onClick={() => onWorkspaceChange('history')}>{t('rail.all', '全部')}</button>
-        </div>
-        {recentProjectItems.length ? (
-          <div className="sideProjectList">
-            {recentProjectItems.map((item, index) => {
-              const isVideo = item.mode === 'video' || item.kind === 'video';
-              const resultItems = historyResultItems(item);
-              const urls = resultItems.length
-                ? resultItems.map((result) => result.displayUrl || result.url).filter(Boolean)
-                : historyResultUrls(item);
-              const title = item.titleKey
-                ? t(item.titleKey, item.title || '')
-                : item.title || (isVideo ? t('rail.videoGeneration', '视频生成') : item.case?.title || compact(item.prompt, 24) || t('rail.unnamedSession', '未命名会话'));
-              const count = urls.length;
-              const thumb = safeImageCandidate(urls[0] || item.case?.image || item.case?.thumbnail || '');
-              const orderLabel = item.current ? t('rail.current', '当前') : `#${index}`;
-              const meta = [
-                formatHistoryTime(item.createdAt),
-                compact(item.model || item.providerId || '', 12)
-              ].filter(Boolean).join(' · ');
-              const resultLabel = item.canvasCount
-                ? t('rail.nodeCount', '{count} 节点', { count: item.canvasCount })
-                : isVideo
-                  ? t('rail.video', '视频')
-                  : count
-                    ? t('rail.imageCount', '{count} 张', { count })
-                    : item.queueCount
-                      ? t('rail.taskCount', '{count} 个任务', { count: item.queueCount })
-                      : t('rail.noResultYet', '待生成');
-              const summary = compact(item.prompt || item.generationPrompt || item.case?.promptPreview || '', 34);
-              const activeRecordIds = item.recordIds || [item.id];
-              const isActiveProject = item.current
-                || selectedHistoryId === item.id
-                || selectedHistoryId === item.sessionId
-                || activeRecordIds.includes(selectedHistoryId);
-              return (
-                <div className={`sideProjectItem ${isActiveProject ? 'active' : ''}`} key={item.id}>
-                  <button
-                    type="button"
-                    className="sideProjectOpen"
-                    onClick={() => {
-                      if (item.current) {
-                        onWorkspaceChange('image');
-                        onFocusCurrentProject?.();
-                        return;
-                      }
-                      onSelectHistory(item);
-                    }}
-                  >
-                    <span className="sideProjectThumb">
-                      {thumb ? (
-                        <ProtectedHistoryThumb
-                          src={thumb}
-                          fallback={<span className="sideProjectFallback">{isVideo ? <Video size={16} /> : <Images size={16} />}</span>}
-                        />
-                      ) : (
-                        <span className="sideProjectFallback">{isVideo ? <Video size={16} /> : <Images size={16} />}</span>
-                      )}
-                      <span className="sideProjectIndex">{orderLabel}</span>
-                    </span>
-                    <span className="sideProjectText">
-                      <span className="sideProjectTopline">
-                        <strong>{title}</strong>
-                        <b>{resultLabel}</b>
-                      </span>
-                      {meta ? <em>{meta}</em> : null}
-                      {summary ? <small>{summary}</small> : null}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="sideProjectDelete"
-                    onClick={() => {
-                      if (item.current) {
-                        onNewSession();
-                        return;
-                      }
-                      onDeleteHistory(item);
-                    }}
-                    aria-label={`删除 ${title}`}
-                    title={item.current ? t('rail.clearCurrent', '清空当前会话') : t('rail.delete', '删除')}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <button type="button" className="sideChatCard emptyProjectCard" onClick={onNewSession}>
-            <span className="sideChatIcon"><BotMessageSquare size={16} /></span>
-            <span>
-              <strong>{t('rail.noProject', '还没有项目')}</strong>
-              <em>{t('rail.noProjectHint', '新建会话后，生成记录会出现在这里。')}</em>
-            </span>
-          </button>
-        )}
-      </div>
-      <div className="railBottomBar">
-        <button type="button" className="railAccountCard" onClick={onOpenSettings}>
-          <span className="railAvatar">{String(accountLabel).slice(0, 1).toUpperCase()}</span>
-          <span>
-            <strong>{accountLabel}</strong>
-            <em>{accountDetail}</em>
-          </span>
-          <KeyRound size={15} />
-        </button>
-        <div className="railPreferenceRow">
-          <button
-            type="button"
-            className="railThemeButton railLanguageButton"
-            onClick={onLanguageToggle}
-            aria-label={t('language.switchTo', 'Switch language')}
-            title={`${t('language.current', '当前语言')} · ${t('language.switchTo', 'Switch language')}`}
-          >
-            <Languages size={16} />
-            <span>{currentLanguage.shortLabel}</span>
-          </button>
-          <button type="button" className="railThemeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? t('rail.light', '切换浅色') : t('rail.dark', '切换深色')}>
-            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
-}
-function progressText(progress, fallbackMessage, t = (key, fallback) => fallback || key) {
-  if (!progress || progress.stage === 'idle') return fallbackMessage || '';
-  if (progress.stage === 'request') return t('progress.submitted', '已提交');
-  if (progress.stage === 'connected') return t('progress.connected', '已连接');
-  if (progress.stage === 'queued') return t('progress.queued', '排队中');
-  if (progress.stage === 'dispatching') return t('progress.dispatching', '提交上游');
-  if (progress.stage === 'upstream') return t('progress.generating', '生成中');
-  if (progress.stage === 'video') return t('progress.videoGenerating', '视频生成中');
-  if (progress.stage === 'partial') return t('progress.preview', '预览 {count}', { count: progress.partials || 1 });
-  if (progress.stage === 'pending_review') return t('progress.review', '待确认');
-  if (progress.stage === 'image') return `${progress.completed || 1}/${progress.total || 1}`;
-  if (progress.stage === 'saving') return t('progress.saving', '保存中');
-  if (progress.stage === 'completed') return t('progress.completed', '完成');
-  if (progress.stage === 'succeeded') return t('progress.completed', '完成');
-  if (progress.stage === 'canceled') return t('progress.canceled', '已取消');
-  if (progress.stage === 'failed') return t('progress.failed', '已停止');
-  return fallbackMessage || '';
-}
-
-function ProgressBar({ progress, active, t = (key, fallback) => fallback || key }) {
-  if (!active && progress.stage !== 'completed' && progress.stage !== 'failed' && progress.stage !== 'pending_review') return null;
-  const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
-  const steps = [
-    { key: 'request', label: t('progress.stepSubmit', '提交') },
-    { key: 'queued', label: t('progress.stepQueue', '排队') },
-    { key: 'image', label: t('progress.stepGenerate', '生成') },
-    { key: 'saving', label: t('progress.stepSave', '保存') },
-    { key: 'completed', label: t('progress.stepDone', '完成') }
-  ];
-  const stageOrder = {
-    idle: -1,
-    request: 0,
-    connected: 0,
-    queued: 1,
-    dispatching: 1,
-    upstream: 2,
-    video: 2,
-    partial: 2,
-    image: 2,
-    saving: 3,
-    completed: 4,
-    succeeded: 4,
-    canceled: 2,
-    failed: 2,
-    pending_review: 3
-  };
-  const activeIndex = stageOrder[progress.stage] ?? 0;
-  return (
-    <div className={`generationProgress ${progress.stage === 'failed' ? 'failed' : ''} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`} aria-label={t('progress.aria', '生成进度')}>
-      <div>
-        <span>{progressText(progress, '', t)}</span>
-        <strong>{percent}%</strong>
-      </div>
-      <div className="progressTrack">
-        <i style={{ width: `${percent}%` }} />
-      </div>
-      <div className="progressSteps" aria-hidden="true">
-        {steps.map((step, index) => (
-          <span className={index <= activeIndex ? 'active' : ''} key={step.key}>{step.label}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function GenerationTimingPanel({ timing, t = (key, fallback) => fallback || key }) {
-  if (!timing) return null;
-  const firstMs = timing.firstByteAt ? timing.firstByteAt - timing.startedAt : null;
-  const totalMs = (timing.completedAt || Date.now()) - timing.startedAt;
-  const title = timing.status === 'running' ? t('timing.running', '生成计时中') : timing.status === 'failed' ? t('timing.failed', '生成已停止') : t('timing.done', '生成完成');
-  return (
-    <div className="generationTimingPanel">
-      <div>
-        <Clock size={15} />
-        <strong>{title}</strong>
-        <span>{t('timing.hint', '响应=首次收到上游数据；总用时=点击生成到当前状态')}</span>
-      </div>
-      <dl>
-        <div>
-          <dt>{t('timing.response', '响应')}</dt>
-          <dd>{firstMs === null ? t('timing.waiting', '等待中') : formatDuration(firstMs)}</dd>
-        </div>
-        <div>
-          <dt>{t('timing.total', '总用时')}</dt>
-          <dd>{formatDuration(totalMs)}</dd>
-        </div>
-        <div>
-          <dt>{t('params.model', '模型')}</dt>
-          <dd>{timing.model || '--'}</dd>
-        </div>
-        <div>
-          <dt>{t('timing.spec', '规格')}</dt>
-          <dd>{timing.spec || '--'}</dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-function generationQueueStatusLabel(status, t = (key, fallback) => fallback || key) {
-  if (status === 'running') return t('composer.queueStatusRunning', '生成中');
-  if (status === 'done') return t('composer.queueStatusDone', '完成');
-  if (status === 'failed') return t('composer.queueStatusFailed', '已中断');
-  if (status === 'canceled') return t('composer.queueStatusCanceled', '已取消');
-  if (status === 'unknown') return t('composer.queueStatusUnknown', '结果未知');
-  return t('composer.queueStatusQueued', '排队中');
-}
-
-function generationQueueSummary(item, t = (key, fallback, values) => {
-  if (!values) return fallback || key;
-  return Object.entries(values).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, value), fallback || key);
-}) {
-  if (item?.status === 'failed' && item?.error) {
-    return generationErrorMessage({
-      ...item.error,
-      message: item.error.message || item.summary || 'GENERATION_JOB_FAILED',
-      status: item.error.status,
-      requestId: item.error.requestId || item.requestIds?.[0] || ''
-    }, t);
-  }
-  return item?.summary || '';
-}
-
-function generationQueueHeadline(items, t = (key, fallback) => fallback || key) {
-  const countStatus = (status) => items.filter((item) => item?.status === status).length;
-  const running = countStatus('running');
-  const queued = countStatus('queued');
-  const failed = countStatus('failed');
-  const unknown = countStatus('unknown');
-  const canceled = countStatus('canceled');
-  const done = countStatus('done');
-  const parts = [];
-  parts.push(running ? t('composer.queueRunning', '1 个生成中') : t('composer.queueIdle', '当前空闲'));
-  if (queued) parts.push(t('composer.queueWaiting', '{count} 个排队', { count: queued }));
-  if (failed + unknown) parts.push(t('composer.queueNeedsReview', '{count} 个需确认', { count: failed + unknown }));
-  if (canceled) parts.push(t('composer.queueCanceledNotice', '{count} 个已取消', { count: canceled }));
-  if (done) parts.push(t('composer.queueDoneNotice', '{count} 个完成提示', { count: done }));
-  if (!queued && !failed && !unknown && !canceled && !done) parts.push(t('composer.queueWaiting', '{count} 个排队', { count: 0 }));
-  return parts.join(' · ');
 }
 
 function generationErrorMessage(error, t = (key, fallback, values) => {
@@ -2764,273 +2137,6 @@ function errorRequestId(error, message = '') {
   return match?.[1] || '';
 }
 
-const PROMPT_SECTION_LABELS = [
-  '主体', '人物', '角色', '产品', '场景', '背景', '风格', '构图', '镜头', '视角', '光线', '色彩', '材质', '细节', '动作', '文字',
-  '负面提示词', '避免事项', '分辨率要求', '质量', '参考图', '延续关系', '基于画布',
-  'Subject', 'Character', 'Product', 'Scene', 'Background', 'Style', 'Composition', 'Camera', 'View', 'Lighting',
-  'Color', 'Material', 'Details', 'Action', 'Text', 'Negative prompt', 'Avoid', 'Resolution', 'Reference', 'Lineage'
-];
-
-const PROMPT_SECTION_PATTERN = new RegExp(`(${PROMPT_SECTION_LABELS.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*[:：]`, 'gi');
-
-function trimPromptBody(value) {
-  return String(value || '')
-    .replace(/^[\s,，;；。:：-]+/, '')
-    .replace(/[\s,，;；]+$/, '')
-    .trim();
-}
-
-function splitLabeledPromptBlock(block) {
-  const text = String(block || '').trim();
-  if (!text) return [];
-  const matches = [...text.matchAll(PROMPT_SECTION_PATTERN)];
-  if (!matches.length) return [];
-  return matches.map((match, index) => {
-    const nextMatch = matches[index + 1];
-    const body = trimPromptBody(text.slice(match.index + match[0].length, nextMatch?.index ?? text.length));
-    return {
-      title: match[1],
-      body
-    };
-  }).filter((item) => item.body);
-}
-
-function promptSectionsFromText(value, t = (key, fallback) => fallback || key) {
-  const text = String(value || '').replace(/\r\n/g, '\n').trim();
-  if (!text) return [];
-  const fallbackTitle = t('lightbox.promptDefaultTitle', '提示词');
-  const blocks = text.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-  const sections = [];
-
-  blocks.forEach((block) => {
-    const labeled = splitLabeledPromptBlock(block);
-    if (labeled.length) {
-      sections.push(...labeled);
-      return;
-    }
-
-    const lines = block.split('\n').map((item) => item.trim()).filter(Boolean);
-    if (lines.length > 1) {
-      lines.forEach((line, lineIndex) => {
-        const lineLabeled = splitLabeledPromptBlock(line);
-        if (lineLabeled.length) {
-          sections.push(...lineLabeled);
-        } else {
-          sections.push({ title: `${fallbackTitle} ${sections.length + lineIndex + 1}`, body: line });
-        }
-      });
-      return;
-    }
-
-    const sentenceParts = block.length > 140
-      ? block.split(/(?:；|;\s+|。\s+|(?<=\.)\s+)/).map((item) => trimPromptBody(item)).filter(Boolean)
-      : [];
-    if (sentenceParts.length > 1) {
-      sentenceParts.forEach((part, partIndex) => {
-        sections.push({ title: `${fallbackTitle} ${sections.length + partIndex + 1}`, body: part });
-      });
-      return;
-    }
-
-    sections.push({ title: fallbackTitle, body: block });
-  });
-
-  return sections;
-}
-
-function PromptSectionList({ prompt, t = (key, fallback) => fallback || key }) {
-  const sections = promptSectionsFromText(prompt, t);
-  if (!sections.length) {
-    return <p className="promptEmptyText">{t('lightbox.noPrompt', '没有记录提示词')}</p>;
-  }
-  return (
-    <div className="promptSectionList">
-      {sections.map((section, index) => (
-        <section className="promptSection" key={`${section.title}-${index}`}>
-          <span>{section.title}</span>
-          <p>{section.body}</p>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function Lightbox({ url, index, outputFormat = 'png', downloadMeta, onClose, t = (key, fallback) => fallback || key }) {
-  if (!url) return null;
-  const isReferencePreview = downloadMeta?.mode === 'reference';
-  const extension = resultExtension(url, outputFormat);
-  const downloadName = buildStudioDownloadFilename({
-    ...(downloadMeta || {}),
-    mode: 'image',
-    index,
-    extension
-  });
-  const promptText = downloadMeta?.prompt || downloadMeta?.generationPrompt || '';
-  const meta = [
-    downloadMeta?.providerId,
-    downloadMeta?.size,
-    downloadMeta?.resolutionTier ? RESOLUTION_TIER_LABELS[downloadMeta.resolutionTier] || downloadMeta.resolutionTier : '',
-    downloadMeta?.quality ? downloadMeta.quality : '',
-    downloadMeta?.createdAt ? formatHistoryTime(downloadMeta.createdAt) : ''
-  ].filter(Boolean);
-  return (
-    <div className="lightboxOverlay" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <figure className="lightboxPanel">
-        <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')}>
-          <X size={18} />
-        </button>
-        <div className="lightboxImageStage">
-          <img src={url} alt={`${isReferencePreview ? t('references.title', '参考图') : t('lightbox.imageAlt', '生成结果')} ${index + 1}`} />
-        </div>
-        <aside className="lightboxPromptPanel">
-          <div className="lightboxPromptHead">
-            <div>
-              <span>{isReferencePreview ? t('references.preview', '查看参考图') : t('lightbox.promptLabel', '完整提示词')}</span>
-              <strong>{isReferencePreview ? t('references.referenceIndex', '参考 {index}', { index: index + 1 }) : `#${index + 1}`}</strong>
-            </div>
-            {promptText ? (
-              <button type="button" onClick={() => navigator.clipboard?.writeText(promptText)}>
-                <Copy size={14} />
-                {t('lightbox.copyPrompt', '复制')}
-              </button>
-            ) : null}
-          </div>
-          {meta.length ? (
-            <div className="lightboxMetaChips">
-              {meta.map((item) => <span key={item}>{item}</span>)}
-            </div>
-          ) : null}
-          <PromptSectionList prompt={promptText} t={t} />
-        </aside>
-        <figcaption>
-          <span>{isReferencePreview ? t('references.referenceIndex', '参考 {index}', { index: index + 1 }) : `#${index + 1}`}</span>
-          <a href={url} download={downloadName}>
-            <Download size={16} />
-            下载
-          </a>
-        </figcaption>
-      </figure>
-    </div>
-  );
-}
-
-function VideoLightbox({ url, index = 0, downloadMeta, onClose, t = (key, fallback) => fallback || key }) {
-  if (!url) return null;
-  const extension = resultVideoExtension(url);
-  const downloadName = buildStudioDownloadFilename({
-    ...(downloadMeta || {}),
-    mode: 'video',
-    index,
-    extension
-  });
-  return (
-    <div className="lightboxOverlay" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <figure className="lightboxPanel videoLightboxPanel">
-        <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')}>
-          <X size={18} />
-        </button>
-        <video src={url} controls playsInline />
-        <figcaption>
-          <span>{t('canvas.videoResult', '视频结果')}</span>
-          <a href={url} download={downloadName}>
-            <Download size={16} />
-            {t('canvas.download', '下载')}
-          </a>
-        </figcaption>
-      </figure>
-    </div>
-  );
-}
-
-function ResultGrid({ urls, outputFormat = 'png', downloadMeta, onPreview, t = (key, fallback) => fallback || key }) {
-  if (!urls.length) {
-    return (
-      <div className="emptyResult">
-        <ImageIcon size={32} />
-        <p>{t('composer.resultTitle', '生成结果')}</p>
-      </div>
-    );
-  }
-  return (
-    <div className="resultGrid">
-      {urls.map((url, index) => (
-        <figure key={`${url}-${index}`}>
-          <button type="button" className="resultPreviewButton" onClick={() => onPreview(url, index)}>
-            <img src={url} alt={`${t('lightbox.imageAlt', '生成结果')} ${index + 1}`} />
-          </button>
-          <a href={url} download={buildStudioDownloadFilename({
-            ...(downloadMeta || {}),
-            mode: 'image',
-            index,
-            extension: resultExtension(url, outputFormat)
-          })}>
-            <Download size={16} />
-            {t('canvas.download', '下载')}
-          </a>
-        </figure>
-      ))}
-    </div>
-  );
-}
-
-function VideoResultGrid({ urls, downloadMeta, onPreview, t = (key, fallback) => fallback || key }) {
-  if (!urls.length) {
-    return (
-      <div className="emptyResult">
-        <Video size={32} />
-        <p>{t('canvas.videoResult', '视频结果')}</p>
-      </div>
-    );
-  }
-  return (
-    <div className="resultGrid videoResultGrid">
-      {urls.map((url, index) => (
-        <figure key={`${url}-${index}`}>
-          <button type="button" className="resultPreviewButton" onClick={() => onPreview(url, index)}>
-            <video src={url} muted playsInline preload="metadata" />
-          </button>
-          <a href={url} download={buildStudioDownloadFilename({
-            ...(downloadMeta || {}),
-            mode: 'video',
-            index,
-            extension: resultVideoExtension(url)
-          })}>
-            <Download size={16} />
-            {t('canvas.download', '下载')}
-          </a>
-        </figure>
-      ))}
-    </div>
-  );
-}
-
-function WorkPreviewResultActions({ url, index = 0, outputFormat = 'png', isVideo = false, downloadMeta, onPreview }) {
-  if (!url) return null;
-  const extension = isVideo ? resultVideoExtension(url) : resultExtension(url, outputFormat);
-  const downloadName = buildStudioDownloadFilename({
-    ...(downloadMeta || {}),
-    mode: isVideo ? 'video' : 'image',
-    index,
-    extension
-  });
-  return (
-    <div className="workPreviewActions">
-      <button type="button" onClick={onPreview}>
-        {isVideo ? <Video size={15} /> : <ImageIcon size={15} />}
-        预览
-      </button>
-      <a href={url} download={downloadName}>
-        <Download size={15} />
-        下载
-      </a>
-    </div>
-  );
-}
-
 function HistoryDetailPanel({ item, onOpenWorkspace, t = (key, fallback) => fallback || key }) {
   if (!item) {
     return (
@@ -3081,231 +2187,6 @@ function HistoryDetailPanel({ item, onOpenWorkspace, t = (key, fallback) => fall
   );
 }
 
-function PromptSuggestion({ suggestion, onMerge, onReplace, onCopy, onUse, t = (key, fallback) => fallback || key }) {
-  if (!suggestion) return null;
-  const rows = [
-    [t('suggestion.subject', '保留主体'), suggestion.subject],
-    [t('suggestion.scene', '场景变化'), suggestion.scene],
-    [t('suggestion.composition', '构图方向'), suggestion.composition],
-    [t('suggestion.style', '风格语气'), suggestion.style],
-    [t('suggestion.lighting', '光线色彩'), suggestion.lighting],
-    [t('suggestion.details', '补充细节'), suggestion.details],
-    [t('suggestion.textRules', '文字规则'), suggestion.textRules],
-    [t('suggestion.constraints', '避免事项'), suggestion.constraints]
-  ].filter(([, value]) => String(value || '').trim());
-  const finalPrompt = suggestion.finalPrompt || suggestion.raw || '';
-  const finalSections = promptSectionsFromText(finalPrompt, t).slice(0, 4);
-  const fallbackRows = rows.slice(0, 5);
-  const suggestionSections = finalSections.length
-    ? finalSections
-    : fallbackRows.map(([title, body]) => ({ title, body }));
-
-  return (
-    <div className="promptSuggestion composerMessage assistant">
-      <span>AI</span>
-      <div className="promptSuggestionBody">
-        <div className="promptSuggestionLead">
-          <strong>{t('suggestion.title', '本轮提示词建议')}</strong>
-          <small>{t('suggestion.hint', 'AI 只整理方向，不自动覆盖当前输入')}</small>
-        </div>
-        {finalSections.length ? (
-          <span className="promptSuggestionFinalLabel">{t('suggestion.finalPrompt', '可执行提示词')}</span>
-        ) : null}
-        {suggestionSections.length ? (
-          <div className="promptSuggestionText">
-            {suggestionSections.map((section, index) => (
-              <p key={`${section.title}-${index}`}>
-                <em>{section.title}</em>
-                <span>{section.body}</span>
-              </p>
-            ))}
-          </div>
-        ) : finalPrompt ? (
-          <p className="promptSuggestionPlain">{finalPrompt}</p>
-        ) : (
-          <div className="promptSuggestionText">
-            {fallbackRows.map(([label, value]) => (
-              <p key={label}>
-                <b>{label}</b>
-                <span>{value}</span>
-              </p>
-            ))}
-          </div>
-        )}
-        <div className="promptSuggestionActions">
-          {onUse ? (
-            <button type="button" onClick={onUse}>
-              <Sparkles size={13} />
-              {t('suggestion.useThis', '用这版生成')}
-            </button>
-          ) : null}
-          <button type="button" onClick={onReplace}>{t('composer.putIntoInput', '放入输入框')}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProtectedStudioImage({ src, fallbackSrc = '', alt = '', fallback = null }) {
-  const holderRef = useRef(null);
-  const [shouldResolve, setShouldResolve] = useState(() => {
-    const value = String(src || '');
-    return Boolean(value && !isProtectedStudioAsset(value));
-  });
-  const [candidateIndex, setCandidateIndex] = useState(0);
-  const [resolvedSrc, setResolvedSrc] = useState(() => {
-    const value = String(src || '');
-    return value && !isProtectedStudioAsset(value) ? displayResultUrl(value) : '';
-  });
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    const candidates = [src, fallbackSrc]
-      .map((value) => String(value || '').trim())
-      .filter(Boolean);
-    if (!candidates.some(isProtectedStudioAsset)) {
-      setShouldResolve(true);
-      return undefined;
-    }
-
-    setShouldResolve(false);
-    if (!('IntersectionObserver' in window)) {
-      const timer = window.setTimeout(() => setShouldResolve(true), 150);
-      return () => window.clearTimeout(timer);
-    }
-
-    const node = holderRef.current?.parentElement || holderRef.current;
-    if (!node) return undefined;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setShouldResolve(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: '180px' });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [src, fallbackSrc]);
-
-  useEffect(() => {
-    let active = true;
-    const objectUrls = [];
-    const candidates = [src, fallbackSrc]
-      .map((value) => String(value || '').trim())
-      .filter((value, index, list) => value && list.indexOf(value) === index);
-
-    async function resolveCandidate(value) {
-      if (!isProtectedStudioAsset(value)) return displayResultUrl(value);
-      const session = loadSession();
-      if (!session?.accessToken) return '';
-      const historyClient = new StudioHistoryClient({ session });
-      return await enqueueProtectedImageTask(() => historyClient.resolveAssetUrl(value)) || '';
-    }
-
-    async function resolveImage() {
-      for (const value of candidates) {
-        try {
-          const url = await resolveCandidate(value);
-          if (active && url) {
-            if (url.startsWith('blob:')) objectUrls.push(url);
-            setCandidateIndex(candidates.indexOf(value));
-            setResolvedSrc(url);
-            return;
-          }
-          if (!active && url?.startsWith('blob:')) URL.revokeObjectURL(url);
-        } catch {
-          // Try the next candidate before showing the empty-state icon.
-        }
-      }
-      if (active) {
-        setResolvedSrc('');
-        setFailed(true);
-      }
-    }
-
-    setFailed(false);
-    setCandidateIndex(0);
-    setResolvedSrc(candidates[0] && !isProtectedStudioAsset(candidates[0]) ? displayResultUrl(candidates[0]) : '');
-    if (!shouldResolve) return () => {
-      active = false;
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-    resolveImage();
-
-    return () => {
-      active = false;
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [src, fallbackSrc, shouldResolve]);
-
-  if (!src || failed || !resolvedSrc) return <span ref={holderRef}>{fallback}</span>;
-  return (
-    <span ref={holderRef}>
-      <img
-        src={resolvedSrc}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        onError={(event) => {
-          const candidates = [src, fallbackSrc]
-            .map((value) => String(value || '').trim())
-            .filter((value, index, list) => value && list.indexOf(value) === index);
-          const next = candidates[candidateIndex + 1];
-          if (next && !isProtectedStudioAsset(next)) {
-            setCandidateIndex((value) => value + 1);
-            setResolvedSrc(displayResultUrl(next));
-            return;
-          }
-          event.currentTarget.hidden = true;
-          setFailed(true);
-        }}
-      />
-    </span>
-  );
-}
-
-function ProtectedHistoryThumb(props) {
-  return <ProtectedStudioImage {...props} />;
-}
-
-function LazyImage({ src, alt, className = '', onError, ...props }) {
-  return (
-    <img
-      {...props}
-      className={className || undefined}
-      src={src}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      draggable={false}
-      onError={onError}
-    />
-  );
-}
-
-function CreativeRecipeBar({ recipes, activeId, onApply, t = (key, fallback) => fallback || key }) {
-  if (!recipes?.length) return null;
-  return (
-    <div className="creativeRecipeBar">
-      <div className="recipeBarHead">
-        <span>{t('recipe.title', '创作配方')}</span>
-        <em>{t('recipe.hint', '来自参考项目的场景预设思路，可一键套用到当前参数')}</em>
-      </div>
-      <div className="recipeScroller">
-        {recipes.map((recipe) => (
-          <button
-            type="button"
-            className={activeId === recipe.id ? 'active' : ''}
-            key={recipe.id}
-            onClick={() => onApply(recipe)}
-          >
-            <strong>{recipe.title}</strong>
-            <span>{recipe.tone}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 const MaskEditor = forwardRef(function MaskEditor({
   imageFile,
   imagePreview,
@@ -3679,7 +2560,7 @@ function CreationDesk({
   const composerThreadRef = useRef(null);
   const lastSessionSnapshotPayloadRef = useRef('');
   const [mode, setMode] = useState(restoredMode);
-  const [prompt, setPrompt] = useState(() => restoredSession?.prompt || draftRef.current?.prompt || selectedCase?.prompt || '');
+  const [prompt, setPrompt] = useState(() => restoredSession?.prompt || draftRef.current?.prompt || '');
   const [model, setModel] = useState(() => restoredSession?.model || initialParameters.model || IMAGE_MODELS[0]);
   const initialSize = normalizeSize(initialParameters.size || initialParameters.customSize || '1024x1024');
   const [aspect, setAspect] = useState(() => normalizeAspect(initialParameters.aspect || initialParameters.aspectRatio, initialSize));
@@ -3728,6 +2609,7 @@ function CreationDesk({
     }
     : { stage: 'idle', percent: 0, completed: 0, total: 1 });
   const [timing, setTiming] = useState(() => restoredSession?.timing || null);
+  const [composerNow, setComposerNow] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
   const [promptInstruction, setPromptInstruction] = useState('');
   const [promptSuggestion, setPromptSuggestion] = useState(() => serializePromptSuggestion(restoredSession?.promptSuggestion));
@@ -3776,10 +2658,21 @@ function CreationDesk({
       return next;
     });
   };
+  const showComposerForGeneration = () => updateLayoutSections({
+    bottomComposer: true,
+    composerFolded: false
+  });
 
   useEffect(() => {
     canvasNodesRef.current = canvasNodes;
   }, [canvasNodes]);
+
+  useEffect(() => {
+    if (status !== 'loading' && timing?.status !== 'running') return undefined;
+    setComposerNow(Date.now());
+    const timer = window.setInterval(() => setComposerNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [status, timing?.status, timing?.startedAt]);
 
   useEffect(() => {
     const nextUrls = collectStateBlobUrls({
@@ -3802,8 +2695,8 @@ function CreationDesk({
 
   const isReady = connectionReady(providerSettings, apiKey, isAuthenticated);
   const currentImageProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
-  const imageAspectOptions = useMemo(() => providerAspectOptions(currentImageProvider), [currentImageProvider]);
-  const customSizeOptions = useMemo(() => providerCustomSizeOptions(currentImageProvider), [currentImageProvider]);
+  const imageAspectOptions = useMemo(() => providerAspectOptions(currentImageProvider, ASPECT_OPTIONS, SIZES), [currentImageProvider]);
+  const customSizeOptions = useMemo(() => providerCustomSizeOptions(currentImageProvider, CUSTOM_SIZE_OPTIONS, SIZES), [currentImageProvider]);
   const imageQualityOptions = useMemo(() => (
     providerParameterList(currentImageProvider, 'qualities', QUALITY).filter((item) => item !== 'auto')
   ), [currentImageProvider]);
@@ -3842,7 +2735,7 @@ function CreationDesk({
   const hasSyncedVideoModels = syncedVideoModelOptions.length > 0;
   const hasVideoModels = hasSyncedVideoModels || Boolean(videoModel);
   const size = sizeFromAspect(aspect, customSize);
-  const countValue = clampCountForProvider(count, currentImageProvider);
+  const countValue = clampCountForProvider(count, currentImageProvider, normalizeCount);
   const videoSize = videoSizeFromAspect(videoAspect);
   const currentDownloadMeta = resultBatchMeta || {
     mode: mode === 'video' ? 'video' : 'image',
@@ -4246,7 +3139,9 @@ function CreationDesk({
     if (appliedRemoteSessionRef.current === remoteSessionMarker) return;
     const remoteUpdated = Date.parse(remoteSession.updatedAt) || 0;
     const localUpdated = Date.parse(currentSessionRef.current?.updatedAt || '') || 0;
-    if (localUpdated && localUpdated > remoteUpdated && canvasNodes.length) return;
+    const hasLocalActiveQueue = Array.isArray(currentSessionRef.current?.generationQueue)
+      && currentSessionRef.current.generationQueue.some((item) => ['queued', 'running'].includes(item?.status));
+    if (localUpdated && localUpdated > remoteUpdated && (canvasNodes.length || hasLocalActiveQueue)) return;
     appliedRemoteSessionRef.current = remoteSessionMarker;
     currentSessionRef.current = remoteSession;
     applySessionSnapshot(remoteSession);
@@ -4760,18 +3655,11 @@ function CreationDesk({
   function syncRemoteGenerationJob(job) {
     if (!job?.id) return;
     const existingTask = generationQueueRef.current.find((item) => item.serverJobId === job.id || item.id === `remote-${job.id}`);
+    if (existingTask?.status === 'canceled' && isActiveServerJobStatus(job.status)) return;
     const inheritedPrompt = job.prompt || existingTask?.prompt || existingTask?.summary || '';
-    const remoteStatus = job.status === 'succeeded'
-      ? 'done'
-      : job.status === 'failed'
-        ? 'failed'
-        : job.status === 'canceled'
-          ? 'canceled'
-          : job.status === 'unknown'
-            ? 'unknown'
-            : ['queued', 'dispatching'].includes(job.status)
-              ? 'queued'
-              : 'running';
+    const remoteStatus = queueStatusFromServerJob(job);
+    const requestIds = Array.isArray(job.requestIds) ? job.requestIds.filter(Boolean).slice(0, 8) : [];
+    const error = normalizeServerJobError(job);
     const remoteTask = {
       id: `remote-${job.id}`,
       serverJobId: job.id,
@@ -4794,8 +3682,8 @@ function CreationDesk({
       completed: Number(job.completed || 0),
       total: Number(job.total || job.count || 1),
       resultUrls: Array.isArray(job.resultUrls) ? job.resultUrls.filter(Boolean).slice(0, 4) : [],
-      requestIds: Array.isArray(job.requestIds) ? job.requestIds.filter(Boolean).slice(0, 8) : [],
-      error: job.error || null,
+      requestIds,
+      error,
       selectedCanvasNodeId: job.parentCanvasNodeId || '',
       summary: inheritedPrompt || job.error?.message || `服务端任务 ${job.id}`,
       restorable: false
@@ -4840,9 +3728,7 @@ function CreationDesk({
             ...restoredJobs.filter((job) => job?.id && !knownJobIds.has(job.id))
           ];
         }
-        const visibleRemoteJobs = jobs.filter((job) => (
-          ['queued', 'dispatching', 'upstream', 'saving', 'failed', 'unknown', 'canceled'].includes(job.status)
-        ));
+        const visibleRemoteJobs = jobs.filter(isVisibleServerJob);
         visibleRemoteJobs.forEach(syncRemoteGenerationJob);
         const succeededJobs = jobs
           .filter((job) => job.status === 'succeeded' && Array.isArray(job.resultUrls) && job.resultUrls.length)
@@ -4852,7 +3738,7 @@ function CreationDesk({
           await attachServerJobResult(historyClient, job, { silent: true });
         }
         if (generationRef.current.controller) return;
-        const activeJob = jobs.find((job) => ['queued', 'dispatching', 'upstream', 'saving'].includes(job.status));
+        const activeJob = jobs.find((job) => isActiveServerJobStatus(job.status));
         if (!activeJob || recoveredJobIdsRef.current.has(activeJob.id)) {
           const interruptedJob = jobs.find((job) => ['unknown', 'failed'].includes(job.status));
           if (interruptedJob && !recoveredJobIdsRef.current.has(interruptedJob.id)) {
@@ -4876,7 +3762,7 @@ function CreationDesk({
             await attachServerJobResult(historyClient, finalJob);
             clearRemoteGenerationJob(finalJob.id, 'done');
           } else {
-            clearRemoteGenerationJob(finalJob.id, finalJob.status === 'canceled' ? 'canceled' : 'failed');
+            clearRemoteGenerationJob(finalJob.id, queueStatusFromServerJob(finalJob));
             setStatus('error');
             setMessage(serverJobMessage(finalJob));
           }
@@ -5090,13 +3976,7 @@ function CreationDesk({
   function applySelectedCasePrompt(item, nextPrompt) {
     const key = casePromptKey(item);
     const value = nextPrompt || '';
-    setPrompt((current) => {
-      const applied = appliedCasePromptRef.current;
-      const sameCase = applied.key === key;
-      if (sameCase && current && current !== applied.prompt) return current;
-      appliedCasePromptRef.current = { key, prompt: value };
-      return value;
-    });
+    appliedCasePromptRef.current = { key, prompt: value };
   }
 
   useEffect(() => {
@@ -5759,6 +4639,7 @@ function CreationDesk({
       }));
       historyClient.cancelGenerationJob(target.serverJobId)
         .then((job) => {
+          if (job?.id) syncRemoteGenerationJob(job);
           setMessage(serverJobMessage(job || { status: 'canceled' }));
         })
         .catch(() => {
@@ -5830,6 +4711,7 @@ function CreationDesk({
       setMessage(t('statusMessages.queueLimit', '当前队列已满，最多保留 {count} 个待生成任务。', { count: GENERATION_QUEUE_LIMIT }));
       return;
     }
+    showComposerForGeneration();
     generationQueueRef.current = [...generationQueueRef.current, task].slice(-GENERATION_QUEUE_LIMIT);
     setGenerationQueue(generationQueueRef.current);
     setMessage(activeCount
@@ -5921,7 +4803,7 @@ function CreationDesk({
 
   async function waitForServerJob(historyClient, jobId, { signal, total }) {
     let latest = await historyClient.getGenerationJob(jobId);
-    while (latest && !['succeeded', 'failed', 'unknown', 'canceled'].includes(latest.status)) {
+    while (latest && !isFinalServerJobStatus(latest.status)) {
       setProgress(serverJobProgress(latest, total));
       setMessage(serverJobMessage(latest));
       await delay(1400, signal);
@@ -6089,6 +4971,7 @@ function CreationDesk({
       controller.abort(timeoutError);
     }, GENERATION_TIMEOUT_MS);
 
+    showComposerForGeneration();
     setStatus('loading');
     setResultBatchMeta(generationMeta);
     setProgress({ stage: 'request', percent: 8, completed: 0, total: activeCount });
@@ -6288,6 +5171,7 @@ function CreationDesk({
             const error = new Error(finalJob?.error?.message || 'GENERATION_JOB_FAILED');
             error.status = finalJob?.error?.status;
             error.code = finalJob?.status === 'unknown' ? 'GENERATION_JOB_UNKNOWN' : finalJob?.error?.code;
+            error.requestId = finalJob?.error?.requestId || finalJob?.requestIds?.[0] || '';
             throw error;
           }
           persistedResultUrls = Array.isArray(finalJob.resultUrls) ? finalJob.resultUrls : [];
@@ -6536,8 +5420,8 @@ function CreationDesk({
     : mode === 'video'
       ? t('composer.contextVideo', '视频参数在右侧设置')
       : t('composer.title', '把想法说出来，先整理，再生成');
-  const composerGenerationVisible = status === 'loading' || progress.stage === 'failed' || progress.stage === 'pending_review' || (status === 'error' && Boolean(message));
-  const composerThreadHasContent = Boolean(composerGenerationVisible || assistantMessages.length || promptSuggestion);
+  const composerGenerationVisible = status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review' || (status === 'error' && Boolean(message));
+  const composerThreadHasContent = Boolean(assistantMessages.length || promptSuggestion);
   const activeGenerationQueueItems = generationQueue.filter((item) => CURRENT_PROJECT_QUEUE_STATUSES.has(item.status));
   const composerFolded = layoutSections.bottomComposer && layoutSections.composerFolded === true;
   const toggleComposerFold = () => updateLayoutSections({
@@ -6545,6 +5429,62 @@ function CreationDesk({
     composerFolded: !composerFolded,
     composerParameters: composerFolded ? layoutSections.composerParameters : false
   });
+  const foldComposerPanel = () => updateLayoutSections({
+    bottomComposer: true,
+    composerFolded: true,
+    composerParameters: false
+  });
+  const openComposerPanel = () => updateLayoutSections({
+    bottomComposer: true,
+    composerFolded: false
+  });
+  const composerReferenceLimit = mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT;
+  const composerPromptPlaceholder = selectedCanvasNode
+    ? t('composer.placeholderCanvas', '写下要怎样延续这张图：换背景、加产品、调整风格... Enter 直接生成')
+    : t('composer.placeholder', '写下提示词或创作想法，Enter 直接生成；点左侧小按钮才会调用 AI 优化。');
+  const handleComposerReferenceDragEnter = (event) => {
+    if (!supportedReferenceFiles(event.dataTransfer?.files || event.dataTransfer?.items, composerReferenceLimit).length) return;
+    event.preventDefault();
+    if (mode === 'video') setVideoDropActive(true);
+    else setReferenceDropActive(true);
+  };
+  const handleComposerReferenceDragOver = (event) => {
+    if (!supportedReferenceFiles(event.dataTransfer?.files || event.dataTransfer?.items, composerReferenceLimit).length) return;
+    event.preventDefault();
+    if (mode === 'video') setVideoDropActive(true);
+    else setReferenceDropActive(true);
+  };
+  const handleComposerReferenceDragLeave = () => {
+    setReferenceDropActive(false);
+    setVideoDropActive(false);
+  };
+  const handleComposerReferenceDrop = (event) => {
+    const files = supportedReferenceFiles(event.dataTransfer?.files, composerReferenceLimit);
+    if (!files.length) return;
+    event.preventDefault();
+    setReferenceDropActive(false);
+    setVideoDropActive(false);
+    if (mode === 'video') appendVideoReferenceImage(files);
+    else appendReferenceImages(files);
+  };
+  const handleComposerPromptPaste = (event) => {
+    if (mode === 'video') videoReferencePasteFiles(event);
+    else referencePasteFiles(event);
+  };
+  const handleComposerPromptFocus = () => {
+    if (!layoutSections.bottomComposer || layoutSections.composerFolded) openComposerPanel();
+  };
+  const handleComposerPromptKeyDown = (event) => {
+    if (event.key === 'Enter' && event.ctrlKey) {
+      event.preventDefault();
+      sendAssistantMessage();
+      return;
+    }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleGenerateAction();
+    }
+  };
 
   return (
     <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} ${layoutSections.parametersRail === false ? 'paramRailCollapsed' : ''} ${composerFolded ? 'composerFolded' : ''}`}>
@@ -6556,54 +5496,14 @@ function CreationDesk({
         onPointerUp={endCanvasPan}
         onPointerCancel={endCanvasPan}
       >
-        {activeGenerationQueueItems.length ? (
-          <div className="canvasQueueDock" aria-label={t('composer.queue', '生成队列')} onPointerDown={(event) => event.stopPropagation()}>
-            <div className="canvasQueueHead">
-              <strong>{t('composer.queue', '生成队列')}</strong>
-              <span>{generationQueueHeadline(activeGenerationQueueItems, t)}</span>
-            </div>
-            <div className="canvasQueueList">
-              {activeGenerationQueueItems.slice(0, 5).map((item, index) => (
-                <div className={`canvasQueueItem ${item.status}`} key={item.id}>
-                  <b>#{index + 1}</b>
-                  <span>{generationQueueStatusLabel(item.status, t)}</span>
-                  <p>{generationQueueSummary(item, t)}</p>
-                  {item.status === 'queued' || item.status === 'running' ? (
-                    <button
-                      type="button"
-                      onClick={() => cancelGenerationTask(item.id)}
-                      aria-label={item.status === 'running' ? t('composer.cancelRunningTask', '停止当前任务') : t('composer.cancelQueuedTask', '取消排队任务')}
-                      title={item.status === 'running' ? t('composer.cancelRunningTask', '停止当前任务') : t('composer.cancelQueuedTask', '取消排队任务')}
-                    >
-                      <X size={13} />
-                    </button>
-                  ) : null}
-                  {item.status === 'failed' && !item.remote && item.restorable !== false ? (
-                    <button
-                      type="button"
-                      className="retryQueueAction"
-                      onClick={() => retryGenerationTask(item.id)}
-                      aria-label={t('composer.retryTask', '重试这个任务')}
-                      title={t('composer.retryTask', '重试这个任务')}
-                    >
-                      <Redo2 size={13} />
-                    </button>
-                  ) : null}
-                  {item.status === 'failed' || item.status === 'unknown' || item.status === 'canceled' || item.status === 'done' ? (
-                    <button
-                      type="button"
-                      onClick={() => acknowledgeGenerationTask(item.id)}
-                      aria-label={t('composer.dismissQueueNotice', '收起队列提示')}
-                      title={t('composer.dismissQueueNotice', '收起队列提示')}
-                    >
-                      <X size={13} />
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <GenerationQueueDock
+          items={activeGenerationQueueItems}
+          t={t}
+          formatError={generationErrorMessage}
+          onAcknowledge={acknowledgeGenerationTask}
+          onCancel={cancelGenerationTask}
+          onRetry={retryGenerationTask}
+        />
         <div className="canvasToolbar" aria-label={t('canvas.toolbar', '画布工具')}>
           <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label={t('canvas.zoomOut', '缩小画布')} title={`${t('canvas.zoomOut', '缩小画布')} Ctrl/Cmd + -`}>-</button>
           <span>{Math.round(canvasView.zoom * 100)}%</span>
@@ -7406,7 +6306,7 @@ function CreationDesk({
                   min={imageCountRange.min}
                   max={imageCountRange.max}
                   value={countValue}
-                  onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider))}
+                  onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider, normalizeCount))}
                 />
               </div>
               <div className="controlField wideControl">
@@ -7532,306 +6432,120 @@ function CreationDesk({
           <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
         )}
       </section>
-      <div className={`bottomComposerBar ${selectedCanvasNode ? 'hasLineage' : ''} ${layoutSections.bottomComposer && composerThreadHasContent ? 'hasThread' : 'noThread'} ${layoutSections.composerParameters === false ? 'paramsCollapsed' : 'paramsExpanded'} ${composerFolded ? 'isFolded' : 'isExpandedComposer'} noReferences`}>
-        <div className="composerPanelHead">
-          <div className="composerSessionIdentity">
-            <span className="composerSessionIcon"><Sparkles size={17} /></span>
-            <div className="composerPanelTitle">
-              <strong>{t('composer.conversation', '创作会话')}</strong>
-              <span>
-                {selectedCanvasNode ? t('composer.selected', '基于画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' }) : t('composer.defaultTitle', '提示词优化与生成')}
-                <em>{composerRouteLabel}</em>
-              </span>
-            </div>
-          </div>
-          {layoutSections.bottomComposer ? (
-            <div className="composerHeaderActions">
-              <button
-                type="button"
-                className="composerIconPill"
-                onClick={toggleComposerFold}
-                aria-label={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '折叠对话面板')}
-                title={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '折叠对话面板')}
-              >
-                {composerFolded ? <Maximize2 size={15} /> : <ArrowDown size={15} />}
-              </button>
-              <button
-                type="button"
-                className="composerIconPill"
-                onClick={() => toggleLayoutSection('bottomComposer')}
-                aria-label={t('composer.collapse', '收起对话')}
-                title={t('composer.collapse', '收起对话')}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className={`bottomComposerToggle ${layoutSections.bottomComposer ? 'isOpen' : 'isClosed'}`}
-              onClick={() => toggleLayoutSection('bottomComposer')}
-              aria-label={t('composer.expand', '展开对话')}
-              title={t('composer.expand', '展开对话')}
-            >
-              <PanelLeftOpen size={15} />
-            </button>
-          )}
-        </div>
-        {layoutSections.bottomComposer && !composerFolded ? (
-          <div className={`composerThread ${composerThreadHasContent ? '' : 'isEmpty'}`} ref={composerThreadRef} aria-label={t('composer.aiThread', 'AI 对话记录')}>
-            {composerGenerationVisible ? (
-              <div className={`composerGenerationCard ${status} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`}>
-                <div className="composerGenerationHead">
-                  <strong>{isGenerating ? t('composer.statusGenerating', '正在生成') : status === 'success' ? t('composer.statusDone', '生成完成') : progress.stage === 'pending_review' ? t('composer.statusReview', '需要确认') : status === 'error' ? t('composer.statusError', '生成异常') : t('composer.status', '生成状态')}</strong>
-                  <span>{mode === 'video' ? videoModel : model}</span>
-                  <em>{composerRouteLabel}</em>
-                </div>
-                <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} />
-                <GenerationTimingPanel timing={timing} />
-                {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
-                {isGenerating ? (
-                  <button type="button" className="composerStopAction" onClick={stopGeneration}>
-                    <X size={14} />
-                    {t('composer.stopWaiting', '停止当前等待')}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-            {assistantMessages.length ? assistantMessages.slice(-8).map((item) => (
-              <div className={`composerMessage ${item.role} ${item.pending ? 'pending' : ''} ${item.failed ? 'failed' : ''}`} key={item.id}>
-                <span>{item.role === 'assistant' ? 'AI' : t('composer.you', '你')}</span>
-                <div className="composerMessageBubble">
-                  <p>{item.content}</p>
-                  {item.finalPrompt && !promptSuggestion ? <button type="button" onClick={() => setPrompt(item.finalPrompt)}>{t('composer.putIntoInput', '放入输入框')}</button> : null}
-                </div>
-              </div>
-            )) : null}
-            <PromptSuggestion
-              suggestion={promptSuggestion}
-              onMerge={mergeSuggestion}
-              onReplace={replaceSuggestion}
-              onCopy={copySuggestion}
-              onUse={useSuggestionForGenerate}
-              t={t}
-            />
-          </div>
+      <BottomComposerPanel
+        composerFolded={composerFolded}
+        composerRouteLabel={composerRouteLabel}
+        composerThreadHasContent={composerThreadHasContent}
+        hasLiveStatus={composerGenerationVisible}
+        hasLineage={Boolean(selectedCanvasNode)}
+        hasReferences={layoutSections.references}
+        isOpen={layoutSections.bottomComposer}
+        onClose={foldComposerPanel}
+        onFoldToggle={toggleComposerFold}
+        onOpen={openComposerPanel}
+        paramsExpanded={layoutSections.composerParameters !== false}
+        selectedCanvasNode={selectedCanvasNode}
+        t={t}
+      >
+        {layoutSections.bottomComposer && !composerFolded && composerGenerationVisible ? (
+          <ComposerLiveStatus
+            progress={progress}
+            status={status}
+            message={message}
+            timing={timing}
+            modelLabel={mode === 'video' ? videoModel : model}
+            routeLabel={composerRouteLabel}
+            isGenerating={isGenerating}
+            onStop={stopGeneration}
+            onRetry={handleGenerateAction}
+            now={composerNow}
+            stallNoticeMs={GENERATION_STALL_NOTICE_MS}
+            t={t}
+          />
         ) : null}
-        <div
-          className={`composerPromptRow ${referenceDropActive || videoDropActive ? 'isDroppingReference' : ''}`}
-          onDragEnter={(event) => {
-            if (!supportedReferenceFiles(event.dataTransfer?.files || event.dataTransfer?.items, mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT).length) return;
-            event.preventDefault();
-            if (mode === 'video') setVideoDropActive(true);
-            else setReferenceDropActive(true);
-          }}
-          onDragOver={(event) => {
-            if (!supportedReferenceFiles(event.dataTransfer?.files || event.dataTransfer?.items, mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT).length) return;
-            event.preventDefault();
-            if (mode === 'video') setVideoDropActive(true);
-            else setReferenceDropActive(true);
-          }}
-          onDragLeave={() => {
-            setReferenceDropActive(false);
-            setVideoDropActive(false);
-          }}
-          onDrop={(event) => {
-            const files = supportedReferenceFiles(event.dataTransfer?.files, mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT);
-            if (!files.length) return;
-            event.preventDefault();
-            setReferenceDropActive(false);
-            setVideoDropActive(false);
-            if (mode === 'video') appendVideoReferenceImage(files);
-            else appendReferenceImages(files);
-          }}
-        >
-          <label className="bottomComposerInput">
-            <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              onPaste={(event) => {
-                if (mode === 'video') videoReferencePasteFiles(event);
-                else referencePasteFiles(event);
-              }}
-              onFocus={() => {
-                if (!layoutSections.bottomComposer) toggleLayoutSection('bottomComposer');
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && event.ctrlKey) {
-                  event.preventDefault();
-                  sendAssistantMessage();
-                  return;
-                }
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  handleGenerateAction();
-                }
-              }}
-              placeholder={selectedCanvasNode ? t('composer.placeholderCanvas', '写下要怎样延续这张图：换背景、加产品、调整风格... Enter 直接生成') : t('composer.placeholder', '写下提示词或创作想法，Enter 直接生成；点左侧小按钮才会调用 AI 优化。')}
-            />
-          </label>
-          <div className="composerActionGroup">
-            <button
-              type="button"
-              className="composerAssistantAction"
-              onClick={sendAssistantMessage}
-              disabled={status === 'loading' || optimizingPrompt || caseResolving}
-              aria-label={t('composer.send', '优化提示词，会调用对话模型并使用当前 Key 额度，不会直接生成图片')}
-              title={t('composer.send', '优化提示词，会调用对话模型并使用当前 Key 额度，不会直接生成图片')}
-            >
-              {optimizingPrompt ? <LoaderCircle className="spin" size={16} /> : <SendHorizontal size={16} />}
-              <span>{t('composer.optimize', '优化')}</span>
-            </button>
-            <button
-              type="button"
-              className={`composerGenerateAction ${generationActionClass}`}
-              onClick={handleGenerateAction}
-              disabled={generationActionDisabled}
-            >
-              {compactGenerationActionIcon}
-              <span>{generationActionLabel}</span>
-            </button>
-          </div>
-        </div>
         {layoutSections.bottomComposer && !composerFolded ? (
-          <div className={`composerParamShelf ${layoutSections.composerParameters === false ? 'isCollapsed' : 'isExpanded'}`} aria-label={t('params.current', '当前参数')}>
-            {layoutSections.composerParameters === false ? (
-              <button
-                type="button"
-                className="composerParamSummary"
-                onClick={() => updateLayoutSections({ composerFolded: false, composerParameters: true })}
-                aria-label={t('params.expand', '展开参数')}
-                aria-expanded="false"
-                title={t('params.expand', '展开参数')}
-              >
-                <SlidersHorizontal size={14} />
-                <span>{mode === 'video' ? t('workspace.video', '视频创作') : deskModeLabel(mode) || t('workspace.image', '图片创作')}</span>
-                <em>{mode === 'video' ? videoModel : model}</em>
-                <strong>{mode === 'video' ? `${videoAspect} · ${videoDuration}s` : `${aspect} · ${RESOLUTION_TIER_LABELS[resolutionTier]} · ${qualityLabel(quality)} · ${countValue}${imageCountSuffix}`}</strong>
-                <ArrowUp size={13} />
-              </button>
-            ) : (
-              <>
-              <button
-                type="button"
-                className="composerParamFoldButton"
-                onClick={() => toggleLayoutSection('composerParameters')}
-                aria-label={t('params.collapse', '收起参数')}
-                aria-expanded="true"
-                title={t('params.collapse', '收起参数')}
-              >
-                <ArrowDown size={13} />
-              </button>
-              <div className="composerParamLane primary">
-              {activeWorkspace === 'image' ? (
-                <div className="composerModeSegment" role="group" aria-label={t('workspace.image', '图片创作')}>
-                  {DESK_MODES.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button type="button" className={mode === item.value ? 'active' : ''} key={item.value} onClick={() => setMode(item.value)}>
-                        <Icon size={14} />
-                        <span>{deskModeLabel(item.value)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="composerModeSegment singleMode">
-                  <Video size={14} />
-                  <span>{t('workspace.video', '视频创作')}</span>
-                </div>
-              )}
-              {mode === 'video' ? (
-                <label className="composerParamField wide">
-                  <span>{t('params.videoModel', '视频模型')}</span>
-                  <select value={hasVideoModels ? videoModel : ''} onChange={(event) => setVideoModel(event.target.value)} disabled={!hasVideoModels}>
-                    {hasVideoModels ? videoModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>) : (
-                      <option value="">{t('params.currentKeyNoVideo', '当前 Key 未开放视频模型')}</option>
-                    )}
-                  </select>
-                </label>
-              ) : (
-                <label className="composerParamField wide">
-                  <span>{t('params.imageModel', '图片模型')}</span>
-                  <select value={model} onChange={(event) => setModel(event.target.value)}>
-                    {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
-                  </select>
-                </label>
-              )}
-              {mode === 'video' ? (
-                <div className="composerMiniSegment">
-                  {VIDEO_ASPECT_OPTIONS.map((item) => (
-                    <button type="button" className={videoAspect === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoAspect(item.value)}>
-                      {aspectLabel(item)}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="composerMiniSegment">
-                  {imageAspectOptions.map((item) => (
-                    <button
-                      type="button"
-                      className={aspect === item.value ? 'active' : ''}
-                      key={item.value}
-                      onClick={() => {
-                        setAspect(item.value);
-                        if (item.value !== 'custom') setCustomSize(item.size);
-                      }}
-                    >
-                      {aspectLabel(item)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="composerParamLane secondary">
-              {mode === 'video' ? (
-                <div className="composerMiniSegment">
-                  {VIDEO_DURATIONS.map((item) => (
-                    <button type="button" className={videoDuration === item ? 'active' : ''} key={item} onClick={() => setVideoDuration(item)}>
-                      {item}s
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <>
-                <div className="composerMiniSegment">
-                  {imageQualityOptions.map((item) => (
-                    <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
-                      {qualityLabel(item)}
-                    </button>
-                  ))}
-                </div>
-                <div className="composerMiniSegment">
-                  {imageResolutionTierOptions.map((item) => (
-                    <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
-                      {resolutionTierLabel(item)}
-                    </button>
-                  ))}
-                </div>
-                <label className="composerCountField">
-                  <span>{t('params.count', '数量')}</span>
-                  <input type="range" min={imageCountRange.min} max={imageCountRange.max} value={countValue} onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider))} />
-                  <strong>{countValue}</strong>
-                </label>
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              className="composerReferenceParamButton"
-              onClick={() => toggleLayoutSection('references')}
-              aria-label={layoutSections.references ? t('references.collapse', '收起参考图') : t('references.title', '参考图')}
-              title={layoutSections.references ? t('references.collapse', '收起参考图') : t('references.title', '参考图')}
-            >
-              <Images size={15} />
-              <span>{t('references.title', '参考图')}</span>
-              <em>{mode === 'video' ? videoReferenceFiles.length : referenceFiles.length}</em>
-            </button>
-              </>
-            )}
-          </div>
+          <ComposerThread
+            ref={composerThreadRef}
+            messages={assistantMessages}
+            promptSuggestion={promptSuggestion}
+            onCopySuggestion={copySuggestion}
+            onMergeSuggestion={mergeSuggestion}
+            onReplaceSuggestion={replaceSuggestion}
+            onUseFinalPrompt={setPrompt}
+            onUseSuggestion={useSuggestionForGenerate}
+            t={t}
+          />
         ) : null}
-      </div>
+        <ComposerPromptRow
+          assistantDisabled={status === 'loading' || optimizingPrompt || caseResolving}
+          generationActionClass={generationActionClass}
+          generationActionDisabled={generationActionDisabled}
+          generationActionIcon={compactGenerationActionIcon}
+          generationActionLabel={generationActionLabel}
+          isDroppingReference={referenceDropActive || videoDropActive}
+          optimizingPrompt={optimizingPrompt}
+          onAssistantAction={sendAssistantMessage}
+          onChange={(event) => setPrompt(event.target.value)}
+          onDragEnter={handleComposerReferenceDragEnter}
+          onDragLeave={handleComposerReferenceDragLeave}
+          onDragOver={handleComposerReferenceDragOver}
+          onDrop={handleComposerReferenceDrop}
+          onFocus={handleComposerPromptFocus}
+          onGenerateAction={handleGenerateAction}
+          onKeyDown={handleComposerPromptKeyDown}
+          onPaste={handleComposerPromptPaste}
+          placeholder={composerPromptPlaceholder}
+          prompt={prompt}
+          t={t}
+        />
+        {layoutSections.bottomComposer && !composerFolded ? (
+          <ComposerParamShelf
+            activeWorkspace={activeWorkspace}
+            aspect={aspect}
+            aspectLabel={aspectLabel}
+            countValue={countValue}
+            deskModeLabel={deskModeLabel}
+            deskModes={DESK_MODES}
+            hasVideoModels={hasVideoModels}
+            imageAspectOptions={imageAspectOptions}
+            imageCountRange={imageCountRange}
+            imageCountSuffix={imageCountSuffix}
+            imageModelOptions={imageModelOptions}
+            imageQualityOptions={imageQualityOptions}
+            imageReferenceCount={referenceFiles.length}
+            imageResolutionTierOptions={imageResolutionTierOptions}
+            layoutSections={layoutSections}
+            mode={mode}
+            model={model}
+            onAspectChange={setAspect}
+            onCountChange={(value) => setCount(clampCountForProvider(value, currentImageProvider, normalizeCount))}
+            onModeChange={setMode}
+            onModelChange={setModel}
+            onQualityChange={setQuality}
+            onReferenceToggle={() => toggleLayoutSection('references')}
+            onResolutionTierChange={setResolutionTier}
+            onVideoAspectChange={setVideoAspect}
+            onVideoDurationChange={setVideoDuration}
+            onVideoModelChange={setVideoModel}
+            quality={quality}
+            qualityLabel={qualityLabel}
+            resolutionTier={resolutionTier}
+            resolutionTierLabel={resolutionTierLabel}
+            resolutionTierLabels={RESOLUTION_TIER_LABELS}
+            setCustomSize={setCustomSize}
+            t={t}
+            toggleLayoutSection={toggleLayoutSection}
+            updateLayoutSections={updateLayoutSections}
+            videoAspect={videoAspect}
+            videoAspectOptions={VIDEO_ASPECT_OPTIONS}
+            videoDuration={videoDuration}
+            videoDurations={VIDEO_DURATIONS}
+            videoModel={videoModel}
+            videoModelOptions={videoModelOptions}
+            videoReferenceCount={videoReferenceFiles.length}
+          />
+        ) : null}
+      </BottomComposerPanel>
       <aside className="paramRail" aria-label={t('params.aria', '参数')}>
         <button
           type="button"
@@ -8001,7 +6715,7 @@ function CreationDesk({
                   <label className="paramRange">
                     <span>{t('params.imageCount', '图片数量')}</span>
                     <strong>{countValue}</strong>
-                    <input type="range" min={imageCountRange.min} max={imageCountRange.max} value={countValue} onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider))} />
+                    <input type="range" min={imageCountRange.min} max={imageCountRange.max} value={countValue} onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider, normalizeCount))} />
                   </label>
                   <div className="paramSegment">
                     {imageOutputFormatOptions.map((item) => (
@@ -8050,6 +6764,15 @@ function SettingsPanel({
   onLogin,
   t
 }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const gatewayAccountDisabled = providerSettings.apiKeySource === 'manual';
@@ -8598,9 +7321,13 @@ function StudioApp() {
     return historyItems;
   }, [historyItems, activeWorkspace]);
   const workspaceIsDesk = activeWorkspace === 'image' || activeWorkspace === 'video';
-  const currentProject = useMemo(() => currentSessionProject(currentSessionSnapshot || remoteSession), [currentSessionSnapshot, remoteSession]);
+  const currentProject = useMemo(
+    () => currentSessionProject(currentSessionSnapshot || remoteSession, CURRENT_PROJECT_QUEUE_STATUSES),
+    [currentSessionSnapshot, remoteSession]
+  );
 
   function handleWorkspaceChange(nextWorkspace, options = {}) {
+    setSettingsOpen(false);
     setActiveWorkspace(nextWorkspace);
     setQuery('');
     setCategory('All');
@@ -8677,15 +7404,15 @@ function StudioApp() {
   function handleSelectCase(item) {
     setSelectedHistory(null);
     setSelectedCase(item);
-    setActiveWorkspace(item?.kind === 'video-inspiration' ? 'video' : 'image');
   }
 
   async function handleAppendTemplate(item) {
     setSelectedHistory(null);
-    setActiveWorkspace(item?.kind === 'video-inspiration' ? 'video' : 'image');
     const resolved = await resolveLibraryCase(item, { updateSelection: false }).catch(() => item);
     const nextPrompt = resolved?.prompt || resolved?.promptPreview || item?.prompt || item?.promptPreview || item?.summary || '';
     if (!nextPrompt) return;
+    setSelectedCase(resolved || item);
+    setActiveWorkspace((resolved || item)?.kind === 'video-inspiration' ? 'video' : 'image');
     setAppendTemplateRequest({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       prompt: nextPrompt
@@ -8862,16 +7589,14 @@ function handleSelectHistory(item, options = {}) {
           activeWorkspace={activeWorkspace}
           onWorkspaceChange={handleWorkspaceChange}
           onNewSession={handleNewSession}
-          profile={profile}
-          apiKey={apiKey}
-          isAuthenticated={Boolean(session?.accessToken)}
+          accountLabel={Boolean(session?.accessToken) ? (profile?.email || profile?.username || t('rail.loggedIn', '已登录用户')) : t('rail.notLoggedIn', '未登录')}
+          accountDetail={Boolean(session?.accessToken) ? (apiKeyDisplay(apiKey) || t('rail.hiddenKey', 'Key 已隐藏')) : t('rail.chooseKey', '选择 Key')}
           onOpenSettings={() => setSettingsOpen(true)}
           theme={theme}
           onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
-          language={language}
+          currentLanguage={SUPPORTED_LANGUAGES.find((item) => item.value === language) || SUPPORTED_LANGUAGES[0]}
           onLanguageToggle={handleLanguageToggle}
           t={t}
-          selected={selectedCase}
           currentProject={currentProject}
           historyItems={historyItems}
           selectedHistoryId={selectedHistory?.id}

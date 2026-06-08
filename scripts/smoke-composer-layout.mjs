@@ -15,6 +15,13 @@ function assert(condition, message, evidence) {
   }
 }
 
+function rectOverlap(a, b) {
+  if (!a || !b) return 0;
+  const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.x, b.x));
+  const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y));
+  return x * y;
+}
+
 async function writeFixtures() {
   await fs.mkdir(fixtureDir, { recursive: true });
   const files = [
@@ -25,11 +32,26 @@ async function writeFixtures() {
   return files;
 }
 
-function seedSession() {
+function seedSession({ liveStatus = false } = {}) {
+  const startedAt = Date.now() - 112000;
   return {
     sessionId: 'composer-layout-session',
     mode: 'image',
-    status: 'idle',
+    status: liveStatus ? 'loading' : 'idle',
+    message: liveStatus ? '上游还没有返回数据，可能正在排队或生成较慢，请继续等待。' : '',
+    progress: liveStatus
+      ? { stage: 'upstream', percent: 52, completed: 0, total: 1 }
+      : { stage: 'idle', percent: 0, completed: 0, total: 1 },
+    timing: liveStatus
+      ? {
+        status: 'running',
+        startedAt,
+        firstByteAt: null,
+        completedAt: null,
+        model: 'gpt-image-2',
+        spec: '1024x1024 · high · 1K'
+      }
+      : null,
     prompt: 'Continue the product image with cleaner reflections and a warmer background.',
     model: 'gpt-image-2',
     assistantMessages: [
@@ -63,7 +85,24 @@ function seedSession() {
         'Style: Premium product photography, soft contrast, controlled highlights, no extra props.'
       ].join('\n')
     },
-    generationQueue: [
+    generationQueue: liveStatus ? [
+      {
+        id: 'remote-job-live-status',
+        status: 'running',
+        serverJobId: 'job-live-status',
+        prompt: 'A live generation should report status above the chat thread.',
+        summary: 'A live generation should report status above the chat thread.',
+        model: 'gpt-image-2',
+        size: '1024x1024',
+        quality: 'high',
+        count: 1,
+        remote: true,
+        restorable: false,
+        stage: 'upstream',
+        completed: 0,
+        total: 1
+      }
+    ] : [
       {
         id: 'composer-layout-queue',
         status: 'unknown',
@@ -93,6 +132,20 @@ function seedSession() {
 }
 
 async function installRoutes(page) {
+  const liveJob = {
+    id: 'job-live-status',
+    status: 'upstream',
+    stage: 'upstream',
+    sessionId: 'composer-layout-session',
+    prompt: 'A live generation should report status above the chat thread.',
+    model: 'gpt-image-2',
+    size: '1024x1024',
+    quality: 'high',
+    count: 1,
+    total: 1,
+    completed: 0,
+    resultUrls: []
+  };
   await page.route('**/studio-api/library**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -108,11 +161,22 @@ async function installRoutes(page) {
     contentType: 'application/json',
     body: JSON.stringify({ ok: true, session: null })
   }));
+  await page.route('**/studio-api/generation-jobs/job-live-status', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ok: true, job: liveJob })
+  }));
+  await page.route('**/studio-api/generation-jobs**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ok: true, jobs: [] })
+  }));
 }
 
-async function runScenario(browser, baseUrl, files, viewport, name) {
+async function runScenario(browser, baseUrl, files, viewport, name, options = {}) {
   const page = await browser.newPage({ viewport });
-  const referencesOpen = name !== 'mobile';
+  const referencesOpen = options.referencesOpen ?? name !== 'mobile';
+  const liveStatus = options.liveStatus === true;
   await installRoutes(page);
   await page.addInitScript(({ layoutKey, sessionKey, session, referencesOpen }) => {
     localStorage.removeItem('auth_token');
@@ -126,7 +190,7 @@ async function runScenario(browser, baseUrl, files, viewport, name) {
       composerParameters: true
     }));
     localStorage.setItem(sessionKey, JSON.stringify(session));
-  }, { layoutKey, sessionKey, session: seedSession(), referencesOpen });
+  }, { layoutKey, sessionKey, session: seedSession({ liveStatus }), referencesOpen });
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 15000 });
@@ -163,12 +227,22 @@ async function runScenario(browser, baseUrl, files, viewport, name) {
     }
     const keys = {
       composer: '.bottomComposerBar',
+      queueDock: '.canvasQueueDock',
+      queueItem: '.canvasQueueItem',
+      queueAction: '.canvasQueueItem button',
       head: '.composerPanelHead',
       thread: '.composerThread',
       referencePanel: '.referenceSidePanel',
+      referenceFigure: '.referenceSidePanel .sideReferenceThumbs figure',
+      referenceImage: '.referenceSidePanel .sideReferenceThumbs img',
       composerReferenceStrip: '.bottomComposerBar .composerReferenceStrip',
+      liveStatus: '.composerLiveStatus',
+      liveProgress: '.composerLiveStatus .generationProgress',
+      legacyGenerationCard: '.composerThread .composerGenerationCard',
       userMessage: '.composerMessage.user',
       userMessageText: '.composerMessage.user p',
+      assistantMessage: '.composerMessage.assistant:not(.promptSuggestion)',
+      assistantMessageText: '.composerMessage.assistant:not(.promptSuggestion) p',
       prompt: '.composerPromptRow',
       params: '.composerParamShelf',
       input: '.bottomComposerInput textarea',
@@ -217,7 +291,23 @@ async function runScenario(browser, baseUrl, files, viewport, name) {
       };
     }).filter(Boolean);
     const suggestionActionOverlap = overlap(rects.suggestionText, rects.suggestionActions);
-    const sections = ['head', 'thread', 'prompt', 'params'];
+    const inputActionOverlap = overlap(rects.input, rects.actions);
+    const generateAssistantOverlap = overlap(rects.generate, rects.assistant);
+    const referenceComposerOverlap = overlap(rects.referencePanel, rects.composer);
+    const referenceQueueOverlap = overlap(rects.referencePanel, rects.queueDock);
+    const referenceFigureCount = document.querySelectorAll('.referenceSidePanel .sideReferenceThumbs figure').length;
+    const referenceImageSamples = Array.from(document.querySelectorAll('.referenceSidePanel .sideReferenceThumbs img')).map((node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      if (style.display === 'none' || style.visibility === 'hidden' || box.width <= 0 || box.height <= 0) return null;
+      return {
+        width: box.width,
+        height: box.height,
+        objectFit: style.objectFit,
+        opacity: Number.parseFloat(style.opacity || '1')
+      };
+    }).filter(Boolean);
+    const sections = ['head', ...(rects.liveStatus ? ['liveStatus'] : []), 'thread', 'prompt', 'params'];
     const sectionOverlaps = [];
     for (let i = 0; i < sections.length; i += 1) {
       for (let j = i + 1; j < sections.length; j += 1) {
@@ -242,22 +332,79 @@ async function runScenario(browser, baseUrl, files, viewport, name) {
       suggestionBodyBorderWidth,
       suggestionTextSamples,
       suggestionActionOverlap,
+      inputActionOverlap,
+      generateAssistantOverlap,
+      referenceComposerOverlap,
+      referenceQueueOverlap,
+      referenceFigureCount,
+      referenceImageSamples,
       viewport: { width: window.innerWidth, height: window.innerHeight },
       body: document.body.innerText.slice(0, 2200)
     };
   });
 
   assert(result.rects.composer, `${name}: composer was not visible.`, result);
+  assert(result.rects.composer.x >= -1 && result.rects.composer.right <= result.viewport.width + 1, `${name}: composer escaped horizontally.`, result);
   assert(result.rects.composer.bottom <= result.viewport.height + 1, `${name}: composer bottom escaped the viewport.`, result);
+  if (result.viewport.width >= 1000) {
+    assert(result.rects.composer.width <= 760, `${name}: expanded composer became visually too wide.`, result);
+  }
+  assert(result.rects.queueDock, `${name}: generation queue dock was not visible for active queue state.`, result);
+  assert(result.rects.queueItem, `${name}: generation queue item was not visible.`, result);
+  assert(result.rects.queueAction, `${name}: generation queue action button was not visible.`, result);
+  assert(result.rects.queueDock.width <= (result.viewport.width >= 1000 ? 360 : 300), `${name}: generation queue dock became too wide.`, result);
+  assert(rectOverlap(result.rects.queueDock, result.rects.composer) <= 4, `${name}: generation queue dock overlaps the composer panel.`, result);
+  assert(result.rects.queueAction.width >= 22 && result.rects.queueAction.height >= 22, `${name}: generation queue action button became too small.`, result);
+  assert(
+    result.rects.queueAction.x >= result.rects.queueItem.x - 1
+      && result.rects.queueAction.right <= result.rects.queueItem.right + 1
+      && result.rects.queueAction.y >= result.rects.queueItem.y - 1
+      && result.rects.queueAction.bottom <= result.rects.queueItem.bottom + 1,
+    `${name}: generation queue action button escaped its item.`,
+    result
+  );
   assert(result.rects.thread, `${name}: composer thread was not visible.`, result);
   if (referencesOpen) {
     assert(result.rects.referencePanel, `${name}: right reference panel was not visible after upload.`, result);
+    assert(result.referenceFigureCount >= files.length, `${name}: uploaded reference figures were not all visible.`, result);
+    assert(result.referenceImageSamples.length >= files.length, `${name}: uploaded reference images were not visible.`, result);
+    assert(
+      result.referenceImageSamples.every((item) => item.width >= 32 && item.height >= 32 && ['cover', 'contain'].includes(item.objectFit)),
+      `${name}: reference thumbnail images are too small or not fitted correctly.`,
+      result
+    );
+    assert(result.referenceComposerOverlap <= 4, `${name}: reference panel overlaps the composer panel.`, result);
+    assert(result.referenceQueueOverlap <= 4, `${name}: reference panel overlaps the generation queue.`, result);
   }
   assert(!result.rects.composerReferenceStrip, `${name}: references should live in the right panel, not as a duplicated composer strip.`, result);
-  assert(result.rects.userMessage, `${name}: seeded user message was not visible in the composer thread.`, result);
-  assert(result.rects.userMessage.width >= Math.min(210, result.rects.thread.width - 16), `${name}: user message collapsed into a narrow vertical bubble.`, result);
-  assert(result.rects.userMessageText.width >= Math.min(180, result.rects.thread.width - 54), `${name}: user message text became too narrow to read horizontally.`, result);
+  assert(!result.rects.legacyGenerationCard, `${name}: legacy generation progress card is still rendered inside the scrollable thread.`, result);
+  assert(result.rects.assistantMessage || result.rects.userMessage, `${name}: no conversation message was visible in the composer thread.`, result);
+  const visibleMessage = result.rects.assistantMessage || result.rects.userMessage;
+  const visibleMessageText = result.rects.assistantMessageText || result.rects.userMessageText;
+  assert(
+    visibleMessage.y < result.rects.thread.bottom - 8 && visibleMessage.bottom > result.rects.thread.y + 8,
+    `${name}: conversation messages are not visible in the composer thread viewport.`,
+    result
+  );
+  assert(visibleMessage.width >= Math.min(200, result.rects.thread.width - 16), `${name}: visible message collapsed into a narrow vertical bubble.`, result);
+  assert(visibleMessageText.width >= Math.min(150, result.rects.thread.width - 58), `${name}: visible message text became too narrow to read horizontally.`, result);
+  if (liveStatus) {
+    assert(result.rects.liveStatus, `${name}: live generation status bar was not visible.`, result);
+    assert(result.rects.liveProgress, `${name}: live generation progress track was not visible.`, result);
+    assert(
+      result.rects.liveStatus.y >= result.rects.head.bottom - 2 && result.rects.liveStatus.bottom <= result.rects.thread.y + 2,
+      `${name}: live status bar is not fixed between the header and chat thread.`,
+      result
+    );
+  } else {
+    assert(!result.rects.liveStatus, `${name}: live status bar appeared when generation is idle.`, result);
+  }
   assert(result.rects.prompt, `${name}: prompt row was not visible.`, result);
+  assert(
+    result.rects.actions.y >= result.rects.prompt.y - 1 && result.rects.actions.bottom <= result.rects.prompt.bottom + 1,
+    `${name}: composer action rail escaped the prompt row.`,
+    result
+  );
   assert(result.rects.params, `${name}: parameter shelf was not visible.`, result);
   assert(result.rects.params.height <= 54, `${name}: expanded parameter shelf became too tall.`, result);
   assert(result.paramTopSpread <= 6, `${name}: parameter shelf wrapped into multiple rows.`, result);
@@ -273,7 +420,7 @@ async function runScenario(browser, baseUrl, files, viewport, name) {
   assert(result.rects.suggestionText, `${name}: prompt suggestion text was not visible.`, result);
   assert(result.rects.suggestionActions, `${name}: prompt suggestion actions were not visible.`, result);
   assert(result.suggestionActionOverlap <= 4, `${name}: prompt suggestion actions overlap the text.`, result);
-  const minSuggestionTextWidth = name === 'mobile'
+  const minSuggestionTextWidth = name.startsWith('mobile')
     ? Math.min(112, result.rects.suggestionBody.width - 36)
     : Math.min(240, result.rects.suggestionBody.width - 40);
   assert(
@@ -284,15 +431,123 @@ async function runScenario(browser, baseUrl, files, viewport, name) {
   assert(result.suggestionBodyBorderWidth === 0, `${name}: prompt suggestion body still renders as a nested bordered box.`, result);
   assert(result.sectionOverlaps.length === 0, `${name}: composer sections overlap.`, result);
   assert(result.outsideComposer.length === 0, `${name}: composer sections escaped the composer container.`, result);
-  assert(!result.sectionOverlaps.some((item) => item.a === 'referencePanel' || item.b === 'referencePanel'), `${name}: reference panel overlapped composer internals.`, result);
   assert(result.rects.input.width >= 160 && result.rects.input.height >= 44, `${name}: prompt input became too small.`, result);
+  assert(result.inputActionOverlap <= 4, `${name}: prompt input overlaps the action rail.`, result);
   assert(result.rects.generate.width >= 34 && result.rects.generate.height >= 34, `${name}: generate button became too small.`, result);
+  assert(
+    result.rects.generate.y >= result.rects.actions.y - 1 && result.rects.generate.bottom <= result.rects.actions.bottom + 1,
+    `${name}: generate button escaped the action rail.`,
+    result
+  );
   if (result.rects.assistant) {
     assert(result.rects.assistant.width >= 32 && result.rects.assistant.height >= 32, `${name}: assistant button became too small.`, result);
+    assert(result.generateAssistantOverlap <= 4, `${name}: generate and assistant buttons overlap.`, result);
+    assert(
+      result.rects.assistant.y >= result.rects.actions.y - 1 && result.rects.assistant.bottom <= result.rects.actions.bottom + 1,
+      `${name}: assistant button escaped the action rail.`,
+      result
+    );
   }
 
   await page.close();
   return { name, screenshotPath, result };
+}
+
+async function runCloseReopenScenario(browser, baseUrl) {
+  const page = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+  await installRoutes(page);
+  await page.addInitScript(({ layoutKey, sessionKey, session }) => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.setItem(layoutKey, JSON.stringify({
+      prompt: false,
+      references: false,
+      parameters: true,
+      parametersRail: false,
+      bottomComposer: true,
+      composerParameters: false,
+      composerFolded: false
+    }));
+    localStorage.setItem(sessionKey, JSON.stringify(session));
+  }, { layoutKey, sessionKey, session: seedSession() });
+
+  await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+  await page.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 15000 });
+
+  const closeButtons = page.locator('.bottomComposerBar .composerHeaderActions .composerIconPill');
+  await closeButtons.last().click();
+  await page.waitForSelector('.bottomComposerBar.isFolded', { timeout: 5000 });
+  const folded = await page.evaluate(() => {
+    const composer = document.querySelector('.bottomComposerBar.isFolded');
+    const input = document.querySelector('.bottomComposerBar.isFolded .bottomComposerInput textarea');
+    const expandButton = document.querySelector('.bottomComposerBar.isFolded .composerHeaderActions .composerIconPill');
+    const box = composer?.getBoundingClientRect();
+    const inputBox = input?.getBoundingClientRect();
+    const expandBox = expandButton?.getBoundingClientRect();
+    return {
+      composer: box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null,
+      input: inputBox ? { width: inputBox.width, height: inputBox.height } : null,
+      expandButton: expandBox ? { width: expandBox.width, height: expandBox.height } : null,
+      body: document.body.innerText.slice(0, 1000)
+    };
+  });
+  assert(folded.composer, 'close/reopen: X should fold the composer instead of hiding it.', folded);
+  assert(folded.input?.width >= 200 && folded.input?.height >= 44, 'close/reopen: folded composer input is not usable after clicking X.', folded);
+  assert(folded.expandButton?.width >= 28 && folded.expandButton?.height >= 28, 'close/reopen: folded composer has no visible expand button.', folded);
+
+  await closeButtons.first().click();
+  await page.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 5000 });
+  const reopened = await page.evaluate(() => {
+    const composer = document.querySelector('.bottomComposerBar.isExpandedComposer');
+    const thread = document.querySelector('.bottomComposerBar.isExpandedComposer .composerThread');
+    const box = composer?.getBoundingClientRect();
+    const threadBox = thread?.getBoundingClientRect();
+    return {
+      composer: box ? { width: box.width, height: box.height } : null,
+      thread: threadBox ? { width: threadBox.width, height: threadBox.height } : null
+    };
+  });
+  assert(reopened.composer?.height >= 430, 'close/reopen: expand button did not restore the full composer.', reopened);
+  assert(reopened.thread?.height >= 120, 'close/reopen: restored composer thread is not visible.', reopened);
+
+  const screenshotPath = `${screenshotDir}/composer-layout-close-reopen.png`;
+  await page.screenshot({ path: screenshotPath, fullPage: true });
+  await page.close();
+
+  const hiddenPage = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+  await installRoutes(hiddenPage);
+  await hiddenPage.addInitScript(({ layoutKey, sessionKey, session }) => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.setItem(layoutKey, JSON.stringify({
+      prompt: false,
+      references: false,
+      parameters: true,
+      parametersRail: false,
+      bottomComposer: false,
+      composerParameters: false,
+      composerFolded: false
+    }));
+    localStorage.setItem(sessionKey, JSON.stringify(session));
+  }, { layoutKey, sessionKey, session: seedSession() });
+  await hiddenPage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+  await hiddenPage.waitForSelector('.bottomComposerReopenDock', { timeout: 5000 });
+  const hidden = await hiddenPage.evaluate(() => {
+    const dock = document.querySelector('.bottomComposerReopenDock');
+    const box = dock?.getBoundingClientRect();
+    return {
+      dock: box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null,
+      label: dock?.textContent?.trim() || ''
+    };
+  });
+  assert(hidden.dock?.width >= 220 && hidden.dock?.height >= 44, 'close/reopen: hidden composer fallback is not a visible reopen dock.', hidden);
+  await hiddenPage.locator('.bottomComposerReopenDock').click();
+  await hiddenPage.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 5000 });
+
+  const hiddenScreenshotPath = `${screenshotDir}/composer-layout-reopen-dock.png`;
+  await hiddenPage.screenshot({ path: hiddenScreenshotPath, fullPage: true });
+  await hiddenPage.close();
+  return { name: 'close-reopen', screenshotPath, folded, hidden, reopened };
 }
 
 const server = await createServer({
@@ -315,7 +570,10 @@ try {
   browser = await chromium.launch({ headless: true });
   const scenarios = [
     await runScenario(browser, baseUrl, files, { width: 1360, height: 900 }, 'desktop'),
-    await runScenario(browser, baseUrl, files, { width: 390, height: 844 }, 'mobile')
+    await runScenario(browser, baseUrl, files, { width: 1360, height: 900 }, 'desktop-live', { liveStatus: true, referencesOpen: false }),
+    await runScenario(browser, baseUrl, files, { width: 390, height: 844 }, 'mobile'),
+    await runScenario(browser, baseUrl, files, { width: 390, height: 844 }, 'mobile-live', { liveStatus: true, referencesOpen: false }),
+    await runCloseReopenScenario(browser, baseUrl)
   ];
 
   console.log(JSON.stringify({ ok: true, scenarios }, null, 2));
