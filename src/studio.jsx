@@ -97,6 +97,7 @@ import { ComposerParamShelf } from './studio/components/composerParamShelf.jsx';
 import { ComposerPromptRow } from './studio/components/composerPromptRow.jsx';
 import { ComposerThread } from './studio/components/composerThread.jsx';
 import { GenerationQueueDock } from './studio/components/generationQueue.jsx';
+import { RegenerateDialog } from './studio/components/regenerateDialog.jsx';
 import { LeftRail } from './studio/components/leftRail.jsx';
 import {
   CreativeRecipeBar,
@@ -1304,6 +1305,28 @@ function categoryLabel(value) {
   return CATEGORY_LABELS[value] || value || '未分类';
 }
 
+function isLikelyGarbledText(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  if (/[\u0000-\u001f\u007f\ufffd]/.test(text)) return true;
+  if (/[\u00c2\u00c3][\u0080-\u00bf]|(?:\u00e2\u20ac[\u0098-\u009d\u0153\u2122])|(?:[\u00e4-\u00e9][\u0080-\u00ff]{1,3}){2,}/.test(text)) return true;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
+  const hasSeparator = /[\s/|.,:;()[\]{}_+\-·，。：；（）【】]/.test(text);
+  if (latin > 0 && cjk >= 2 && !hasSeparator) return true;
+  const useful = (text.match(/[A-Za-z0-9\u3400-\u9fff]/g) || []).length;
+  return text.length >= 4 && useful / text.length < 0.45;
+}
+
+function cleanGalleryMetaText(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text && !isLikelyGarbledText(text) ? text : '';
+}
+
+function caseCardMeta(item) {
+  return cleanGalleryMetaText(item?.sourceLabel) || cleanGalleryMetaText(item?.sourceName);
+}
+
 
 function categoryCover(value, variant = 'thumb') {
   const slug = CATEGORY_COVERS[value] || CATEGORY_COVERS['Other Use Cases'];
@@ -1345,7 +1368,7 @@ function handleImageFallback(event, fallback) {
 }
 
 function libraryFallbackImage(item) {
-  return templateThumbnail(item);
+  return templateThumbnail(item) || imageFallback(item);
 }
 
 function buildCategoryGroups(cases) {
@@ -1660,7 +1683,8 @@ function CategoryCard({ group, selected, onSelect }) {
 
 function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppend, t = (key, fallback) => fallback || key }) {
   const image = templateThumbnail(item);
-  const fallback = '';
+  const fallback = imageFallback(item);
+  const meta = caseCardMeta(item);
   const risks = Array.isArray(item.riskTags) ? item.riskTags.slice(0, 3) : [];
   return (
     <div className={`caseTile ${selected ? 'selected' : ''}`}>
@@ -1678,7 +1702,7 @@ function CaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppe
         </div>
         <span>{typeof item.id === 'number' ? `#${item.id}` : t('gallery.external', '外部')}</span>
         <strong>{item.title}</strong>
-        {item.sourceName ? <em>{item.sourceName}</em> : null}
+        {meta ? <em>{meta}</em> : null}
         {risks.length ? (
           <small>{risks.map(riskLabel).join(' / ')}</small>
         ) : null}
@@ -2079,6 +2103,9 @@ function generationErrorMessage(error, t = (key, fallback, values) => {
   if (lowered.includes('origin_not_allowed') || lowered.includes('origin not allowed')) {
     return t('errors.originNotAllowed', '生成请求被创作台服务拦截：当前页面来源没有加入 STUDIO_ALLOWED_ORIGINS 白名单。请更新并重启 history/session 服务，或把当前访问地址加入允许来源后再试。');
   }
+  if (error?.code === 'GATEWAY_DISPATCH_FAILED' || lowered.includes('could not deliver this request to the gateway')) {
+    return t('errors.gatewayDispatchFailed', '工作站服务没能把请求送到网关，所以后台可能没有调用记录。请检查接口地址、服务端网络、允许来源和防火墙后再试。');
+  }
   if (
     lowered.includes('request was rejected by the safety system')
     || lowered.includes('rejected by the safety system')
@@ -2122,7 +2149,7 @@ function generationErrorMessage(error, t = (key, fallback, values) => {
   if (error?.status >= 500 || lowered.includes('internal server error') || lowered.includes('bad gateway') || lowered.includes('service unavailable')) {
     return `${t('errors.serviceUnavailable', '上游服务暂时不可用，生成已停止。请稍后重试；如果反复出现，可能是中转站或模型服务异常。')}${requestSuffix}`;
   }
-  if (lowered.includes('failed to fetch') || lowered.includes('networkerror') || lowered.includes('network error')) {
+  if (lowered.includes('failed to fetch') || lowered.includes('fetch failed') || lowered.includes('networkerror') || lowered.includes('network error')) {
     return t('errors.network', '网络连接中断，本页没有收到完整结果；如果请求已经发出，上游可能仍在处理或已经计费。请先检查历史图库/当前画布，再决定是否重试。');
   }
   if (error?.name === 'AbortError') {
@@ -2645,6 +2672,7 @@ function CreationDesk({
   const [maskExportUrl, setMaskExportUrl] = useState('');
   const [layoutSections, setLayoutSections] = useState(() => loadWorkbenchLayout());
   const [activeParamPanel, setActiveParamPanel] = useState('');
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [canvasView, setCanvasView] = useState(() => restoredSession?.canvasView || { x: 0, y: 0, zoom: 1 });
   const [canvasViewport, setCanvasViewport] = useState({ width: 1200, height: 720 });
   const [canvasNodes, setCanvasNodes] = useState(() => Array.isArray(restoredSession?.canvasNodes) ? restoredSession.canvasNodes : []);
@@ -4803,7 +4831,9 @@ function CreationDesk({
     const basePercent = {
       queued: 12,
       dispatching: 22,
+      gateway: 38,
       upstream: 52,
+      image: 76,
       saving: 88,
       succeeded: 100,
       failed: 0,
@@ -4824,7 +4854,9 @@ function CreationDesk({
     const status = job?.status || job?.stage;
     if (status === 'queued') return t('jobs.queued', '已进入服务端队列，刷新页面也会继续保留状态。');
     if (status === 'dispatching') return t('jobs.dispatching', '服务端正在提交到上游网关。');
+    if (status === 'gateway') return t('jobs.gateway', '服务端已发出请求，正在等待网关同步返回。');
     if (status === 'upstream') return t('jobs.upstream', '上游正在生成，服务端会继续等待并保存结果。');
+    if (status === 'image') return t('jobs.image', '已收到图片，正在写入当前任务。');
     if (status === 'saving') return t('jobs.saving', '正在保存生成结果。');
     if (status === 'succeeded') return t('jobs.succeeded', '生成完成，结果已保存到服务端。');
     if (status === 'unknown') return t('jobs.unknown', '服务端等待中断，结果未知；请稍后查看历史图库后再决定是否重试。');
@@ -4838,17 +4870,33 @@ function CreationDesk({
     return t('jobs.processing', '服务端任务处理中。');
   }
 
+  function syncServerJobTiming(job) {
+    if (!job?.timing || typeof job.timing !== 'object') return;
+    const completedAt = Number(job.timing.completedAt) || Date.parse(job.completedAt || '') || null;
+    setTiming((current) => ({
+      ...(current || {}),
+      ...job.timing,
+      status: isFinalServerJobStatus(job.status) ? (job.status === 'succeeded' ? 'completed' : 'failed') : 'running',
+      startedAt: Number(job.timing.startedAt) || current?.startedAt || Date.parse(job.startedAt || '') || Date.now(),
+      completedAt,
+      model: job.model || current?.model || '',
+      spec: current?.spec || [job.size, job.quality].filter(Boolean).join(' · ')
+    }));
+  }
+
   async function waitForServerJob(historyClient, jobId, { signal, total }) {
     let latest = await historyClient.getGenerationJob(jobId);
     while (latest && !isFinalServerJobStatus(latest.status)) {
       setProgress(serverJobProgress(latest, total));
       setMessage(serverJobMessage(latest));
+      syncServerJobTiming(latest);
       await delay(1400, signal);
       latest = await historyClient.getGenerationJob(jobId);
     }
     if (latest) {
       setProgress(serverJobProgress(latest, total));
       setMessage(serverJobMessage(latest));
+      syncServerJobTiming(latest);
     }
     return latest;
   }
@@ -5273,7 +5321,7 @@ function CreationDesk({
         };
         payload = shouldUseImageEdits
           ? await client.editImage({ ...request, images: editReferenceFiles, mask: maskFile })
-          : await client.generateImage({ ...request, referenceImages: [] });
+          : await client.generateImage({ ...request, route: 'images', referenceImages: [] });
         urls = getImageUrls(payload);
       }
       if (!isCurrentRequest()) return false;
@@ -5418,15 +5466,39 @@ function CreationDesk({
   const generationActionLabel = isGenerating
     ? t('composer.queueMore', '加入队列')
     : needsReviewBeforeRetry
-      ? t('composer.confirmRetry', '确认重试')
+      ? t('composer.confirmRegenerate', '确认重新生成')
       : status === 'error'
-        ? t('composer.retry', '重试')
+        ? t('composer.regenerate', '重新生成')
         : t('composer.generate', '生成');
   const generationActionIcon = status === 'error' ? <Redo2 size={18} /> : <Sparkles size={18} />;
   const compactGenerationActionIcon = status === 'error' ? <Redo2 size={16} /> : <Sparkles size={16} />;
+  const openRegenerateDialog = () => {
+    showComposerForGeneration();
+    updateLayoutSections({
+      bottomComposer: true,
+      composerFolded: false,
+      composerParameters: true
+    });
+    setRegenerateDialogOpen(true);
+  };
+  const openBottomParamShelf = () => {
+    showComposerForGeneration();
+    updateLayoutSections({
+      bottomComposer: true,
+      composerFolded: false,
+      composerParameters: true
+    });
+  };
+  const confirmRegenerate = () => {
+    enqueueGeneration();
+  };
   const handleGenerateAction = () => {
     if (isGenerating) {
       enqueueGeneration();
+      return;
+    }
+    if (status === 'error' || progress.stage === 'pending_review') {
+      openRegenerateDialog();
       return;
     }
     enqueueGeneration();
@@ -5535,11 +5607,18 @@ function CreationDesk({
       >
         <GenerationQueueDock
           items={activeGenerationQueueItems}
+          progress={progress}
+          status={status}
+          message={message}
+          timing={timing}
+          isGenerating={isGenerating}
           t={t}
           formatError={generationErrorMessage}
           onAcknowledge={acknowledgeGenerationTask}
           onCancel={cancelGenerationTask}
           onRetry={retryGenerationTask}
+          onRegenerate={openRegenerateDialog}
+          onStop={stopGeneration}
         />
         <div className="canvasToolbar" aria-label={t('canvas.toolbar', '画布工具')}>
           <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label={t('canvas.zoomOut', '缩小画布')} title={`${t('canvas.zoomOut', '缩小画布')} Ctrl/Cmd + -`}>-</button>
@@ -6024,7 +6103,7 @@ function CreationDesk({
           <div className="caseMeta">
             <span>{typeof selectedCase.id === 'number' ? `#${selectedCase.id}` : t('gallery.external', '外部')}</span>
             <h2>{selectedCase.title}</h2>
-            <p>{[categoryLabel(selectedCase.category || selectedCase.section || '模板'), selectedCase.sourceName].filter(Boolean).join(' · ')}</p>
+            <p>{[categoryLabel(selectedCase.category || selectedCase.section || '模板'), caseCardMeta(selectedCase)].filter(Boolean).join(' · ')}</p>
             {Array.isArray(selectedCase.riskTags) && selectedCase.riskTags.length ? (
               <div className="riskStrip">
                 {selectedCase.riskTags.map((item) => <span key={item}>{riskLabel(item)}</span>)}
@@ -6446,8 +6525,8 @@ function CreationDesk({
         </div>
         {!layoutSections.bottomComposer ? (
           <>
-            <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} />
-            <GenerationTimingPanel timing={timing} />
+            <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} t={t} />
+            <GenerationTimingPanel timing={timing} t={t} />
             {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
             {isGenerating ? (
               <button type="button" className="composerStopAction" onClick={stopGeneration}>
@@ -6494,7 +6573,7 @@ function CreationDesk({
             routeLabel={composerRouteLabel}
             isGenerating={isGenerating}
             onStop={stopGeneration}
-            onRetry={handleGenerateAction}
+            onRetry={openRegenerateDialog}
             now={composerNow}
             stallNoticeMs={GENERATION_STALL_NOTICE_MS}
             t={t}
@@ -6583,6 +6662,46 @@ function CreationDesk({
           />
         ) : null}
       </BottomComposerPanel>
+      <RegenerateDialog
+        open={regenerateDialogOpen}
+        mode={mode}
+        prompt={prompt}
+        progress={progress}
+        status={status}
+        message={message}
+        isGenerating={isGenerating}
+        imageAspectOptions={imageAspectOptions}
+        imageCountRange={imageCountRange}
+        imageModelOptions={imageModelOptions}
+        imageQualityOptions={imageQualityOptions}
+        imageResolutionTierOptions={imageResolutionTierOptions}
+        aspect={aspect}
+        aspectLabel={aspectLabel}
+        countValue={countValue}
+        model={model}
+        onAspectChange={setAspect}
+        onCountChange={(value) => setCount(clampCountForProvider(value, currentImageProvider, normalizeCount))}
+        onConfirm={confirmRegenerate}
+        onModelChange={setModel}
+        onOpenBottomParams={openBottomParamShelf}
+        onQualityChange={setQuality}
+        onResolutionTierChange={setResolutionTier}
+        onClose={() => setRegenerateDialogOpen(false)}
+        quality={quality}
+        qualityLabel={qualityLabel}
+        resolutionTier={resolutionTier}
+        resolutionTierLabel={resolutionTierLabel}
+        t={t}
+        videoAspect={videoAspect}
+        videoAspectOptions={VIDEO_ASPECT_OPTIONS}
+        videoDuration={videoDuration}
+        videoDurations={VIDEO_DURATIONS}
+        videoModel={videoModel}
+        videoModelOptions={videoModelOptions}
+        onVideoAspectChange={setVideoAspect}
+        onVideoDurationChange={setVideoDuration}
+        onVideoModelChange={setVideoModel}
+      />
       <aside className="paramRail" aria-label={t('params.aria', '参数')}>
         <button
           type="button"

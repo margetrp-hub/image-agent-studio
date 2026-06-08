@@ -454,7 +454,7 @@ try {
   });
   assert(createdJob.job?.id === 'servicejob1', 'Generation job was not created.', createdJob.job);
 
-  await waitForJob('servicejob1', (job) => ['dispatching', 'upstream'].includes(job?.status), 'job to reach active upstream state');
+  await waitForJob('servicejob1', (job) => ['dispatching', 'gateway', 'upstream'].includes(job?.status), 'job to reach active gateway state');
   const canceledJob = await request('/studio-api/generation-jobs/servicejob1', { method: 'DELETE' });
   assert(canceledJob.job?.status === 'canceled', 'DELETE did not return a canceled job.', canceledJob.job);
   const persistedCanceledJob = await waitForJob('servicejob1', (job) => job?.status === 'canceled', 'job to persist canceled state');

@@ -239,3 +239,330 @@
     height: 86px !important;
   }
 }
+
+/* Studio cleanup: hide the legacy right-side parameter rail and keep one parameter entry surface. */
+.studioLayout .creationDesk .paramRail,
+.studioLayout .creationDesk .paramDrawer {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Give the bottom composer enough width so the parameter shelf can wrap instead of turning into a drag strip. */
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+.studioLayout .creationDesk.paramRailCollapsed.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer {
+  width: min(860px, calc(100% - 56px)) !important;
+  min-width: min(700px, calc(100% - 56px)) !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer {
+  width: min(860px, calc(100% - var(--reference-sidebar-width) - 34px)) !important;
+  max-width: calc(100% - var(--reference-sidebar-width) - 34px) !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer:has(.composerParamShelf.isExpanded),
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer:has(.composerParamShelf.isExpanded) {
+  height: clamp(720px, 78vh, 880px) !important;
+  min-height: min(720px, calc(100dvh - 36px)) !important;
+  max-height: min(880px, calc(100dvh - 30px)) !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus:has(.composerParamShelf.isExpanded),
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus:has(.composerParamShelf.isExpanded) {
+  grid-template-rows: 50px 82px minmax(160px, 1fr) 124px 138px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer:not(.hasLiveStatus):has(.composerParamShelf.isExpanded),
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer:not(.hasLiveStatus):has(.composerParamShelf.isExpanded) {
+  grid-template-rows: 50px minmax(0, 1fr) 124px 138px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf.isExpanded,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf.isCollapsed {
+  height: auto !important;
+  min-height: 124px !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf.isExpanded {
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: 38px minmax(0, 1fr) auto !important;
+  grid-template-rows: 84px auto !important;
+  grid-template-areas:
+    "fold primary reference"
+    "fold secondary reference" !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+  overflow: visible !important;
+  white-space: normal !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamFoldButton {
+  grid-area: fold !important;
+  height: auto !important;
+  min-height: 96px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamLane.primary,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamLane.secondary {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  height: auto !important;
+  min-height: 40px !important;
+  max-height: none !important;
+  align-content: flex-start !important;
+  overflow: visible !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamLane.primary {
+  min-height: 84px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamLane.primary {
+  grid-area: primary !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamLane.secondary {
+  grid-area: secondary !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerModeSegment,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerMiniSegment,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamField,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerCountField,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerReferenceParamButton {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  height: 42px !important;
+  white-space: normal !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamField.wide {
+  min-width: 220px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerCountField {
+  min-width: 148px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerReferenceParamButton {
+  grid-area: reference !important;
+  min-width: 96px !important;
+  min-height: 88px !important;
+  height: auto !important;
+  align-self: stretch !important;
+}
+
+.regenerateDialogBackdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 90 !important;
+  padding: 24px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(15, 23, 42, 0.48) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.regenerateDialog {
+  width: min(760px, calc(100vw - 48px)) !important;
+  max-height: min(86vh, 860px) !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent) !important;
+  border-radius: 24px !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 96%, transparent), color-mix(in srgb, var(--studio-surface-soft) 92%, transparent)) !important;
+  box-shadow:
+    0 26px 80px rgba(15, 23, 42, 0.24),
+    inset 0 1px 0 color-mix(in srgb, #fff 72%, transparent) !important;
+}
+
+.regenerateDialogHead,
+.regenerateDialogFoot {
+  padding: 18px 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 48%, transparent) !important;
+}
+
+.regenerateDialogFoot {
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 48%, transparent) !important;
+  border-bottom: 0 !important;
+  justify-content: end !important;
+}
+
+.regenerateDialogHead strong {
+  display: block !important;
+  color: var(--studio-text-strong) !important;
+  font-size: 16px !important;
+  font-weight: 950 !important;
+}
+
+.regenerateDialogHead span {
+  display: block !important;
+  margin-top: 4px !important;
+  color: var(--studio-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+.regenerateDialogClose,
+.regenerateDialogFoot button,
+.regenerateDialogLink,
+.regenerateDialogSegment button {
+  border: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent) !important;
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent) !important;
+  color: var(--studio-text-strong) !important;
+}
+
+.regenerateDialogBody {
+  min-height: 0 !important;
+  padding: 18px 20px !important;
+  display: grid !important;
+  gap: 14px !important;
+  overflow-y: auto !important;
+}
+
+.regenerateDialogBlock {
+  padding: 14px !important;
+  display: grid !important;
+  gap: 12px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 44%, transparent) !important;
+  border-radius: 18px !important;
+  background: color-mix(in srgb, var(--studio-surface-soft) 82%, transparent) !important;
+}
+
+.regenerateDialogBlockHead {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.regenerateDialogBlockHead strong {
+  color: var(--studio-text-strong) !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+
+.regenerateDialogBlockHead span,
+.regenerateDialogMessage,
+.regenerateDialogBlock p {
+  margin: 0 !important;
+  color: var(--studio-text) !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.regenerateDialogLink {
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.regenerateDialogGrid {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.regenerateDialogField {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.regenerateDialogField span,
+.regenerateDialogField strong {
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+}
+
+.regenerateDialogField select,
+.regenerateDialogField input[type="range"] {
+  width: 100% !important;
+}
+
+.regenerateDialogSegment {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+.regenerateDialogSegment button {
+  min-height: 36px !important;
+  padding: 0 12px !important;
+}
+
+.regenerateDialogSegment button.active,
+.regenerateDialogFoot .primary {
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
+  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong)) !important;
+  color: var(--studio-primary) !important;
+}
+
+.regenerateDialogFoot .secondary,
+.regenerateDialogFoot .primary {
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+@media (max-width: 900px) {
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer {
+    width: min(100%, calc(100% - 28px)) !important;
+    min-width: 0 !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf.isExpanded {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "fold"
+      "primary"
+      "secondary"
+      "reference" !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamFoldButton,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerReferenceParamButton {
+    min-height: 42px !important;
+  }
+
+  .regenerateDialogBackdrop {
+    padding: 12px !important;
+  }
+
+  .regenerateDialog {
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+  }
+}
+
+/* Keep the collapsed parameter shelf compact so it stays fully visible inside the composer. */
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf.isCollapsed {
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerParamShelf.isCollapsed .composerParamSummary {
+  min-height: 44px !important;
+  height: 44px !important;
+  max-height: 44px !important;
+}

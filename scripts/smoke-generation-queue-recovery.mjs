@@ -23,13 +23,13 @@ function restoredSession() {
     message: 'Restored generation is still running.',
     prompt: 'A quiet ceramic object on a soft paper background',
     model: 'gpt-image-2',
-    progress: { stage: 'upstream', percent: 52, completed: 0, total: 1 },
+    progress: { stage: 'gateway', percent: 38, completed: 0, total: 1 },
     generationQueue: [{
       id: 'task-restored-1',
       serverJobId: 'job-restored-1',
       remote: true,
       status: 'running',
-      stage: 'upstream',
+      stage: 'gateway',
       prompt: 'A quiet ceramic object on a soft paper background',
       summary: 'A quiet ceramic object on a soft paper background',
       model: 'gpt-image-2',
@@ -50,13 +50,13 @@ function failedSession() {
     message: 'Restored generation failed.',
     prompt: 'A quiet ceramic object on a soft paper background',
     model: 'gpt-image-2',
-    progress: { stage: 'upstream', percent: 52, completed: 0, total: 1 },
+    progress: { stage: 'gateway', percent: 38, completed: 0, total: 1 },
     generationQueue: [{
       id: 'task-failed-1',
       serverJobId: 'job-failed-1',
       remote: true,
       status: 'running',
-      stage: 'upstream',
+      stage: 'gateway',
       prompt: 'A quiet ceramic object on a soft paper background',
       summary: 'A quiet ceramic object on a soft paper background',
       model: 'gpt-image-2',
@@ -77,13 +77,13 @@ function runningSession() {
     message: 'Restored generation is still running.',
     prompt: 'A quiet ceramic object waiting in the service queue',
     model: 'gpt-image-2',
-    progress: { stage: 'upstream', percent: 52, completed: 0, total: 1 },
+    progress: { stage: 'gateway', percent: 38, completed: 0, total: 1 },
     generationQueue: [{
       id: 'task-running-1',
       serverJobId: 'job-running-1',
       remote: true,
       status: 'running',
-      stage: 'upstream',
+      stage: 'gateway',
       prompt: 'A quiet ceramic object waiting in the service queue',
       summary: 'A quiet ceramic object waiting in the service queue',
       model: 'gpt-image-2',
@@ -193,9 +193,25 @@ try {
       body: JSON.stringify({ ok: true, session: restoredSession() })
     });
   });
+  await page.route('**/studio-api/generation-jobs?**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ok: true,
+      jobs: [{
+        id: 'job-restored-1',
+        sessionId: 'queue-recovery-session',
+        status: 'gateway',
+        stage: 'gateway',
+        completed: 0,
+        total: 1,
+        resultUrls: []
+      }]
+    })
+  }));
   await page.route('**/studio-api/generation-jobs/job-restored-1', (route) => {
     jobPollCount += 1;
-    const status = jobPollCount < 2 ? 'upstream' : 'unknown';
+    const status = jobPollCount < 2 ? 'gateway' : 'unknown';
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -291,6 +307,29 @@ try {
       body: JSON.stringify({ ok: true, session: failedSession() })
     });
   });
+  await failedPage.route('**/studio-api/generation-jobs?**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ok: true,
+      jobs: [{
+        id: 'job-failed-1',
+        sessionId: 'queue-failed-session',
+        status: 'failed',
+        stage: 'failed',
+        completed: 0,
+        total: 1,
+        resultUrls: [],
+        requestIds: ['req-failed-1'],
+        error: {
+          code: 'HTTP_403',
+          status: 403,
+          requestId: 'req-failed-1',
+          message: 'ORIGIN_NOT_ALLOWED'
+        }
+      }]
+    })
+  }));
   await failedPage.route('**/studio-api/generation-jobs/job-failed-1', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -371,6 +410,22 @@ try {
       body: JSON.stringify({ ok: true, session: runningSession() })
     });
   });
+  await runningPage.route('**/studio-api/generation-jobs?**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ok: true,
+      jobs: [{
+        id: 'job-running-1',
+        sessionId: 'queue-running-session',
+        status: 'gateway',
+        stage: 'gateway',
+        completed: 0,
+        total: 1,
+        resultUrls: []
+      }]
+    })
+  }));
   await runningPage.route('**/studio-api/generation-jobs/job-running-1', (route) => {
     if (route.request().method() === 'DELETE') {
       runningCancelCount += 1;
@@ -404,8 +459,8 @@ try {
         job: {
           id: 'job-running-1',
           sessionId: 'queue-running-session',
-          status: 'upstream',
-          stage: 'upstream',
+          status: 'gateway',
+          stage: 'gateway',
           completed: 0,
           total: 1,
           resultUrls: []

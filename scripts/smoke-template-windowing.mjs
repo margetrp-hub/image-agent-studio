@@ -19,8 +19,8 @@ function templateCases() {
     scenes: ['Workbench'],
     promptPreview: `Create a focused template scene ${index + 1}`,
     image: svgDataUrl(`#${index + 1}`, index % 2 ? '#f59e0b' : '#0f766e'),
-    thumbnail: svgDataUrl(`#${index + 1}`, index % 2 ? '#f59e0b' : '#0f766e'),
-    sourceName: 'smoke'
+    thumbnail: index === 0 ? '/missing-template-thumb.webp' : svgDataUrl(`#${index + 1}`, index % 2 ? '#f59e0b' : '#0f766e'),
+    sourceName: index === 1 ? '\u7eff\u4f69\u94fe\u7a3fra' : 'smoke'
   }));
 }
 
@@ -100,10 +100,14 @@ try {
     cards: document.querySelectorAll('.caseTile').length,
     categories: document.querySelectorAll('.categoryTile').length,
     hasLoadMore: Boolean(document.querySelector('.inspirationCanvasGrid .galleryLoadMore')),
-    body: document.body.innerText.slice(0, 1000)
+    body: document.body.innerText.slice(0, 1000),
+    firstImageSrc: document.querySelector('.caseTile img')?.getAttribute('src') || '',
+    hasGarbledSource: document.body.innerText.includes('\u7eff\u4f69\u94fe\u7a3fra')
   }));
   assert(initial.cards === INITIAL_VISIBLE, `Expected ${INITIAL_VISIBLE} initial template cards, got ${initial.cards}.`, initial);
   assert(initial.hasLoadMore, 'Expected template load-more button to be visible.', initial);
+  assert(initial.firstImageSrc.startsWith('data:image/svg+xml'), 'Missing thumbnail should fall back to the visible card original image only.', initial);
+  assert(!initial.hasGarbledSource, 'Garbled source metadata should not be displayed on inspiration cards.', initial);
 
   await page.locator('.inspirationCanvasGrid .galleryLoadMore').click();
   await page.waitForTimeout(300);

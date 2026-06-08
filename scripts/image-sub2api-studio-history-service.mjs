@@ -22,7 +22,7 @@ const SESSION_ASSET_ID = 'session-current';
 const JOB_LIMIT = Number(process.env.STUDIO_JOB_LIMIT || 120);
 const JOB_TIMEOUT_MS = Number(process.env.STUDIO_JOB_TIMEOUT_MS || 45 * 60 * 1000);
 const JOB_CONCURRENCY = Math.max(1, Math.min(6, Number(process.env.STUDIO_JOB_CONCURRENCY || 1)));
-const JOB_ACTIVE_STATUSES = new Set(['queued', 'dispatching', 'upstream', 'saving']);
+const JOB_ACTIVE_STATUSES = new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'saving']);
 const SERVICE_STARTED_AT = Date.now();
 const MAX_BODY_BYTES = Number(process.env.STUDIO_MAX_BODY_BYTES || 96 * 1024 * 1024);
 const MAX_IMAGE_BYTES = Number(process.env.STUDIO_MAX_IMAGE_BYTES || 32 * 1024 * 1024);
@@ -516,6 +516,24 @@ function text(value, length) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, length);
 }
 
+function isLikelyGarbledText(value) {
+  const body = String(value || '').trim();
+  if (!body) return false;
+  if (/[\u0000-\u001f\u007f\ufffd]/.test(body)) return true;
+  if (/[\u00c2\u00c3][\u0080-\u00bf]|(?:\u00e2\u20ac[\u0098-\u009d\u0153\u2122])|(?:[\u00e4-\u00e9][\u0080-\u00ff]{1,3}){2,}/.test(body)) return true;
+  const latin = (body.match(/[A-Za-z]/g) || []).length;
+  const cjk = (body.match(/[\u3400-\u9fff]/g) || []).length;
+  const hasSeparator = /[\s/|.,:;()[\]{}_+\-·，。：；（）【】]/.test(body);
+  if (latin > 0 && cjk >= 2 && !hasSeparator) return true;
+  const useful = (body.match(/[A-Za-z0-9\u3400-\u9fff]/g) || []).length;
+  return body.length >= 4 && useful / body.length < 0.45;
+}
+
+function cleanSourceText(value, length) {
+  const body = text(value, length);
+  return body && !isLikelyGarbledText(body) ? body : '';
+}
+
 function cleanLibraryId(value) {
   const raw = String(value || '').trim();
   if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(raw)) {
@@ -602,8 +620,8 @@ function sanitizeLibrarySummary(item) {
     image,
     thumbnail,
     imageAlt: text(item.imageAlt, 240),
-    sourceLabel: text(item.sourceLabel, 120),
-    sourceName: text(item.sourceName, 120),
+    sourceLabel: cleanSourceText(item.sourceLabel, 120),
+    sourceName: cleanSourceText(item.sourceName, 120),
     promptPreview: text(item.promptPreview, 160),
     category: text(item.category, 120),
     styles: Array.isArray(item.styles) ? item.styles.slice(0, 8).map((value) => text(value, 80)).filter(Boolean) : [],
@@ -1201,6 +1219,7 @@ async function runGenerationRequest(auth, job, runtime, signal) {
   const requestIds = [];
   const usages = [];
   const total = Math.max(1, Number(job.count || 1));
+  let currentJob = job;
   if (job.route === 'edits') {
     const form = new FormData();
     form.set('model', job.model);
@@ -1216,46 +1235,118 @@ async function runGenerationRequest(auth, job, runtime, signal) {
     if (runtime.mask) {
       form.set('mask', new Blob([runtime.mask.buffer], { type: runtime.mask.mime }), runtime.mask.name || `mask.${runtime.mask.ext}`);
     }
+    currentJob = await updateJob(auth, job.id, {
+      status: 'gateway',
+      stage: 'gateway',
+      completed: 0,
+      total,
+      lastClientRequestId: job.clientRequestId,
+      endpoint: '/v1/images/edits',
+      timing: {
+        ...(currentJob.timing || {}),
+        gatewayAt: Date.now()
+      }
+    }) || currentJob;
     const payload = await postMultipartToGateway(`${runtime.gatewayBaseUrl}/images/edits`, runtime.apiKey, form, job.clientRequestId, signal);
     const items = Array.isArray(payload?.data) ? payload.data : [];
+    if (!items.length) {
+      const error = new Error('IMAGES_EDITS_RETURNED_NO_IMAGES');
+      error.payload = payload;
+      throw error;
+    }
+    requestIds.push(gatewayRequestId(payload));
+    currentJob = await updateJob(auth, job.id, {
+      status: 'saving',
+      stage: 'saving',
+      completed: 0,
+      total,
+      requestIds: requestIds.filter(Boolean),
+      timing: {
+        ...(currentJob.timing || {}),
+        responseAt: Date.now(),
+        savingAt: Date.now()
+      }
+    }) || currentJob;
     for (let index = 0; index < items.length; index += 1) {
       const stored = await persistGatewayImage(auth, job.id, items[index], resultUrls.length, job.outputFormat);
       if (stored) resultUrls.push(stored);
+      currentJob = await updateJob(auth, job.id, {
+        status: 'image',
+        stage: 'image',
+        completed: Math.min(resultUrls.length, total),
+        total,
+        resultUrls,
+        requestIds: requestIds.filter(Boolean),
+        timing: {
+          ...(currentJob.timing || {}),
+          savedAt: Date.now()
+        }
+      }) || currentJob;
     }
-    requestIds.push(gatewayRequestId(payload));
     if (payload?.usage) usages.push(payload.usage);
-    return { resultUrls, requestIds, usage: usages[0] || null };
+    return { resultUrls, requestIds, usage: usages[0] || null, timing: currentJob.timing || null };
   }
 
   for (let index = 0; index < total; index += 1) {
+    const clientRequestId = `${job.clientRequestId}-${index + 1}`;
+    currentJob = await updateJob(auth, job.id, {
+      status: 'gateway',
+      stage: 'gateway',
+      completed: resultUrls.length,
+      total,
+      lastClientRequestId: clientRequestId,
+      endpoint: '/v1/images/generations',
+      requestIds: requestIds.filter(Boolean),
+      timing: {
+        ...(currentJob.timing || {}),
+        gatewayAt: Date.now()
+      }
+    }) || currentJob;
     const payload = await postJsonToGateway(`${runtime.gatewayBaseUrl}/images/generations`, runtime.apiKey, {
       model: job.model,
       prompt: job.generationPrompt || job.prompt,
       size: job.size,
       quality: job.quality,
       n: 1
-    }, `${job.clientRequestId}-${index + 1}`, signal);
+    }, clientRequestId, signal);
     const items = Array.isArray(payload?.data) ? payload.data : [];
     if (!items.length) {
       const error = new Error('IMAGES_GENERATIONS_RETURNED_NO_IMAGES');
       error.payload = payload;
       throw error;
     }
+    requestIds.push(gatewayRequestId(payload));
+    currentJob = await updateJob(auth, job.id, {
+      status: 'saving',
+      stage: 'saving',
+      completed: resultUrls.length,
+      total,
+      requestIds: requestIds.filter(Boolean),
+      timing: {
+        ...(currentJob.timing || {}),
+        responseAt: Date.now(),
+        savingAt: Date.now()
+      }
+    }) || currentJob;
     for (const item of items) {
       const stored = await persistGatewayImage(auth, job.id, item, resultUrls.length, job.outputFormat);
       if (stored) resultUrls.push(stored);
     }
-    requestIds.push(gatewayRequestId(payload));
     if (payload?.usage) usages.push(payload.usage);
-    await updateJob(auth, job.id, {
-      status: 'upstream',
-      stage: 'upstream',
+    currentJob = await updateJob(auth, job.id, {
+      status: 'image',
+      stage: 'image',
       completed: Math.min(resultUrls.length, total),
+      total,
       resultUrls,
-      requestIds: requestIds.filter(Boolean)
-    });
+      requestIds: requestIds.filter(Boolean),
+      timing: {
+        ...(currentJob.timing || {}),
+        savedAt: Date.now()
+      }
+    }) || currentJob;
   }
-  return { resultUrls, requestIds, usage: usages.length === 1 ? usages[0] : usages.length ? usages : null };
+  return { resultUrls, requestIds, usage: usages.length === 1 ? usages[0] : usages.length ? usages : null, timing: currentJob.timing || null };
 }
 
 async function runGenerationJob(auth, jobId, runtime) {
@@ -1269,22 +1360,19 @@ async function runGenerationJob(auth, jobId, runtime) {
   activeJobControllers.set(key, controller);
   const timer = setTimeout(() => controller.abort(new Error('JOB_TIMEOUT')), JOB_TIMEOUT_MS);
   try {
+    const queuedAt = Number(existingJob.timing?.queuedAt) || Date.parse(existingJob.createdAt || '') || null;
     let job = await updateJob(auth, jobId, {
       status: 'dispatching',
       stage: 'dispatching',
       startedAt: new Date(startedAt).toISOString(),
       timing: {
-        queuedAt: null,
+        queuedAt,
         startedAt,
         completedAt: null,
         totalMs: null
       }
     });
     if (!job) return;
-    job = await updateJob(auth, jobId, {
-      status: 'upstream',
-      stage: 'upstream'
-    });
     const result = await runGenerationRequest(auth, job, runtime, controller.signal);
     const completedAt = Date.now();
     const nextJob = await updateJob(auth, jobId, {
@@ -1297,6 +1385,8 @@ async function runGenerationJob(auth, jobId, runtime) {
       usage: result.usage,
       requestIds: result.requestIds.filter(Boolean),
       timing: {
+        ...(result.timing || {}),
+        queuedAt: result.timing?.queuedAt || Number(existingJob.timing?.queuedAt) || Date.parse(existingJob.createdAt || '') || null,
         startedAt,
         completedAt,
         totalMs: completedAt - startedAt
@@ -1309,24 +1399,37 @@ async function runGenerationJob(auth, jobId, runtime) {
     const reason = String(controller.signal.reason?.message || '');
     const timedOut = controller.signal.aborted && reason.includes('JOB_TIMEOUT');
     const canceled = controller.signal.aborted && reason.includes('JOB_CANCELED');
+    const requestId = error?.requestId || gatewayRequestId(error?.payload || {});
+    const failedJob = (await readJobs(auth)).find((item) => item.id === jobId);
+    const dispatchFailed = !timedOut
+      && !canceled
+      && !error?.status
+      && !requestId
+      && (
+        error?.name === 'TypeError'
+        || /fetch failed|network|econn|enotfound|etimedout|eai_again/i.test(String(error?.message || ''))
+      );
     await updateJob(auth, jobId, {
       status: timedOut ? 'unknown' : canceled ? 'canceled' : 'failed',
       stage: timedOut ? 'unknown' : canceled ? 'canceled' : 'failed',
       completedAt: new Date(completedAt).toISOString(),
       timing: {
+        ...(failedJob?.timing || {}),
         startedAt,
         completedAt,
         totalMs: completedAt - startedAt
       },
       error: {
-        code: timedOut ? 'JOB_TIMEOUT' : canceled ? 'JOB_CANCELED' : (error?.status ? `HTTP_${error.status}` : 'GENERATION_JOB_FAILED'),
+        code: timedOut ? 'JOB_TIMEOUT' : canceled ? 'JOB_CANCELED' : dispatchFailed ? 'GATEWAY_DISPATCH_FAILED' : (error?.status ? `HTTP_${error.status}` : 'GENERATION_JOB_FAILED'),
         status: error?.status || null,
-        requestId: error?.requestId || gatewayRequestId(error?.payload || {}),
+        requestId,
         message: timedOut
           ? 'The server stopped waiting for this generation job. The upstream request may still finish or bill.'
           : canceled
             ? 'The queued or running job was canceled locally. If it already reached the upstream, the upstream may still finish or bill.'
-          : gatewayErrorMessage(error)
+            : dispatchFailed
+              ? 'The workbench service could not deliver this request to the gateway. Check the gateway URL, service network, origin allowlist, and firewall before retrying.'
+              : gatewayErrorMessage(error)
       }
     });
   } finally {

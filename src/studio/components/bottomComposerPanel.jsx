@@ -26,6 +26,7 @@ export function BottomComposerPanel({
     composerFolded ? 'isFolded' : 'isExpandedComposer',
     hasReferences ? 'hasReferences' : 'noReferences'
   ].filter(Boolean).join(' ');
+  const showCloseAction = !composerFolded;
 
   if (!isOpen) {
     return (
@@ -61,22 +62,24 @@ export function BottomComposerPanel({
         <div className="composerHeaderActions">
           <button
             type="button"
-            className="composerIconPill"
+            className="composerIconPill composerFoldTogglePill"
             onClick={onFoldToggle}
             aria-label={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '折叠对话面板')}
             title={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '折叠对话面板')}
           >
             {composerFolded ? <Maximize2 size={15} /> : <ArrowDown size={15} />}
           </button>
-          <button
-            type="button"
-            className="composerIconPill"
-            onClick={onClose}
-            aria-label={t('composer.collapse', '收起对话')}
-            title={t('composer.collapse', '收起对话')}
-          >
-            <X size={16} />
-          </button>
+          {showCloseAction ? (
+            <button
+              type="button"
+              className="composerIconPill composerClosePill"
+              onClick={onClose}
+              aria-label={t('composer.close', '关闭会话')}
+              title={t('composer.close', '关闭会话')}
+            >
+              <X size={16} />
+            </button>
+          ) : null}
         </div>
       </div>
       {children}

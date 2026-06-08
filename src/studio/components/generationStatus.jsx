@@ -12,20 +12,23 @@ function formatDuration(ms) {
 
 export function progressText(progress, fallbackMessage, t = (key, fallback) => fallback || key) {
   if (!progress || progress.stage === 'idle') return fallbackMessage || '';
-  if (progress.stage === 'request') return t('progress.submitted', '已提交');
-  if (progress.stage === 'connected') return t('progress.connected', '已连接');
-  if (progress.stage === 'queued') return t('progress.queued', '排队中');
-  if (progress.stage === 'dispatching') return t('progress.dispatching', '提交上游');
-  if (progress.stage === 'upstream') return t('progress.generating', '生成中');
-  if (progress.stage === 'video') return t('progress.videoGenerating', '视频生成中');
-  if (progress.stage === 'partial') return t('progress.preview', '预览 {count}', { count: progress.partials || 1 });
-  if (progress.stage === 'pending_review') return t('progress.review', '待确认');
-  if (progress.stage === 'image') return `${progress.completed || 1}/${progress.total || 1}`;
-  if (progress.stage === 'saving') return t('progress.saving', '保存中');
-  if (progress.stage === 'completed') return t('progress.completed', '完成');
-  if (progress.stage === 'succeeded') return t('progress.completed', '完成');
-  if (progress.stage === 'canceled') return t('progress.canceled', '已取消');
-  if (progress.stage === 'failed') return t('progress.failed', '已停止');
+  if (progress.stage === 'request') return t('progress.submitted', 'Submitted');
+  if (progress.stage === 'connected') return t('progress.connected', 'Connected');
+  if (progress.stage === 'queued') return t('progress.queued', 'Queued');
+  if (progress.stage === 'dispatching') return t('progress.dispatching', 'Dispatching');
+  if (progress.stage === 'gateway') return t('progress.gateway', 'Waiting for gateway');
+  if (progress.stage === 'upstream') return t('progress.generating', 'Generating');
+  if (progress.stage === 'video') return t('progress.videoGenerating', 'Generating video');
+  if (progress.stage === 'partial') return t('progress.preview', 'Preview {count}', { count: progress.partials || 1 });
+  if (progress.stage === 'pending_review') return t('progress.review', 'Review needed');
+  if (progress.stage === 'image') return t('progress.imageReceived', 'Image {completed}/{total}', {
+    completed: progress.completed || 1,
+    total: progress.total || 1
+  });
+  if (progress.stage === 'saving') return t('progress.saving', 'Saving');
+  if (progress.stage === 'completed' || progress.stage === 'succeeded') return t('progress.completed', 'Done');
+  if (progress.stage === 'canceled') return t('progress.canceled', 'Canceled');
+  if (progress.stage === 'failed') return t('progress.failed', 'Failed');
   return fallbackMessage || '';
 }
 
@@ -34,11 +37,11 @@ export function ProgressBar({ progress, active, t = (key, fallback) => fallback 
   if (!active && progress.stage !== 'completed' && progress.stage !== 'failed' && progress.stage !== 'pending_review') return null;
   const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
   const steps = [
-    { key: 'request', label: t('progress.stepSubmit', '提交') },
-    { key: 'queued', label: t('progress.stepQueue', '排队') },
-    { key: 'image', label: t('progress.stepGenerate', '生成') },
-    { key: 'saving', label: t('progress.stepSave', '保存') },
-    { key: 'completed', label: t('progress.stepDone', '完成') }
+    { key: 'request', label: t('progress.stepSubmit', 'Submit') },
+    { key: 'queued', label: t('progress.stepQueue', 'Queue') },
+    { key: 'gateway', label: t('progress.stepGateway', 'Gateway') },
+    { key: 'saving', label: t('progress.stepSave', 'Save') },
+    { key: 'completed', label: t('progress.stepDone', 'Done') }
   ];
   const stageOrder = {
     idle: -1,
@@ -46,10 +49,11 @@ export function ProgressBar({ progress, active, t = (key, fallback) => fallback 
     connected: 0,
     queued: 1,
     dispatching: 1,
+    gateway: 2,
     upstream: 2,
     video: 2,
     partial: 2,
-    image: 2,
+    image: 3,
     saving: 3,
     completed: 4,
     succeeded: 4,
@@ -58,11 +62,23 @@ export function ProgressBar({ progress, active, t = (key, fallback) => fallback 
     pending_review: 3
   };
   const activeIndex = stageOrder[progress.stage] ?? 0;
+  const currentPhase = String(Math.max(1, activeIndex + 1));
+  const totalPhases = String(steps.length);
+  const phaseLabel = progress.stage === 'completed' || progress.stage === 'succeeded'
+    ? '100%'
+    : progress.stage === 'failed' || progress.stage === 'canceled'
+      ? t('progress.stoppedShort', 'Stopped')
+      : progress.stage === 'image' && Number(progress.total || 0) > 1
+        ? `${Math.max(1, Number(progress.completed || 1))}/${Math.max(1, Number(progress.total || 1))}`
+        : t('progress.phaseValue', `Stage ${currentPhase}/${totalPhases}`, {
+          current: currentPhase,
+          total: totalPhases
+        });
   return (
-    <div className={`generationProgress ${progress.stage === 'failed' ? 'failed' : ''} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`} aria-label={t('progress.aria', '生成进度')}>
+    <div className={`generationProgress ${progress.stage === 'failed' ? 'failed' : ''} ${progress.stage === 'pending_review' ? 'pendingReview' : ''}`} aria-label={t('progress.aria', 'Generation progress')}>
       <div>
         <span>{progressText(progress, '', t)}</span>
-        <strong>{percent}%</strong>
+        <strong>{phaseLabel}</strong>
       </div>
       <div className="progressTrack">
         <i style={{ width: `${percent}%` }} />
@@ -80,29 +96,47 @@ export function GenerationTimingPanel({ timing, t = (key, fallback) => fallback 
   if (!timing) return null;
   const firstMs = timing.firstByteAt ? timing.firstByteAt - timing.startedAt : null;
   const totalMs = (timing.completedAt || Date.now()) - timing.startedAt;
-  const title = timing.status === 'running' ? t('timing.running', '生成计时中') : timing.status === 'failed' ? t('timing.failed', '生成已停止') : t('timing.done', '生成完成');
+  const gatewayMs = timing.gatewayAt && timing.responseAt ? timing.responseAt - timing.gatewayAt : null;
+  const saveMs = timing.savingAt && timing.savedAt ? timing.savedAt - timing.savingAt : null;
+  const title = timing.status === 'running'
+    ? t('timing.running', 'Generation timer')
+    : timing.status === 'failed'
+      ? t('timing.failed', 'Generation stopped')
+      : t('timing.done', 'Generation done');
   return (
     <div className="generationTimingPanel">
       <div>
         <Clock size={15} />
         <strong>{title}</strong>
-        <span>{t('timing.hint', '响应=首次收到上游数据；总用时=点击生成到当前状态')}</span>
+        <span>{t('timing.hint', 'Response is time to first upstream byte. Total is from click to current status.')}</span>
       </div>
       <dl>
         <div>
-          <dt>{t('timing.response', '响应')}</dt>
-          <dd>{firstMs === null ? t('timing.waiting', '等待中') : formatDuration(firstMs)}</dd>
+          <dt>{t('timing.response', 'Response')}</dt>
+          <dd>{firstMs === null ? t('timing.waiting', 'Waiting') : formatDuration(firstMs)}</dd>
         </div>
         <div>
-          <dt>{t('timing.total', '总用时')}</dt>
+          <dt>{t('timing.total', 'Total')}</dt>
           <dd>{formatDuration(totalMs)}</dd>
         </div>
+        {gatewayMs !== null ? (
+          <div>
+            <dt>{t('timing.gatewayWait', 'Gateway')}</dt>
+            <dd>{formatDuration(gatewayMs)}</dd>
+          </div>
+        ) : null}
+        {saveMs !== null ? (
+          <div>
+            <dt>{t('timing.save', 'Save')}</dt>
+            <dd>{formatDuration(saveMs)}</dd>
+          </div>
+        ) : null}
         <div>
-          <dt>{t('params.model', '模型')}</dt>
+          <dt>{t('params.model', 'Model')}</dt>
           <dd>{timing.model || '--'}</dd>
         </div>
         <div>
-          <dt>{t('timing.spec', '规格')}</dt>
+          <dt>{t('timing.spec', 'Spec')}</dt>
           <dd>{timing.spec || '--'}</dd>
         </div>
       </dl>
@@ -139,52 +173,67 @@ export function ComposerLiveStatus({
     stage: slowWaiting && stageKey === 'request' ? 'queued' : stageKey
   };
   const stage = verySlowWaiting
-    ? t('composer.liveVerySlowStage', '仍在等待上游')
+    ? t('composer.liveVerySlowStage', 'Still waiting upstream')
     : slowWaiting
-      ? t('composer.liveSlowStage', '上游排队或生成中')
-      : progressText(displayProgress, status === 'error' ? t('composer.statusError', '生成异常') : t('composer.status', '生成状态'), t);
+      ? t('composer.liveSlowStage', 'Upstream queued or generating')
+      : progressText(displayProgress, status === 'error' ? t('composer.statusError', 'Generation issue') : t('composer.status', 'Generation status'), t);
   const isReview = progress?.stage === 'pending_review';
   const isFailed = status === 'error' || progress?.stage === 'failed';
   const liveHint = activeWaiting
     ? verySlowWaiting
-      ? t('composer.liveVerySlowHint', '页面仍在监听；如需离开，请稍后回历史图库确认')
+      ? t('composer.liveVerySlowHint', 'This page is still listening. Check History later before leaving.')
       : slowWaiting
-      ? t('composer.liveSlowHint', '仍在等待上游返回，不代表已经失败')
-      : t('composer.liveListeningHint', '正在监听上游结果')
+        ? t('composer.liveSlowHint', 'Still waiting for upstream. This does not mean the request failed.')
+        : t('composer.liveListeningHint', 'Listening for upstream results')
     : isReview
-      ? t('composer.liveReviewHint', '请先确认历史图库/当前画布后再重试')
+      ? t('composer.liveReviewHint', 'Check History or the current canvas before regenerating.')
       : status === 'success'
-        ? t('composer.liveDoneHint', '结果已写入当前画布')
+        ? t('composer.liveDoneHint', 'Result was added to the current canvas')
         : isFailed
-          ? t('composer.liveFailedHint', '这次生成没有拿到可用结果')
-          : t('composer.liveIdleHint', '等待下一次生成');
+          ? t('composer.liveFailedHint', 'This generation did not return a usable result')
+          : t('composer.liveIdleHint', 'Waiting for the next generation');
+  const showErrorDetail = Boolean((isFailed || isReview) && message);
   return (
     <div className={`composerLiveStatus ${status} ${activeWaiting ? 'isRunning' : ''} ${slowWaiting ? 'isSlowWaiting' : ''} ${isReview ? 'needsReview' : ''}`} aria-live="polite">
       <div className="composerLiveMain">
         <div className="composerLiveHeader">
           <span className="composerLivePulse" aria-hidden="true" />
-          <strong>{activeWaiting ? t('composer.statusGenerating', '正在生成') : status === 'success' ? t('composer.statusDone', '生成完成') : isReview ? t('composer.statusReview', '需要确认') : isFailed ? t('composer.statusError', '生成异常') : t('composer.status', '生成状态')}</strong>
-          <em>{stage}{displayPercent ? ` · ${displayPercent}%` : ''}</em>
+          <strong>
+            {activeWaiting
+              ? t('composer.statusGenerating', 'Generating')
+              : status === 'success'
+                ? t('composer.statusDone', 'Done')
+                : isReview
+                  ? t('composer.statusReview', 'Review needed')
+                  : isFailed
+                    ? t('composer.statusError', 'Generation issue')
+                    : t('composer.status', 'Generation status')}
+          </strong>
+          <em>{stage}</em>
         </div>
-        <ProgressBar progress={displayProgress} active />
+        <ProgressBar progress={displayProgress} active t={t} />
         <div className="composerLiveMeta">
-          <span>{elapsedMs === null ? t('timing.waiting', '等待中') : t('composer.liveElapsed', '已等待 {time}', { time: formatDuration(elapsedMs) })}</span>
+          <span>{elapsedMs === null ? t('timing.waiting', 'Waiting') : t('composer.liveElapsed', 'Waiting {time}', { time: formatDuration(elapsedMs) })}</span>
           <span>{liveHint}</span>
           <span>{modelLabel || '--'}</span>
           <span>{routeLabel}</span>
         </div>
-        {message ? <p className={`statusLine ${status}`}>{message}</p> : null}
+        {showErrorDetail ? (
+          <p className="composerLiveErrorText">{message}</p>
+        ) : message ? (
+          <p className={`statusLine ${status}`}>{message}</p>
+        ) : null}
       </div>
       <div className="composerLiveActions">
         {isGenerating ? (
           <button type="button" className="composerStopAction" onClick={onStop}>
             <X size={14} />
-            <span>{t('composer.stopWaiting', '停止当前等待')}</span>
+            <span>{t('composer.stopWaiting', 'Stop waiting')}</span>
           </button>
         ) : isFailed || isReview ? (
           <button type="button" className="composerRetryAction" onClick={onRetry}>
             <Redo2 size={14} />
-            <span>{isReview ? t('composer.confirmRetry', '确认重试') : t('composer.retry', '重试')}</span>
+            <span>{isReview ? t('composer.confirmRegenerate', '确认重新生成') : t('composer.regenerate', '重新生成')}</span>
           </button>
         ) : null}
       </div>

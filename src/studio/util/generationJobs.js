@@ -1,4 +1,4 @@
-const ACTIVE_SERVER_JOB_STATUSES = new Set(['queued', 'dispatching', 'upstream', 'saving']);
+const ACTIVE_SERVER_JOB_STATUSES = new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'saving']);
 const FINAL_SERVER_JOB_STATUSES = new Set(['succeeded', 'failed', 'unknown', 'canceled']);
 const QUEUE_STATUSES = new Set(['queued', 'running', 'failed', 'canceled', 'unknown', 'done']);
 

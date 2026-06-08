@@ -372,6 +372,35 @@
   white-space: nowrap !important;
 }
 
+.composerLiveErrorText {
+  max-height: 42px !important;
+  margin: 2px 0 0 !important;
+  padding: 6px 8px !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, #f59e0b 34%, var(--studio-border)) !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, #fff7ed 78%, var(--studio-surface-strong)) !important;
+  color: color-mix(in srgb, #92400e 84%, var(--studio-text-strong)) !important;
+  font-size: 11px !important;
+  font-weight: 760 !important;
+  line-height: 1.35 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.error,
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.needsReview {
+  height: 104px !important;
+  min-height: 104px !important;
+  max-height: 104px !important;
+  align-items: stretch !important;
+}
+
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.error .composerLiveMain,
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.needsReview .composerLiveMain {
+  align-content: start !important;
+  gap: 5px !important;
+}
+
 @media (max-width: 760px) {
   .canvasQueueDock {
     left: 10px;
@@ -421,4 +450,99 @@
     height: 22px !important;
     min-height: 22px !important;
   }
+}
+
+.canvasQueueTabs {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 6px !important;
+}
+
+.canvasQueueTabs button {
+  min-width: 0 !important;
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 62%, transparent) !important;
+  border-radius: 12px !important;
+  background: color-mix(in srgb, var(--studio-surface-soft) 76%, transparent) !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-weight: 860 !important;
+}
+
+.canvasQueueTabs button.active {
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
+  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong)) !important;
+  color: var(--studio-primary) !important;
+}
+
+.canvasQueueTabs button em {
+  min-width: 18px !important;
+  padding: 0 6px !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent) !important;
+  font-style: normal !important;
+}
+
+.canvasProgressPanel {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.canvasProgressSummary {
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.canvasProgressSummary strong {
+  color: var(--studio-text-strong) !important;
+  font-size: 12px !important;
+  font-weight: 920 !important;
+}
+
+.canvasProgressSummary span,
+.canvasProgressMessage {
+  margin: 0 !important;
+  color: var(--studio-text) !important;
+  font-size: 11px !important;
+  line-height: 1.42 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.canvasProgressMeta {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+
+.canvasProgressMeta span {
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 54%, transparent) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 86%, transparent) !important;
+  color: var(--studio-muted) !important;
+  font-size: 10.5px !important;
+  font-weight: 850 !important;
+}
+
+.canvasProgressActions {
+  display: flex !important;
+}
+
+.canvasProgressActions button {
+  width: 100% !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  border-radius: 12px !important;
 }

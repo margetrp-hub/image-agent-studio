@@ -2446,3 +2446,202 @@
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
 }
+
+/* Final composer coherence: expanded and folded states share one anchor system and one clear top-right control story. */
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerClosePill,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerClosePill {
+  background: color-mix(in srgb, #fff 82%, var(--studio-surface-soft)) !important;
+}
+
+.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerClosePill:hover,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerClosePill:hover {
+  border-color: color-mix(in srgb, #ef4444 28%, var(--studio-border)) !important;
+  background: color-mix(in srgb, #ef4444 7%, #fff) !important;
+  color: #ef4444 !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasLineage,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded {
+  left: 50% !important;
+  right: auto !important;
+  bottom: 22px !important;
+  width: min(720px, calc(100% - 72px)) !important;
+  min-width: 0 !important;
+  max-width: 720px !important;
+  height: 118px !important;
+  min-height: 118px !important;
+  max-height: 118px !important;
+  padding: 12px 14px !important;
+  grid-template-rows: 34px 52px !important;
+  gap: 8px !important;
+  transform: translateX(calc(-50% + (var(--rail-width, 58px) - var(--reference-sidebar-width, 300px)) / 2)) !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.hasLineage {
+  width: min(720px, calc(100% - var(--reference-sidebar-width) - 42px)) !important;
+  max-width: min(720px, calc(100% - var(--reference-sidebar-width) - 42px)) !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelHead,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelHead {
+  height: 34px !important;
+  min-height: 34px !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerHeaderActions,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerHeaderActions {
+  justify-content: end !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerIconPill,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerIconPill {
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 12px !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPromptRow,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread .composerPromptRow,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread .composerPromptRow,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noReferences .composerPromptRow,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPromptRow,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread .composerPromptRow,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread .composerPromptRow {
+  height: 52px !important;
+  min-height: 52px !important;
+  grid-template-columns: minmax(0, 1fr) 92px !important;
+  gap: 8px !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput textarea,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread .bottomComposerInput textarea,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread .bottomComposerInput textarea,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput textarea {
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  padding: 12px 14px !important;
+  border-radius: 15px !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerActionGroup,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread .composerActionGroup,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread .composerActionGroup,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerActionGroup {
+  width: 92px !important;
+  min-width: 92px !important;
+  max-width: 92px !important;
+  height: 52px !important;
+  grid-template-columns: 42px 42px !important;
+  grid-template-rows: 42px !important;
+  grid-auto-rows: 42px !important;
+  gap: 8px !important;
+}
+
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerAssistantAction,
+.creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerGenerateAction,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerAssistantAction,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerGenerateAction {
+  width: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  border-radius: 14px !important;
+}
+
+@media (max-width: 1080px) {
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded {
+    width: min(720px, calc(100vw - var(--rail-width, 58px) - 34px)) !important;
+    max-width: 720px !important;
+    transform: translateX(calc(-50% + var(--rail-width, 58px) / 2)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+  .studioLayout .creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    height: 108px !important;
+    min-height: 108px !important;
+    max-height: 108px !important;
+    padding: 10px !important;
+    grid-template-rows: 30px 48px !important;
+    gap: 8px !important;
+    transform: none !important;
+  }
+
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerIconPill,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerIconPill {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+  }
+
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPromptRow,
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread .composerPromptRow,
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread .composerPromptRow,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPromptRow {
+    height: 48px !important;
+    min-height: 48px !important;
+    grid-template-columns: minmax(0, 1fr) 82px !important;
+    gap: 6px !important;
+  }
+
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput textarea,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput textarea {
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 11px 12px !important;
+  }
+
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerActionGroup,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerActionGroup {
+    width: 82px !important;
+    min-width: 82px !important;
+    max-width: 82px !important;
+    height: 48px !important;
+    grid-template-columns: 38px 38px !important;
+    grid-template-rows: 38px !important;
+    grid-auto-rows: 38px !important;
+    gap: 6px !important;
+  }
+
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerAssistantAction,
+  .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerGenerateAction,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerAssistantAction,
+  .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerGenerateAction {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+}

@@ -26,6 +26,10 @@ export {
 } from './generationQueue.jsx';
 
 export {
+  RegenerateDialog
+} from './regenerateDialog.jsx';
+
+export {
   LeftRail
 } from './leftRail.jsx';
 
