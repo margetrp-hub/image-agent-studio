@@ -70,9 +70,9 @@
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "lucide-react": "^0.561.0",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "vite": "^7.2.7"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "vite": "^8.0.16"
   },
   "description": "Self-hosted AI image creation workstation for OpenAI-compatible generation and editing gateways.",
   "main": "vite.config.js",
@@ -89,5 +89,8 @@
   "bugs": {
     "url": "https://github.com/margetrp-hub/ai-image-workbench/issues"
   },
-  "homepage": "https://github.com/margetrp-hub/ai-image-workbench#readme"
+  "homepage": "https://github.com/margetrp-hub/ai-image-workbench#readme",
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
 }

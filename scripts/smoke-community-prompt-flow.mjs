@@ -121,6 +121,10 @@ try {
 
   await page.getByLabel('Upvote prompt').first().click();
   await page.getByLabel('Copy prompt').first().click();
+  await page.waitForFunction(() => {
+    const copyButton = document.querySelectorAll('.communityPromptStats button')[2];
+    return copyButton?.textContent?.includes('1');
+  }, null, { timeout: 8000 });
 
   const result = await page.evaluate(() => ({
     hasUploadButton: Boolean(document.querySelector('.uploadInspirationButton')),
