@@ -6447,7 +6447,7 @@ function CreationDesk({
             t={t}
           />
         ) : null}
-        {layoutSections.bottomComposer && !composerFolded ? (
+        {layoutSections.bottomComposer && !composerFolded && composerThreadHasContent ? (
           <ComposerThread
             ref={composerThreadRef}
             messages={assistantMessages}

@@ -54,6 +54,7 @@
     "smoke:session:modes": "npm exec --yes --package=playwright -- node scripts/smoke-current-session-mode-recovery.mjs",
     "smoke:provider:security": "npm exec --yes --package=playwright -- node scripts/smoke-provider-settings-security.mjs",
     "smoke:composer:layout": "npm exec --yes --package=playwright -- node scripts/smoke-composer-layout.mjs",
+    "smoke:composer:empty": "npm exec --yes --package=playwright -- node scripts/smoke-composer-empty-state.mjs",
     "smoke:canvas:performance": "npm exec --yes --package=playwright -- node scripts/smoke-canvas-performance.mjs",
     "smoke:canvas:blob-cleanup": "npm exec --yes --package=playwright -- node scripts/smoke-canvas-blob-cleanup.mjs",
     "smoke:canvas:link": "npm exec --yes --package=playwright -- node scripts/smoke-canvas-custom-link.mjs",

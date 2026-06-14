@@ -25,6 +25,95 @@
   pointer-events: auto !important;
 }
 
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) {
+  width: min(860px, calc(100% - 72px)) !important;
+  min-width: min(640px, calc(100% - 72px)) !important;
+  height: 186px !important;
+  min-height: 186px !important;
+  max-height: 186px !important;
+  bottom: clamp(42px, 9vh, 56px) !important;
+  grid-template-rows: 40px 76px 34px !important;
+  gap: 8px !important;
+  padding: 14px 16px !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) {
+  width: min(860px, calc(100% - var(--reference-sidebar-width) - 48px)) !important;
+  min-width: min(600px, calc(100% - var(--reference-sidebar-width) - 48px)) !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerPanelHead {
+  grid-row: 1 !important;
+  height: 40px !important;
+  min-height: 40px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerThread {
+  display: none !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerPromptRow {
+  grid-row: 2 !important;
+  height: 76px !important;
+  min-height: 76px !important;
+  max-height: 76px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 66px !important;
+  grid-template-rows: 76px !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+  overflow: visible !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .bottomComposerInput {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  height: 76px !important;
+  min-height: 76px !important;
+  max-height: 76px !important;
+  align-self: stretch !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .bottomComposerInput textarea {
+  height: 76px !important;
+  min-height: 76px !important;
+  max-height: 76px !important;
+  padding: 14px 16px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerActionGroup {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  position: static !important;
+  inset: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+  height: 76px !important;
+  width: 66px !important;
+  min-width: 66px !important;
+  max-width: 66px !important;
+  display: grid !important;
+  grid-template-rows: 35px 35px !important;
+  gap: 6px !important;
+  align-self: stretch !important;
+  justify-self: end !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerAssistantAction,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerGenerateAction {
+  height: 35px !important;
+  min-height: 35px !important;
+  max-height: 35px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerParamShelf,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) .composerParamShelf.isCollapsed {
+  grid-row: 3 !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+}
+
 .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus .composerParamShelf,
 .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus .composerParamShelf.isExpanded,
 .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus .composerParamShelf.isCollapsed {
