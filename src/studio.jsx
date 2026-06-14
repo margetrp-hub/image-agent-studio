@@ -1819,19 +1819,19 @@ function PromptCaseCard({ item, selected, onSelect, favorite, onToggleFavorite, 
         {meta ? <em>{meta}</em> : null}
       </button>
       <div className="communityPromptStats">
-        <button type="button" className={item.userReaction === 'up' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'up'); }}>
+        <button type="button" aria-label={t('gallery.upvotePrompt', 'Upvote prompt')} className={item.userReaction === 'up' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'up'); }}>
           <ThumbsUp size={12} />
           {item.reactions?.up || 0}
         </button>
-        <button type="button" className={item.userReaction === 'down' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'down'); }}>
+        <button type="button" aria-label={t('gallery.downvotePrompt', 'Downvote prompt')} className={item.userReaction === 'down' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'down'); }}>
           <ThumbsDown size={12} />
           {item.reactions?.down || 0}
         </button>
-        <button type="button" onClick={(event) => { event.stopPropagation(); onReact?.(item, 'copy'); }}>
+        <button type="button" aria-label={t('gallery.copyPrompt', 'Copy prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'copy'); }}>
           <Copy size={12} />
           {item.copied || 0}
         </button>
-        <button type="button" onClick={(event) => { event.stopPropagation(); onReact?.(item, 'share'); }}>
+        <button type="button" aria-label={t('gallery.sharePrompt', 'Share prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'share'); }}>
           <Share2 size={12} />
           {item.shared || 0}
         </button>

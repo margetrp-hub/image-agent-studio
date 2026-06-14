@@ -667,10 +667,11 @@ async function readAssetSnapshot(auth) {
 }
 
 async function buildUserBackup(auth, reason = 'manual') {
-  const [records, sessionSnapshot, jobs, assets] = await Promise.all([
+  const [records, sessionSnapshot, jobs, communityPrompts, assets] = await Promise.all([
     readRecords(auth),
     readSessionSnapshot(auth),
     readJobs(auth),
+    readCommunityPrompts(auth),
     readAssetSnapshot(auth)
   ]);
   return {
@@ -687,6 +688,7 @@ async function buildUserBackup(auth, reason = 'manual') {
     counts: {
       records: records.length,
       jobs: jobs.length,
+      communityPrompts: communityPrompts.length,
       assets: assets.length,
       hasSession: Boolean(sessionSnapshot.legacy) || sessionSnapshot.sessions.length > 0,
       sessions: sessionSnapshot.sessions.length
@@ -696,6 +698,7 @@ async function buildUserBackup(auth, reason = 'manual') {
       session: sessionSnapshot.legacy,
       sessions: sessionSnapshot.sessions,
       jobs,
+      communityPrompts,
       assets
     }
   };
@@ -728,6 +731,7 @@ function validateUserBackup(payload) {
     session: data.session && typeof data.session === 'object' ? data.session : null,
     sessions: Array.isArray(data.sessions) ? data.sessions.filter((session) => session && typeof session === 'object') : [],
     jobs: Array.isArray(data.jobs) ? data.jobs : [],
+    communityPrompts: Array.isArray(data.communityPrompts) ? data.communityPrompts : [],
     assets: Array.isArray(data.assets) ? data.assets : []
   };
 }
@@ -763,6 +767,7 @@ async function restoreUserBackup(auth, payload) {
     if (sessionId) await writeSession(auth, session, sessionId);
   }
   await writeJobs(auth, snapshot.jobs);
+  await writeCommunityPrompts(auth, snapshot.communityPrompts);
   await restoreAssetSnapshot(auth, snapshot.assets);
   return {
     ok: true,
@@ -771,6 +776,7 @@ async function restoreUserBackup(auth, payload) {
     counts: {
       records: snapshot.records.length,
       jobs: snapshot.jobs.length,
+      communityPrompts: snapshot.communityPrompts.length,
       assets: snapshot.assets.length,
       hasSession: Boolean(snapshot.session) || snapshot.sessions.length > 0,
       sessions: snapshot.sessions.length

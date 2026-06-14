@@ -119,8 +119,8 @@ try {
   await page.locator('.inspirationUploadPanel button[type="submit"]').click();
   await page.waitForSelector('.promptOnlyZone .caseTile.promptOnly', { timeout: 8000 });
 
-  await page.locator('.communityPromptStats button').first().click();
-  await page.locator('.communityPromptStats button').nth(2).click();
+  await page.getByLabel('Upvote prompt').first().click();
+  await page.getByLabel('Copy prompt').first().click();
 
   const result = await page.evaluate(() => ({
     hasUploadButton: Boolean(document.querySelector('.uploadInspirationButton')),

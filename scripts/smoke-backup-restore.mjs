@@ -90,6 +90,15 @@ try {
       resultUrls: ['data:image/png;base64,iVBORw0KGgo=']
     })
   });
+  await api('/community-prompts', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: 'Backup community prompt',
+      prompt: 'A recoverable community prompt used by the backup smoke test.',
+      category: 'smoke',
+      visibility: 'private'
+    })
+  });
 
   const backupResponse = await fetch(`${baseUrl}/studio-api/backup`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -101,22 +110,32 @@ try {
   if (backup.counts.records !== 1 || !backup.counts.hasSession || backup.counts.assets < 1) {
     throw new Error(`Backup counts were wrong.\n${JSON.stringify(backup.counts, null, 2)}`);
   }
+  if (backup.counts.communityPrompts !== 1 || backup.data?.communityPrompts?.[0]?.title !== 'Backup community prompt') {
+    throw new Error(`Backup did not include community prompts.\n${JSON.stringify(backup.counts, null, 2)}`);
+  }
 
   await api('/history', { method: 'DELETE' });
   await api('/session', { method: 'DELETE' });
+  const userDir = path.join(tmpDir, 'users');
+  const userKeys = await fs.readdir(userDir);
+  await fs.rm(path.join(userDir, userKeys[0], 'community-prompts.json'), { force: true });
 
   const restore = await api('/backup/restore', {
     method: 'POST',
     body: JSON.stringify(backup)
   });
-  const restoredSession = await api('/session');
+  const restoredSession = await api('/session?sessionId=backup-smoke-session');
   const restoredHistory = await api('/history');
+  const restoredPrompts = await api('/community-prompts');
 
   if (restore.counts.records !== 1 || restoredSession.session?.sessionId !== 'backup-smoke-session') {
     throw new Error(`Restore did not bring the session back.\n${JSON.stringify({ restore, restoredSession }, null, 2)}`);
   }
   if (restoredHistory.records?.[0]?.id !== 'backup-smoke-history') {
     throw new Error(`Restore did not bring history back.\n${JSON.stringify(restoredHistory, null, 2)}`);
+  }
+  if (restore.counts.communityPrompts !== 1 || restoredPrompts.items?.[0]?.title !== 'Backup community prompt') {
+    throw new Error(`Restore did not bring community prompts back.\n${JSON.stringify({ restore, restoredPrompts }, null, 2)}`);
   }
 
   console.log(JSON.stringify({
