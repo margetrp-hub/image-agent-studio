@@ -22,6 +22,146 @@
     0 1px 0 color-mix(in srgb, #fff 78%, transparent) inset !important;
 }
 
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.paramRailCollapsed.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasReferences {
+  bottom: 22px !important;
+  width: min(760px, calc(100% - 96px)) !important;
+  min-width: min(520px, calc(100% - 96px)) !important;
+  height: 84px !important;
+  min-height: 84px !important;
+  max-height: 84px !important;
+  padding: 9px 12px !important;
+  grid-template-rows: 22px 46px !important;
+  gap: 6px !important;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+}
+
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread,
+.studioLayout .creationDesk.referencesOpen.composerOpen.composerFolded .bottomComposerBar.isFolded.hasReferences {
+  left: calc((100% - var(--reference-sidebar-width)) / 2) !important;
+  width: min(680px, calc(100% - var(--reference-sidebar-width) - 48px)) !important;
+  min-width: 0 !important;
+  max-width: calc(100% - var(--reference-sidebar-width) - 48px) !important;
+  transform: translateX(-50%) !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelHead {
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerThread,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerParamShelf,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerLiveStatus,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerReferenceStrip {
+  display: none !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerSessionIdentity {
+  grid-template-columns: 22px minmax(0, 1fr) !important;
+  gap: 7px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerSessionIcon {
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  border-radius: 8px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelTitle {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelTitle strong,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelTitle span,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelTitle em {
+  overflow: hidden !important;
+  line-height: 1 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelTitle strong {
+  flex: 0 0 auto !important;
+  font-size: 12px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPanelTitle span {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-size: 10.5px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerIconPill {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  border-radius: 10px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerPromptRow,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.noThread .composerPromptRow,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded.hasThread .composerPromptRow {
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  grid-template-columns: minmax(0, 1fr) 84px !important;
+  gap: 8px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput textarea {
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .bottomComposerInput textarea {
+  padding: 10px 14px !important;
+  border-radius: 14px !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerActionGroup {
+  width: 84px !important;
+  min-width: 84px !important;
+  max-width: 84px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  grid-template-columns: 38px 38px !important;
+  grid-template-rows: 38px !important;
+  grid-auto-rows: 38px !important;
+  gap: 8px !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerAssistantAction,
+.studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.isFolded .composerGenerateAction {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  border-radius: 13px !important;
+}
+
 .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .bottomComposerInput textarea {
   border-color: color-mix(in srgb, var(--studio-border) 64%, transparent) !important;
   background:
