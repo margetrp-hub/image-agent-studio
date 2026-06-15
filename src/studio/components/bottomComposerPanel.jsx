@@ -27,13 +27,19 @@ export function BottomComposerPanel({
     hasReferences ? 'hasReferences' : 'noReferences'
   ].filter(Boolean).join(' ');
   const showCloseAction = !composerFolded;
+  const handleReopen = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onOpen?.();
+  };
 
   if (!isOpen) {
     return (
       <button
         type="button"
         className="bottomComposerReopenDock"
-        onClick={onOpen}
+        onClick={handleReopen}
+        onPointerDown={handleReopen}
         aria-label={t('composer.expand', '展开对话')}
         title={t('composer.expand', '展开对话')}
       >

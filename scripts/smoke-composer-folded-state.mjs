@@ -157,6 +157,63 @@ async function runScenario(browser, baseUrl) {
   return result;
 }
 
+async function runReopenScenario(browser, baseUrl) {
+  const page = await browser.newPage({ viewport: { width: 1033, height: 535 } });
+  await installRoutes(page);
+  await page.addInitScript(({ layoutKey, sessionKey }) => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.setItem(layoutKey, JSON.stringify({
+      prompt: false,
+      references: true,
+      parameters: true,
+      parametersRail: false,
+      bottomComposer: false,
+      composerParameters: false,
+      composerFolded: false
+    }));
+    localStorage.setItem(sessionKey, JSON.stringify({
+      sessionId: 'composer-reopen-smoke-session',
+      mode: 'image',
+      status: 'idle',
+      message: '',
+      progress: { stage: 'idle', percent: 0, completed: 0, total: 1 },
+      prompt: '1:1方图，1024x1024，原创二次元机甲插画。',
+      model: 'gpt-image-2',
+      assistantMessages: [],
+      promptSuggestion: null,
+      generationQueue: [],
+      canvasNodes: []
+    }));
+  }, { layoutKey, sessionKey });
+
+  await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+  await page.waitForSelector('.bottomComposerReopenDock', { timeout: 15000 });
+  const before = await page.evaluate(() => {
+    const dock = document.querySelector('.bottomComposerReopenDock');
+    const box = dock?.getBoundingClientRect();
+    const center = box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : null;
+    const top = center ? document.elementFromPoint(center.x, center.y) : null;
+    return {
+      dock: box ? { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom, center } : null,
+      topElement: top ? { tag: top.tagName, className: String(top.className || ''), text: top.textContent?.trim().slice(0, 80) || '' } : null
+    };
+  });
+  assert(before.dock, 'reopen: dock is not visible.', before);
+  assert(before.topElement?.className?.includes('bottomComposerReopen') || before.topElement?.tag === 'BUTTON', 'reopen: dock is covered by another layer.', before);
+  await page.mouse.click(before.dock.center.x, before.dock.center.y);
+  await page.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 5000 });
+  const after = await page.evaluate(() => ({
+    dockVisible: Boolean(document.querySelector('.bottomComposerReopenDock')),
+    expandedVisible: Boolean(document.querySelector('.bottomComposerBar.isExpandedComposer')),
+    foldedVisible: Boolean(document.querySelector('.bottomComposerBar.isFolded')),
+    layout: localStorage.getItem('image-sub2api-studio:workbench-layout:v5')
+  }));
+  assert(after.expandedVisible && !after.dockVisible && !after.foldedVisible, 'reopen: clicking dock did not restore the expanded composer.', { before, after });
+  await page.close();
+  return { before, after };
+}
+
 const server = await createServer({
   logLevel: 'silent',
   server: {
@@ -174,7 +231,8 @@ try {
   assert(baseUrl, 'Vite smoke server did not expose a local URL.');
   browser = await chromium.launch({ headless: true });
   const result = await runScenario(browser, baseUrl);
-  console.log(JSON.stringify({ ok: true, screenshotPath, result }, null, 2));
+  const reopen = await runReopenScenario(browser, baseUrl);
+  console.log(JSON.stringify({ ok: true, screenshotPath, result, reopen }, null, 2));
 } finally {
   if (browser) await browser.close();
   await server.close();
