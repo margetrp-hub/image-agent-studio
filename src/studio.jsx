@@ -76,6 +76,7 @@ import './styles/studio.composer-final-modal.css';
 import './styles/studio.composer-final-locks.css';
 import './styles/studio.composer-final-live.css';
 import './styles/studio.composer-live-guards.css';
+import './styles/studio.imageforge-polish.css';
 import {
   AiGatewayClient,
   StudioHistoryClient,

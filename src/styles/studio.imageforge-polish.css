@@ -1,0 +1,250 @@
+/* ImageForge-inspired finishing pass: compact darkroom feedback without changing routing. */
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer {
+  border-color: color-mix(in srgb, var(--studio-border) 72%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #ffffff 92%, transparent), color-mix(in srgb, var(--studio-surface-strong) 92%, transparent)),
+    var(--studio-surface-strong) !important;
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.16),
+    0 1px 0 color-mix(in srgb, #fff 78%, transparent) inset !important;
+  transition:
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.noThread:not(.hasLiveStatus) {
+  box-shadow:
+    0 20px 58px rgba(15, 23, 42, 0.13),
+    0 0 0 1px color-mix(in srgb, var(--studio-primary) 7%, transparent) inset,
+    0 1px 0 color-mix(in srgb, #fff 78%, transparent) inset !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .bottomComposerInput textarea {
+  border-color: color-mix(in srgb, var(--studio-border) 64%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #fff 86%, transparent), color-mix(in srgb, var(--studio-surface-soft) 78%, transparent)) !important;
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.055),
+    0 1px 0 color-mix(in srgb, #fff 80%, transparent) inset !important;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .bottomComposerInput textarea:focus {
+  border-color: color-mix(in srgb, var(--studio-primary) 58%, var(--studio-border)) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--studio-primary) 13%, transparent),
+    0 12px 34px rgba(15, 23, 42, 0.08),
+    0 1px 0 color-mix(in srgb, #fff 86%, transparent) inset !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerGenerateAction,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerAssistantAction {
+  border: 1px solid color-mix(in srgb, var(--studio-border) 62%, transparent) !important;
+  border-radius: 15px !important;
+  box-shadow:
+    0 9px 22px rgba(15, 23, 42, 0.08),
+    0 1px 0 color-mix(in srgb, #fff 66%, transparent) inset !important;
+  transition:
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerGenerateAction:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-primary) 50%, var(--studio-border)) !important;
+  background:
+    linear-gradient(135deg, var(--studio-primary), color-mix(in srgb, var(--studio-primary) 74%, #0f766e)) !important;
+  color: #fff !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerAssistantAction:not(:disabled) {
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent) !important;
+  color: var(--studio-text-strong) !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerGenerateAction:not(:disabled):hover,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerAssistantAction:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 56%, var(--studio-border)) !important;
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.12),
+    0 0 0 3px color-mix(in srgb, var(--studio-primary) 9%, transparent),
+    0 1px 0 color-mix(in srgb, #fff 70%, transparent) inset !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerGenerateAction:not(:disabled):active,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerAssistantAction:not(:disabled):active {
+  transform: translateY(0) scale(0.99) !important;
+}
+
+.composerLiveStatus,
+.canvasProgressPanel {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus:has(.composerLiveStatus.error),
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer.hasLiveStatus:has(.composerLiveStatus.needsReview) {
+  height: min(520px, calc(100% - 32px)) !important;
+  min-height: min(500px, calc(100% - 32px)) !important;
+  grid-template-rows: 44px 108px minmax(88px, 1fr) 104px 44px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.error,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.needsReview {
+  height: 108px !important;
+  min-height: 108px !important;
+  max-height: 108px !important;
+  padding: 11px 12px !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.error .composerLiveErrorText,
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer .composerLiveStatus.needsReview .composerLiveErrorText {
+  max-height: 46px !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.composerLiveStatus::before,
+.canvasProgressPanel::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(110deg, transparent 0 36%, color-mix(in srgb, var(--studio-primary) 13%, transparent) 48%, transparent 62%),
+    radial-gradient(120px 58px at 12% 0%, color-mix(in srgb, var(--studio-primary) 10%, transparent), transparent 72%) !important;
+  opacity: 0 !important;
+  transform: translateX(-26%) !important;
+}
+
+.composerLiveStatus.isRunning::before,
+.canvasProgressPanel:has(.generationProgress:not(.failed))::before {
+  opacity: 1 !important;
+  animation: imageforgeExposeSweep 2.4s ease-in-out infinite !important;
+}
+
+.generationProgress .progressTrack {
+  height: 6px !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--studio-text-strong) 7%, var(--studio-surface-soft)) !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+}
+
+.generationProgress .progressTrack i {
+  border-radius: inherit !important;
+  background:
+    linear-gradient(90deg, var(--studio-primary), color-mix(in srgb, #ffd166 38%, var(--studio-primary))) !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--studio-primary) 34%, transparent) !important;
+  transition: width 360ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.canvasQueueDock {
+  border-color: color-mix(in srgb, var(--studio-border) 66%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #fff 90%, transparent), color-mix(in srgb, var(--studio-surface-strong) 90%, transparent)) !important;
+  box-shadow:
+    0 18px 48px rgba(15, 23, 42, 0.12),
+    0 1px 0 color-mix(in srgb, #fff 76%, transparent) inset !important;
+}
+
+.canvasQueueItem.running b {
+  animation: imageforgePulse 1.3s ease-in-out infinite !important;
+}
+
+.graphNode.resultNode:not(.virtualized) {
+  animation: imageforgeDevelopFrame 520ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+
+.graphNode.resultNode .canvasNodeMedia img,
+.graphNode.resultNode .canvasNodeMedia video {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 220ms ease !important;
+}
+
+.graphNode.resultNode:hover .canvasNodeMedia img,
+.graphNode.resultNode:hover .canvasNodeMedia video,
+.graphNode.resultNode.selected .canvasNodeMedia img,
+.graphNode.resultNode.selected .canvasNodeMedia video {
+  filter: saturate(1.04) contrast(1.02) !important;
+  transform: scale(1.018) !important;
+}
+
+@keyframes imageforgeDevelopFrame {
+  from {
+    opacity: 0;
+    filter: brightness(0.84) contrast(1.22) saturate(0.82);
+    transform: translateY(8px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes imageforgeExposeSweep {
+  0% {
+    transform: translateX(-48%);
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  72% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(48%);
+    opacity: 0;
+  }
+}
+
+@keyframes imageforgePulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--studio-primary) 20%, transparent),
+      0 1px 0 color-mix(in srgb, #fff 60%, transparent) inset !important;
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 6px color-mix(in srgb, var(--studio-primary) 0%, transparent),
+      0 1px 0 color-mix(in srgb, #fff 60%, transparent) inset !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerInput textarea,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerGenerateAction,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .composerAssistantAction,
+  .generationProgress .progressTrack i,
+  .graphNode.resultNode .canvasNodeMedia img,
+  .graphNode.resultNode .canvasNodeMedia video {
+    transition: none !important;
+  }
+
+  .composerLiveStatus.isRunning::before,
+  .canvasProgressPanel:has(.generationProgress:not(.failed))::before,
+  .canvasQueueItem.running b,
+  .graphNode.resultNode:not(.virtualized) {
+    animation: none !important;
+  }
+}
