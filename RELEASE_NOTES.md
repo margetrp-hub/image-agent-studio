@@ -1,5 +1,26 @@
 ﻿# Release Notes
 
+## 1.0.1
+
+This release completes the public rename to **Image Agent Studio** and removes old release-package naming from the publishing flow.
+
+### What Changed
+
+- README and README.zh-CN now describe the project as a standalone image agent workstation, with provider-neutral wording for official OpenAI-style APIs, custom OpenAI-compatible gateways, Sub2API, NewAPI, and future adapters.
+- The package name is now `image-agent-studio`.
+- Release packages now use only:
+  - `image-agent-studio-core-update-*.zip`
+  - `image-agent-studio-service-update-*.zip`
+- The old package wrapper entry was removed.
+- The release checker now fails if legacy `image-sub2api-studio-*` or `ai-image-workbench-*` update packages appear in `release/`.
+
+### Verification
+
+- `npm run check:deploy`
+- `npm run check:release`
+- `npm run check:html`
+- `npm run check:docs`
+
 ## 1.0.0
 
 This release marks Image Agent Studio as a standalone self-hosted image creation workstation, with Sub2API kept as one compatible gateway path rather than the project identity.
