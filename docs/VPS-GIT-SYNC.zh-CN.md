@@ -35,7 +35,7 @@ sudo apt-get install -y git nodejs npm
 拉取仓库：
 
 ```bash
-sudo git clone https://github.com/margetrp-hub/ai-image-workbench.git \
+sudo git clone https://github.com/margetrp-hub/image-agent-studio.git \
   /opt/ai-image-workbench-repo
 ```
 

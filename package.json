@@ -83,15 +83,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/margetrp-hub/ai-image-workbench.git"
+    "url": "git+https://github.com/margetrp-hub/image-agent-studio.git"
   },
-  "keywords": [],
+  "keywords": [
+    "ai-image",
+    "image-generation",
+    "image-agent",
+    "openai-compatible",
+    "gpt-image-2",
+    "prompt-workflow",
+    "self-hosted"
+  ],
   "author": "margetrp-hub",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/margetrp-hub/ai-image-workbench/issues"
+    "url": "https://github.com/margetrp-hub/image-agent-studio/issues"
   },
-  "homepage": "https://github.com/margetrp-hub/ai-image-workbench#readme",
+  "homepage": "https://github.com/margetrp-hub/image-agent-studio#readme",
   "devDependencies": {
     "playwright": "^1.60.0"
   }

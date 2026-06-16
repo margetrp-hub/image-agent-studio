@@ -21,7 +21,7 @@ Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
 If you are exploring AI image workflows, OpenAI-compatible image endpoints, gateway deployment, model routing, prompt workflows, or future workstation improvements, you are welcome to join the QQ group: `260789529`.
 
 <p align="center">
-  <a href="https://github.com/margetrp-hub/ai-image-workbench"><img src="https://img.shields.io/badge/project-image--agent--studio-0f766e?style=flat-square" alt="project"></a>
+  <a href="https://github.com/margetrp-hub/image-agent-studio"><img src="https://img.shields.io/badge/project-image--agent--studio-0f766e?style=flat-square" alt="project"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-1f7268?style=flat-square" alt="MIT License"></a>
   <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-中文-blue?style=flat-square" alt="中文"></a>
 </p>

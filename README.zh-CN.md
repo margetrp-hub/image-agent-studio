@@ -21,7 +21,7 @@ Image Agent Studio 是一个可以自托管的 AI 图像创作工作站，面向
 如果你也在做 AI 生图工作流，或者想一起讨论官方 API、自定义兼容接口、Sub2API、NewAPI、部署、模型调用、提示词工作流和后续改进，欢迎进 QQ 交流群：`260789529`。
 
 <p align="center">
-  <a href="https://github.com/margetrp-hub/ai-image-workbench"><img src="https://img.shields.io/badge/project-image--agent--studio-0f766e?style=flat-square" alt="project"></a>
+  <a href="https://github.com/margetrp-hub/image-agent-studio"><img src="https://img.shields.io/badge/project-image--agent--studio-0f766e?style=flat-square" alt="project"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-1f7268?style=flat-square" alt="MIT License"></a>
   <a href="./README.md"><img src="https://img.shields.io/badge/lang-English-blue?style=flat-square" alt="English"></a>
 </p>

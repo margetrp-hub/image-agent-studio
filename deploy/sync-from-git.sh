@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/margetrp-hub/ai-image-workbench.git}"
+REPO_URL="${REPO_URL:-https://github.com/margetrp-hub/image-agent-studio.git}"
 BRANCH="${BRANCH:-main}"
 REPO_DIR="${REPO_DIR:-/opt/ai-image-workbench-repo}"
 SERVICE_DIR="${SERVICE_DIR:-/opt/image-sub2api-studio}"
