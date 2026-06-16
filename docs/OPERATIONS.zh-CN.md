@@ -1,4 +1,4 @@
-# AI Image Workbench 运维手册
+﻿# Image Agent Studio 运维手册
 
 这份手册用于把工作站从“能跑”推进到“能长期维护”：备份、恢复、Docker 升级、自检和错误归因都要有固定入口。
 

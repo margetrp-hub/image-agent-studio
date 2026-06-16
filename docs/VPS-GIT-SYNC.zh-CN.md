@@ -1,4 +1,4 @@
-# VPS 直接同步 Git 仓库部署
+﻿# VPS 直接同步 Git 仓库部署
 
 这份说明用于把 VPS 更新方式从“本地打包 zip 后上传”改成“服务器直接同步 Git 仓库”。目标是让仓库和 VPS 保持同一节奏：
 
@@ -8,7 +8,7 @@
 - Node 历史/会话服务从同一份仓库更新。
 - `/var/lib/image-sub2api-studio` 是生产持久化目录，不跟随 Git 覆盖。
 
-> 说明：项目正在逐步更名为 AI Image Workbench，但生产数据目录仍默认沿用 `/var/lib/image-sub2api-studio`。这是为了避免历史图库、当前会话、队列任务、生成图片和受保护素材库在升级后“看起来消失”。
+> 说明：项目正在逐步更名为 Image Agent Studio，但生产数据目录仍默认沿用 `/var/lib/image-sub2api-studio`。这是为了避免历史图库、当前会话、队列任务、生成图片和受保护素材库在升级后“看起来消失”。
 
 ## 当前线上路径
 

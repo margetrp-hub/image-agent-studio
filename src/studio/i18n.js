@@ -8,8 +8,8 @@ export const SUPPORTED_LANGUAGES = [
 export const dictionaries = {
   'zh-CN': {
     app: {
-      title: '创作工作台',
-      brand: '创作工作台',
+      title: 'Image Agent Studio',
+      brand: 'Image Agent Studio',
       back: '返回画廊'
     },
     language: {
@@ -558,8 +558,8 @@ export const dictionaries = {
   },
   en: {
     app: {
-      title: 'Creation Desk',
-      brand: 'Creation Desk',
+      title: 'Image Agent Studio',
+      brand: 'Image Agent Studio',
       back: 'Back to gallery'
     },
     language: {

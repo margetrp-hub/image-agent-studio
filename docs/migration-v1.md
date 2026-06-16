@@ -1,4 +1,4 @@
-# AI Image Workbench v1 Migration Plan
+﻿# Image Agent Studio v1 Migration Plan
 
 This migration plan moves the project from the current mixed `src/` plus history-service layout toward the v1 `apps/web` and `apps/server` architecture without breaking existing deployments.
 

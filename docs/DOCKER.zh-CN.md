@@ -1,4 +1,4 @@
-# Docker 生产部署
+﻿# Docker 生产部署
 
 这份 Docker 配置不是纯静态 demo，而是完整可运行形态：
 
@@ -206,7 +206,7 @@ STUDIO_SKIP_BACKUP=true npm run ops:upgrade
 STUDIO_SKIP_PULL=true npm run ops:upgrade
 ```
 
-不要用 zip 包更新 Docker 容器里的前端。Docker 模式的更新入口是 Git 仓库和镜像重建；传统 VPS 模式才使用 `ai-image-workbench-core-update-*.zip` 和 `ai-image-workbench-service-update-*.zip`。旧名称 `image-sub2api-studio-core-update-*.zip` 和 `image-sub2api-studio-service-update-*.zip` 仍会作为兼容副本生成。
+不要用 zip 包更新 Docker 容器里的前端。Docker 模式的更新入口是 Git 仓库和镜像重建；传统 VPS 模式使用 `image-agent-studio-core-update-*.zip` 和 `image-agent-studio-service-update-*.zip`。
 
 ## 5. VPS/Nginx 外层反代
 

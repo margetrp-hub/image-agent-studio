@@ -1,4 +1,4 @@
-# 旧 zip 包更新说明
+﻿# 旧 zip 包更新说明
 
 这份文档只保留给无法直接从 GitHub 拉取代码的临时场景。长期 VPS 部署请优先使用：
 
@@ -18,7 +18,7 @@ Git 同步方式会在服务器本地构建、覆盖正确的 Nginx 静态目录
 /var/lib/image-sub2api-studio/library/
 ```
 
-它们保存历史图库、当前会话、队列任务、生成图片和受保护素材库。项目虽然逐步更名为 AI Image Workbench，但生产数据目录仍沿用旧路径，目的是避免升级后历史数据丢失。
+它们保存历史图库、当前会话、队列任务、生成图片和受保护素材库。项目虽然逐步更名为 Image Agent Studio，但生产数据目录仍沿用旧路径，目的是避免升级后历史数据丢失。
 
 ## 当前链路约定
 
@@ -49,15 +49,14 @@ npm run package:release
 
 脚本会生成：
 
-- `ai-image-workbench-core-update-*.zip`：覆盖静态目录。
-- `ai-image-workbench-service-update-*.zip`：覆盖服务运行目录。
-- `image-sub2api-studio-core-update-*.zip` 和 `image-sub2api-studio-service-update-*.zip`：旧名称兼容副本，已有脚本仍可继续使用。
+- `image-agent-studio-core-update-*.zip`：覆盖静态目录。
+- `image-agent-studio-service-update-*.zip`：覆盖服务运行目录。
 
 ## 上传到服务器
 
 ```bash
-scp release/ai-image-workbench-core-update-YYYYMMDD-HHMMSS.zip user@YOUR_SERVER:/home/user/
-scp release/ai-image-workbench-service-update-YYYYMMDD-HHMMSS.zip user@YOUR_SERVER:/home/user/
+scp release/image-agent-studio-core-update-YYYYMMDD-HHMMSS.zip user@YOUR_SERVER:/home/user/
+scp release/image-agent-studio-service-update-YYYYMMDD-HHMMSS.zip user@YOUR_SERVER:/home/user/
 ```
 
 ## 覆盖静态目录
@@ -72,7 +71,7 @@ scp release/ai-image-workbench-service-update-YYYYMMDD-HHMMSS.zip user@YOUR_SERV
 
 ```bash
 sudo mkdir -p /var/www/ohlaoo-studio
-sudo unzip -o /home/user/ai-image-workbench-core-update-YYYYMMDD-HHMMSS.zip -d /var/www/ohlaoo-studio
+sudo unzip -o /home/user/image-agent-studio-core-update-YYYYMMDD-HHMMSS.zip -d /var/www/ohlaoo-studio
 
 sudo find /var/www/ohlaoo-studio -type d -exec chmod 755 {} \;
 sudo find /var/www/ohlaoo-studio -type f -exec chmod 644 {} \;
@@ -86,7 +85,7 @@ sudo find /var/www/ohlaoo-studio -type f -exec chmod 644 {} \;
 
 ```bash
 sudo mkdir -p /opt/image-sub2api-studio
-sudo unzip -o /home/user/ai-image-workbench-service-update-YYYYMMDD-HHMMSS.zip -d /opt/image-sub2api-studio
+sudo unzip -o /home/user/image-agent-studio-service-update-YYYYMMDD-HHMMSS.zip -d /opt/image-sub2api-studio
 
 cd /opt/image-sub2api-studio
 sudo npm ci --omit=dev

@@ -1,6 +1,6 @@
-# Sub2API Compatibility Notes
+﻿# Sub2API Compatibility Notes
 
-This file documents the legacy Sub2API-oriented deployment path. It is kept for existing installations and for users who still want to attach AI Image Workbench to a Sub2API-compatible account system.
+This file documents the legacy Sub2API-oriented deployment path. It is kept for existing installations and for users who still want to attach Image Agent Studio to a Sub2API-compatible account system.
 
 The current project direction is broader than Sub2API. New deployments should read:
 

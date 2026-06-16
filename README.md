@@ -1,14 +1,16 @@
-# AI Image Workbench
+# Image Agent Studio
 
 ## Project Story
 
-AI Image Workbench is a self-hosted image creation workstation for OpenAI-compatible image generation and editing gateways.
+Image Agent Studio is a self-hosted image creation workstation for OpenAI-compatible image generation and editing gateways.
 
-I built it because the early image-generation workflow was too scattered: prompt writing lived in one place, reference images in another, generation settings in a payload, results in a temporary browser state, and follow-up edits were easy to lose after refresh.
+I built it because the image workflow kept getting split apart: prompts lived in one place, reference images in another, generation parameters were buried in request payloads, and the result history was too easy to lose after refresh.
 
-The workstation keeps that loop in one focused page: write or refine a prompt, add reference images, choose a provider/model, generate through `/v1/images/generations` or edit through `/v1/images/edits`, continue from any canvas image, keep visual lineage between results, and restore sessions/history through the optional persistence service.
+The workstation keeps the loop in one focused page: write or refine a prompt, add reference images, choose a provider/model, generate through `/v1/images/generations` or edit through `/v1/images/edits`, continue from any canvas image, keep visual lineage between results, and restore sessions/history through the optional persistence service.
 
-It can run with official OpenAI-style APIs, custom compatible gateways, Sub2API, NewAPI, and similar providers. Sub2API was one of the first gateways used during development, but it is now treated as one supported gateway rather than the identity of the project.
+It works with official OpenAI-style APIs, custom compatible gateways, Sub2API, NewAPI, and similar providers. The point is not to depend on one gateway forever, but to keep the studio flexible enough to grow with the workflow.
+
+The "Agent" part is intentional: the studio is not a prompt dump. It is meant to become a workflow layer where an assistant helps negotiate the brief, split the prompt into readable parts, keep reference images and masks attached to the right branch, submit jobs to the right image route, and preserve enough context for the next iteration.
 
 This repository only includes the workstation app and deployment examples. It does not include any private production homepage, private production image library, real keys, or gateway backend implementation.
 
@@ -19,7 +21,7 @@ Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
 If you are exploring AI image workflows, OpenAI-compatible image endpoints, gateway deployment, model routing, prompt workflows, or future workstation improvements, you are welcome to join the QQ group: `260789529`.
 
 <p align="center">
-  <a href="https://github.com/margetrp-hub/ai-image-workbench"><img src="https://img.shields.io/badge/project-ai--image--workbench-0f766e?style=flat-square" alt="project"></a>
+  <a href="https://github.com/margetrp-hub/ai-image-workbench"><img src="https://img.shields.io/badge/project-image--agent--studio-0f766e?style=flat-square" alt="project"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-1f7268?style=flat-square" alt="MIT License"></a>
   <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-中文-blue?style=flat-square" alt="中文"></a>
 </p>
@@ -67,7 +69,7 @@ This repository is not a model provider and not a gateway backend.
 
 Official APIs, custom gateways, Sub2API, NewAPI, and similar services own accounts, keys, quota, models, billing, and gateway routing.
 
-AI Image Workbench owns the creation UI: prompts, reference upload, parameter controls, infinite canvas, canvas continuation, history gallery, current-session persistence, and deployment samples.
+Image Agent Studio owns the creation UI: prompts, reference upload, parameter controls, infinite canvas, canvas continuation, history gallery, current-session persistence, and deployment samples.
 
 Community prompt templates are used as learning/reference material. Where applicable, prompt template content follows `CC BY 4.0`; keep attribution to original authors or sources when using or adapting it. See [Acknowledgements and Reference Boundaries](docs/ACKNOWLEDGEMENTS.md).
 
@@ -147,7 +149,7 @@ Notes:
 I usually deploy it as static front-end files plus the Node history/session service:
 
 ```text
-/var/www/ai-image-workbench/      # Static files, example path
+/var/www/image-agent-studio/      # Static files, example path
 /opt/image-sub2api-studio/        # Node history/session service
 /var/lib/image-sub2api-studio/    # User history gallery, current session, and protected assets
 ```
@@ -167,10 +169,10 @@ More details:
 For a long-running VPS, prefer Git sync deployment so the server pulls the repository, builds locally, updates static files, restarts the service, and verifies the live state:
 
 ```bash
-cd /opt/ai-image-workbench-repo
+cd /opt/image-agent-studio-repo
 
 sudo BRANCH=main \
-  REPO_DIR=/opt/ai-image-workbench-repo \
+  REPO_DIR=/opt/image-agent-studio-repo \
   STATIC_DIR=/var/www/ohlaoo-studio \
   SERVICE_DIR=/opt/image-sub2api-studio \
   DATA_DIR=/var/lib/image-sub2api-studio \
@@ -188,9 +190,8 @@ npm run package:release
 
 This command creates:
 
-- `ai-image-workbench-core-update-*.zip`: static front-end files.
-- `ai-image-workbench-service-update-*.zip`: `/opt/image-sub2api-studio` service files.
-- `image-sub2api-studio-core-update-*.zip` and `image-sub2api-studio-service-update-*.zip`: legacy-name copies for existing VPS commands.
+- `image-agent-studio-core-update-*.zip`: static front-end files.
+- `image-agent-studio-service-update-*.zip`: `/opt/image-sub2api-studio` service files.
 
 Upload the service package when using current-session persistence, refresh recovery, queue recovery, or the history gallery service.
 
@@ -294,7 +295,6 @@ This checks login, profile, and key-list behavior for an account-backed gateway.
 │   ├── image-sub2api-studio-history-service.mjs
 │   ├── check-sub2api-contract.mjs
 │   ├── package-release.mjs
-│   └── package-studio-core-update.mjs        # Legacy compatibility wrapper
 ├── deploy/
 │   ├── nginx-sub2api-studio.conf
 │   ├── docker-nginx.conf.template

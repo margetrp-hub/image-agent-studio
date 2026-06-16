@@ -29,16 +29,16 @@ for (const file of files) {
 const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const studioHtml = fs.readFileSync(path.join(root, 'studio.html'), 'utf8');
 
-if (!indexHtml.includes('AI Image Workbench')) {
-  failures.push('index.html: root entry should present the provider-neutral AI Image Workbench name.');
+if (!indexHtml.includes('Image Agent Studio')) {
+  failures.push('index.html: root entry should present the Image Agent Studio name.');
 }
 
 if (indexHtml.includes('image-sub2api-studio open-source Sub2API image generation workstation')) {
   failures.push('index.html: root entry still describes the project as a Sub2API-only workstation.');
 }
 
-if (!studioHtml.includes('创作工作台')) {
-  failures.push('studio.html: Studio title should be readable Chinese.');
+if (!studioHtml.includes('Image Agent Studio')) {
+  failures.push('studio.html: Studio title should present the Image Agent Studio name.');
 }
 
 if (!studioHtml.includes('OpenAI 兼容接口') || !studioHtml.includes('NewAPI')) {

@@ -1,6 +1,6 @@
-# Acknowledgements and Reference Boundaries
+﻿# Acknowledgements and Reference Boundaries
 
-AI Image Workbench is an independent front-end workstation for OpenAI-compatible image generation and editing gateways.
+Image Agent Studio is an independent front-end workstation for OpenAI-compatible image generation and editing gateways.
 
 The project was informed by community prompt examples, public AI creation workflows, and open-source frontend tooling. These references helped with product thinking, prompt template design, and implementation choices. They do not imply affiliation, sponsorship, code ownership, asset ownership, or that this repository is a fork of those projects.
 

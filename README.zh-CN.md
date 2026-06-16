@@ -1,14 +1,16 @@
-# AI Image Workbench
+# Image Agent Studio
 
 ## 项目介绍
 
-AI Image Workbench 是一个可以自托管的 AI 图像创作工作站，面向 OpenAI 兼容的图片生成和图片编辑网关。
+Image Agent Studio 是一个可以自托管的 AI 图像创作工作站，面向 OpenAI 兼容的图片生成和图片编辑网关。
 
-我做它，是因为早期的生图流程太散：提示词在一个地方，参考图在另一个地方，模型、尺寸和画质藏在接口参数里，结果常常只停留在浏览器临时状态里；刷新、超时、失败或继续修改时，很容易丢掉上下文。
+我做它，是因为早期的生图流程太散：提示词在一个地方，参考图在另一个地方，生成参数藏在接口参数里，结果常常只停留在浏览器临时状态里；刷新、超时、失败或继续修改时，很容易丢掉上下文。
 
 这个工作台想把这条链路放回同一个页面里：写提示词、让 AI 辅助优化、上传参考图、选择 Provider 和模型、通过 `/v1/images/generations` 生图，或通过 `/v1/images/edits` 做参考图编辑和 Mask 局部重绘；生成后可以在无限画布上继续从任意一张图衍生，并把会话、队列、历史图库和图与图之间的关系保存下来。
 
-它可以连接官方 OpenAI 风格接口、自定义兼容网关、Sub2API、NewAPI 以及类似服务。Sub2API 只是开发早期接入过的网关之一，现在它是被支持的网关，而不是项目身份本身。
+这里的 “Agent” 不是噱头。它更像一个会陪你拆需求、整理提示词、挂住参考图、切换模型和记录分支的工作层，而不是单纯的提示词堆放区。
+
+它可以连接官方 OpenAI 风格接口、自定义兼容网关、Sub2API、NewAPI 以及类似服务。重点不是绑定某一家，而是让工作站本身足够灵活，后续能跟着你的工作流继续演进。
 
 这个仓库只包含创作工作台和部署示例，不包含私有生产首页、完整私有图库、真实 Key 或网关后端实现。
 
@@ -19,7 +21,7 @@ AI Image Workbench 是一个可以自托管的 AI 图像创作工作站，面向
 如果你也在做 AI 生图工作流，或者想一起讨论官方 API、自定义兼容接口、Sub2API、NewAPI、部署、模型调用、提示词工作流和后续改进，欢迎进 QQ 交流群：`260789529`。
 
 <p align="center">
-  <a href="https://github.com/margetrp-hub/ai-image-workbench"><img src="https://img.shields.io/badge/project-ai--image--workbench-0f766e?style=flat-square" alt="project"></a>
+  <a href="https://github.com/margetrp-hub/ai-image-workbench"><img src="https://img.shields.io/badge/project-image--agent--studio-0f766e?style=flat-square" alt="project"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-1f7268?style=flat-square" alt="MIT License"></a>
   <a href="./README.md"><img src="https://img.shields.io/badge/lang-English-blue?style=flat-square" alt="English"></a>
 </p>
@@ -64,7 +66,7 @@ AI Image Workbench 是一个可以自托管的 AI 图像创作工作站，面向
 
 官方 API、自定义兼容网关、Sub2API、NewAPI 等服务负责：账号、Key、额度、模型、计费和网关转发。
 
-AI Image Workbench 负责：创作页面、提示词工作流、参考图上传、参数控制、无限画布、画布续作、历史图库、当前会话持久化和部署示例。
+Image Agent Studio 负责：创作页面、提示词工作流、参考图上传、参数控制、无限画布、画布续作、历史图库、当前会话持久化和部署示例。
 
 提示词模板来自社区学习材料和公开案例整理，适用时遵循 `CC BY 4.0` 许可证；使用和改编时请保留原作者或来源归属。更完整的边界说明见 [致谢与参考边界](docs/ACKNOWLEDGEMENTS.zh-CN.md)。
 
@@ -145,7 +147,7 @@ VITE_DEV_AI_GATEWAY_PROXY_TARGET=https://gateway.example.com
 推荐把它当成静态前端 + Node 历史/会话服务来部署：
 
 ```text
-/var/www/ai-image-workbench/      # 静态文件，示例目录
+/var/www/image-agent-studio/      # 静态文件，示例目录
 /opt/image-sub2api-studio/        # Node 历史/会话服务
 /var/lib/image-sub2api-studio/    # 用户历史图库、当前会话和受保护素材库
 ```
@@ -165,10 +167,10 @@ VITE_DEV_AI_GATEWAY_PROXY_TARGET=https://gateway.example.com
 长期运行的 VPS 建议用 Git 同步部署：服务器直接拉仓库、构建、覆盖静态文件、更新服务并验证线上状态。
 
 ```bash
-cd /opt/ai-image-workbench-repo
+cd /opt/image-agent-studio-repo
 
 sudo BRANCH=main \
-  REPO_DIR=/opt/ai-image-workbench-repo \
+  REPO_DIR=/opt/image-agent-studio-repo \
   STATIC_DIR=/var/www/ohlaoo-studio \
   SERVICE_DIR=/opt/image-sub2api-studio \
   DATA_DIR=/var/lib/image-sub2api-studio \
@@ -186,9 +188,8 @@ npm run package:release
 
 这个命令会生成：
 
-- `ai-image-workbench-core-update-*.zip`：静态前端文件。
-- `ai-image-workbench-service-update-*.zip`：`/opt/image-sub2api-studio` 服务文件。
-- `image-sub2api-studio-core-update-*.zip` 和 `image-sub2api-studio-service-update-*.zip`：给已有 VPS 更新命令保留的旧名称副本。
+- `image-agent-studio-core-update-*.zip`：静态前端文件。
+- `image-agent-studio-service-update-*.zip`：`/opt/image-sub2api-studio` 服务文件。
 
 使用当前会话持久化、刷新恢复、队列恢复或历史图库服务时，需要上传服务包。
 
@@ -292,7 +293,6 @@ npm run check:gateway
 |  |- image-sub2api-studio-history-service.mjs
 |  |- check-sub2api-contract.mjs
 |  |- package-release.mjs
-|  `- package-studio-core-update.mjs        # 旧名称兼容入口
 |- deploy/
 |  |- nginx-sub2api-studio.conf
 |  |- docker-nginx.conf.template

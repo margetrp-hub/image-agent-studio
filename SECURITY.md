@@ -1,6 +1,6 @@
-# Security Boundary
+﻿# Security Boundary
 
-AI Image Workbench is a self-hosted creation workstation for OpenAI-compatible image gateways. It is not a model gateway, billing system, account system, moderation layer, or security product.
+Image Agent Studio is a self-hosted creation workstation for OpenAI-compatible image gateways. It is not a model gateway, billing system, account system, moderation layer, or security product.
 
 The first public versions were built around Sub2API because it already provided accounts, keys, quota, billing, and compatible image routes. The project is now moving toward a broader gateway model that can work with official APIs, custom OpenAI-compatible endpoints, NewAPI-style deployments, Sub2API-compatible deployments, and future provider adapters.
 

@@ -1,4 +1,4 @@
-# AI Image Workbench v1 Architecture
+﻿# Image Agent Studio v1 Architecture
 
 This document describes the target v1 architecture. The current repository still contains compatibility names from the original image-sub2api-studio runtime; v1 keeps those upgrade paths while making the product boundary provider-neutral.
 
@@ -279,4 +279,4 @@ v1 may rename internal packages and docs, but external data must remain readable
 - Existing `.image-sub2api-studio-data`, `/var/lib/image-sub2api-studio`, and Docker `studio-data` volumes remain valid.
 - Existing `/studio-api/session`, `/studio-api/history`, `/studio-api/generation-jobs`, and `/studio-api/library-assets` routes remain valid.
 - Existing provider settings using `sub2api` naming are normalized to gateway/OpenAI-compatible naming on read.
-- New code should use `AI_GATEWAY_*`, `VITE_AI_*`, and AI Image Workbench terminology.
+- New code should use `AI_GATEWAY_*`, `VITE_AI_*`, and Image Agent Studio terminology.

@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -56,14 +56,11 @@ mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/st
 mustInclude('deploy/nginx-sub2api-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Nginx must proxy the Studio persistence API to the local service');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'location /v1/images/', 'Nginx must expose image generation and edits through the same public origin');
 
-mustInclude('scripts/package-release.mjs', 'ai-image-workbench-core-update-${stamp}.zip', 'Release packages should use the provider-neutral AI Image Workbench name');
-mustInclude('scripts/package-release.mjs', 'ai-image-workbench-service-update-${stamp}.zip', 'Service packages should use the provider-neutral AI Image Workbench name');
-mustInclude('scripts/package-release.mjs', 'image-sub2api-studio-core-update-${stamp}.zip', 'Legacy package names must remain available for existing VPS commands');
-mustInclude('scripts/package-release.mjs', 'image-sub2api-studio-service-update-${stamp}.zip', 'Legacy service package names must remain available for existing VPS commands');
-mustInclude('scripts/package-studio-core-update.mjs', "import './package-release.mjs';", 'Legacy package script must stay as a compatibility wrapper');
-mustInclude('README.md', 'ai-image-workbench-core-update-*.zip', 'README must document the new package name');
-mustInclude('README.zh-CN.md', 'ai-image-workbench-core-update-*.zip', 'Chinese README must document the new package name');
-mustInclude('deploy/UPDATE-SERVER.zh-CN.md', 'ai-image-workbench-core-update-YYYYMMDD-HHMMSS.zip', 'VPS update guide must prefer the new package name');
+mustInclude('scripts/package-release.mjs', 'image-agent-studio-core-update-${stamp}.zip', 'Release packages should use the Image Agent Studio name');
+mustInclude('scripts/package-release.mjs', 'image-agent-studio-service-update-${stamp}.zip', 'Service packages should use the Image Agent Studio name');
+mustInclude('README.md', 'image-agent-studio-core-update-*.zip', 'README must document the new package name');
+mustInclude('README.zh-CN.md', 'image-agent-studio-core-update-*.zip', 'Chinese README must document the new package name');
+mustInclude('deploy/UPDATE-SERVER.zh-CN.md', 'image-agent-studio-core-update-YYYYMMDD-HHMMSS.zip', 'VPS update guide must prefer the new package name');
 
 mustInclude('Dockerfile', 'COPY --from=builder /app/dist /usr/share/nginx/html', 'Web image must serve built assets');
 mustInclude('Dockerfile', 'ARG VITE_AI_GATEWAY_BASE_URL=', 'Docker web build must accept provider-neutral gateway base URL');

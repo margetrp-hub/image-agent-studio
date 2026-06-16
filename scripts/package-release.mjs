@@ -71,12 +71,10 @@ async function main() {
   }
 
   const stamp = stampLocal();
-  const tempDir = join(tmpdir(), `ai-image-workbench-core-${stamp}`);
-  const serviceTempDir = join(tmpdir(), `ai-image-workbench-service-${stamp}`);
-  const zipPath = join(releaseDir, `ai-image-workbench-core-update-${stamp}.zip`);
-  const serviceZipPath = join(releaseDir, `ai-image-workbench-service-update-${stamp}.zip`);
-  const legacyZipPath = join(releaseDir, `image-sub2api-studio-core-update-${stamp}.zip`);
-  const legacyServiceZipPath = join(releaseDir, `image-sub2api-studio-service-update-${stamp}.zip`);
+  const tempDir = join(tmpdir(), `image-agent-studio-core-${stamp}`);
+  const serviceTempDir = join(tmpdir(), `image-agent-studio-service-${stamp}`);
+  const zipPath = join(releaseDir, `image-agent-studio-core-update-${stamp}.zip`);
+  const serviceZipPath = join(releaseDir, `image-agent-studio-service-update-${stamp}.zip`);
 
   await rm(tempDir, { recursive: true, force: true });
   await rm(serviceTempDir, { recursive: true, force: true });
@@ -98,15 +96,11 @@ async function main() {
 
   zipDirectory(tempDir, zipPath);
   zipDirectory(serviceTempDir, serviceZipPath);
-  await cp(zipPath, legacyZipPath);
-  await cp(serviceZipPath, legacyServiceZipPath);
 
   await rm(tempDir, { recursive: true, force: true });
   await rm(serviceTempDir, { recursive: true, force: true });
   console.log(zipPath);
   console.log(serviceZipPath);
-  console.log(legacyZipPath);
-  console.log(legacyServiceZipPath);
 }
 
 main().catch((error) => {

@@ -8,6 +8,10 @@ import { checkPublicData } from './check-public-data.mjs';
 const root = process.cwd();
 const releaseDir = path.join(root, 'release');
 const failures = [];
+const legacyReleasePatterns = [
+  /^image-sub2api-studio-(core|service)-update-.*\.zip$/,
+  /^ai-image-workbench-(core|service)-update-.*\.zip$/
+];
 
 function fail(message) {
   failures.push(message);
@@ -20,17 +24,24 @@ function filesFor(prefix) {
     .sort();
 }
 
-function latestPair(kind) {
-  const nextPrefix = `ai-image-workbench-${kind}-update-`;
-  const legacyPrefix = `image-sub2api-studio-${kind}-update-`;
-  const next = filesFor(nextPrefix).at(-1);
-  if (!next) return null;
-  const stamp = next.slice(nextPrefix.length, -'.zip'.length);
-  const legacy = `${legacyPrefix}${stamp}.zip`;
+function assertNoLegacyPackages() {
+  if (!fs.existsSync(releaseDir)) return;
+  const legacyFiles = fs.readdirSync(releaseDir)
+    .filter((file) => legacyReleasePatterns.some((pattern) => pattern.test(file)))
+    .sort();
+  for (const file of legacyFiles) {
+    fail(`release/${file}: remove legacy package; release artifacts must use image-agent-studio-* only.`);
+  }
+}
+
+function latestPackage(kind) {
+  const prefix = `image-agent-studio-${kind}-update-`;
+  const file = filesFor(prefix).at(-1);
+  if (!file) return null;
+  const stamp = file.slice(prefix.length, -'.zip'.length);
   return {
     stamp,
-    next: path.join(releaseDir, next),
-    legacy: path.join(releaseDir, legacy)
+    file: path.join(releaseDir, file)
   };
 }
 
@@ -52,35 +63,30 @@ function extractZip(file, targetDir) {
 }
 
 function assertPair(kind, requiredEntries) {
-  const pair = latestPair(kind);
-  if (!pair) {
-    fail(`release/: missing ai-image-workbench ${kind} package.`);
+  const pkg = latestPackage(kind);
+  if (!pkg) {
+    fail(`release/: missing image-agent-studio ${kind} package.`);
     return;
   }
-  if (!fs.existsSync(pair.legacy)) {
-    fail(`release/: missing legacy ${kind} package for stamp ${pair.stamp}.`);
-    return;
-  }
-  if (sha256(pair.next) !== sha256(pair.legacy)) {
-    fail(`release/: ${kind} package legacy copy does not match the ai-image-workbench package.`);
-  }
-  const entries = new Set(listZip(pair.next));
+  const entries = new Set(listZip(pkg.file));
   for (const entry of requiredEntries) {
-    if (!entries.has(entry)) fail(`${path.basename(pair.next)}: missing ${entry}.`);
+    if (!entries.has(entry)) fail(`${path.basename(pkg.file)}: missing ${entry}.`);
   }
 
   if (kind === 'core') {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `ai-image-workbench-${kind}-${pair.stamp}-`));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `image-agent-studio-${kind}-${pkg.stamp}-`));
     try {
-      extractZip(pair.next, tempDir);
+      extractZip(pkg.file, tempDir);
       for (const item of checkPublicData({ baseDir: tempDir, prefix: '' })) {
-        fail(`${path.basename(pair.next)}: ${item}`);
+        fail(`${path.basename(pkg.file)}: ${item}`);
       }
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
 }
+
+assertNoLegacyPackages();
 
 assertPair('core', [
   'index.html',

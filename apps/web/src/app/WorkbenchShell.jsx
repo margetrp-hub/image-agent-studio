@@ -21,7 +21,7 @@ export function WorkbenchShell({ workspace }) {
             <Aperture size={20} />
           </span>
           <div>
-            <strong>image-sub2api Studio</strong>
+            <strong>Image Agent Studio</strong>
             <span>{workspace.environment}</span>
           </div>
         </div>

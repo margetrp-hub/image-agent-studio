@@ -1,14 +1,14 @@
-# Release Notes
+﻿# Release Notes
 
 ## 1.0.0
 
-This release marks AI Image Workbench as a standalone self-hosted image creation workstation, with Sub2API kept as one compatible gateway path rather than the project identity.
+This release marks Image Agent Studio as a standalone self-hosted image creation workstation, with Sub2API kept as one compatible gateway path rather than the project identity.
 
 The 1.0.0 line focuses on a stable creation loop: prompt conversation, reference images, direct image-generation routes, recoverable generation jobs, persistent history, large-canvas performance, Docker/VPS deployment, and a clearer provider abstraction for official APIs, OpenAI-compatible gateways, NewAPI-style gateways, Sub2API, and future model/video adapters.
 
 ### What Changed
 
-- Public package name changed to `ai-image-workbench`.
+- Public package name changed to `image-agent-studio`.
 - Front-end configuration now prefers generic gateway variables:
   - `VITE_AI_GATEWAY_BASE_URL`
   - `VITE_AI_GATEWAY_MODEL_BASE_URL`
@@ -36,7 +36,7 @@ The 1.0.0 line focuses on a stable creation loop: prompt conversation, reference
 ### Compatibility Notes
 
 - Existing `image-sub2api-studio-*` package names, service paths, systemd service names, and data directories remain supported so old VPS installs can upgrade without losing history or protected library assets.
-- New deployments should prefer the `ai-image-workbench-*` package names and generic `AI_GATEWAY_*` / `VITE_AI_*` environment names.
+- New deployments should prefer the `image-agent-studio-*` package names and generic `AI_GATEWAY_*` / `VITE_AI_*` environment names.
 - `/v1/responses` image generation is treated as an explicit compatibility path only. The default image path is `/v1/images/generations`, and reference or Mask edits use `/v1/images/edits`.
 
 ## 0.8.1
@@ -80,8 +80,8 @@ The service does not persist the runtime API key used for generation jobs.
 
 Traditional VPS deployment should upload both packages:
 
-- `image-sub2api-studio-core-update-*.zip` to the Nginx static root.
-- `image-sub2api-studio-service-update-*.zip` to `/opt/image-sub2api-studio`.
+- `image-agent-studio-core-update-*.zip` to the Nginx static root.
+- `image-agent-studio-service-update-*.zip` to `/opt/image-sub2api-studio`.
 
 After the service package is updated:
 

@@ -1,5 +1,5 @@
 {
-  "name": "ai-image-workbench",
+  "name": "image-agent-studio",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -76,7 +76,7 @@
     "react-dom": "^19.2.7",
     "vite": "^8.0.16"
   },
-  "description": "Self-hosted AI image creation workstation for OpenAI-compatible generation and editing gateways.",
+  "description": "Self-hosted AI image agent studio for OpenAI-compatible generation and editing gateways.",
   "main": "vite.config.js",
   "directories": {
     "doc": "docs"

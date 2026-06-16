@@ -1,6 +1,6 @@
-# Provider and Gateway Notes
+﻿# Provider and Gateway Notes
 
-AI Image Workbench is moving toward a provider-neutral image workstation. The current runtime still uses OpenAI-compatible HTTP routes directly, while `src/studio/providers/registry.js` records the provider shapes the project is preparing to support.
+Image Agent Studio is moving toward a provider-neutral image workstation. The current runtime still uses OpenAI-compatible HTTP routes directly, while `src/studio/providers/registry.js` records the provider shapes the project is preparing to support.
 
 ## Current Runtime Contract
 
