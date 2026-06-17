@@ -17,6 +17,7 @@ Environment=STUDIO_HISTORY_PORT=8787
 Environment=STUDIO_ALLOWED_ORIGINS=https://studio.example.com
 Environment=STUDIO_JOB_LIMIT=120
 Environment=STUDIO_JOB_TIMEOUT_MS=2700000
+Environment=STUDIO_GATEWAY_FETCH_TIMEOUT_MS=2640000
 Environment=STUDIO_JOB_CONCURRENCY=1
 ExecStart=/usr/bin/node /opt/image-sub2api-studio/scripts/image-sub2api-studio-history-service.mjs
 Restart=always

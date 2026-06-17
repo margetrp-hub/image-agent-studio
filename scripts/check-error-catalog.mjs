@@ -13,6 +13,7 @@ const cases = [
   [{ status: 429, message: 'rate limit exceeded' }, ERROR_CATEGORIES.RATE_LIMIT],
   [{ message: 'Your request was rejected by the safety system' }, ERROR_CATEGORIES.SAFETY],
   [{ code: 'GATEWAY_DISPATCH_FAILED', message: 'could not deliver this request to the gateway' }, ERROR_CATEGORIES.NETWORK],
+  [{ code: 'GATEWAY_DISPATCH_FAILED', message: 'The gateway did not return a final response before the Workbench timeout.' }, ERROR_CATEGORIES.TIMEOUT],
   [{ code: 'JOB_TIMEOUT', message: 'The server stopped waiting for this generation job.' }, ERROR_CATEGORIES.TIMEOUT],
   [{ message: 'upstream response failed: context canceled' }, ERROR_CATEGORIES.UPSTREAM],
   [{ status: 500, message: 'internal server error' }, ERROR_CATEGORIES.SERVICE]

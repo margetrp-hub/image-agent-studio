@@ -25,7 +25,7 @@ const ERROR_RULES = [
   {
     category: ERROR_CATEGORIES.TIMEOUT,
     retryable: true,
-    match: ({ code, message, status }) => status === 408 || status === 504 || code.includes('timeout') || message.includes('timeout') || message.includes('timed out'),
+    match: ({ code, message, status }) => status === 408 || status === 504 || code.includes('timeout') || message.includes('timeout') || message.includes('timed out') || message.includes('did not return a final response'),
     userMessage: '等待超时',
     technicalReason: 'The page or gateway stopped waiting before a final result arrived.',
     nextAction: '稍后查看历史图库；如果没有结果，再降低数量/质量或换账号重试。'

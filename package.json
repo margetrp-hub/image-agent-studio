@@ -74,6 +74,7 @@
     "lucide-react": "^0.561.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "undici": "^7.28.0",
     "vite": "^8.0.16"
   },
   "description": "Self-hosted AI image agent studio for OpenAI-compatible generation and editing gateways.",

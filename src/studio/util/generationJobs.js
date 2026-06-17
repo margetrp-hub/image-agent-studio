@@ -267,6 +267,18 @@ export function generationErrorMessage(error, t = defaultTranslate, compactText 
   if (lowered.includes('origin_not_allowed') || lowered.includes('origin not allowed')) {
     return t('errors.originNotAllowed', '生成请求被创作台服务拦截：当前页面来源没有加入 STUDIO_ALLOWED_ORIGINS 白名单。请更新并重启 history/session 服务，或把当前访问地址加入允许来源后再试。');
   }
+  if (
+    error?.code === 'GATEWAY_DISPATCH_FAILED'
+    && (
+      lowered.includes('did not return a final response')
+      || lowered.includes('upstream image request')
+      || lowered.includes('still be processing')
+      || lowered.includes('queued, or billed')
+      || lowered.includes('context canceled')
+    )
+  ) {
+    return `${t('errors.gatewayNoFinalResponse', '请求已经送到网关，但上游在工作站等待时间内没有返回最终图片。它可能仍在上游排队、处理中，或已经产生扣费；请先按请求 ID 查后台/历史图库，再决定是否重试。')}${requestSuffix}`;
+  }
   if (error?.code === 'GATEWAY_DISPATCH_FAILED' || lowered.includes('could not deliver this request to the gateway')) {
     return t('errors.gatewayDispatchFailed', '工作站服务没能把请求送到网关，所以后台可能没有调用记录。请检查接口地址、服务端网络、允许来源和防火墙后再试。');
   }

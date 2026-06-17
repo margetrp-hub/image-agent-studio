@@ -38,6 +38,7 @@ mustInclude('docker-compose.yml', 'STUDIO_HISTORY_UPSTREAM: http://studio-histor
 mustInclude('docker-compose.yml', 'STUDIO_AUTH_MODE: ${STUDIO_AUTH_MODE:-local}', 'Docker should support account-system-free local persistence');
 mustInclude('docker-compose.yml', 'studio-data:/data', 'History, sessions, jobs, and generated assets must persist in a volume');
 mustInclude('docker-compose.yml', 'STUDIO_JOB_CONCURRENCY: ${STUDIO_JOB_CONCURRENCY:-1}', 'Server-side queue concurrency must be explicit and conservative');
+mustInclude('docker-compose.yml', 'STUDIO_GATEWAY_FETCH_TIMEOUT_MS: ${STUDIO_GATEWAY_FETCH_TIMEOUT_MS:-2640000}', 'Gateway fetch timeout must outlast slow native image jobs');
 
 mustInclude('deploy/docker-nginx.conf.template', 'location /studio/', 'Docker Nginx must serve the Studio route');
 mustInclude('deploy/docker-nginx.conf.template', 'try_files $uri $uri/ /studio.html;', 'Studio route must SPA-fallback to studio.html');

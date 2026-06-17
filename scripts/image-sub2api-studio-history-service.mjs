@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Agent, FormData as UndiciFormData, fetch as undiciFetch } from 'undici';
 import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-service/communityPrompts.js';
 import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
 import { text } from './studio-service/text.js';
@@ -26,6 +27,7 @@ const SESSION_MESSAGE_LIMIT = Number(process.env.STUDIO_SESSION_MESSAGE_LIMIT ||
 const SESSION_ASSET_PREFIX = 'session-';
 const JOB_LIMIT = Number(process.env.STUDIO_JOB_LIMIT || 120);
 const JOB_TIMEOUT_MS = Number(process.env.STUDIO_JOB_TIMEOUT_MS || 45 * 60 * 1000);
+const GATEWAY_FETCH_TIMEOUT_MS = Number(process.env.STUDIO_GATEWAY_FETCH_TIMEOUT_MS || Math.max(10 * 60 * 1000, JOB_TIMEOUT_MS - 30 * 1000));
 const JOB_CONCURRENCY = Math.max(1, Math.min(6, Number(process.env.STUDIO_JOB_CONCURRENCY || 1)));
 const JOB_ACTIVE_STATUSES = new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'saving']);
 const SERVICE_STARTED_AT = Date.now();
@@ -253,6 +255,13 @@ const jobQueues = new Map();
 const activeJobControllers = new Map();
 const jobStorageLocks = new Map();
 const COMMUNITY_PROMPT_LIMIT = 300;
+const gatewayFetchAgent = new Agent({
+  headersTimeout: GATEWAY_FETCH_TIMEOUT_MS,
+  bodyTimeout: GATEWAY_FETCH_TIMEOUT_MS,
+  keepAliveTimeout: 120_000,
+  keepAliveMaxTimeout: 120_000,
+  connections: Math.max(8, JOB_CONCURRENCY * 4)
+});
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -1045,6 +1054,20 @@ function gatewayErrorMessage(error) {
   return String(message).slice(0, 1200);
 }
 
+function gatewayDispatchErrorMessage(error) {
+  const message = String(error?.message || '');
+  const causeCode = String(error?.cause?.code || '');
+  if (
+    error?.name === 'TimeoutError'
+    || causeCode === 'UND_ERR_HEADERS_TIMEOUT'
+    || causeCode === 'UND_ERR_BODY_TIMEOUT'
+    || /headers timeout|body timeout|timeout/i.test(message)
+  ) {
+    return 'The gateway did not return a final response before the Workbench timeout. The upstream image request may still be processing, queued, or billed.';
+  }
+  return 'The Workbench service could not deliver this request to the gateway. Check the gateway URL, service network, origin allowlist, and firewall before retrying.';
+}
+
 function gatewayRequestId(payload, headers) {
   return text(
     payload?.request_id
@@ -1213,7 +1236,7 @@ async function writeHistoryRecordForJob(auth, job) {
 }
 
 async function postJsonToGateway(url, apiKey, body, clientRequestId, signal) {
-  const response = await fetch(url, {
+  const response = await undiciFetch(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -1222,13 +1245,14 @@ async function postJsonToGateway(url, apiKey, body, clientRequestId, signal) {
       'X-Request-ID': clientRequestId
     },
     body: JSON.stringify(body),
+    dispatcher: gatewayFetchAgent,
     signal
   });
   return readGatewayResponse(response);
 }
 
 async function postMultipartToGateway(url, apiKey, form, clientRequestId, signal) {
-  const response = await fetch(url, {
+  const response = await undiciFetch(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -1236,6 +1260,7 @@ async function postMultipartToGateway(url, apiKey, form, clientRequestId, signal
       'X-Request-ID': clientRequestId
     },
     body: form,
+    dispatcher: gatewayFetchAgent,
     signal
   });
   return readGatewayResponse(response);
@@ -1248,7 +1273,7 @@ async function runGenerationRequest(auth, job, runtime, signal) {
   const total = Math.max(1, Number(job.count || 1));
   let currentJob = job;
   if (job.route === 'edits') {
-    const form = new FormData();
+    const form = new UndiciFormData();
     form.set('model', job.model);
     form.set('prompt', job.generationPrompt || job.prompt);
     form.set('size', job.size);
@@ -1455,7 +1480,7 @@ async function runGenerationJob(auth, jobId, runtime) {
           : canceled
             ? 'The queued or running job was canceled locally. If it already reached the upstream, the upstream may still finish or bill.'
             : dispatchFailed
-              ? 'The workbench service could not deliver this request to the gateway. Check the gateway URL, service network, origin allowlist, and firewall before retrying.'
+              ? gatewayDispatchErrorMessage(error)
               : gatewayErrorMessage(error)
       }
     });
