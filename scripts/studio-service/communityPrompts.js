@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { atomicWriteJson } from './jsonFiles.js';
 import { text } from './text.js';
 
 export function sanitizeCommunityPrompt(value, fallback = {}) {
@@ -50,7 +51,7 @@ export function createCommunityPromptStore({ ensureUserDirs, communityPromptsPat
       .map((item) => sanitizeCommunityPrompt(item))
       .filter((item) => item.prompt)
       .slice(0, limit);
-    await fs.writeFile(communityPromptsPath(auth), JSON.stringify({ items: nextItems }, null, 2));
+    await atomicWriteJson(communityPromptsPath(auth), { items: nextItems });
     return nextItems;
   }
 

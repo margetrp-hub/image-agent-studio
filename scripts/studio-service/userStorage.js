@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { atomicWriteJson } from './jsonFiles.js';
 import { text } from './text.js';
 
 export function createUserStorage({ historyLimit, sessionAssetPrefix, parseJsonText }) {
@@ -55,7 +56,7 @@ export function createUserStorage({ historyLimit, sessionAssetPrefix, parseJsonT
 
   async function writeRecords(auth, records) {
     await ensureUserDirs(auth);
-    await fs.writeFile(recordsPath(auth), JSON.stringify(records.slice(0, historyLimit), null, 2));
+    await atomicWriteJson(recordsPath(auth), records.slice(0, historyLimit));
   }
 
   async function readSession(auth, sessionId = '') {
@@ -72,7 +73,7 @@ export function createUserStorage({ historyLimit, sessionAssetPrefix, parseJsonT
   async function writeSession(auth, session, sessionId = '') {
     await ensureUserDirs(auth);
     if (sessionId) await fs.mkdir(path.dirname(sessionPathForId(auth, sessionId)), { recursive: true });
-    await fs.writeFile(sessionPathForId(auth, sessionId), JSON.stringify(session, null, 2));
+    await atomicWriteJson(sessionPathForId(auth, sessionId), session);
   }
 
   async function readSessionSnapshot(auth) {

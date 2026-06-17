@@ -5,6 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-service/communityPrompts.js';
+import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
 import { text } from './studio-service/text.js';
 import { createUserBackupService } from './studio-service/userBackup.js';
 import { createUserStorage } from './studio-service/userStorage.js';
@@ -312,10 +313,6 @@ async function readJsonBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function parseJsonText(raw) {
-  return JSON.parse(String(raw || '').replace(/^\uFEFF/, ''));
-}
-
 const userStorage = createUserStorage({
   historyLimit: HISTORY_LIMIT,
   sessionAssetPrefix: SESSION_ASSET_PREFIX,
@@ -487,7 +484,7 @@ async function readJobs(auth) {
 
 async function writeJobsUnlocked(auth, jobs) {
   await ensureUserDirs(auth);
-  await fs.writeFile(jobsPath(auth), JSON.stringify(jobs.slice(0, JOB_LIMIT), null, 2));
+  await atomicWriteJson(jobsPath(auth), jobs.slice(0, JOB_LIMIT));
 }
 
 async function writeJobs(auth, jobs) {

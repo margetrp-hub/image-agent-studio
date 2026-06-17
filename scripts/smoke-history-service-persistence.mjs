@@ -189,7 +189,19 @@ child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
 try {
   const staleUserDir = path.join(dataDir, 'users', userKey);
   await fs.mkdir(staleUserDir, { recursive: true });
-  await fs.writeFile(path.join(staleUserDir, 'jobs.json'), JSON.stringify([
+  await fs.writeFile(path.join(staleUserDir, 'records.json'), `${JSON.stringify([
+    {
+      id: 'tailrecord1',
+      sessionId: 'smoke-session',
+      createdAt: '2020-01-01T00:00:00.000Z',
+      mode: 'image',
+      prompt: 'tail record prompt',
+      generationPrompt: 'tail record generation prompt',
+      model: 'gpt-image-2',
+      resultUrls: ['/studio-api/history/tailrecord1/assets/0.png']
+    }
+  ], null, 2)}trailing-corruption`);
+  await fs.writeFile(path.join(staleUserDir, 'jobs.json'), `${JSON.stringify([
     {
       id: 'stalejob1',
       clientRequestId: 'stalejob1-client',
@@ -224,7 +236,7 @@ try {
       resultUrls: [],
       requestIds: []
     }
-  ], null, 2));
+  ], null, 2)}trailing-corruption`);
 
   await waitForHealth();
 
@@ -235,6 +247,9 @@ try {
   assert(staleJob?.error?.code === 'JOB_RUNTIME_NOT_ATTACHED', 'Stale active job did not record restart/lost-runner reason.', staleJob);
   assert(staleQueuedJob?.status === 'unknown', 'Stale queued job was not marked unknown after service restart.', staleQueuedJob);
   assert(staleQueuedJob?.error?.code === 'JOB_RUNTIME_NOT_ATTACHED', 'Stale queued job did not record restart/lost-runner reason.', staleQueuedJob);
+  const initialHistory = await request('/studio-api/history?limit=20');
+  const tailRecord = initialHistory.records?.find?.((record) => record.id === 'tailrecord1');
+  assert(tailRecord?.generationPrompt === 'tail record generation prompt', 'History with trailing corruption was not recovered.', tailRecord);
 
   const sessionPayload = {
     sessionId: 'smoke-session',
@@ -463,6 +478,7 @@ try {
   const files = await readAllJsonFiles(dataDir);
   const allJson = files.map((item) => item.raw).join('\n');
   assert(!allJson.includes(secret), 'API key leaked into persisted JSON files.', files.map((item) => item.path));
+  assert(!allJson.includes('trailing-corruption'), 'Trailing JSON corruption was not removed after atomic rewrites.', files.map((item) => item.path));
   assert(allJson.includes('record generation prompt'), 'Persisted JSON is missing record generation prompt.', files.map((item) => item.path));
   assert(allJson.includes('node generation prompt'), 'Persisted JSON is missing node generation prompt.', files.map((item) => item.path));
 

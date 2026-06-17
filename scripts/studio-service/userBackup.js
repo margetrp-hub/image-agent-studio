@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { atomicWriteJson } from './jsonFiles.js';
 import { text } from './text.js';
 import { readAssetSnapshot, restoreAssetSnapshot } from './assetSnapshots.js';
 
@@ -62,7 +63,7 @@ export function createUserBackupService({
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `${stamp}-${reason}.json`;
     const filePath = path.join(backupsDir(auth), fileName);
-    await fs.writeFile(filePath, JSON.stringify(backup, null, 2));
+    await atomicWriteJson(filePath, backup);
     return { fileName, filePath, backup };
   }
 
