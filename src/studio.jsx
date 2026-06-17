@@ -77,6 +77,7 @@ import './styles/studio.composer-final-locks.css';
 import './styles/studio.composer-final-live.css';
 import './styles/studio.composer-live-guards.css';
 import './styles/studio.imageforge-polish.css';
+import './styles/studio.composer-codex.css';
 import {
   AiGatewayClient,
   StudioHistoryClient,
@@ -3257,6 +3258,13 @@ function CreationDesk({
   useEffect(() => {
     const thread = composerThreadRef.current;
     if (!layoutSections.bottomComposer || !thread) return;
+    if (promptSuggestion && assistantMessages.length) {
+      thread.scrollTo({
+        top: Math.max(0, thread.scrollHeight - thread.clientHeight - 6),
+        behavior: 'smooth'
+      });
+      return;
+    }
     thread.scrollTo({
       top: thread.scrollHeight,
       behavior: 'smooth'

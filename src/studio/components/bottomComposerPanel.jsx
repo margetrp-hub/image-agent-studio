@@ -19,6 +19,7 @@ export function BottomComposerPanel({
 }) {
   const className = [
     'bottomComposerBar',
+    'codexComposerPanel',
     hasLineage ? 'hasLineage' : '',
     isOpen && composerThreadHasContent ? 'hasThread' : 'noThread',
     hasLiveStatus ? 'hasLiveStatus' : 'noLiveStatus',
