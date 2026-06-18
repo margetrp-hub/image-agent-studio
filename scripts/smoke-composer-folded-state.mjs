@@ -150,8 +150,12 @@ async function runScenario(browser, baseUrl) {
   for (const key of ['thread', 'params', 'liveStatus']) {
     assert(!result[key] || result[key].display === 'none' || result[key].height <= 0, `folded: ${key} should not occupy folded layout.`, result);
   }
-  assert(result.input.width >= 300, 'folded: input is not usable.', result);
+  assert(result.head.width <= 56 && result.head.text.length === 0, 'folded: header still behaves like a title block instead of a compact expand button.', result);
+  assert(result.prompt.x - result.composer.x <= 72, 'folded: prompt starts too far right, leaving an empty title area.', result);
+  assert(!/创作会话|提示词优化|生成/.test(result.head.text), 'folded: header text leaked into the minimized composer.', result);
+  assert(result.input.width >= 360, 'folded: input is not usable.', result);
   assert(result.actions.y >= result.prompt.y - 1 && result.actions.bottom <= result.prompt.bottom + 1, 'folded: actions are not aligned with input row.', result);
+  assert(result.generate.width >= 52 && result.optimize.width >= 52, 'folded: action buttons are clipped or too narrow.', result);
 
   await page.close();
   return result;

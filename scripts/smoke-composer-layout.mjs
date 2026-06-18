@@ -261,6 +261,22 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       const box = node.getBoundingClientRect();
       return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
     }).length;
+    const paramShelf = document.querySelector('.composerParamShelf');
+    const paramShelfStyle = paramShelf ? getComputedStyle(paramShelf) : null;
+    const paramGroups = Array.from(document.querySelectorAll('.composerParamShelf.isExpanded .composerParamGroup')).map((node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      if (style.display === 'none' || style.visibility === 'hidden' || box.width <= 0 || box.height <= 0) return null;
+      return {
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        right: box.right,
+        bottom: box.bottom,
+        text: node.textContent.trim().slice(0, 40)
+      };
+    }).filter(Boolean);
     const paramChildren = Array.from(document.querySelectorAll('.composerParamShelf.isExpanded > *')).map((node) => {
       const style = getComputedStyle(node);
       const box = node.getBoundingClientRect();
@@ -328,6 +344,10 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       outsideComposer,
       visibleHeaderPills,
       paramChildren,
+      paramGroups,
+      paramShelfMode: paramShelfStyle?.display || '',
+      paramShelfOverflowX: paramShelfStyle?.overflowX || '',
+      paramShelfOverflowY: paramShelfStyle?.overflowY || '',
       paramTopSpread,
       suggestionBodyBorderWidth,
       suggestionTextSamples,
@@ -383,9 +403,15 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
   }
   assert(!result.rects.composerReferenceStrip, `${name}: references should live in the right panel, not as a duplicated composer strip.`, result);
   assert(!result.rects.legacyGenerationCard, `${name}: legacy generation progress card is still rendered inside the scrollable thread.`, result);
-  assert(result.rects.assistantMessage || result.rects.userMessage, `${name}: no conversation message was visible in the composer thread.`, result);
-  const visibleMessage = result.rects.assistantMessage || result.rects.userMessage;
-  const visibleMessageText = result.rects.assistantMessageText || result.rects.userMessageText;
+  const visibleMessageOptions = [
+    [result.rects.assistantMessage, result.rects.assistantMessageText],
+    [result.rects.userMessage, result.rects.userMessageText],
+    [result.rects.suggestion, result.rects.suggestionText]
+  ].filter(([message, text]) => message && text);
+  const [visibleMessage, visibleMessageText] = visibleMessageOptions.find(([message]) => (
+    message.y < result.rects.thread.bottom - 8 && message.bottom > result.rects.thread.y + 8
+  )) || [];
+  assert(visibleMessage && visibleMessageText, `${name}: no conversation message was visible in the composer thread.`, result);
   assert(
     visibleMessage.y < result.rects.thread.bottom - 8 && visibleMessage.bottom > result.rects.thread.y + 8,
     `${name}: conversation messages are not visible in the composer thread viewport.`,
@@ -411,8 +437,20 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     result
   );
   assert(result.rects.params, `${name}: parameter shelf was not visible.`, result);
-  assert(result.rects.params.height <= 54, `${name}: expanded parameter shelf became too tall.`, result);
-  assert(result.paramTopSpread <= 6, `${name}: parameter shelf wrapped into multiple rows.`, result);
+  assert(result.rects.params.height >= 110 && result.rects.params.height <= 164, `${name}: expanded parameter shelf should be a grouped panel, not a squeezed toolbar.`, result);
+  assert(result.paramShelfMode === 'grid', `${name}: expanded parameter shelf should use grid grouping.`, result);
+  assert(result.paramGroups.length >= 5, `${name}: expanded parameter shelf did not expose enough separate control groups.`, result);
+  assert(result.paramGroups.every((item) => item.width >= 64 && item.height >= 30), `${name}: parameter controls collapsed into unreadable fragments.`, result);
+  assert(
+    result.paramGroups.every((item) => (
+      item.x >= result.rects.params.x - 1
+      && item.right <= result.rects.params.right + 1
+      && item.y >= result.rects.params.y - 1
+      && item.bottom <= result.rects.params.bottom + 1
+    )),
+    `${name}: parameter control groups escaped the expanded shelf.`,
+    result
+  );
   assert(result.visibleHeaderPills === 0, `${name}: inactive composer header pills are still visible.`, result);
   assert(result.rects.suggestion, `${name}: prompt suggestion was not visible.`, result);
   assert(result.rects.suggestion.width >= Math.min(260, result.rects.thread.width - 16), `${name}: prompt suggestion collapsed into an unreadable narrow card.`, result);

@@ -55,17 +55,19 @@ export function BottomComposerPanel({
 
   return (
     <div className={className}>
-      <div className="composerPanelHead">
-        <div className="composerSessionIdentity">
-          <span className="composerSessionIcon"><Sparkles size={17} /></span>
-          <div className="composerPanelTitle">
-            <strong>{t('composer.conversation', '创作会话')}</strong>
-            <span>
-              {selectedCanvasNode ? t('composer.selected', '基于画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' }) : t('composer.defaultTitle', '提示词优化与生成')}
-              <em>{composerRouteLabel}</em>
-            </span>
+      <div className={`composerPanelHead ${composerFolded ? 'composerFoldedHead' : ''}`}>
+        {composerFolded ? null : (
+          <div className="composerSessionIdentity">
+            <span className="composerSessionIcon"><Sparkles size={17} /></span>
+            <div className="composerPanelTitle">
+              <strong>{t('composer.conversation', '创作会话')}</strong>
+              <span>
+                {selectedCanvasNode ? t('composer.selected', '基于画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' }) : t('composer.defaultTitle', '提示词优化与生成')}
+                <em>{composerRouteLabel}</em>
+              </span>
+            </div>
           </div>
-        </div>
+        )}
         <div className="composerHeaderActions">
           <button
             type="button"
