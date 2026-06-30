@@ -8,6 +8,12 @@ This release completes the public rename to **Image Agent Studio** and removes o
 
 - README and README.zh-CN now describe the project as a standalone image agent workstation, with provider-neutral wording for official OpenAI-style APIs, custom OpenAI-compatible gateways, Sub2API, NewAPI, and future adapters.
 - The package name is now `image-agent-studio`.
+- New standalone deployments now default to `/opt/image-agent-studio-repo`, `/var/www/image-agent-studio`, `/opt/image-agent-studio`, `/var/lib/image-agent-studio`, and `image-agent-studio-history`.
+- Legacy VPS deployments can still pass explicit paths such as `/var/www/ohlaoo-studio`, `/opt/image-sub2api-studio`, `/var/lib/image-sub2api-studio`, and `image-sub2api-studio-history`.
+- The service package now includes standard `image-agent-studio` systemd and Nginx files plus Git-sync install, upgrade, backup, restore, and self-check helpers.
+- Docker images now use `image-agent-studio-web:local` and `image-agent-studio-history:local`.
+- The health endpoint reports `service: "image-agent-studio-history"` while keeping a legacy service hint for older monitoring.
+- Backup exports now use `image-agent-studio-backup-*.json`; restore still accepts older `ai-image-workbench.user-backup` files.
 - Release packages now use only:
   - `image-agent-studio-core-update-*.zip`
   - `image-agent-studio-service-update-*.zip`

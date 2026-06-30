@@ -23,7 +23,7 @@ services:
         VITE_STUDIO_HISTORY_BASE_URL: ${VITE_STUDIO_HISTORY_BASE_URL:-}
         VITE_STUDIO_BACK_URL: ${VITE_STUDIO_BACK_URL:-/}
         VITE_STUDIO_LIBRARY_AUTH_REQUIRED: ${VITE_STUDIO_LIBRARY_AUTH_REQUIRED:-false}
-    image: ai-image-workbench-web:local
+    image: image-agent-studio-web:local
     environment:
       AI_GATEWAY_UPSTREAM: ${AI_GATEWAY_UPSTREAM:-${SUB2API_UPSTREAM:-http://host.docker.internal:8080}}
       SUB2API_UPSTREAM: ${SUB2API_UPSTREAM:-${AI_GATEWAY_UPSTREAM:-http://host.docker.internal:8080}}
@@ -47,7 +47,7 @@ services:
     build:
       context: .
       target: history
-    image: ai-image-workbench-history:local
+    image: image-agent-studio-history:local
     environment:
       AI_GATEWAY_BASE_URL: ${AI_GATEWAY_UPSTREAM:-${SUB2API_UPSTREAM:-http://host.docker.internal:8080}}
       SUB2API_BASE_URL: ${SUB2API_UPSTREAM:-${AI_GATEWAY_UPSTREAM:-http://host.docker.internal:8080}}

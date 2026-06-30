@@ -20,7 +20,7 @@ export STUDIO_BACKUP_DIR=./backups
 npm run ops:backup
 ```
 
-备份文件会写入 `STUDIO_BACKUP_DIR`，格式是 `ai-image-workbench-backup-*.json`。
+备份文件会写入 `STUDIO_BACKUP_DIR`，格式是 `image-agent-studio-backup-*.json`。
 
 ## 一键恢复
 
@@ -30,7 +30,7 @@ npm run ops:backup
 export STUDIO_HISTORY_BASE_URL=https://studio.example.com
 export STUDIO_BACKUP_TOKEN='你的登录 token 或 API token'
 
-npm run ops:restore -- ./backups/ai-image-workbench-backup-xxxx.json
+npm run ops:restore -- ./backups/image-agent-studio-backup-xxxx.json
 ```
 
 恢复会替换当前用户的历史图库、当前会话、生成任务和图片资产。它不会恢复其他用户的数据。

@@ -29,7 +29,8 @@ export function createUserBackupService({
     ]);
     return {
       ok: true,
-      kind: 'ai-image-workbench.user-backup',
+      kind: 'image-agent-studio.user-backup',
+      legacyKind: 'ai-image-workbench.user-backup',
       version: 1,
       serviceVersion,
       createdAt: new Date().toISOString(),
@@ -73,7 +74,8 @@ export function createUserBackupService({
       error.status = 400;
       throw error;
     }
-    if (payload.kind !== 'ai-image-workbench.user-backup' || payload.version !== 1) {
+    const supportedKinds = new Set(['image-agent-studio.user-backup', 'ai-image-workbench.user-backup']);
+    if (!supportedKinds.has(payload.kind) || payload.version !== 1) {
       const error = new Error('BACKUP_FORMAT_UNSUPPORTED');
       error.status = 400;
       throw error;

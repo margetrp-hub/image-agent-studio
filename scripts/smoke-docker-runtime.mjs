@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-const projectName = `ai-image-workbench-smoke-${Date.now().toString(36)}`;
+const projectName = `image-agent-studio-smoke-${Date.now().toString(36)}`;
 const port = String(18080 + Math.floor(Math.random() * 1000));
 const baseUrl = `http://127.0.0.1:${port}`;
 const smokeToken = 'docker-runtime-smoke-token';

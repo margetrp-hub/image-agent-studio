@@ -47,6 +47,8 @@ assert(history.environment?.STUDIO_JOB_CONCURRENCY === '1', 'studio-history must
 assert(history.environment?.STUDIO_ALLOWED_ORIGINS === 'https://studio.example.com', 'studio-history must read allowed origins from .env.example.', history.environment);
 assert(history.healthcheck?.test?.join(' ').includes('/studio-api/health'), 'studio-history healthcheck must verify /studio-api/health.', history.healthcheck);
 assert(history.healthcheck?.interval === '30s' && history.healthcheck?.timeout === '5s' && history.healthcheck?.retries === 5, 'studio-history healthcheck must keep production timing.', history.healthcheck);
+assert(web.image === 'image-agent-studio-web:local', 'studio-web image must use the Image Agent Studio name.', web.image);
+assert(history.image === 'image-agent-studio-history:local', 'studio-history image must use the Image Agent Studio name.', history.image);
 
 const historyVolumes = history.volumes || [];
 assert(historyVolumes.some((volume) => volume.type === 'volume' && volume.source === 'studio-data' && volume.target === '/data'), 'studio-history must persist /data in the studio-data volume.', historyVolumes);
@@ -64,6 +66,7 @@ assert(dockerDoc.includes('npm run ops:upgrade'), 'Docker doc must document the 
 assert(dockerDoc.includes('STUDIO_SKIP_BACKUP=true'), 'Docker doc must mention the explicit backup bypass flag.');
 assert(dockerDoc.includes('STUDIO_SKIP_PULL=true'), 'Docker doc must mention the local-image pull bypass flag.');
 assert(dockerDoc.includes('STUDIO_VERSION=1.0.0'), 'Docker doc must document the Docker service version.');
+assert(dockerDoc.includes('image-agent-studio-web:local') && dockerDoc.includes('image-agent-studio-history:local'), 'Docker doc must use the Image Agent Studio image names.');
 assert(deployDoc.includes('npm run check:docker') && deployDoc.includes('npm run smoke:docker'), 'Deploy doc must include Docker verification commands.');
 assert(upgradeScript.includes('ops-backup.mjs') && upgradeScript.includes('ops-self-check.mjs'), 'Upgrade script must run backup before deploy and self-check after deploy.');
 assert(upgradeScript.includes('STUDIO_SKIP_BACKUP') && upgradeScript.includes('STUDIO_SKIP_PULL'), 'Upgrade script must keep explicit backup/pull bypass flags.');

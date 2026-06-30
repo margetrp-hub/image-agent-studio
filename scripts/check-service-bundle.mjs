@@ -4,6 +4,7 @@ import process from 'node:process';
 
 const root = path.resolve(process.argv[2] || '.');
 const required = [
+  'scripts/image-agent-studio-history-service.mjs',
   'scripts/image-sub2api-studio-history-service.mjs',
   'scripts/studio-service/jsonFiles.js',
   'scripts/studio-service/userStorage.js',

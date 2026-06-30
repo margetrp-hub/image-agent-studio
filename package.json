@@ -26,13 +26,14 @@
     "check:sub2api": "node scripts/check-sub2api-contract.mjs",
     "check:server": "node --check apps/server/src/index.js && node --check apps/server/src/server.js && node --check apps/server/src/domain/schema.js && node --check apps/server/src/domain/types.js && node --check apps/server/src/repositories/historyRepository.js && node --check apps/server/src/storage/memoryAdapter.js && node --check apps/server/src/queue/stateMachine.js",
     "check:local": "npm run build && npm run check:studio-build && npm run check:providers && npm run check:deploy && npm run check:docker && npm run check:docs && npm run check:html && npm run check:source && npm run check:i18n && npm run check:env && npm run check:public-data && npm run check:repo && npm run smoke:persistence && npm run smoke:gateway:auth && npm run smoke:history && npm run smoke:history:idb && npm run smoke:projects && npm run smoke:history:queue && npm run smoke:generation:dedupe && npm run smoke:image:route && npm run smoke:newapi:route && npm run smoke:image:edit-route && npm run smoke:session:modes && npm run smoke:references && npm run smoke:provider:security && npm run smoke:composer:layout && npm run smoke:canvas:performance && npm run smoke:canvas:blob-cleanup && npm run smoke:canvas:link && npm run smoke:history:windowing && npm run smoke:inspiration:windowing && npm run smoke:inspiration:reference-flow && npm run smoke:template:windowing && npm run smoke:language:en",
-    "history:service": "node scripts/image-sub2api-studio-history-service.mjs",
+    "history:service": "node scripts/image-agent-studio-history-service.mjs",
     "ops:backup": "node scripts/ops-backup.mjs",
     "ops:restore": "node scripts/ops-restore.mjs",
     "ops:self-check": "node scripts/ops-self-check.mjs",
     "ops:upgrade": "node scripts/ops-upgrade.mjs",
     "ops:localize-inspirations": "node scripts/localize-inspiration-assets.mjs",
     "package:release": "node scripts/package-release.mjs && npm run check:release",
+    "package:windows": "node scripts/package-windows.mjs",
     "dev": "vite",
     "dev:studio": "vite --open /studio.html",
     "build": "vite build",
@@ -78,11 +79,8 @@
     "undici": "^7.28.0",
     "vite": "^8.0.16"
   },
-  "description": "Self-hosted AI image agent studio for OpenAI-compatible generation and editing gateways.",
-  "main": "vite.config.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "description": "Self-hosted image creation workstation for prompts, reference images, canvas history, and OpenAI-compatible generation/editing routes.",
+  "main": "apps/desktop/main.mjs",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/margetrp-hub/image-agent-studio.git"
@@ -103,6 +101,8 @@
   },
   "homepage": "https://github.com/margetrp-hub/image-agent-studio#readme",
   "devDependencies": {
+    "electron": "^42.5.1",
+    "electron-builder": "^26.15.3",
     "playwright": "^1.60.0"
   }
 }

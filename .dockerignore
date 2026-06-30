@@ -9,6 +9,7 @@ tmp
 node_modules
 dist
 release
+release/desktop
 output
 data
 api

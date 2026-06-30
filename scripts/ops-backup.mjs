@@ -26,7 +26,7 @@ try {
 
 await fs.mkdir(outputDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const filePath = path.join(outputDir, `ai-image-workbench-backup-${stamp}.json`);
+const filePath = path.join(outputDir, `image-agent-studio-backup-${stamp}.json`);
 await fs.writeFile(filePath, JSON.stringify(payload, null, 2));
 
 console.log(JSON.stringify({

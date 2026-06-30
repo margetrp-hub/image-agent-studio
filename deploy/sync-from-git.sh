@@ -3,13 +3,13 @@ set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/margetrp-hub/image-agent-studio.git}"
 BRANCH="${BRANCH:-main}"
-REPO_DIR="${REPO_DIR:-/opt/ai-image-workbench-repo}"
-SERVICE_DIR="${SERVICE_DIR:-/opt/image-sub2api-studio}"
-STATIC_DIR="${STATIC_DIR:-/var/www/ohlaoo-studio}"
-DATA_DIR="${DATA_DIR:-/var/lib/image-sub2api-studio}"
+REPO_DIR="${REPO_DIR:-/opt/image-agent-studio-repo}"
+SERVICE_DIR="${SERVICE_DIR:-/opt/image-agent-studio}"
+STATIC_DIR="${STATIC_DIR:-/var/www/image-agent-studio}"
+DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"
 BASE_PATH="${BASE_PATH:-/studio/}"
-SERVICE_NAME="${SERVICE_NAME:-image-sub2api-studio-history}"
-LEGACY_SERVICE_NAME="${LEGACY_SERVICE_NAME:-ohlaoo-studio-history}"
+SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"
+LEGACY_SERVICE_NAME="${LEGACY_SERVICE_NAME:-image-sub2api-studio-history}"
 AI_GATEWAY_BASE_URL="${AI_GATEWAY_BASE_URL:-${SUB2API_BASE_URL:-http://127.0.0.1:8080}}"
 STUDIO_AUTH_MODE="${STUDIO_AUTH_MODE:-gateway}"
 STUDIO_JOB_TIMEOUT_MS="${STUDIO_JOB_TIMEOUT_MS:-2700000}"
@@ -189,9 +189,12 @@ info "Deploy history/session service"
 mkdir -p "$SERVICE_DIR/scripts" "$SERVICE_DIR/deploy"
 cp -a "$REPO_DIR/package.json" "$REPO_DIR/package-lock.json" "$SERVICE_DIR/"
 cp -a "$REPO_DIR/scripts/image-sub2api-studio-history-service.mjs" "$SERVICE_DIR/scripts/"
+cp -a "$REPO_DIR/scripts/image-agent-studio-history-service.mjs" "$SERVICE_DIR/scripts/"
 rm -rf "$SERVICE_DIR/scripts/studio-service"
 cp -a "$REPO_DIR/scripts/studio-service" "$SERVICE_DIR/scripts/"
+cp -a "$REPO_DIR/deploy/image-agent-studio-history.service" "$SERVICE_DIR/deploy/"
 cp -a "$REPO_DIR/deploy/image-sub2api-studio-history.service" "$SERVICE_DIR/deploy/"
+cp -a "$REPO_DIR/deploy/nginx-image-agent-studio.conf" "$SERVICE_DIR/deploy/"
 cp -a "$REPO_DIR/deploy/nginx-sub2api-studio.conf" "$SERVICE_DIR/deploy/"
 cp -a "$REPO_DIR/deploy/UPDATE-SERVER.zh-CN.md" "$SERVICE_DIR/deploy/"
 
@@ -205,7 +208,11 @@ find "$DATA_DIR" -type f -exec chmod 640 {} \;
 
 if [ "$INSTALL_SYSTEMD_UNIT" = "1" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
   info "Install systemd unit"
-  cp "$SERVICE_DIR/deploy/image-sub2api-studio-history.service" "/etc/systemd/system/${SERVICE_NAME}.service"
+  if [ "$SERVICE_NAME" = "image-sub2api-studio-history" ]; then
+    cp "$SERVICE_DIR/deploy/image-sub2api-studio-history.service" "/etc/systemd/system/${SERVICE_NAME}.service"
+  else
+    cp "$SERVICE_DIR/deploy/image-agent-studio-history.service" "/etc/systemd/system/${SERVICE_NAME}.service"
+  fi
 fi
 
 info "Write systemd runtime overrides"

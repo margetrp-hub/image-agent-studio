@@ -2,6 +2,12 @@
 
 Image Agent Studio is moving toward a provider-neutral image workstation. The current runtime still uses OpenAI-compatible HTTP routes directly, while `src/studio/providers/registry.js` records the provider shapes the project is preparing to support.
 
+Adapter-level notes now live under [`docs/adapters/`](./adapters/README.md):
+
+- [OpenAI-compatible adapter](./adapters/openai-compatible.md)
+- [NewAPI-compatible adapter](./adapters/newapi.md)
+- [Sub2API-compatible adapter](./adapters/sub2api.md)
+
 ## Current Runtime Contract
 
 Text-to-image:

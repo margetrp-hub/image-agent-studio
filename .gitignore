@@ -38,6 +38,7 @@ scripts/install-style-skill.mjs
 
 # Generated deployment packages and local QA output
 release/
+release/desktop/
 output/
 tmp/
 .tmp/

@@ -65,6 +65,7 @@ ENV STUDIO_LIBRARY_DIR=/app/library
 ENV STUDIO_LIBRARY_ASSET_DIR=/app/library/images
 
 COPY scripts/image-sub2api-studio-history-service.mjs ./scripts/image-sub2api-studio-history-service.mjs
+COPY scripts/image-agent-studio-history-service.mjs ./scripts/image-agent-studio-history-service.mjs
 COPY public ./library
 
 RUN mkdir -p /data /app/library/images \
@@ -75,4 +76,4 @@ USER node
 VOLUME ["/data"]
 EXPOSE 8787
 
-CMD ["node", "scripts/image-sub2api-studio-history-service.mjs"]
+CMD ["node", "scripts/image-agent-studio-history-service.mjs"]

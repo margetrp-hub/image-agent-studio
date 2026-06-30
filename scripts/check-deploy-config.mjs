@@ -49,10 +49,27 @@ mustInclude('deploy/docker-nginx.conf.template', 'location /v1/chat/completions'
 mustInclude('deploy/docker-nginx.conf.template', 'location /v1/models', 'NewAPI/OpenAI-compatible model sync must proxy through the same domain');
 mustInclude('deploy/docker-nginx.conf.template', 'client_max_body_size ${STUDIO_NGINX_CLIENT_MAX_BODY_SIZE};', 'Reference image uploads need an explicit body limit');
 
-mustInclude('deploy/sync-from-git.sh', 'STATIC_DIR="${STATIC_DIR:-/var/www/ohlaoo-studio}"', 'Git sync should default to the current VPS static root');
+mustInclude('deploy/sync-from-git.sh', 'REPO_DIR="${REPO_DIR:-/opt/image-agent-studio-repo}"', 'Git sync should default to the standard repository root');
+mustInclude('deploy/sync-from-git.sh', 'STATIC_DIR="${STATIC_DIR:-/var/www/image-agent-studio}"', 'Git sync should default to the standard static root');
+mustInclude('deploy/sync-from-git.sh', 'SERVICE_DIR="${SERVICE_DIR:-/opt/image-agent-studio}"', 'Git sync should default to the standard service root');
+mustInclude('deploy/sync-from-git.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"', 'Git sync should default to the standard persistent data root');
+mustInclude('deploy/sync-from-git.sh', 'SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"', 'Git sync should default to the standard systemd service name');
 mustInclude('deploy/sync-from-git.sh', 'rm -rf "$STATIC_DIR/studio-assets"', 'Git sync should replace hashed assets without deleting the persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_DATA_DIR=$DATA_DIR', 'Git sync must preserve and reuse the configured persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'curl -fsS "$HEALTH_URL"', 'Git sync must verify the local history service health endpoint');
+mustInclude('deploy/sync-from-git.sh', 'scripts/image-agent-studio-history-service.mjs', 'Git sync must deploy the standard service wrapper');
+mustInclude('deploy/sync-from-git.sh', 'deploy/image-agent-studio-history.service', 'Git sync must deploy the standard systemd unit');
+mustInclude('deploy/sync-from-git.sh', 'deploy/nginx-image-agent-studio.conf', 'Git sync must deploy the standard Nginx snippet');
+mustInclude('deploy/install.sh', 'bash "$REPO_DIR/deploy/sync-from-git.sh"', 'Install helper must use the Git sync deploy path');
+mustInclude('deploy/upgrade.sh', 'bash "$REPO_DIR/deploy/backup.sh"', 'Upgrade helper must back up before syncing by default');
+mustInclude('deploy/backup.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"', 'Backup helper must use the standard data root by default');
+mustInclude('deploy/restore.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"', 'Restore helper must use the standard data root by default');
+mustInclude('deploy/self-check.sh', '/studio-api/health', 'Self-check helper must verify the history API');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/;', 'Standard Nginx static root must match Git sync default STATIC_DIR');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/studio-assets/;', 'Standard Nginx asset root must match Git sync default STATIC_DIR');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Standard Nginx must proxy the Studio persistence API to the local service');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'location /v1/images/', 'Standard Nginx must expose image generation and edits through the same public origin');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'location /v1/models', 'Standard Nginx must expose model sync for OpenAI-compatible gateways');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/;', 'Nginx static root must match the Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/studio-assets/;', 'Nginx asset root must match the Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Nginx must proxy the Studio persistence API to the local service');
@@ -64,6 +81,13 @@ mustInclude('scripts/package-release.mjs', 'image-agent-studio-service-update-${
 mustInclude('README.md', 'image-agent-studio-core-update-*.zip', 'README must document the new package name');
 mustInclude('README.zh-CN.md', 'image-agent-studio-core-update-*.zip', 'Chinese README must document the new package name');
 mustInclude('deploy/UPDATE-SERVER.zh-CN.md', 'image-agent-studio-core-update-YYYYMMDD-HHMMSS.zip', 'VPS update guide must prefer the new package name');
+mustInclude('package.json', '"package:windows": "node scripts/package-windows.mjs"', 'Windows desktop packaging must be reproducible from npm scripts');
+mustInclude('scripts/package-windows.mjs', '--prepackaged', 'Windows desktop packaging must retry from a prepackaged app when Windows locks the unpack rename step');
+mustInclude('electron-builder.config.cjs', "productName: 'Image Agent Studio'", 'Windows desktop package must use the Image Agent Studio product name');
+mustInclude('electron-builder.config.cjs', "output: 'release/desktop'", 'Windows desktop artifacts must stay out of source directories');
+mustInclude('electron-builder.config.cjs', "artifactName: '${productName}-${version}-${arch}-setup.${ext}'", 'Windows installer artifact must have a distinct setup filename');
+mustInclude('electron-builder.config.cjs', "artifactName: '${productName}-${version}-${arch}-portable.${ext}'", 'Windows portable artifact must have a distinct portable filename');
+mustInclude('docs/WINDOWS-DESKTOP.zh-CN.md', 'npm run package:windows', 'Windows desktop packaging doc must show the build command');
 
 mustInclude('Dockerfile', 'COPY --from=builder /app/dist /usr/share/nginx/html', 'Web image must serve built assets');
 mustInclude('Dockerfile', 'ARG VITE_AI_GATEWAY_BASE_URL=', 'Docker web build must accept provider-neutral gateway base URL');
@@ -72,7 +96,8 @@ mustInclude('Dockerfile', 'ARG VITE_AI_IMAGE_ROUTE=auto', 'Docker web build must
 mustInclude('Dockerfile', 'ENV VITE_AI_GATEWAY_BASE_URL=$VITE_AI_GATEWAY_BASE_URL', 'Docker web build must expose provider-neutral gateway base URL to Vite');
 mustInclude('Dockerfile', 'ENV VITE_AI_GATEWAY_MODEL_BASE_URL=$VITE_AI_GATEWAY_MODEL_BASE_URL', 'Docker web build must expose provider-neutral model gateway base URL to Vite');
 mustInclude('Dockerfile', 'ARG VITE_SUB2API_BASE_URL=', 'Docker web build must keep legacy Sub2API build args for upgrades');
-mustInclude('Dockerfile', 'CMD ["node", "scripts/image-sub2api-studio-history-service.mjs"]', 'History image must start the persistence service');
+mustInclude('Dockerfile', 'COPY scripts/image-agent-studio-history-service.mjs', 'History image must include the standard service wrapper');
+mustInclude('Dockerfile', 'CMD ["node", "scripts/image-agent-studio-history-service.mjs"]', 'History image must start the standard persistence service wrapper');
 mustInclude('Dockerfile', 'ENV STUDIO_DATA_DIR=/data', 'History image must write to the mounted data volume');
 
 mustInclude('.dockerignore', 'node_modules', 'Docker context must not include local dependencies');
@@ -81,6 +106,7 @@ mustInclude('.dockerignore', '.image-sub2api-studio-data', 'Docker context must 
 mustInclude('.dockerignore', '.env', 'Docker context must not include local secrets');
 mustInclude('.dockerignore', 'output', 'Docker context must not include Playwright screenshots');
 mustInclude('.dockerignore', 'release', 'Docker context must not include generated release packages');
+mustInclude('.dockerignore', 'release/desktop', 'Docker context must not include generated desktop executables');
 
 mustInclude('.env.example', 'STUDIO_AUTH_MODE=local', 'Example config must document local persistence mode');
 mustInclude('.env.example', 'AI_GATEWAY_UPSTREAM=http://host.docker.internal:8080', 'Example config must document host gateway proxying');

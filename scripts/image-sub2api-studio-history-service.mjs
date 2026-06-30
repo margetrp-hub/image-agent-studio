@@ -1598,7 +1598,8 @@ async function handler(req, res) {
   if (parts.join('/') === 'studio-api/health') {
     return sendJson(res, 200, {
       ok: true,
-      service: 'ai-image-workbench-history',
+      service: 'image-agent-studio-history',
+      legacyService: 'ai-image-workbench-history',
       version: SERVICE_VERSION,
       startedAt: new Date(SERVICE_STARTED_AT).toISOString()
     });
@@ -1614,7 +1615,7 @@ async function handler(req, res) {
     if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'backup' && parts.length === 2) {
       const backup = await buildUserBackup(auth, 'manual');
       const stamp = backup.createdAt.replace(/[:.]/g, '-');
-      return sendDownloadJson(res, `ai-image-workbench-backup-${stamp}.json`, backup);
+      return sendDownloadJson(res, `image-agent-studio-backup-${stamp}.json`, backup);
     }
 
     if (req.method === 'POST' && parts[0] === 'studio-api' && parts[1] === 'backup' && parts[2] === 'restore' && parts.length === 3) {

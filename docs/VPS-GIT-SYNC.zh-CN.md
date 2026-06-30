@@ -1,129 +1,126 @@
-﻿# VPS 直接同步 Git 仓库部署
+# VPS 直接同步 Git 仓库部署
 
-这份说明用于把 VPS 更新方式从“本地打包 zip 后上传”改成“服务器直接同步 Git 仓库”。目标是让仓库和 VPS 保持同一节奏：
+这份说明用于把 VPS 更新方式从“本地打包 zip 后上传”改成“服务器直接同步 Git 仓库”。目标是让 GitHub 成为唯一代码来源，VPS 每次从仓库拉取、构建、部署和自检。
 
-- Git 仓库是唯一代码来源。
-- VPS 每次从 GitHub 拉取指定分支。
-- VPS 本地构建 `dist/`，再覆盖 Nginx 静态目录。
-- Node 历史/会话服务从同一份仓库更新。
-- `/var/lib/image-sub2api-studio` 是生产持久化目录，不跟随 Git 覆盖。
+## 标准新部署路径
 
-> 说明：项目正在逐步更名为 Image Agent Studio，但生产数据目录仍默认沿用 `/var/lib/image-sub2api-studio`。这是为了避免历史图库、当前会话、队列任务、生成图片和受保护素材库在升级后“看起来消失”。
-
-## 当前线上路径
-
-当前线上建议保持这些路径：
+新服务器建议使用统一的 Image Agent Studio 路径：
 
 ```text
-/opt/ai-image-workbench-repo/    # Git 仓库 checkout
-/var/www/ohlaoo-studio/            # Nginx 实际读取的静态目录
-/opt/image-sub2api-studio/         # Node 历史/会话服务运行目录
-/var/lib/image-sub2api-studio/     # 历史图库、当前会话、队列任务、受保护素材库
+/opt/image-agent-studio-repo/     # Git 仓库 checkout
+/var/www/image-agent-studio/      # Nginx 读取的静态目录
+/opt/image-agent-studio/          # Node 历史/会话服务运行目录
+/var/lib/image-agent-studio/      # 历史、会话、队列、生成图片和受保护素材库
 ```
 
-不要再把静态包解压到 `/var/www/image-sub2api-studio`，除非 Nginx 也同步改成读取那个目录。
+这个标准路径不依赖 Sub2API 或 NewAPI。它只是一个独立工作站，可以通过 `AI_GATEWAY_UPSTREAM`、`VITE_AI_*` 或浏览器里的 Provider 设置连接不同网关。
 
-## 第一次接入
+## 旧 VPS 兼容路径
 
-安装基础依赖：
+已有线上环境可以继续保留旧路径：
+
+```text
+/var/www/ohlaoo-studio/
+/opt/image-sub2api-studio/
+/var/lib/image-sub2api-studio/
+```
+
+这些旧路径是为了避免历史图库、当前会话、队列任务、生成图片和受保护素材库在更名后“看起来消失”。保留旧路径时，需要在同步脚本里显式传入 `STATIC_DIR`、`SERVICE_DIR`、`DATA_DIR` 和 `SERVICE_NAME`。
+
+## 第一次标准安装
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y git nodejs npm
-```
 
-拉取仓库：
-
-```bash
 sudo git clone https://github.com/margetrp-hub/image-agent-studio.git \
-  /opt/ai-image-workbench-repo
+  /opt/image-agent-studio-repo
+
+sudo bash /opt/image-agent-studio-repo/deploy/install.sh
 ```
 
-执行同步部署：
-
-```bash
-cd /opt/ai-image-workbench-repo
-
-sudo BRANCH=main \
-  REPO_DIR=/opt/ai-image-workbench-repo \
-  STATIC_DIR=/var/www/ohlaoo-studio \
-  SERVICE_DIR=/opt/image-sub2api-studio \
-  DATA_DIR=/var/lib/image-sub2api-studio \
-  BASE_PATH=/studio/ \
-  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
-  REQUIRE_LIBRARY=1 \
-  bash deploy/sync-from-git.sh
-```
-
-`REQUIRE_LIBRARY=1` 会要求受保护素材库必须存在。线上私有素材库至少应该包含：
+安装脚本会调用 `deploy/sync-from-git.sh`，并安装标准 systemd 服务：
 
 ```text
-/var/lib/image-sub2api-studio/library/cases.json
-/var/lib/image-sub2api-studio/library/inspirations.json
-/var/lib/image-sub2api-studio/library/style-library.json
-/var/lib/image-sub2api-studio/library/images/
+image-agent-studio-history
 ```
 
-如果这一步提示素材库不完整，先迁移旧素材库，不要关闭校验硬上线。
-
-## 日常更新
-
-以后每次仓库更新后，在 VPS 上只跑：
+## 日常标准更新
 
 ```bash
-cd /opt/ai-image-workbench-repo
+cd /opt/image-agent-studio-repo
+sudo bash deploy/upgrade.sh
+```
+
+`deploy/upgrade.sh` 默认会先备份 `/var/lib/image-agent-studio`，再同步代码、构建前端、更新服务、重启 systemd，并运行 `deploy/self-check.sh`。
+
+如果你已经有外部快照，可以跳过脚本备份：
+
+```bash
+cd /opt/image-agent-studio-repo
+sudo BACKUP_FIRST=0 bash deploy/upgrade.sh
+```
+
+## 旧 Oh Laoo VPS 更新
+
+如果当前 Nginx 仍读取 `/var/www/ohlaoo-studio`，历史服务仍在 `/opt/image-sub2api-studio`，数据仍在 `/var/lib/image-sub2api-studio`，用下面命令保持兼容：
+
+```bash
+cd /opt/image-agent-studio-repo
 
 sudo BRANCH=main \
-  REPO_DIR=/opt/ai-image-workbench-repo \
+  REPO_DIR=/opt/image-agent-studio-repo \
   STATIC_DIR=/var/www/ohlaoo-studio \
   SERVICE_DIR=/opt/image-sub2api-studio \
   DATA_DIR=/var/lib/image-sub2api-studio \
+  SERVICE_NAME=image-sub2api-studio-history \
   BASE_PATH=/studio/ \
   PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
   REQUIRE_LIBRARY=1 \
   bash deploy/sync-from-git.sh
 ```
 
-脚本会自动完成：
+## 脚本会做什么
 
-1. 从 GitHub 拉取 `main` 分支。
-2. 安装依赖并本地构建 `/studio/` 子路径版本。
-3. 覆盖 `/var/www/ohlaoo-studio` 的静态文件和 `studio-assets/`。
-4. 更新 `/opt/image-sub2api-studio` 里的历史/会话服务脚本。
+1. 从 GitHub 拉取指定分支。
+2. 在 VPS 本地执行 `npm ci` 和 `/studio/` 子路径构建。
+3. 覆盖静态目录里的 `studio.html` 和 `studio-assets/`。
+4. 更新 Node 历史/会话服务脚本。
 5. 写入 systemd runtime overrides，保留 `DATA_DIR`。
-6. 重启 `image-sub2api-studio-history`。
-7. 校验 `studio.html`、JS/CSS hash 文件、健康检查、素材库数量和 Nginx 配置。
+6. 重启历史/会话服务。
+7. 校验静态文件、JS/CSS hash、服务健康检查、素材库数量和 Nginx 配置。
 
-## 素材库恢复
+## 素材库检查
 
-如果更新后灵感广场或素材库为空，先检查受保护素材库：
+如果灵感广场或模板库为空，先检查受保护素材库：
 
 ```bash
-for f in /var/lib/image-sub2api-studio/library/cases.json \
-  /var/lib/image-sub2api-studio/library/inspirations.json \
-  /var/lib/image-sub2api-studio/library/style-library.json; do
+DATA_DIR=/var/lib/image-agent-studio
+
+for f in "$DATA_DIR/library/cases.json" \
+  "$DATA_DIR/library/inspirations.json" \
+  "$DATA_DIR/library/style-library.json"; do
   [ -f "$f" ] || continue
   echo "== $f =="
   sudo node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); for (const [k,v] of Object.entries(j)) if (Array.isArray(v)) console.log(k, v.length);" "$f"
 done
 
-sudo find /var/lib/image-sub2api-studio/library/images \
+sudo find "$DATA_DIR/library/images" \
   -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | wc -l
 ```
 
-旧完整素材索引曾出现在这些位置：
+旧服务器请把 `DATA_DIR` 改为：
 
-```text
-/home/margetrp/ohlaoo-home-overlay-v47-gallery-20260519-142434/public
-/home/margetrp/ohlaoo-studio-backup-20260518-202731
-/var/www/ohlaoo-overlay
+```bash
+DATA_DIR=/var/lib/image-sub2api-studio
 ```
 
-恢复命令示例：
+## 素材库恢复示例
 
 ```bash
 OLD_PUBLIC=/home/margetrp/ohlaoo-home-overlay-v47-gallery-20260519-142434/public
-NEW_LIBRARY=/var/lib/image-sub2api-studio/library
+DATA_DIR=/var/lib/image-agent-studio
+NEW_LIBRARY="$DATA_DIR/library"
 
 sudo install -d -o www-data -g www-data -m 750 "$NEW_LIBRARY"
 
@@ -132,35 +129,51 @@ sudo install -o www-data -g www-data -m 640 "$OLD_PUBLIC/inspirations.json" "$NE
 sudo install -o www-data -g www-data -m 640 "$OLD_PUBLIC/style-library.json" "$NEW_LIBRARY/style-library.json"
 sudo cp -a "$OLD_PUBLIC/images" "$NEW_LIBRARY/"
 
-sudo chown -R www-data:www-data /var/lib/image-sub2api-studio
-sudo find /var/lib/image-sub2api-studio -type d -exec chmod 750 {} \;
-sudo find /var/lib/image-sub2api-studio -type f -exec chmod 640 {} \;
-sudo systemctl restart image-sub2api-studio-history
+sudo chown -R www-data:www-data "$DATA_DIR"
+sudo find "$DATA_DIR" -type d -exec chmod 750 {} \;
+sudo find "$DATA_DIR" -type f -exec chmod 640 {} \;
+sudo systemctl restart image-agent-studio-history
+```
+
+旧完整素材索引曾出现过的位置：
+
+```text
+/home/margetrp/ohlaoo-home-overlay-v47-gallery-20260519-142434/public
+/home/margetrp/ohlaoo-studio-backup-20260518-202731
+/var/www/ohlaoo-overlay
 ```
 
 ## 验证
 
-更新后先验证本地服务：
+标准服务：
+
+```bash
+systemctl is-active image-agent-studio-history
+curl -s http://127.0.0.1:8787/studio-api/health
+```
+
+旧兼容服务：
 
 ```bash
 systemctl is-active image-sub2api-studio-history
 curl -s http://127.0.0.1:8787/studio-api/health
 ```
 
-再验证公网入口和静态资源。JS/CSS 文件名以线上 `studio.html` 里的 hash 为准：
+公网入口：
 
 ```bash
-curl -I https://studio.ohlaoo.com/studio/
-curl -s https://studio.ohlaoo.com/studio/ | grep 'studio-assets'
-curl -I https://studio.ohlaoo.com/studio-api/health
+curl -I https://studio.example.com/studio/
+curl -s https://studio.example.com/studio/ | grep 'studio-assets'
+curl -I https://studio.example.com/studio-api/health
 ```
 
-如果 JS/CSS 返回 `text/html`，说明 Nginx fallback 或静态路径错了，会导致白屏。必须先修静态目录和 `/studio/studio-assets/` alias。
+如果 JS/CSS 返回 `text/html`，说明 Nginx fallback 或静态路径错了，会导致白屏。先修静态目录和 `/studio/studio-assets/` alias。
 
 ## 原则
 
-- 代码和文档跟 Git 走。
+- GitHub 仓库是唯一代码来源。
 - 构建产物在 VPS 本地生成。
 - 静态目录可以覆盖，持久化目录不能覆盖。
-- 开源 starter JSON 可以随仓库更新，生产私有素材库放在 `/var/lib/image-sub2api-studio/library`。
+- 新部署优先用 `/var/lib/image-agent-studio`。
+- 旧部署可以继续用 `/var/lib/image-sub2api-studio`，但必须显式传入路径。
 - 每次更新必须看脚本最后的校验结果，不能只看页面能不能打开。

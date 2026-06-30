@@ -34,7 +34,7 @@ async function githubHead(source) {
   const response = await fetch(source.api, {
     headers: {
       accept: 'application/vnd.github+json',
-      'user-agent': 'ai-image-workbench-source-check/1.0'
+      'user-agent': 'image-agent-studio-source-check/1.0'
     }
   });
   if (!response.ok) throw new Error(`HTTP_${response.status}`);

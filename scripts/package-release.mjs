@@ -22,11 +22,22 @@ const include = [
 const serviceInclude = [
   'package.json',
   'package-lock.json',
+  'scripts/image-agent-studio-history-service.mjs',
   'scripts/image-sub2api-studio-history-service.mjs',
   'deploy/sync-from-git.sh',
+  'deploy/install.sh',
+  'deploy/upgrade.sh',
+  'deploy/backup.sh',
+  'deploy/restore.sh',
+  'deploy/self-check.sh',
+  'deploy/image-agent-studio-history.service',
   'deploy/image-sub2api-studio-history.service',
+  'deploy/nginx-image-agent-studio.conf',
   'deploy/nginx-sub2api-studio.conf',
   'deploy/UPDATE-SERVER.zh-CN.md',
+  'docs/DEPLOY.zh-CN.md',
+  'docs/DOCKER.zh-CN.md',
+  'docs/PROVIDERS.md',
   'docs/VPS-GIT-SYNC.zh-CN.md'
 ];
 

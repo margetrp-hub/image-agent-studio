@@ -90,7 +90,7 @@ async function downloadBuffer(url) {
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'user-agent': 'ai-image-workbench-asset-localizer/1.0',
+          'user-agent': 'image-agent-studio-asset-localizer/1.0',
           accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8'
         }
       });
