@@ -72,19 +72,25 @@ function providerDescriptor({
   endpointStyle = PROVIDER_ENDPOINT_STYLES.OPENAI_COMPATIBLE,
   workspaces = [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.ASSISTANT],
   authFields = MANUAL_AUTH_FIELDS,
+  baseUrlExample = '',
+  docsUrl = '',
   modelSync = false,
   modelSlots = [],
+  setupHint = '',
   notes = []
 } = {}) {
   return Object.freeze({
     endpointStyle,
     workspaces: Object.freeze([...workspaces]),
     authFields,
+    baseUrlExample,
+    docsUrl,
     modelSync: Object.freeze({
       supported: Boolean(modelSync),
       endpoint: modelSync ? OPENAI_COMPATIBLE_ROUTES.models : ''
     }),
     modelSlots: freezeModelSlots(modelSlots),
+    setupHint,
     notes: Object.freeze([...notes])
   });
 }
@@ -109,6 +115,8 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     parameters: OPENAI_IMAGE_PARAMETERS,
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://api.openai.com/v1',
+      docsUrl: 'https://platform.openai.com/docs/api-reference/images',
       modelSync: true,
       modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
       notes: ['Official OpenAI API using /v1/images and /v1/models.']
@@ -127,6 +135,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     parameters: OPENAI_IMAGE_PARAMETERS,
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://gateway.example.com/v1',
       modelSync: true,
       modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
       notes: ['Custom OpenAI-compatible endpoint with /v1/models support.']
@@ -145,8 +154,11 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     parameters: OPENAI_IMAGE_PARAMETERS,
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://newapi.example.com/v1',
+      docsUrl: 'https://github.com/QuantumNous/new-api',
       modelSync: true,
       modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
+      setupHint: 'Enter the NewAPI public endpoint root or /v1 endpoint. The studio normalizes both to /v1, then syncs models from /v1/models and sends image jobs to /v1/images/generations.',
       notes: ['Use for NewAPI Playground or compatible gateways with OpenAI-style /v1 routes and /v1/models support.']
     })
   }),
@@ -166,6 +178,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     }),
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://image-gateway.example.com/v1',
       modelSync: true,
       modelSlots: freezeModelSlots([
         { key: 'imageGenerationModel', label: 'Image generation', defaultModel: 'nano-banana', route: 'generations' },
@@ -193,6 +206,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     }),
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://video-gateway.example.com/v1',
       modelSync: true,
       workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
       modelSlots: freezeModelSlots([
@@ -221,6 +235,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     parameters: OPENAI_IMAGE_PARAMETERS,
     descriptor: providerDescriptor({
       authFields: GATEWAY_AUTH_FIELDS,
+      baseUrlExample: '/v1',
       modelSync: true,
       modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
       notes: ['Uses the signed-in gateway account and selected key.']

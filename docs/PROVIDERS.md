@@ -42,6 +42,45 @@ Use this for official or custom endpoints that expose standard image generation 
 
 Use this for NewAPI Playground, NewAPI-style deployments, or similar gateways that expose OpenAI-compatible `/v1` routes. The UI syncs model metadata through `/v1/models` when a base URL and API key are configured.
 
+## NewAPI Standalone Setup
+
+NewAPI should be treated as its own provider family in the studio, not just as a generic custom URL. It still uses OpenAI-compatible HTTP routes, so the runtime path stays simple:
+
+```text
+GET  /v1/models
+POST /v1/images/generations
+POST /v1/images/edits
+POST /v1/chat/completions
+```
+
+In the browser settings panel:
+
+1. Choose `NewAPI Playground Gateway`.
+2. Fill the NewAPI public endpoint, for example `https://newapi.example.com/v1`.
+   A root domain such as `https://newapi.example.com` also works because the client normalizes it to `/v1`.
+3. Fill the API key. The raw key is kept in `sessionStorage` only for the current browser session.
+4. Wait for model sync. A healthy NewAPI connection should return model metadata from `/v1/models`.
+5. Use `gpt-image-2`, `nano-banana`, or any image model id that your NewAPI channel actually exposes.
+
+For a production VPS, prefer same-origin proxying so the front end can call your studio domain while Nginx forwards `/v1/*` to NewAPI:
+
+```env
+VITE_AI_GATEWAY_BASE_URL=https://studio.example.com
+VITE_AI_GATEWAY_MODEL_BASE_URL=https://studio.example.com
+VITE_AI_IMAGE_ROUTE=auto
+AI_GATEWAY_UPSTREAM=https://newapi.example.com
+```
+
+With that shape, the browser calls `https://studio.example.com/v1/models` and `https://studio.example.com/v1/images/generations`; Nginx forwards those requests to the NewAPI upstream. The API key still belongs to the selected NewAPI channel/account. If NewAPI returns `403` or an empty model list, check the NewAPI token group, channel permission, model mapping, and whether image generation is enabled for that group.
+
+For quick local route verification without paid generation:
+
+```bash
+npm run smoke:newapi:route
+```
+
+That smoke test verifies that the NewAPI provider syncs `/v1/models`, submits text-to-image through `/v1/images/generations`, preserves the provider id in the server job payload, and does not leak the manual API key into durable browser storage.
+
 `gateway-account`
 
 Use this when the workbench is attached to an existing account system. The browser can use gateway login state, account keys, and optional profile/key APIs, while the workbench owns the creation UI, queue display, canvas state, and persistence service.

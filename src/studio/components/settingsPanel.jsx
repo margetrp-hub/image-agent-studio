@@ -38,6 +38,7 @@ export function SettingsPanel({
 
   const gatewayAccountDisabled = providerSettings.apiKeySource === 'manual';
   const currentProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
+  const providerDescriptor = currentProvider?.descriptor || {};
   const providerCapabilityText = [
     currentProvider?.capabilities?.textToImage ? t('settings.capTextToImage', '生图') : '',
     currentProvider?.capabilities?.imageEdit ? t('settings.capEdit', '编辑') : '',
@@ -64,6 +65,11 @@ export function SettingsPanel({
       active: provider.id === currentProvider?.id,
       nextApiKeySource: provider.authMode
     }));
+  const baseUrlPlaceholder = providerDescriptor.baseUrlExample || defaultProviderGatewayBaseUrl(providerSettings);
+  const providerSetupHint = providerDescriptor.setupHint
+    ? t(`settings.providerSetupHint.${currentProvider?.id}`, providerDescriptor.setupHint)
+    : t('settings.providerSetupHint.default', '填写接口地址和密钥后，会从 /v1/models 同步模型，并按当前模式调用图片或视频接口。');
+  const providerRouteHint = t('settings.providerRouteHint', '实际路径：模型 /v1/models · 生图 /v1/images/generations · 编辑 /v1/images/edits');
 
   return (
     <div className="settingsOverlay" onMouseDown={(event) => {
@@ -95,41 +101,8 @@ export function SettingsPanel({
                 </option>
               ))}
             </select>
+            <em>{providerSetupHint}</em>
           </label>
-          <span>{t('settings.key', '密钥')}</span>
-          <div className="providerChoiceGrid" role="group" aria-label={t('settings.providerFamily', '接口类型')}>
-            {providerChoices.map((provider) => (
-              <button
-                type="button"
-                className={provider.active ? 'active' : ''}
-                key={provider.id}
-                onClick={() => onProviderChange({
-                  ...providerSettings,
-                  apiKeySource: provider.nextApiKeySource,
-                  providerId: provider.id
-                })}
-              >
-                <strong>{provider.label}</strong>
-                <em>{provider.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}</em>
-              </button>
-            ))}
-          </div>
-          <div className="segmentedControl legacyProviderToggle">
-            <button
-              type="button"
-              className={usesGatewayAccount(providerSettings) ? 'active' : ''}
-              onClick={() => onProviderChange({ ...providerSettings, apiKeySource: 'gateway', providerId: 'gateway-account' })}
-            >
-              Gateway
-            </button>
-            <button
-              type="button"
-              className={providerSettings.apiKeySource === 'manual' ? 'active' : ''}
-              onClick={() => onProviderChange({ ...providerSettings, apiKeySource: 'manual', providerId: 'openai-compatible' })}
-            >
-              {t('settings.custom', '自定义')}
-            </button>
-          </div>
         </div>
 
         <div className="providerSummary">
@@ -164,8 +137,9 @@ export function SettingsPanel({
               <input
                 value={providerSettings.manualGatewayBaseUrl}
                 onChange={(event) => onProviderChange({ ...providerSettings, manualGatewayBaseUrl: event.target.value })}
-                placeholder={defaultProviderGatewayBaseUrl(providerSettings)}
+                placeholder={baseUrlPlaceholder}
               />
+              <small>{providerRouteHint}</small>
             </label>
             <label>
               <span>{t('settings.key', '密钥')}</span>
@@ -175,6 +149,7 @@ export function SettingsPanel({
                 onChange={(event) => onProviderChange({ ...providerSettings, manualApiKey: event.target.value })}
                 placeholder="sk-..."
               />
+              <small>{t('settings.sessionOnlyKey', '仅保存在当前浏览器会话，不写入 localStorage。')}</small>
             </label>
           </div>
         )}
@@ -208,7 +183,9 @@ export function SettingsPanel({
           <div className={`settingsModelSync ${modelsStatus}`}>
             <span>{modelSyncLabel}</span>
             <em>{modelSyncMeta}</em>
-            <small>{t('settings.modelsProviderHint', '兼容 OpenAI / NewAPI 风格的上游；后续可继续扩展为多 Provider 调用策略。')}</small>
+            <small>{providerDescriptor.modelSync?.endpoint
+              ? t('settings.modelsProviderHintWithEndpoint', '当前接口通过 {endpoint} 同步模型；失败时会保留默认模型供手动填写。', { endpoint: providerDescriptor.modelSync.endpoint })
+              : t('settings.modelsProviderHint', '兼容 OpenAI / NewAPI 风格的上游；后续可继续扩展为多 Provider 调用策略。')}</small>
           </div>
           <label>
             <span>{t('settings.assistantModel', '助手模型')}</span>
