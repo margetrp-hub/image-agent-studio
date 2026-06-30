@@ -1,6 +1,6 @@
 /* Workstation shell: final layout boundaries for canvas, references, and composer. */
 .studioLayout {
-  --studio-topbar-height: 64px;
+  --studio-topbar-height: 0px;
   --studio-shell-gap: 14px;
   --studio-left-rail-width: clamp(248px, 20vw, 308px);
   --workbench-side-width: clamp(292px, 22vw, 320px);
