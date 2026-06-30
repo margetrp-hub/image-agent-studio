@@ -13,12 +13,13 @@ function queueStatusLabel(status, t) {
 
 function queueSummary(item, t, formatError) {
   if (item?.status === 'failed' && item?.error && typeof formatError === 'function') {
-    return formatError({
+    const message = formatError({
       ...item.error,
       message: item.error.message || item.summary || 'GENERATION_JOB_FAILED',
       status: item.error.status,
       requestId: item.error.requestId || item.requestIds?.[0] || ''
     }, t);
+    if (message) return message;
   }
   return item?.summary || '';
 }

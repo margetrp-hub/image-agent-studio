@@ -46,6 +46,7 @@ mustInclude('deploy/docker-nginx.conf.template', 'location /studio-api/', 'Docke
 mustInclude('deploy/docker-nginx.conf.template', 'proxy_pass ${STUDIO_HISTORY_UPSTREAM};', 'Persistence API must proxy to studio-history');
 mustInclude('deploy/docker-nginx.conf.template', 'location /v1/images/', 'Image generation and edits must proxy through the same domain');
 mustInclude('deploy/docker-nginx.conf.template', 'location /v1/chat/completions', 'Prompt assistant route must proxy through the same domain');
+mustInclude('deploy/docker-nginx.conf.template', 'location /v1/models', 'NewAPI/OpenAI-compatible model sync must proxy through the same domain');
 mustInclude('deploy/docker-nginx.conf.template', 'client_max_body_size ${STUDIO_NGINX_CLIENT_MAX_BODY_SIZE};', 'Reference image uploads need an explicit body limit');
 
 mustInclude('deploy/sync-from-git.sh', 'STATIC_DIR="${STATIC_DIR:-/var/www/ohlaoo-studio}"', 'Git sync should default to the current VPS static root');
@@ -56,6 +57,7 @@ mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/;'
 mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/studio-assets/;', 'Nginx asset root must match the Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Nginx must proxy the Studio persistence API to the local service');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'location /v1/images/', 'Nginx must expose image generation and edits through the same public origin');
+mustInclude('deploy/nginx-sub2api-studio.conf', 'location /v1/models', 'Nginx must expose model sync for NewAPI/OpenAI-compatible playgrounds');
 
 mustInclude('scripts/package-release.mjs', 'image-agent-studio-core-update-${stamp}.zip', 'Release packages should use the Image Agent Studio name');
 mustInclude('scripts/package-release.mjs', 'image-agent-studio-service-update-${stamp}.zip', 'Service packages should use the Image Agent Studio name');
@@ -100,6 +102,7 @@ mustInclude('package.json', '"smoke:history": "npm exec --yes --package=playwrig
 mustInclude('package.json', '"smoke:history:idb": "npm exec --yes --package=playwright -- node scripts/smoke-history-indexeddb.mjs"', 'IndexedDB history recovery smoke must stay available');
 mustInclude('package.json', '"smoke:projects": "npm exec --yes --package=playwright -- node scripts/smoke-project-session-grouping.mjs"', 'Sidebar projects must stay grouped by conversation/session');
 mustInclude('package.json', '"smoke:image:route": "npm exec --yes --package=playwright -- node scripts/smoke-image-generation-route.mjs"', 'Text-to-image must keep using /v1/images/generations by default');
+mustInclude('package.json', '"smoke:newapi:route": "npm exec --yes --package=playwright -- node scripts/smoke-newapi-route.mjs"', 'NewAPI Playground provider must keep using OpenAI-compatible image routes and model sync');
 mustInclude('package.json', '"smoke:image:edit-route": "npm exec --yes --package=playwright -- node scripts/smoke-image-edit-route.mjs"', 'Reference image editing must keep using /v1/images/edits');
 mustInclude('package.json', '"smoke:references": "npm exec --yes --package=playwright -- node scripts/smoke-reference-upload-preview.mjs"', 'Reference upload previews must stay visible and inspectable');
 mustInclude('package.json', '"smoke:provider:security": "npm exec --yes --package=playwright -- node scripts/smoke-provider-settings-security.mjs"', 'Manual provider API keys must never persist in localStorage');
@@ -133,6 +136,7 @@ mustInclude('package.json', '"smoke:docker": "node scripts/smoke-docker-runtime.
   'npm run smoke:projects',
   'npm run smoke:history:queue',
   'npm run smoke:image:route',
+  'npm run smoke:newapi:route',
   'npm run smoke:image:edit-route',
   'npm run smoke:session:modes',
   'npm run smoke:references',

@@ -17,12 +17,16 @@ export function BottomComposerPanel({
   onOpen,
   t = (key, fallback) => fallback || key
 }) {
+  const isEmptyComposer = !composerThreadHasContent && !hasLiveStatus;
   const className = [
     'bottomComposerBar',
     'codexComposerPanel',
     hasLineage ? 'hasLineage' : '',
     isOpen && composerThreadHasContent ? 'hasThread' : 'noThread',
     hasLiveStatus ? 'hasLiveStatus' : 'noLiveStatus',
+    hasLiveStatus ? 'isLiveComposer' : '',
+    composerThreadHasContent ? 'isConversationComposer' : '',
+    isEmptyComposer ? 'isEmptyComposer' : 'hasComposerActivity',
     paramsExpanded ? 'paramsExpanded' : 'paramsCollapsed',
     composerFolded ? 'isFolded' : 'isExpandedComposer',
     hasReferences ? 'hasReferences' : 'noReferences'
@@ -62,7 +66,9 @@ export function BottomComposerPanel({
             <div className="composerPanelTitle">
               <strong>{t('composer.conversation', '创作会话')}</strong>
               <span>
-                {selectedCanvasNode ? t('composer.selected', '基于画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' }) : t('composer.defaultTitle', '提示词优化与生成')}
+                {selectedCanvasNode
+                  ? t('composer.selected', '基于画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' })
+                  : t('composer.defaultTitle', '提示词优化与生成')}
                 <em>{composerRouteLabel}</em>
               </span>
             </div>
@@ -73,8 +79,8 @@ export function BottomComposerPanel({
             type="button"
             className="composerIconPill composerFoldTogglePill"
             onClick={onFoldToggle}
-            aria-label={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '折叠对话面板')}
-            title={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '折叠对话面板')}
+            aria-label={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '收起对话面板')}
+            title={composerFolded ? t('composer.expandPanel', '展开对话面板') : t('composer.foldPanel', '收起对话面板')}
           >
             {composerFolded ? <Maximize2 size={15} /> : <ArrowDown size={15} />}
           </button>

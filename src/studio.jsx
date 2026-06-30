@@ -1,7 +1,6 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  Check,
   Copy,
   Download,
   ArrowDown,
@@ -22,7 +21,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
-  Server,
   Share2,
   SlidersHorizontal,
   Sparkles,
@@ -42,14 +40,12 @@ import {
   X
 } from 'lucide-react';
 import './studio.css';
-import './styles/studio.legacy-polish.css';
 import './styles/studio.polish-reference-chat.css';
 import './styles/studio.polish-concept-composer.css';
 import './styles/studio.polish-modern-console.css';
 import './styles/studio.polish-prompt-first.css';
 import './styles/studio.polish-conversation-rail.css';
 import './styles/studio.canvas-workspace.css';
-import './styles/studio.composer-overrides.css';
 import './styles/studio.composer-compact-shell.css';
 import './styles/studio.composer-session-pane.css';
 import './styles/studio.composer-prompt-workspace.css';
@@ -63,12 +59,10 @@ import './styles/studio.composer-shell.css';
 import './styles/studio.queue-progress.css';
 import './styles/studio.composer-layout.css';
 import './styles/studio.reference-panel.css';
+import './styles/studio.context-side-panel.css';
 import './styles/studio.composer-conversation.css';
-import './styles/studio.provider-settings.css';
 import './styles/studio.interactions.css';
-import './styles/studio.gallery-cards.css';
 import './styles/studio.final-state.css';
-import './styles/studio.composer-final-overrides.css';
 import './styles/studio.composer-final-base.css';
 import './styles/studio.composer-final-beta.css';
 import './styles/studio.composer-final-tooling.css';
@@ -78,6 +72,10 @@ import './styles/studio.composer-final-live.css';
 import './styles/studio.composer-live-guards.css';
 import './styles/studio.imageforge-polish.css';
 import './styles/studio.composer-codex.css';
+import './styles/studio.composer-codex-guards.css';
+import './styles/studio.workstation-shell.css';
+import './styles/studio.playground-polish.css';
+import './styles/studio.composer-state-polish.css';
 import {
   AiGatewayClient,
   StudioHistoryClient,
@@ -94,6 +92,7 @@ import {
 import { createTranslator, loadStudioLanguage, nextLanguage, saveStudioLanguage, SUPPORTED_LANGUAGES } from './studio/i18n.js';
 import { createHistoryCanvasBuilder } from './studio/canvas/historyCanvas.js';
 import { createCurrentSessionSerializers } from './studio/state/sessionPersistence.js';
+import { deriveSessionStateFromSnapshot, notifySessionSnapshotChange } from './studio/state/sessionApply.js';
 import {
   IMAGE_PROVIDER_REGISTRY,
   clampCountForProvider,
@@ -113,6 +112,7 @@ import {
   saveHistoryItems
 } from './studio/storage/index.js';
 import { createHistoryPersistence } from './studio/storage/historyPersistence.js';
+import { createCurrentSessionStorage } from './studio/storage/currentSessionStorage.js';
 import {
   assetPath,
   displayResultUrl,
@@ -130,8 +130,69 @@ import { ComposerParamShelf } from './studio/components/composerParamShelf.jsx';
 import { ComposerPromptRow } from './studio/components/composerPromptRow.jsx';
 import { ComposerThread } from './studio/components/composerThread.jsx';
 import { GenerationQueueDock } from './studio/components/generationQueue.jsx';
-import { RegenerateDialog } from './studio/components/regenerateDialog.jsx';
 import { LeftRail } from './studio/components/leftRail.jsx';
+import {
+  apiKeyDisplay,
+  apiKeyMeta,
+  defaultProviderGatewayBaseUrl,
+  maskApiKey,
+  providerLabel,
+  usesGatewayAccount
+} from './studio/util/providerSettings.js';
+import {
+  caseCardMeta,
+  hasLibraryPreviewImage,
+  templatePreviewImage,
+  templateReferenceFullImage,
+  templateReferenceThumb,
+  templateThumbnail,
+  riskLabel
+} from './studio/util/templates.js';
+import { useCanvasNodes } from './studio/hooks/useCanvasNodes.js';
+import { useCanvasView } from './studio/hooks/useCanvasView.js';
+import { useCanvasInteraction } from './studio/hooks/useCanvasInteraction.js';
+import { useGenerationQueue } from './studio/hooks/useGenerationQueue.js';
+
+const RegenerateDialog = React.lazy(() => import('./studio/components/regenerateDialog.jsx').then((module) => ({
+  default: module.RegenerateDialog
+})));
+const GenerationConfirmDialog = React.lazy(() => import('./studio/components/generationConfirmDialog.jsx').then((module) => ({
+  default: module.GenerationConfirmDialog
+})));
+const MaskEditor = React.lazy(() => import('./studio/components/maskEditor.jsx').then((module) => ({
+  default: module.MaskEditor
+})));
+const GalleryWorkspacePanel = React.lazy(() => import('./studio/components/galleryWorkspace.jsx').then((module) => ({
+  default: module.GalleryWorkspacePanel
+})));
+const SettingsPanel = React.lazy(() => import('./studio/components/settingsPanel.jsx').then((module) => ({
+  default: module.SettingsPanel
+})));
+const InspirationUploadDialog = React.lazy(() => import('./studio/components/inspirationUploadDialog.jsx').then((module) => ({
+  default: module.InspirationUploadDialog
+})));
+import { buildGenerationTask as buildGenerationTaskPure, generationFilesForJob as generationFilesForJobPure, waitForServerJob as waitForServerJobPure } from './studio/generation/taskBuilder.js';
+import { composeCanvasContinuationPrompt } from './studio/generation/promptComposition.js';
+import { canvasEdgeGeometry, canvasEdgeLineageClass, canvasLinkPreviewGeometry, canvasViewForNodes, nodeHeight, nodeWidth } from './studio/util/canvasGeometry.js';
+import {
+  CANVAS_DRAG_CLICK_TOLERANCE,
+  CANVAS_NODE_HEIGHT,
+  CANVAS_NODE_HORIZONTAL_GAP,
+  CANVAS_NODE_MAX_HEIGHT,
+  CANVAS_NODE_MAX_WIDTH,
+  CANVAS_NODE_MIN_HEIGHT,
+  CANVAS_NODE_MIN_WIDTH,
+  CANVAS_NODE_VERTICAL_GAP,
+  CANVAS_NODE_WIDTH,
+  CANVAS_PERFORMANCE_EDGE_THRESHOLD,
+  CANVAS_PERFORMANCE_NODE_THRESHOLD,
+  CANVAS_PLANE_HEIGHT,
+  CANVAS_PLANE_WIDTH,
+  CANVAS_PROTECTED_ASSET_RESOLVE_LIMIT,
+  CANVAS_VIRTUALIZATION_MARGIN
+} from './studio/util/canvasConstants.js';
+import { Topbar } from './studio/components/topbar.jsx';
+import { CanvasNodeCard } from './studio/components/canvasNodeCard.jsx';
 import {
   CreativeRecipeBar,
   PromptSectionList
@@ -171,10 +232,12 @@ import {
   GENERATION_TIMEOUT_MS,
   activeGenerationQueueCount,
   appendGenerationQueueTask,
+  createGenerationTaskId,
   findDuplicateActiveGenerationTask,
   firstQueuedGenerationTask,
   generationErrorMessage,
   generationTaskFingerprint,
+  hasRestorableLocalQueueTask,
   isActiveServerJobStatus,
   isFinalServerJobStatus,
   isRestorableQueueItem,
@@ -183,6 +246,7 @@ import {
   normalizeQueueStatus,
   removeGenerationQueueItem,
   replaceGenerationQueueItem,
+  restorableRemoteJobIds,
   retryGenerationQueueTask,
   queueStatusFromServerJob,
   serverJobMessage,
@@ -190,73 +254,109 @@ import {
   serverJobTimingPatch,
   upsertRemoteGenerationJobTask
 } from './studio/util/generationJobs.js';
+import {
+  clamp,
+  compact,
+  formatFileSize,
+  formatMoney,
+  orderTemplates,
+  storedResultUrls,
+  templateKey,
+  textSignature,
+  wantsPromptRewrite
+} from './studio/util/formatters.js';
+import {
+  formatUsageValue,
+  modelBillingLabel,
+  modelBillingUnitLabel,
+  payloadUsageSummary,
+  pointValue
+} from './studio/util/billing.js';
+import {
+  parseAssistantReply,
+  parseOptimizedPrompt
+} from './studio/util/assistantReply.js';
+import {
+  CREATIVE_RECIPES,
+  CREATIVE_RECIPE_PREFIX,
+  stripCreativeRecipePrompt
+} from './studio/util/recipes.js';
+import { clearDraft, loadDraft, saveDraft } from './studio/storage/draftStorage.js';
+import { loadTheme, saveTheme } from './studio/storage/themeStorage.js';
+import { loadTemplateFavorites, saveTemplateFavorites } from './studio/storage/templateFavoritesStorage.js';
+import { loadWorkbenchLayout, saveWorkbenchLayout } from './studio/storage/workbenchLayoutStorage.js';
+import {
+  ASPECT_OPTIONS,
+  CUSTOM_SIZE_OPTIONS,
+  MODERATION,
+  MODERATION_LABELS,
+  OUTPUT_FORMATS,
+  QUALITY,
+  RESOLUTION_TIERS,
+  SIZES,
+  normalizeAspect,
+  normalizeCount,
+  normalizeModeration,
+  normalizeOutputFormat,
+  normalizeQuality,
+  normalizeResolutionTier,
+  normalizeSize,
+  sizeFromAspect,
+  withResolutionHint
+} from './studio/util/imageOptions.js';
+import {
+  VIDEO_ASPECT_OPTIONS,
+  VIDEO_DURATIONS,
+  VIDEO_FPS_OPTIONS,
+  VIDEO_MOTIONS,
+  VIDEO_QUALITY,
+  VIDEO_STYLES,
+  normalizeVideoAspect,
+  normalizeVideoDuration,
+  normalizeVideoFps,
+  normalizeVideoMotion,
+  normalizeVideoQuality,
+  normalizeVideoStyle,
+  videoSizeFromAspect
+} from './studio/util/videoOptions.js';
+import {
+  IMAGE_REFERENCE_LIMIT,
+  SUPPORTED_IMAGE_TYPES,
+  createReferenceItem,
+  filePreviewUrl,
+  supportedReferenceFiles
+} from './studio/util/reference.js';
+import {
+  MASK_FILL_COLOR,
+  MASK_HISTORY_LIMIT,
+  createMaskSnapshot,
+  createMaskState,
+  dataUrlToFile,
+  drawMaskSnapshot,
+  fileToDataUrl,
+  loadImageDimensions,
+  maskSnapshotToImageData,
+  restoreMaskSnapshot
+} from './studio/util/mask.js';
+import {
+  COMMUNITY_LICENSE_NOTICE,
+  EMPTY_SITE_DATA,
+  fetchPublicJson,
+  loadStaticLibraryData as _loadStaticLibraryData,
+  mergeSiteData,
+  normalizeLibraryPayload
+} from './studio/util/library.js';
+import {
+  hasMeaningfulSessionContent,
+  hasRestorableServerGeneration as _hasRestorableServerGeneration
+} from './studio/util/sessionPredicates.js';
 
 const IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'gpt-image-1-mini'];
 const RESPONSE_MODELS = ['gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-4.1'];
 const PROMPT_ASSISTANT_MODEL_EXCLUDE_PATTERN = /image|video|sora|runway|kling|veo|codex|review|audit|security|embed|rerank|tts|whisper/i;
 const VIDEO_MODELS = [];
 const IMAGE_GENERATION_ROUTE_LABEL = '自动选择';
-const SIZES = ['auto', '1024x1024', '1536x1024', '1024x1536'];
-const ASPECT_OPTIONS = [
-  { value: '1:1', label: '1:1', size: '1024x1024' },
-  { value: '16:9', label: '16:9', size: '1536x1024' },
-  { value: '9:16', label: '9:16', size: '1024x1536' },
-  { value: 'custom', label: '手动', size: '1024x1024' }
-];
-const CUSTOM_SIZE_OPTIONS = [
-  { value: 'auto', label: '自动' },
-  { value: '1024x1024', label: '1024 x 1024' },
-  { value: '1536x1024', label: '1536 x 1024' },
-  { value: '1024x1536', label: '1024 x 1536' }
-];
-const QUALITY = ['auto', 'low', 'medium', 'high'];
-const RESOLUTION_TIERS = [
-  { value: '1k', label: '1K' },
-  { value: '2k', label: '2K' },
-  { value: '4k', label: '4K' }
-];
-const OUTPUT_FORMATS = ['png', 'jpeg', 'webp'];
-const MODERATION = ['auto', 'low'];
 const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d/i;
-const IMAGE_REFERENCE_LIMIT = 4;
-const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
-const CANVAS_PLANE_WIDTH = 6000;
-const CANVAS_PLANE_HEIGHT = 4200;
-const CANVAS_NODE_WIDTH = 340;
-const CANVAS_NODE_HEIGHT = 280;
-const CANVAS_NODE_MIN_WIDTH = 240;
-const CANVAS_NODE_MIN_HEIGHT = 200;
-const CANVAS_NODE_MAX_WIDTH = 1280;
-const CANVAS_NODE_MAX_HEIGHT = 960;
-const CANVAS_NODE_HORIZONTAL_GAP = 170;
-const CANVAS_NODE_VERTICAL_GAP = 88;
-const CANVAS_DRAG_CLICK_TOLERANCE = 4;
-const CANVAS_VIRTUALIZATION_MARGIN = 420;
-const CANVAS_PERFORMANCE_NODE_THRESHOLD = 18;
-const CANVAS_PERFORMANCE_EDGE_THRESHOLD = 24;
-const CANVAS_PROTECTED_ASSET_RESOLVE_LIMIT = 24;
-const VIDEO_ASPECT_OPTIONS = [
-  { value: '16:9', label: '16:9', width: 1280, height: 720 },
-  { value: '9:16', label: '9:16', width: 720, height: 1280 },
-  { value: '1:1', label: '1:1', width: 1024, height: 1024 }
-];
-const VIDEO_DURATIONS = [5, 10];
-const VIDEO_FPS_OPTIONS = [24, 30];
-const VIDEO_MOTIONS = [
-  { value: 'auto', label: '自动' },
-  { value: 'push_in', label: '推近' },
-  { value: 'pull_out', label: '拉远' },
-  { value: 'orbit', label: '环绕' },
-  { value: 'pan', label: '横移' },
-  { value: 'static', label: '固定' }
-];
-const VIDEO_STYLES = [
-  { value: 'cinematic', label: '电影感' },
-  { value: 'product_ad', label: '产品广告' },
-  { value: 'realistic', label: '写实' },
-  { value: 'animation', label: '动画' }
-];
-const VIDEO_QUALITY = ['auto', 'standard', 'high'];
 const WORKSPACES = [
   { value: 'image', label: '图片创作' },
   { value: 'inspiration', label: '灵感库' },
@@ -268,8 +368,6 @@ const DESK_MODES = [
   { value: 'edit', label: '参考图', icon: Images },
   { value: 'mask', label: 'Mask', icon: ScanLine }
 ];
-const MASK_HISTORY_LIMIT = 6;
-const MASK_FILL_COLOR = 'rgba(178, 39, 50, 0.34)';
 const INITIAL_TEMPLATE_LIMIT = 12;
 const TEMPLATE_PAGE_SIZE = 12;
 const HISTORY_PAGE_SIZE = 20;
@@ -291,26 +389,15 @@ const CATEGORY_LABELS = {
   'Scenes & Storytelling': '场景叙事',
   'UI & Interfaces': '界面交互'
 };
-const MODERATION_LABELS = {
-  auto: '自动',
-  low: '低'
-};
 const FALLBACK_PROMPT_PRESETS = [];
 const FALLBACK_VIDEO_INSPIRATIONS = [];
 const BASE_PATH = import.meta.env.BASE_URL || '/';
 const STUDIO_BACK_URL = import.meta.env.VITE_STUDIO_BACK_URL || '/';
 const LIBRARY_AUTH_REQUIRED = String(import.meta.env.VITE_STUDIO_LIBRARY_AUTH_REQUIRED || '').toLowerCase() === 'true';
-const DRAFT_KEY = 'image-sub2api-studio:draft:v1';
-const LEGACY_DRAFT_KEY = 'ohlaoo-studio:draft:v1';
 const HISTORY_KEY = 'image-sub2api-studio:history:v1';
 const LEGACY_HISTORY_KEY = 'ohlaoo-studio:history:v1';
 const HISTORY_SCOPE_PREFIX = 'image-sub2api-studio:history:v2';
 const LEGACY_HISTORY_SCOPE_PREFIX = 'ohlaoo-studio:history:v2';
-const THEME_KEY = 'image-sub2api-studio:theme:v1';
-const LEGACY_THEME_KEY = 'ohlaoo-studio:theme:v1';
-const TEMPLATE_FAVORITES_KEY = 'image-sub2api-studio:template-favorites:v1';
-const LEGACY_TEMPLATE_FAVORITES_KEY = 'ohlaoo-studio:template-favorites:v1';
-const WORKBENCH_LAYOUT_KEY = 'image-sub2api-studio:workbench-layout:v5';
 const CURRENT_SESSION_KEY = 'image-sub2api-studio:current-session:v1';
 const LOCAL_HISTORY_LIMIT = 30;
 const REFERENCE_ROLES = [
@@ -319,23 +406,6 @@ const REFERENCE_ROLES = [
   { value: 'composition', label: '构图' },
   { value: 'product', label: '产品' }
 ];
-const EMPTY_SITE_DATA = {
-  totalCases: 0,
-  categories: [],
-  styles: [],
-  scenes: [],
-  inspirationSources: [],
-  inspirationErrors: [],
-  promptPresets: [],
-  videoInspirations: [],
-  cases: []
-};
-const COMMUNITY_LICENSE_NOTICE = {
-  name: '社区提示词模板 · CC BY 4.0',
-  url: 'https://creativecommons.org/licenses/by/4.0/',
-  text: '提示词模板内容来自公开社区，遵循 CC BY 4.0 许可证；使用和改编时请保留原作者或来源归属。'
-};
-
 const CATEGORY_COVERS = {
   'Architecture & Spaces': 'architecture',
   'Brand & Logos': 'brand',
@@ -355,328 +425,9 @@ const CATEGORY_COVERS = {
   'UI & Interfaces': 'ui'
 };
 const PROMPT_PRESETS = FALLBACK_PROMPT_PRESETS;
-const CREATIVE_RECIPES = [
-  {
-    id: 'commerce-main',
-    title: '电商主图',
-    tone: '干净成交',
-    size: '1024x1024',
-    quality: 'high',
-    resolutionTier: '2k',
-    prompt: '商业产品摄影，主体居中，纯净浅色背景，柔和棚拍灯光，边缘高光清晰，材质纹理可见，留出少量促销文字空间，适合电商主图。'
-  },
-  {
-    id: 'lifestyle-scene',
-    title: '生活场景',
-    tone: '真实氛围',
-    size: '1024x1536',
-    quality: 'high',
-    resolutionTier: '2k',
-    prompt: '生活方式摄影，把主体放在真实使用场景中，自然窗光，浅景深，温暖但克制的色彩，画面有故事感，像高端品牌社媒内容。'
-  },
-  {
-    id: 'brand-poster',
-    title: '品牌海报',
-    tone: '强视觉',
-    size: '1024x1536',
-    quality: 'high',
-    resolutionTier: '4k',
-    prompt: '品牌视觉海报，强构图层级，清晰主标题留白区，主体与图形元素形成对角线动势，高级商业广告质感，适合活动推广。'
-  },
-  {
-    id: 'ui-mockup',
-    title: '界面样机',
-    tone: '产品展示',
-    size: '1536x1024',
-    quality: 'medium',
-    resolutionTier: '2k',
-    prompt: '现代产品界面样机，真实设备或浏览器框架，界面信息清楚可读，背景简洁，光影克制，突出工作流和关键操作状态。'
-  },
-  {
-    id: 'character-sheet',
-    title: '角色设定',
-    tone: '一致形象',
-    size: '1024x1536',
-    quality: 'high',
-    resolutionTier: '2k',
-    prompt: '角色设定图，同一角色的正面姿态，服装、配饰、表情特征清晰，干净背景，适合作为后续图像一致性参考。'
-  },
-  {
-    id: 'editorial-cover',
-    title: '封面大片',
-    tone: '杂志感',
-    size: '1024x1536',
-    quality: 'high',
-    resolutionTier: '4k',
-    prompt: '杂志封面摄影，强烈但自然的主视觉，人物或主体占据第一视线，背景有层次，保留标题区，色彩具有高级编辑感。'
-  }
-];
-const CREATIVE_RECIPE_PREFIX = '配方增强：';
-
-
-function compact(value, length = 180) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > length ? `${text.slice(0, length)}...` : text;
-}
-
-function formatFileSize(value) {
-  const size = Number(value || 0);
-  if (!Number.isFinite(size) || size <= 0) return '';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 102.4) / 10} KB`;
-  return `${Math.round(size / (1024 * 102.4)) / 10} MB`;
-}
-
-function stripCreativeRecipePrompt(value) {
-  let next = String(value || '').trim();
-  if (!next) return '';
-  for (const recipe of CREATIVE_RECIPES) {
-    if (next === recipe.prompt) return '';
-    const markedPrompt = `${CREATIVE_RECIPE_PREFIX}${recipe.prompt}`;
-    while (next.includes(markedPrompt)) {
-      next = next
-        .replace(`\n\n${markedPrompt}`, '')
-        .replace(`\n${markedPrompt}`, '')
-        .replace(markedPrompt, '')
-        .trim();
-    }
-  }
-  return next;
-}
-
-function formatMoney(value) {
-  if (!Number.isFinite(Number(value))) return '--';
-  return `$${Number(value).toFixed(2)}`;
-}
-
-function orderTemplates(cases) {
-  return [...cases].sort((left, right) => {
-    if (Boolean(left.featured) !== Boolean(right.featured)) {
-      return left.featured ? -1 : 1;
-    }
-    const leftId = Number(left.id);
-    const rightId = Number(right.id);
-    if (Number.isFinite(leftId) && Number.isFinite(rightId)) return leftId - rightId;
-    if (Number.isFinite(leftId)) return -1;
-    if (Number.isFinite(rightId)) return 1;
-    return String(left.title || '').localeCompare(String(right.title || ''), 'zh-CN');
-  });
-}
-
-function loadDraft() {
-  try {
-    return JSON.parse(localStorage.getItem(DRAFT_KEY) || localStorage.getItem(LEGACY_DRAFT_KEY) || 'null');
-  } catch {
-    return null;
-  }
-}
-
-function saveDraft(draft) {
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-}
-
-function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
-}
-
-function scopedCurrentSessionKey(sessionId) {
-  return sessionId ? `${CURRENT_SESSION_KEY}:${sessionId}` : CURRENT_SESSION_KEY;
-}
-
-function loadCurrentSession(expectedSessionId = '') {
-  try {
-    const scopedRaw = expectedSessionId ? localStorage.getItem(scopedCurrentSessionKey(expectedSessionId)) : '';
-    const session = JSON.parse(scopedRaw || localStorage.getItem(CURRENT_SESSION_KEY) || 'null');
-    if (!session || typeof session !== 'object') return null;
-    const normalized = normalizeCachedCurrentSession(session);
-    if (expectedSessionId && normalized?.sessionId !== expectedSessionId) return null;
-    return normalized;
-  } catch {
-    return null;
-  }
-}
-
-function saveCurrentSession(session) {
-  const createdAt = session?.createdAt || new Date().toISOString();
-  const nextSession = {
-    ...(normalizeCachedCurrentSession(session) || session),
-    createdAt,
-    updatedAt: new Date().toISOString()
-  };
-  try {
-    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(nextSession));
-    if (nextSession.sessionId) {
-      localStorage.setItem(scopedCurrentSessionKey(nextSession.sessionId), JSON.stringify(nextSession));
-    }
-  } catch {
-    // The active canvas is a convenience cache; generation/history still work if storage is full.
-  }
-  return nextSession;
-}
-
-function clearCurrentSessionCache(sessionId = '') {
-  try {
-    if (sessionId) localStorage.removeItem(scopedCurrentSessionKey(sessionId));
-    localStorage.removeItem(CURRENT_SESSION_KEY);
-  } catch {
-    // A new canvas should still open even if browser storage is unavailable.
-  }
-}
-
-function sessionSnapshotComparePayload(session) {
-  const payload = prepareCurrentSessionForServer(session);
-  return payload ? JSON.stringify(payload) : '';
-}
-
-function hasMeaningfulSessionContent(session) {
-  if (!session || typeof session !== 'object') return false;
-  return Boolean(
-    String(session.prompt || '').trim()
-    || (Array.isArray(session.results) && session.results.length)
-    || (Array.isArray(session.videoResults) && session.videoResults.length)
-    || (Array.isArray(session.canvasNodes) && session.canvasNodes.length)
-    || (Array.isArray(session.generationQueue) && session.generationQueue.length)
-    || (Array.isArray(session.assistantMessages) && session.assistantMessages.length)
-  );
-}
 
 function hasRestorableServerGeneration(session) {
-  return Array.isArray(session?.generationQueue)
-    && session.generationQueue.some(isRestorableQueueItem);
-}
-
-function templateKey(item) {
-  return String(item?.id ?? item?.title ?? '').trim();
-}
-
-function loadTemplateFavorites() {
-  try {
-    const items = JSON.parse(localStorage.getItem(TEMPLATE_FAVORITES_KEY) || localStorage.getItem(LEGACY_TEMPLATE_FAVORITES_KEY) || '[]');
-    return new Set(Array.isArray(items) ? items.map(String) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveTemplateFavorites(favorites) {
-  try {
-    localStorage.setItem(TEMPLATE_FAVORITES_KEY, JSON.stringify([...favorites]));
-  } catch {
-    // Favorite state is a convenience layer; Studio still works if storage is unavailable.
-  }
-}
-
-function loadWorkbenchLayout() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(WORKBENCH_LAYOUT_KEY) || 'null');
-    return {
-      prompt: stored?.prompt === true,
-      references: stored?.references !== false,
-      parameters: stored?.parameters !== false,
-      parametersRail: stored?.parametersRail === true,
-      bottomComposer: stored?.bottomComposer !== false,
-      composerParameters: stored?.composerParameters === true,
-      composerFolded: stored?.composerFolded === true
-    };
-  } catch {
-    return {
-      prompt: false,
-      references: true,
-      parameters: true,
-      parametersRail: false,
-      bottomComposer: true,
-      composerParameters: false,
-      composerFolded: false
-    };
-  }
-}
-
-function saveWorkbenchLayout(layout) {
-  try {
-    localStorage.setItem(WORKBENCH_LAYOUT_KEY, JSON.stringify(layout));
-  } catch {
-    // Layout state is optional; keep the in-memory UI responsive even if storage fails.
-  }
-}
-
-function normalizeSize(value) {
-  return SIZES.includes(value) ? value : '1024x1024';
-}
-
-function normalizeAspect(value, size) {
-  if (ASPECT_OPTIONS.some((item) => item.value === value)) return value;
-  const matched = ASPECT_OPTIONS.find((item) => item.value !== 'custom' && item.size === size);
-  return matched?.value || '1:1';
-}
-
-function sizeFromAspect(aspect, customSize) {
-  if (aspect === 'custom') return normalizeSize(customSize);
-  return ASPECT_OPTIONS.find((item) => item.value === aspect)?.size || '1024x1024';
-}
-
-function normalizeQuality(value) {
-  return QUALITY.includes(value) && value !== 'auto' ? value : 'medium';
-}
-
-function normalizeResolutionTier(value) {
-  return RESOLUTION_TIERS.some((item) => item.value === value) ? value : '1k';
-}
-
-function withResolutionHint(prompt, resolutionTier, t = (key, fallback) => fallback || key) {
-  const normalizedTier = normalizeResolutionTier(resolutionTier);
-  const hint = t(`params.resolutionPromptHints.${normalizedTier}`, '');
-  return hint ? `${prompt}\n\n${hint}` : prompt;
-}
-
-function textSignature(value, length = 72) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .slice(0, length);
-}
-
-function wantsPromptRewrite(value) {
-  return /(?:重写|重新写|从头|不要基于|不基于|抛开原图|完全换成|换一个全新|重新设计)/.test(String(value || ''));
-}
-
-function normalizeOutputFormat(value) {
-  return OUTPUT_FORMATS.includes(value) ? value : 'png';
-}
-
-function normalizeModeration(value) {
-  return MODERATION.includes(value) ? value : 'auto';
-}
-
-function normalizeCount(value) {
-  const next = Math.round(Number(value));
-  if (!Number.isFinite(next)) return 1;
-  return Math.min(10, Math.max(1, next));
-}
-
-function normalizeVideoAspect(value) {
-  return VIDEO_ASPECT_OPTIONS.some((item) => item.value === value) ? value : '16:9';
-}
-
-function normalizeVideoDuration(value) {
-  const next = Math.round(Number(value));
-  return VIDEO_DURATIONS.includes(next) ? next : 5;
-}
-
-function normalizeVideoFps(value) {
-  const next = Math.round(Number(value));
-  return VIDEO_FPS_OPTIONS.includes(next) ? next : 24;
-}
-
-function normalizeVideoMotion(value) {
-  return VIDEO_MOTIONS.some((item) => item.value === value) ? value : 'auto';
-}
-
-function normalizeVideoStyle(value) {
-  return VIDEO_STYLES.some((item) => item.value === value) ? value : 'cinematic';
-}
-
-function normalizeVideoQuality(value) {
-  return VIDEO_QUALITY.includes(value) ? value : 'auto';
+  return _hasRestorableServerGeneration(session, isRestorableQueueItem);
 }
 
 const {
@@ -704,89 +455,23 @@ const {
   normalizeVideoQuality
 });
 
-function videoSizeFromAspect(aspect) {
-  return VIDEO_ASPECT_OPTIONS.find((item) => item.value === aspect) || VIDEO_ASPECT_OPTIONS[0];
-}
+const {
+  loadCurrentSession,
+  loadActiveCurrentSession,
+  saveCurrentSession,
+  clearCurrentSessionCache,
+  sessionSnapshotComparePayload
+} = createCurrentSessionStorage({
+  storageKey: CURRENT_SESSION_KEY,
+  normalizeCachedCurrentSession,
+  prepareCurrentSessionForServer
+});
 
-function loadTheme() {
-  try {
-    const stored = localStorage.getItem(THEME_KEY) || localStorage.getItem(LEGACY_THEME_KEY);
-    if (stored === 'dark' || stored === 'light') return stored;
-  } catch {
-    // Ignore storage failures and fall back to a stable default.
-  }
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches) {
-    return 'light';
-  }
-  return 'dark';
-}
-
-function mergeSiteData(localData, inspirationData) {
-  const localCases = Array.isArray(localData?.cases) ? localData.cases : [];
-  const inspirationCases = Array.isArray(inspirationData?.cases) ? inspirationData.cases : [];
-  const cases = [...localCases, ...inspirationCases];
-  return {
-    ...(localData || {}),
-    inspirationSources: inspirationData?.sources || [],
-    inspirationErrors: inspirationData?.errors || [],
-    totalCases: cases.length,
-    categories: [...new Set([
-      ...(localData?.categories || []),
-      ...(inspirationData?.categories || []),
-      ...cases.map((item) => item.category).filter(Boolean)
-    ])].sort(),
-    styles: [...new Set(cases.flatMap((item) => item.styles || []))].sort(),
-    scenes: [...new Set(cases.flatMap((item) => item.scenes || []))].sort(),
-    cases
-  };
-}
-
-function normalizeLibraryPayload(payload) {
-  const cases = Array.isArray(payload?.cases) ? payload.cases : [];
-  const promptPresets = Array.isArray(payload?.promptPresets) ? payload.promptPresets : PROMPT_PRESETS;
-  const videoInspirations = Array.isArray(payload?.videoInspirations) ? payload.videoInspirations : FALLBACK_VIDEO_INSPIRATIONS;
-  return {
-    ...EMPTY_SITE_DATA,
-    ...(payload || {}),
-    totalCases: Number(payload?.totalCases || cases.length),
-    categories: Array.isArray(payload?.categories) ? payload.categories : [...new Set(cases.map((item) => item.category).filter(Boolean))].sort(),
-    styles: Array.isArray(payload?.styles) ? payload.styles : [...new Set(cases.flatMap((item) => item.styles || []))].sort(),
-    scenes: Array.isArray(payload?.scenes) ? payload.scenes : [...new Set(cases.flatMap((item) => item.scenes || []))].sort(),
-    license: payload?.license || COMMUNITY_LICENSE_NOTICE,
-    promptPresets,
-    videoInspirations,
-    cases
-  };
-}
-
-async function fetchPublicJson(fileName, fallback = {}) {
-  const candidates = [publicJsonPath(fileName), `/${fileName}`].filter((value, index, list) => value && list.indexOf(value) === index);
-  for (const url of candidates) {
-    try {
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json' }
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP_${response.status}`);
-      }
-      return await response.json();
-    } catch {
-      // Try the next deployment path before falling back to an empty payload.
-    }
-  }
-  return fallback;
-}
-
-async function loadStaticLibraryData() {
-  const [localData, inspirationData] = await Promise.all([
-    fetchPublicJson('cases.json', { cases: [] }),
-    fetchPublicJson('inspirations.json', { cases: [] })
-  ]);
-  const data = normalizeLibraryPayload(mergeSiteData(localData, inspirationData));
-  return {
-    ...data,
-    cases: data.cases.map((item) => ({ ...item, staticLibrary: true }))
-  };
+function loadStaticLibraryData() {
+  return _loadStaticLibraryData({
+    promptPresets: PROMPT_PRESETS,
+    videoInspirations: FALLBACK_VIDEO_INSPIRATIONS
+  });
 }
 
 const {
@@ -808,205 +493,12 @@ const {
   clearHistoryItems
 });
 
-function storedResultUrls(urls) {
-  return urls.slice(0, 4);
-}
-
 const { buildCanvasNodeFromHistoryItem } = createHistoryCanvasBuilder({
   canvasNodeWidth: CANVAS_NODE_WIDTH,
   canvasNodeHeight: CANVAS_NODE_HEIGHT,
   canvasNodeHorizontalGap: CANVAS_NODE_HORIZONTAL_GAP,
   downloadMetaFromHistoryItem
 });
-
-function filePreviewUrl(file) {
-  return file ? URL.createObjectURL(file) : '';
-}
-
-function supportedReferenceFiles(files, limit = IMAGE_REFERENCE_LIMIT) {
-  return Array.from(files || [])
-    .filter((file) => SUPPORTED_IMAGE_TYPES.has(file.type))
-    .slice(0, limit);
-}
-
-function createReferenceItem(file, role = 'identity') {
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    file,
-    role
-  };
-}
-
-function createMaskState() {
-  return {
-    imageUrl: '',
-    imageName: '',
-    imageSize: { width: 0, height: 0 },
-    brushSize: 48,
-    hardness: 100,
-    overlayAlpha: 50,
-    tool: 'brush',
-    zoom: 1,
-    inverted: false,
-    strokes: [],
-    history: [],
-    historyIndex: -1
-  };
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('MASK_FILE_READ_FAILED'));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImageDimensions(dataUrl) {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth || 0, height: image.naturalHeight || 0 });
-    image.onerror = () => resolve({ width: 0, height: 0 });
-    image.src = dataUrl;
-  });
-}
-
-function createMaskSnapshot(base) {
-  return {
-    imageUrl: base.imageUrl,
-    imageName: base.imageName,
-    imageSize: { ...base.imageSize },
-    brushSize: base.brushSize,
-    hardness: base.hardness,
-    overlayAlpha: base.overlayAlpha,
-    tool: base.tool,
-    zoom: base.zoom,
-    inverted: Boolean(base.inverted),
-    strokes: Array.isArray(base.strokes) ? base.strokes.map((stroke) => ({
-      tool: stroke.tool,
-      size: stroke.size,
-      hardness: stroke.hardness,
-      points: stroke.points.map((point) => ({ x: point.x, y: point.y }))
-    })) : [],
-    currentStroke: base.currentStroke ? {
-      tool: base.currentStroke.tool,
-      size: base.currentStroke.size,
-      hardness: base.currentStroke.hardness,
-      points: base.currentStroke.points.map((point) => ({ x: point.x, y: point.y }))
-    } : null
-  };
-}
-
-function restoreMaskSnapshot(snapshot) {
-  const next = createMaskState();
-  if (!snapshot) return next;
-  next.imageUrl = snapshot.imageUrl || '';
-  next.imageName = snapshot.imageName || '';
-  next.imageSize = snapshot.imageSize ? { ...snapshot.imageSize } : { width: 0, height: 0 };
-  next.brushSize = Number(snapshot.brushSize) || 48;
-  next.hardness = Number(snapshot.hardness) || 100;
-  next.overlayAlpha = Number(snapshot.overlayAlpha) || 50;
-  next.tool = snapshot.tool || 'brush';
-  next.zoom = Number(snapshot.zoom) || 1;
-  next.inverted = Boolean(snapshot.inverted);
-  next.strokes = Array.isArray(snapshot.strokes) ? snapshot.strokes.map((stroke) => ({
-    tool: stroke.tool || 'brush',
-    size: Number(stroke.size) || 48,
-    hardness: Number(stroke.hardness) || 100,
-    points: Array.isArray(stroke.points) ? stroke.points.map((point) => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 })) : []
-  })) : [];
-  next.currentStroke = snapshot.currentStroke ? {
-    tool: snapshot.currentStroke.tool || 'brush',
-    size: Number(snapshot.currentStroke.size) || 48,
-    hardness: Number(snapshot.currentStroke.hardness) || 100,
-    points: Array.isArray(snapshot.currentStroke.points) ? snapshot.currentStroke.points.map((point) => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 })) : []
-  } : null;
-  next.history = Array.isArray(snapshot.history) ? snapshot.history.map((item) => restoreMaskSnapshot(item)) : [];
-  next.historyIndex = Number.isFinite(Number(snapshot.historyIndex)) ? Number(snapshot.historyIndex) : -1;
-  return next;
-}
-
-function maskSnapshotToImageData(snapshot) {
-  const width = Number(snapshot?.imageSize?.width || 0);
-  const height = Number(snapshot?.imageSize?.height || 0);
-  if (!width || !height) return '';
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  if (!context) return '';
-  drawMaskSnapshot(context, snapshot, { exportMask: true });
-  return canvas.toDataURL('image/png');
-}
-
-function drawMaskSnapshot(context, snapshot, { exportMask = false } = {}) {
-  const width = Number(snapshot?.imageSize?.width || 0);
-  const height = Number(snapshot?.imageSize?.height || 0);
-  if (!width || !height) return;
-  context.clearRect(0, 0, width, height);
-  if (exportMask) {
-    context.fillStyle = snapshot?.inverted ? 'rgba(255, 255, 255, 0)' : 'rgba(255, 255, 255, 1)';
-    context.fillRect(0, 0, width, height);
-  }
-  for (const stroke of [...(snapshot?.strokes || []), snapshot?.currentStroke].filter(Boolean)) {
-    const points = Array.isArray(stroke.points) ? stroke.points : [];
-    if (!points.length) continue;
-    const size = Number(stroke.size) || 48;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.lineWidth = size;
-    if (exportMask) {
-      const wantsTransparent = (stroke.tool !== 'eraser') !== Boolean(snapshot?.inverted);
-      context.globalCompositeOperation = wantsTransparent ? 'destination-out' : 'source-over';
-      context.strokeStyle = wantsTransparent ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 1)';
-    } else {
-      const showPaint = (stroke.tool !== 'eraser') !== Boolean(snapshot?.inverted);
-      context.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
-      context.strokeStyle = showPaint ? MASK_FILL_COLOR : 'rgba(255, 255, 255, 0.55)';
-    }
-    context.beginPath();
-    context.moveTo(points[0].x, points[0].y);
-    if (points.length === 1) {
-      context.lineTo(points[0].x + 0.1, points[0].y + 0.1);
-    } else {
-      for (let i = 1; i < points.length; i += 1) {
-        context.lineTo(points[i].x, points[i].y);
-      }
-    }
-    context.stroke();
-  }
-  context.globalCompositeOperation = 'source-over';
-}
-
-function delay(ms, signal) {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason || new DOMException('Aborted', 'AbortError'));
-      return;
-    }
-    const timer = window.setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => {
-      window.clearTimeout(timer);
-      reject(signal.reason || new DOMException('Aborted', 'AbortError'));
-    }, { once: true });
-  });
-}
-
-function dataUrlToFile(dataUrl, filename = 'mask.png') {
-  const [prefix, base64 = ''] = String(dataUrl || '').split(',');
-  const mime = prefix.match(/data:(.*?);/)?.[1] || 'image/png';
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return new File([bytes], filename, { type: mime });
-}
 
 function imageMimeExtension(mime) {
   const value = String(mime || '').toLowerCase();
@@ -1055,63 +547,9 @@ function revokeBlobUrls(urls) {
   }
 }
 
-function providerLabel(settings, apiKey) {
-  const provider = getImageProvider(settings.providerId, settings.apiKeySource);
-  if (settings.apiKeySource === 'manual') return provider?.label || (settings.manualGatewayBaseUrl ? 'Custom API' : 'Manual provider');
-  return apiKey?.name || provider?.label || 'Gateway Account';
-}
-
-function maskApiKey(value) {
-  const key = String(value || '').trim();
-  if (!key) return '';
-  if (/[*•]/.test(key) || key.includes('...')) return key;
-  if (key.length <= 8) return `${key.slice(0, 2)}...${key.slice(-2)}`;
-  return `${key.slice(0, 6)}...${key.slice(-4)}`;
-}
-
-function apiKeyDisplay(apiKey) {
-  const display = apiKey?.displayKey || apiKey?.key || apiKey?.plain || apiKey?.mask;
-  return display ? maskApiKey(display) : apiKey?.name || '选择密钥';
-}
-
-function workspaceConnectionLabel(activeWorkspace, settings) {
-  if (activeWorkspace === 'video') return '视频接口';
-  if (activeWorkspace === 'inspiration') return '灵感库';
-  if (activeWorkspace === 'history') return '历史图库';
-  return IMAGE_GENERATION_ROUTE_LABEL;
-}
-
-function apiKeyMeta(apiKey) {
-  const scope = apiKey?.scope || '默认权限';
-  const status = apiKey?.status === 1 || String(apiKey?.status || '').toLowerCase() === 'active' ? '可用' : apiKey?.status || '可用';
-  return `${status} · ${scope}`;
-}
-
 function categoryLabel(value) {
   if (value === 'All') return '全部分类';
   return CATEGORY_LABELS[value] || value || '未分类';
-}
-
-function isLikelyGarbledText(value) {
-  const text = String(value || '').trim();
-  if (!text) return false;
-  if (/[\u0000-\u001f\u007f\ufffd]/.test(text)) return true;
-  if (/[\u00c2\u00c3][\u0080-\u00bf]|(?:\u00e2\u20ac[\u0098-\u009d\u0153\u2122])|(?:[\u00e4-\u00e9][\u0080-\u00ff]{1,3}){2,}/.test(text)) return true;
-  const latin = (text.match(/[A-Za-z]/g) || []).length;
-  const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
-  const hasSeparator = /[\s/|.,:;()[\]{}_+\-·，。：；（）【】]/.test(text);
-  if (latin > 0 && cjk >= 2 && !hasSeparator) return true;
-  const useful = (text.match(/[A-Za-z0-9\u3400-\u9fff]/g) || []).length;
-  return text.length >= 4 && useful / text.length < 0.45;
-}
-
-function cleanGalleryMetaText(value) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text && !isLikelyGarbledText(text) ? text : '';
-}
-
-function caseCardMeta(item) {
-  return cleanGalleryMetaText(item?.sourceLabel) || cleanGalleryMetaText(item?.sourceName);
 }
 
 
@@ -1120,38 +558,6 @@ function categoryCover(value, variant = 'thumb') {
   return variant === 'protected'
     ? `/studio-api/library-assets/category-covers/${slug}.jpg`
     : `/images/thumbs/category-covers/${slug}.webp`;
-}
-
-function templateThumbnail(item) {
-  if (!item) return '';
-  if (item.thumbnail || item.thumb || item.thumbnail_url || item.thumbnailUrl) {
-    return item.thumbnail || item.thumb || item.thumbnail_url || item.thumbnailUrl;
-  }
-  const image = item.image || item.image_url || '';
-  if (/^\/images\/[^/]+\.(jpe?g|png)$/i.test(image)) {
-    return image.replace(/^\/images\/(.+)\.(jpe?g|png)$/i, '/images/thumbs/$1.webp');
-  }
-  return '';
-}
-
-function imageFallback(item) {
-  return item?.image || item?.image_url || '';
-}
-
-function templatePreviewImage(item) {
-  return imageFallback(item) || templateThumbnail(item);
-}
-
-function hasLibraryPreviewImage(item) {
-  return Boolean(item && !item.imageUnavailable && (templateThumbnail(item) || imageFallback(item)));
-}
-
-function templateReferenceThumb(item) {
-  return templateThumbnail(item) || templatePreviewImage(item);
-}
-
-function templateReferenceFullImage(item) {
-  return templatePreviewImage(item) || templateThumbnail(item);
 }
 
 function handleImageFallback(event, fallback) {
@@ -1164,10 +570,6 @@ function handleImageFallback(event, fallback) {
   }
   image.hidden = true;
   image.closest('.categoryThumbs, .caseMedia')?.classList.add('imageMissing');
-}
-
-function libraryFallbackImage(item) {
-  return hasLibraryPreviewImage(item) ? templateThumbnail(item) || imageFallback(item) : '';
 }
 
 function buildCategoryGroups(cases) {
@@ -1192,115 +594,6 @@ function buildCategoryGroups(cases) {
     if (group.samples.length < 3) group.samples.push(item);
   }
   return [...groups.values()].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'zh-CN'));
-}
-
-function parseOptimizedPrompt(text) {
-  const raw = String(text || '').trim();
-  if (!raw) return null;
-  const jsonText = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
-  try {
-    const parsed = JSON.parse(jsonText);
-    return {
-      subject: parsed.subject || '',
-      scene: parsed.scene || '',
-      composition: parsed.composition || '',
-      style: parsed.style || '',
-      lighting: parsed.lighting || '',
-      details: parsed.details || '',
-      textRules: parsed.textRules || '',
-      constraints: parsed.constraints || '',
-      finalPrompt: parsed.finalPrompt || raw,
-      raw
-    };
-  } catch {
-    return { finalPrompt: raw, raw };
-  }
-}
-
-function parseAssistantReply(text) {
-  const raw = String(text || '').trim();
-  if (!raw) return null;
-  const jsonText = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
-  try {
-    const parsed = JSON.parse(jsonText);
-    return {
-      reply: parsed.reply || parsed.message || raw,
-      finalPrompt: parsed.finalPrompt || parsed.prompt || '',
-      raw
-    };
-  } catch {
-    return {
-      reply: raw,
-      finalPrompt: '',
-      raw
-    };
-  }
-}
-
-function formatUsageValue(value) {
-  if (value === undefined || value === null || value === '') return '后台未返回';
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString('zh-CN');
-  return String(value);
-}
-
-function pointValue(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return '';
-  return (number / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-}
-
-function modelBillingLabel(model, count = 1) {
-  const raw = model?.raw || model || {};
-  const unitPoints = raw.unit_points ?? raw.unitPoints;
-  const inputPoints = raw.input_unit_points ?? raw.inputUnitPoints;
-  const outputPoints = raw.output_unit_points ?? raw.outputUnitPoints;
-  if (unitPoints !== undefined && unitPoints !== null) {
-    const unit = pointValue(unitPoints);
-    const total = pointValue(Number(unitPoints) * normalizeCount(count));
-    return Number(unitPoints) > 0 ? `${unit} 点/张，预估 ${total} 点` : '后台按模型结算';
-  }
-  if (inputPoints !== undefined || outputPoints !== undefined) {
-    return `输入 ${pointValue(inputPoints || 0)} 点/1K，输出 ${pointValue(outputPoints || 0)} 点/1K`;
-  }
-  const value = raw.price || raw.pricing || raw.unit_price || raw.input_price || raw.output_price || raw.quota || raw.cost || raw.billing || raw.billing_mode;
-  if (!value) return '以后台实际扣费为准';
-  if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key}: ${item}`).join(' / ');
-  return String(value);
-}
-
-function modelBillingUnitLabel(model, unitLabel = '张', count = 1) {
-  const label = modelBillingLabel(model, count);
-  return unitLabel === '张' ? label : label.replaceAll('/张', `/${unitLabel}`);
-}
-
-function payloadUsageSummary(payload) {
-  const usage = payload?.usage || payload?.response?.usage || payload?.billing || payload?.cost || payload?.metadata?.usage;
-  if (!usage) return '';
-  if (typeof usage === 'string') return usage;
-  if (typeof usage === 'number') return `本次消费 ${pointValue(usage)} 点`;
-  const parts = [];
-  const pointsTotal = usage.total_points ?? usage.points ?? usage.totalPoint;
-  const costPoints = usage.total_cost ?? usage.cost_points ?? usage.costPoints;
-  const total = pointsTotal ?? (costPoints !== undefined ? pointValue(costPoints) : undefined) ?? usage.total ?? usage.total_tokens ?? usage.amount ?? usage.cost ?? usage.credits;
-  const input = usage.input_tokens || usage.prompt_tokens || usage.input;
-  const output = usage.output_tokens || usage.completion_tokens || usage.output;
-  if (total !== undefined) parts.push(`合计 ${formatUsageValue(total)}${(pointsTotal !== undefined || costPoints !== undefined) ? ' 点' : ''}`);
-  if (input !== undefined) parts.push(`输入 ${formatUsageValue(input)}`);
-  if (output !== undefined) parts.push(`输出 ${formatUsageValue(output)}`);
-  return parts.join('，');
-}
-
-function riskLabel(value) {
-  const labels = {
-    'brand-risk': '品牌',
-    celebrity: '名人',
-    medical: '医疗',
-    political: '政治',
-    'adult-risk': '成人',
-    'copyright-style': '版权风格',
-    'license-review': '授权待核'
-  };
-  return labels[value] || value;
 }
 
 function modelLooksLikeImage(item) {
@@ -1335,15 +628,6 @@ function connectionReady(settings, apiKey, isAuthenticated) {
     return Boolean(settings.manualApiKey?.trim());
   }
   return Boolean(isAuthenticated && apiKey?.key);
-}
-
-function usesGatewayAccount(settings) {
-  return settings?.apiKeySource !== 'manual';
-}
-
-function defaultProviderGatewayBaseUrl(settings) {
-  if (settings?.providerId === 'official-openai') return 'https://api.openai.com/v1';
-  return getConfiguredBaseUrls().gatewayBaseUrl;
 }
 
 function resolveProviderRequest(settings, apiKey) {
@@ -1398,1058 +682,36 @@ function workspaceLabel(value) {
   return WORKSPACES.find((item) => item.value === value)?.label || WORKSPACES[0].label;
 }
 
-function Topbar({
-  profile,
-  apiKey,
-  providerSettings,
-  isAuthenticated,
-  activeWorkspace,
-  onWorkspaceChange,
-  t,
-  theme,
-  onLogin,
-  onLogout,
-  onOpenSettings,
-  onThemeToggle
-}) {
-  return (
-    <header className="studioTopbar">
-      <div className="topbarBrandGroup">
-        <a className="brandLockup" href={assetPath(STUDIO_BACK_URL)} aria-label={t('app.back', '返回画廊')} title={t('app.back', '返回画廊')}>
-          <ArrowLeft className="brandBackIcon" size={18} />
-          <WandSparkles size={21} />
-          <span>{t('app.brand', '创作工作台')}</span>
-        </a>
-        <nav className="workspaceNav" aria-label={t('topbar.navAria', '创作工作区')}>
-          {WORKSPACES.map((item) => (
-            <button
-              type="button"
-              className={activeWorkspace === item.value ? 'active' : ''}
-              data-top-workspace={item.value}
-              key={item.value}
-              onClick={() => onWorkspaceChange(item.value)}
-            >
-              {t(`workspace.${item.value}`, item.label)}
-            </button>
-          ))}
-        </nav>
-      </div>
-      <div className="topbarActions">
-        <button type="button" className="connectionPill" onClick={onOpenSettings}>
-          <Server size={15} />
-          <span>{providerLabel(providerSettings, apiKey)}</span>
-          <strong>{workspaceConnectionLabel(activeWorkspace, providerSettings)}</strong>
-        </button>
-        {isAuthenticated ? (
-          <>
-            <button type="button" className="iconButton themeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? t('topbar.light', '切换浅色') : t('topbar.dark', '切换深色')}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button type="button" className="iconButton" onClick={onLogout} aria-label={t('topbar.logout', '退出')}>
-              <LogOut size={18} />
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" className="iconButton themeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? t('topbar.light', '切换浅色') : t('topbar.dark', '切换深色')}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button type="button" className="topbarLogin" onClick={onLogin}>
-              <KeyRound size={16} />
-              {t('topbar.login', '登录')}
-            </button>
-          </>
-        )}
-      </div>
-    </header>
-  );
-}
+function WorkbenchModeSwitch({ activeWorkspace, onChange, t }) {
+  const items = [
+    { value: 'image', label: t('workspace.image', '图片创作'), icon: ImageIcon },
+    { value: 'video', label: t('workspace.video', '视频创作'), icon: Video }
+  ];
 
-function CategoryCard({ group, selected, onSelect }) {
-  const sampleFallback = (group.samples || []).map(libraryFallbackImage).find(Boolean) || libraryFallbackImage(group.featured);
-  const fallback = sampleFallback || group.coverFallback || '';
   return (
-    <button className={`categoryTile ${selected ? 'selected' : ''}`} type="button" onClick={() => onSelect(group.id)}>
-      <div className="categoryThumbs">
-        {(group.cover || fallback) ? (
-          <ProtectedStudioImage
-            src={group.cover || fallback}
-            fallbackSrc={fallback}
-            alt={group.label}
-          />
-        ) : null}
-        <ImageIcon size={22} />
-      </div>
-      <div>
-        <strong>{group.label}</strong>
-        <span>{group.count} 个模板</span>
-        <small>{group.samples.map((item) => item.title).slice(0, 2).join(' / ')}</small>
-      </div>
-    </button>
-  );
-}
-
-function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavorite, onAppend, t = (key, fallback) => fallback || key }) {
-  const image = templateThumbnail(item);
-  const fallback = imageFallback(item);
-  const hasPreviewImage = hasLibraryPreviewImage(item);
-  const meta = caseCardMeta(item);
-  const risks = Array.isArray(item.riskTags) ? item.riskTags.slice(0, 3) : [];
-  return (
-    <div className={`caseTile ${selected ? 'selected' : ''}`}>
-      <button
-        className="caseTileMain"
-        type="button"
-        onClick={(event) => {
-          if (hasPreviewImage && event.target.closest?.('.caseMedia') && onPreview) {
-            onPreview(item);
-            return;
-          }
-          onSelect(item);
-        }}
-      >
-        <div
-          className="caseMedia"
-          onClick={(event) => {
-            if (!hasPreviewImage || !onPreview) return;
-            event.preventDefault();
-            event.stopPropagation();
-            onPreview(item);
-          }}
-        >
-          {(image || fallback) ? (
-            <ProtectedStudioImage
-              src={image || fallback}
-              fallbackSrc={image && fallback !== image ? fallback : ''}
-              alt={item.imageAlt || item.title}
-            />
-          ) : null}
-          <ImageIcon size={18} />
-          <small className="casePreviewHint">{t('gallery.preview', '查看')}</small>
-        </div>
-        <span>{typeof item.id === 'number' ? `#${item.id}` : t('gallery.external', '外部')}</span>
-        <strong>{item.title}</strong>
-        {meta ? <em>{meta}</em> : null}
-        {risks.length ? (
-          <small>{risks.map(riskLabel).join(' / ')}</small>
-        ) : null}
-      </button>
-      <div className="caseTileActions">
-        {onAppend ? (
+    <div className="workbenchModeSwitch" role="group" aria-label={t('workspace.creationType', '创作类型')}>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = activeWorkspace === item.value;
+        return (
           <button
             type="button"
-            className="appendMiniButton"
-            onClick={(event) => {
-              event.stopPropagation();
-              onAppend(item);
+            className={active ? 'active' : ''}
+            key={item.value}
+            onClick={() => {
+              if (!active) onChange(item.value);
             }}
-            aria-label={t('gallery.useTemplate', '选用这个模板')}
-            title={t('gallery.useTemplateHint', '选用后带入底部对话框')}
+            aria-pressed={active}
           >
-            <Check size={13} />
+            <Icon size={15} />
+            <span>{item.label}</span>
           </button>
-        ) : null}
-        <button
-          type="button"
-          className={`favoriteMiniButton ${favorite ? 'active' : ''}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleFavorite(item);
-          }}
-          aria-label={favorite ? t('gallery.unfavoriteTemplate', '取消收藏模板') : t('gallery.favoriteTemplate', '收藏模板')}
-          title={favorite ? t('gallery.unfavorite', '取消收藏') : t('gallery.favoriteTemplate', '收藏模板')}
-        >
-          <Star size={13} />
-        </button>
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-function PromptCaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppend, onReact, t = (key, fallback) => fallback || key }) {
-  const meta = caseCardMeta(item);
-  const promptPreview = item.promptPreview || item.summary || item.prompt || '';
-  return (
-    <div className={`caseTile promptOnly ${selected ? 'selected' : ''}`}>
-      <button className="caseTileMain promptCaseMain" type="button" onClick={() => onSelect(item)}>
-        <span>{typeof item.id === 'number' ? `#${item.id}` : t('gallery.promptOnly', '提示词')}</span>
-        <strong>{item.title}</strong>
-        <p className="casePromptExcerpt">{compact(promptPreview, 180) || t('gallery.promptOnlyHint', '这条灵感暂时没有可用图片，但提示词仍可预览和选用。')}</p>
-        {meta ? <em>{meta}</em> : null}
-      </button>
-      <div className="communityPromptStats">
-        <button type="button" aria-label={t('gallery.upvotePrompt', 'Upvote prompt')} className={item.userReaction === 'up' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'up'); }}>
-          <ThumbsUp size={12} />
-          {item.reactions?.up || 0}
-        </button>
-        <button type="button" aria-label={t('gallery.downvotePrompt', 'Downvote prompt')} className={item.userReaction === 'down' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'down'); }}>
-          <ThumbsDown size={12} />
-          {item.reactions?.down || 0}
-        </button>
-        <button type="button" aria-label={t('gallery.copyPrompt', 'Copy prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'copy'); }}>
-          <Copy size={12} />
-          {item.copied || 0}
-        </button>
-        <button type="button" aria-label={t('gallery.sharePrompt', 'Share prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'share'); }}>
-          <Share2 size={12} />
-          {item.shared || 0}
-        </button>
-      </div>
-      <div className="caseTileActions">
-        {onAppend ? (
-          <button
-            type="button"
-            className="appendMiniButton"
-            onClick={(event) => {
-              event.stopPropagation();
-              onAppend(item);
-            }}
-            aria-label={t('gallery.useTemplate', '选用这个模板')}
-            title={t('gallery.useTemplateHint', '选用后带入底部对话框')}
-          >
-            <Check size={13} />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className={`favoriteMiniButton ${favorite ? 'active' : ''}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleFavorite(item);
-          }}
-          aria-label={favorite ? t('gallery.unfavoriteTemplate', '取消收藏模板') : t('gallery.favoriteTemplate', '收藏模板')}
-          title={favorite ? t('gallery.unfavorite', '取消收藏') : t('gallery.favoriteTemplate', '收藏模板')}
-        >
-          <Star size={13} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function VideoInspirationCard({ item, selected, onSelect }) {
-  const meta = [
-    item.intent,
-    VIDEO_ASPECT_OPTIONS.find((option) => option.value === item.videoAspect)?.label,
-    item.videoDuration ? `${item.videoDuration}s` : '',
-    VIDEO_MOTIONS.find((option) => option.value === item.videoMotion)?.label
-  ].filter(Boolean);
-  return (
-    <button className={`videoInspirationTile ${selected ? 'selected' : ''}`} type="button" onClick={() => onSelect(item)}>
-      <div className="videoInspirationIcon">
-        <Video size={18} />
-      </div>
-      <div>
-        <span>{meta.join(' · ')}</span>
-        <strong>{item.title}</strong>
-        <p>{item.summary}</p>
-      </div>
-    </button>
-  );
-}
-
-function HistoryCard({ item, selected, onSelect, onDelete, t = (key, fallback) => fallback || key }) {
-  const resultItems = historyResultItems(item);
-  const resultUrl = resultItems[0]?.displayUrl || resultItems[0]?.url || item.displayResultUrls?.[0] || item.resultUrls?.[0] || '';
-  const thumbnail = safeImageCandidate(resultUrl || item.case?.image || '');
-  const resultCount = resultItems.length || (item.displayResultUrls?.length || item.resultUrls?.length || 0);
-  const usage = item.usageSummary || item.costSummary || '';
-  const isVideo = item.mode === 'video' || item.kind === 'video';
-  const extension = isVideo ? resultVideoExtension(resultUrl) : resultExtension(resultUrl, item.outputFormat || 'png');
-  const downloadName = buildStudioDownloadFilename({
-    ...downloadMetaFromHistoryItem(item, isVideo),
-    index: 0,
-    extension
-  });
-  const meta = isVideo
-    ? [item.model, item.aspectRatio || item.aspect, item.duration ? `${item.duration}s` : '', item.fps ? `${item.fps}fps` : '', usage].filter(Boolean)
-    : [item.model, item.resolutionTier ? (RESOLUTION_TIER_LABELS[item.resolutionTier] || item.resolutionTier) : item.size, item.quality ? QUALITY_LABELS[item.quality] || item.quality : '', item.outputFormat ? OUTPUT_FORMAT_LABELS[item.outputFormat] || item.outputFormat : '', usage].filter(Boolean);
-  return (
-    <div className={`historyTile ${selected ? 'selected' : ''}`}>
-      <button className="historyOpen" type="button" onClick={() => onSelect(item)}>
-        <div className={`historyThumb ${isVideo ? 'videoThumb' : ''}`}>
-          {thumbnail && !isVideo ? (
-            <ProtectedHistoryThumb
-              src={thumbnail}
-              alt={item.case?.title || 'History'}
-              fallback={<span className="historyThumbFallback"><History size={22} /></span>}
-            />
-          ) : isVideo ? <Video size={22} /> : <History size={22} />}
-          <small>{isVideo ? t('rail.video', '视频') : t('rail.imageCount', '{count} 张', { count: Math.max(1, resultCount) })}</small>
-        </div>
-        <div>
-          <span>{formatHistoryTime(item.createdAt)} · {t('rail.session', '会话')} · {isVideo ? t('rail.video', '视频') : t('rail.imageCount', '{count} 张', { count: Math.max(1, resultCount) })}</span>
-          <strong>{isVideo ? t('rail.videoGeneration', '视频生成') : item.case?.title || compact(item.prompt, 24)}</strong>
-          <p>{compact(item.prompt, 74)}</p>
-          <em>{meta.join(' · ')}</em>
-        </div>
-      </button>
-      <div className="historyActions">
-        {resultUrl ? (
-          <a href={displayResultUrl(resultUrl)} download={downloadName} onClick={(event) => event.stopPropagation()}>
-            <Download size={14} /> {t('canvas.download', '下载')}
-          </a>
-        ) : null}
-        <button type="button" onClick={() => onDelete(item)}>
-          <Trash2 size={14} /> {t('canvas.delete', '删除')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function GalleryWorkspacePanel({
-  type,
-  cases,
-  categoryGroups,
-  selected,
-  onSelect,
-  query,
-  setQuery,
-  category,
-  setCategory,
-  totalCaseCount,
-  loading,
-  videoInspirations,
-  historyItems,
-  historyStatus,
-  historyHasMore,
-  historyLoadingMore,
-  selectedHistoryId,
-  onSelectHistory,
-  onDeleteHistory,
-  onClearHistory,
-  onLoadMoreHistory,
-  favoriteTemplates,
-  showFavoritesOnly,
-  onToggleFavoritesOnly,
-  onToggleTemplateFavorite,
-  onReactTemplate,
-  onAppendTemplate,
-  onOpenUpload,
-  licenseNotice,
-  onOpenWorkspace,
-  t = (key, fallback) => fallback || key
-}) {
-  const [visibleLimit, setVisibleLimit] = useState(INITIAL_TEMPLATE_LIMIT);
-  const [activeKind, setActiveKind] = useState('image');
-  const [galleryPreview, setGalleryPreview] = useState(null);
-  const isHistory = type === 'history';
-  const isVideo = activeKind === 'video';
-  const browsingCategory = !isVideo && (category !== 'All' || query.trim());
-  const imageCases = cases.filter(hasLibraryPreviewImage);
-  const promptOnlyCases = cases.filter((item) => !hasLibraryPreviewImage(item));
-  const visibleCases = imageCases.slice(0, visibleLimit);
-  const visiblePromptCases = promptOnlyCases.slice(0, Math.max(6, Math.ceil(visibleLimit / 2)));
-  const visibleLibraryCaseCount = visibleCases.length + visiblePromptCases.length;
-  const videoNeedle = query.trim().toLowerCase();
-  const visibleVideoInspirations = (videoInspirations || []).filter((item) => {
-    if (!videoNeedle) return true;
-    return `${item.title} ${item.intent} ${item.summary}`.toLowerCase().includes(videoNeedle);
-  });
-  const visibleVideoItems = visibleVideoInspirations.slice(0, visibleLimit);
-  const videoLocalHasMore = visibleLimit < visibleVideoInspirations.length;
-  const historySessionItems = useMemo(() => groupHistorySessions(historyItems || []), [historyItems]);
-  const visibleHistoryItems = historySessionItems.slice(0, visibleLimit);
-  const historyLocalHasMore = visibleLimit < historySessionItems.length;
-  const selectedTemplate = selected && selected.kind !== 'video-inspiration' ? selected : null;
-  const selectedTemplateImage = selectedTemplate ? templateReferenceFullImage(selectedTemplate) : '';
-  const selectedTemplateFallback = selectedTemplate ? templateThumbnail(selectedTemplate) : '';
-  const selectedTemplatePrompt = selectedTemplate?.promptPreview || selectedTemplate?.prompt || selectedTemplate?.summary || '';
-  const selectedHistoryItem = useMemo(() => {
-    if (!isHistory || !selectedHistoryId) return null;
-    return historySessionItems.find((item) => (
-      selectedHistoryId === item.id
-      || selectedHistoryId === item.sessionId
-      || item.recordIds?.includes?.(selectedHistoryId)
-    )) || null;
-  }, [historySessionItems, isHistory, selectedHistoryId]);
-
-  useEffect(() => {
-    setVisibleLimit(INITIAL_TEMPLATE_LIMIT);
-  }, [category, query, activeKind, type]);
-
-  const selectLibraryItem = (item) => {
-    if (isVideo) {
-      onSelect(item);
-      return;
-    }
-    openTemplatePreview(item);
-  };
-  const useLibraryItem = (item) => {
-    onSelect(item);
-    onAppendTemplate?.(item);
-    onOpenWorkspace?.(item?.kind === 'video-inspiration' ? 'video' : 'image');
-  };
-  const openTemplatePreview = (item) => {
-    const preview = templatePreviewImage(item);
-    const fallback = templateThumbnail(item);
-    const url = preview || fallback;
-    if (!url || item?.imageUnavailable) {
-      setGalleryPreview({
-        url: '',
-        promptOnly: true,
-        index: typeof item?.id === 'number' ? Math.max(0, item.id - 1) : 0,
-        downloadMeta: {
-          mode: 'library-reference',
-          providerId: 'library',
-          title: item?.title || t('gallery.preview', '查看'),
-          prompt: item?.prompt || item?.promptPreview || item?.summary || '',
-          createdAt: item?.createdAt || item?.updatedAt || ''
-        }
-      });
-      return;
-    }
-    const fallbackUrl = preview && fallback && fallback !== preview ? fallback : '';
-    setGalleryPreview({
-      url,
-      fallbackSrc: fallbackUrl,
-      index: typeof item?.id === 'number' ? Math.max(0, item.id - 1) : 0,
-      downloadMeta: {
-        mode: 'library-reference',
-        providerId: 'library',
-        title: item?.title || t('gallery.preview', '查看'),
-        prompt: item?.prompt || item?.promptPreview || item?.summary || '',
-        createdAt: item?.createdAt || item?.updatedAt || ''
-      }
-    });
-  };
-
-  if (isHistory) {
-    return (
-      <section className="galleryWorkspacePanel historyGalleryWorkspace" aria-label={t('workspace.history', '历史图库')}>
-        <div className="galleryWorkspaceHead">
-          <div>
-            <span>{t('workspace.history', '历史图库')}</span>
-            <h2>{t('gallery.historyTitle', '按会话保留每一次生成')}</h2>
-            <p>{t('gallery.historyHint', '点击任意记录会把图片放回画布，并继续基于这一轮创作。')}</p>
-          </div>
-          <div className="galleryWorkspaceActions">
-            {historyItems.length ? (
-              <button type="button" className="secondaryButton" onClick={onClearHistory}>
-                <Trash2 size={15} />
-                {t('gallery.clear', '清空')}
-              </button>
-            ) : null}
-            <button type="button" className="primaryAction" onClick={() => onOpenWorkspace?.('image')}>
-              <Sparkles size={16} />
-              {t('gallery.backToCreate', '回到创作')}
-            </button>
-          </div>
-        </div>
-        {historyItems.length ? (
-          <div className="historyGalleryGrid">
-            {visibleHistoryItems.map((item) => (
-              <HistoryCard
-                item={item}
-                selected={selectedHistoryId === item.id || selectedHistoryId === item.sessionId}
-                onSelect={onSelectHistory}
-                onDelete={onDeleteHistory}
-                t={t}
-                key={item.id}
-              />
-            ))}
-            {historyLocalHasMore || historyHasMore ? (
-              <button
-                type="button"
-                className="loadMoreButton galleryLoadMore"
-                onClick={() => {
-                  if (historyLocalHasMore) {
-                    setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE);
-                    return;
-                  }
-                  onLoadMoreHistory?.();
-                }}
-                disabled={!historyLocalHasMore && historyLoadingMore}
-              >
-                {historyLoadingMore ? t('gallery.loading', '正在加载') : t('gallery.loadMoreHistory', '加载更多历史')}
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="workspaceEmptyPanel">
-            <History size={34} />
-            <h2>{historyStatus === 'loading' ? t('gallery.loadingHistory', '正在加载历史图库') : t('gallery.noHistory', '还没有历史图片')}</h2>
-            <p>{t('gallery.noHistoryHint', '生成完成后会自动出现在当前会话和历史图库里。')}</p>
-          </div>
-        )}
-        {historyItems.length ? (
-          <HistoryDetailPanel item={selectedHistoryItem} onOpenWorkspace={onOpenWorkspace} t={t} />
-        ) : null}
-      </section>
-    );
-  }
-
-  return (
-    <section className="galleryWorkspacePanel inspirationWorkspace" aria-label={t('workspace.inspiration', '灵感库')}>
-      <div className="galleryWorkspaceHead">
-        <div>
-          <span>{t('workspace.inspiration', '灵感库')}</span>
-          <h2>{t('gallery.inspirationTitle', '选择分类，把提示词带入创作会话')}</h2>
-          <p>{t('gallery.inspirationHint', '上方是创作意图，下方是灵感推荐；点击模板会进入中间对话框继续调整。')}</p>
-        </div>
-        <div className="galleryWorkspaceActions">
-          <div className="galleryKindSwitch" role="group" aria-label={t('gallery.inspirationType', '灵感类型')}>
-            <button type="button" className={!isVideo ? 'active' : ''} onClick={() => setActiveKind('image')}>
-              <ImageIcon size={15} />
-              {t('workspace.image', '图片创作')}
-            </button>
-            <button type="button" className={isVideo ? 'active' : ''} onClick={() => setActiveKind('video')}>
-              <Video size={15} />
-              {t('workspace.video', '视频创作')}
-            </button>
-          </div>
-          <button type="button" className="primaryAction" onClick={() => onOpenWorkspace?.(isVideo ? 'video' : 'image')}>
-            <MessageSquareText size={16} />
-            {t('gallery.openConversation', '打开会话')}
-          </button>
-        </div>
-      </div>
-      <div className="galleryWorkspaceToolbar">
-        <label className="gallerySearch">
-          <Search size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isVideo ? t('gallery.searchVideo', '搜索视频灵感') : t('gallery.searchImage', '搜索图片模板')} />
-        </label>
-        {!isVideo ? (
-          <>
-            <button
-              type="button"
-              className="galleryFilterButton uploadInspirationButton"
-              onClick={onOpenUpload}
-            >
-              <Upload size={15} />
-              {t('gallery.uploadInspiration', '上传灵感')}
-            </button>
-            <button
-              type="button"
-              className={`galleryFilterButton ${showFavoritesOnly ? 'active' : ''}`}
-              onClick={onToggleFavoritesOnly}
-            >
-              <Star size={15} />
-              {showFavoritesOnly ? t('gallery.favorited', '已收藏') : t('gallery.favoriteCount', '收藏 {count}', { count: favoriteTemplates.size })}
-            </button>
-            {browsingCategory ? (
-              <button type="button" className="galleryFilterButton" onClick={() => { setCategory('All'); setQuery(''); }}>
-                {t('gallery.backToCategories', '返回分类')}
-              </button>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-      {!isVideo && browsingCategory && selectedTemplate ? (
-        <section className="gallerySelectionPreview" aria-label={t('gallery.selectedPreview', '已选灵感预览')}>
-          {selectedTemplateImage || selectedTemplateFallback ? (
-          <button
-            type="button"
-            className="gallerySelectionMedia gallerySelectionPreviewButton"
-            onClick={() => openTemplatePreview(selectedTemplate)}
-            aria-label={t('gallery.preview', '查看')}
-          >
-            <ProtectedStudioImage
-              src={selectedTemplateImage || selectedTemplateFallback}
-              fallbackSrc={selectedTemplateImage && selectedTemplateFallback !== selectedTemplateImage ? selectedTemplateFallback : ''}
-              alt={selectedTemplate.imageAlt || selectedTemplate.title}
-            />
-          </button>
-          ) : (
-          <div className="gallerySelectionMedia">
-            <ImageIcon size={20} />
-          </div>
-          )}
-          <div className="gallerySelectionBody">
-            <span>{t('gallery.selectedPreview', '已选灵感预览')}</span>
-            <strong>{selectedTemplate.title}</strong>
-            <p>{selectedTemplatePrompt || t('gallery.selectedNoPrompt', '点击选用后会读取完整提示词并带入底部对话框。')}</p>
-          </div>
-          <button type="button" className="primaryAction galleryUseTemplateButton" onClick={() => useLibraryItem(selectedTemplate)}>
-            <Check size={15} />
-            {t('gallery.useTemplate', '选用')}
-          </button>
-        </section>
-      ) : null}
-      <div className="inspirationCanvasGrid">
-        {loading ? (
-          <div className="workspaceEmptyPanel">
-            <ImageIcon size={34} />
-            <h2>{t('gallery.loadingInspiration', '正在加载灵感')}</h2>
-            <p>{t('gallery.loadingInspirationHint', '素材库和提示词加载完成后会出现在这里。')}</p>
-          </div>
-        ) : isVideo ? (
-          visibleVideoInspirations.length ? (
-            <>
-              {visibleVideoItems.map((item) => (
-            <VideoInspirationCard item={item} selected={selected?.id === item.id} onSelect={selectLibraryItem} key={item.id} />
-              ))}
-              {videoLocalHasMore ? (
-                <button type="button" className="loadMoreButton galleryLoadMore" onClick={() => setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE)}>
-                  {t('gallery.loadMoreCount', '加载更多 {visible}/{total}', { visible: Math.min(visibleLimit, visibleVideoInspirations.length), total: visibleVideoInspirations.length })}
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <div className="workspaceEmptyPanel">
-              <Video size={34} />
-              <h2>{t('gallery.noVideoMatch', '没有匹配的视频灵感')}</h2>
-              <p>{t('gallery.tryAnotherKeyword', '换一个关键词再试试。')}</p>
-            </div>
-          )
-        ) : browsingCategory ? (
-          <>
-            {visibleCases.map((item) => (
-              <CaseCard
-                item={item}
-                selected={selected?.id === item.id}
-                onSelect={selectLibraryItem}
-                onPreview={openTemplatePreview}
-                favorite={favoriteTemplates.has(templateKey(item))}
-                onToggleFavorite={onToggleTemplateFavorite}
-                onAppend={useLibraryItem}
-                t={t}
-                key={item.id}
-              />
-            ))}
-            {promptOnlyCases.length ? (
-              <section className="promptOnlyZone" aria-label={t('gallery.promptZone', '提示词专区')}>
-                <div className="promptOnlyZoneHead">
-                  <div>
-                    <span>{t('gallery.promptZone', '提示词专区')}</span>
-                    <strong>{t('gallery.promptZoneTitle', '没有可用图片，但提示词仍可选用')}</strong>
-                  </div>
-                  <em>{promptOnlyCases.length}</em>
-                </div>
-                <div className="promptOnlyGrid">
-                  {visiblePromptCases.map((item) => (
-                    <PromptCaseCard
-                      item={item}
-                      selected={selected?.id === item.id}
-                      onSelect={selectLibraryItem}
-                      favorite={favoriteTemplates.has(templateKey(item))}
-                      onToggleFavorite={onToggleTemplateFavorite}
-                      onReact={onReactTemplate}
-                      onAppend={useLibraryItem}
-                      t={t}
-                      key={item.id}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-            {visibleLimit < Math.max(imageCases.length, promptOnlyCases.length * 2) ? (
-              <button type="button" className="loadMoreButton galleryLoadMore" onClick={() => setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE)}>
-                {t('gallery.loadMoreCount', '加载更多 {visible}/{total}', { visible: Math.min(visibleLibraryCaseCount, cases.length), total: cases.length })}
-              </button>
-            ) : null}
-          </>
-        ) : (
-          categoryGroups.map((group) => (
-            <CategoryCard group={group} selected={category === group.id} onSelect={setCategory} key={group.id} />
-          ))
-        )}
-      </div>
-      {!isVideo ? (
-        <div className="galleryLicenseLine">
-          <span>{licenseNotice?.name || COMMUNITY_LICENSE_NOTICE.name}</span>
-          <p>{licenseNotice?.notice || licenseNotice?.text || COMMUNITY_LICENSE_NOTICE.text}</p>
-          <a href={licenseNotice?.url || COMMUNITY_LICENSE_NOTICE.url} target="_blank" rel="noreferrer">CC BY 4.0</a>
-          <strong>{browsingCategory ? `${cases.length}/${totalCaseCount}` : t('gallery.categoryCount', '{count} 类', { count: categoryGroups.length })}</strong>
-        </div>
-      ) : null}
-      <Lightbox
-        url={galleryPreview?.url}
-        promptOnly={galleryPreview?.promptOnly}
-        fallbackSrc={galleryPreview?.fallbackSrc || ''}
-        index={galleryPreview?.index || 0}
-        downloadMeta={galleryPreview?.downloadMeta}
-        t={t}
-        onClose={() => setGalleryPreview(null)}
-      />
-    </section>
-  );
-}
-
-
-function HistoryDetailPanel({ item, onOpenWorkspace, t = (key, fallback) => fallback || key }) {
-  if (!item) {
-    return (
-      <section className="workspaceEmptyPanel">
-        <History size={34} />
-        <h2>{t('gallery.selectHistory', '选择历史图库')}</h2>
-        <p>{t('gallery.selectHistoryHint', '左侧会显示图片和视频生成结果。选中后可以查看结果，也可以回到对应创作区继续调整。')}</p>
-      </section>
-    );
-  }
-
-  const isVideo = item.mode === 'video' || item.kind === 'video';
-  const resultItems = historyResultItems(item);
-  const urls = resultItems.map((result) => result.displayUrl || result.url).filter(Boolean);
-  const downloadMeta = downloadMetaFromHistoryItem(item, isVideo);
-  const promptItems = resultItems.length ? resultItems : [{ id: item.id, prompt: item.prompt || item.generationPrompt || '' }];
-  const meta = isVideo
-    ? [item.model, item.aspectRatio || item.aspect, item.duration ? `${item.duration}s` : '', item.fps ? `${item.fps}fps` : ''].filter(Boolean)
-    : [item.model, item.resolutionTier ? (RESOLUTION_TIER_LABELS[item.resolutionTier] || item.resolutionTier) : item.size, item.quality ? QUALITY_LABELS[item.quality] || item.quality : '', item.outputFormat ? OUTPUT_FORMAT_LABELS[item.outputFormat] || item.outputFormat : ''].filter(Boolean);
-
-  return (
-    <section className="historyWorkspacePanel">
-      <div className="historyWorkspaceHero">
-        <div>
-          <span>{isVideo ? t('gallery.videoTask', '视频任务') : t('gallery.imageTask', '图片任务')} · {formatHistoryTime(item.createdAt)}</span>
-          <h2>{isVideo ? t('rail.videoGeneration', '视频生成') : item.case?.title || t('gallery.imageGeneration', '图片生成')}</h2>
-          <div className="historyPromptSection">
-            {promptItems.slice(0, 6).map((result, index) => (
-              <article className="historyPromptItem" key={result.id || `${result.displayUrl || result.url || 'prompt'}-${index}`}>
-                <strong>#{index + 1}</strong>
-                <PromptSectionList prompt={result.generationPrompt || result.prompt || item.generationPrompt || item.prompt} t={t} />
-              </article>
-            ))}
-          </div>
-          <em>{meta.join(' · ') || t('gallery.historyMetaFallback', '参数以历史图库记录为准')}</em>
-        </div>
-        <button type="button" className="primaryAction" onClick={() => onOpenWorkspace(isVideo ? 'video' : 'image')}>
-          {isVideo ? <Video size={17} /> : <ImageIcon size={17} />}
-          {isVideo ? t('gallery.openVideoCreate', '打开视频创作') : t('gallery.openImageCreate', '打开图片创作')}
-        </button>
-      </div>
-      {isVideo ? (
-        <VideoResultGrid urls={urls} downloadMeta={downloadMeta} onPreview={() => {}} t={t} />
-      ) : (
-        <ResultGrid urls={urls} outputFormat={item.outputFormat || 'png'} downloadMeta={downloadMeta} onPreview={() => {}} t={t} />
-      )}
-    </section>
-  );
-}
-
-const MaskEditor = forwardRef(function MaskEditor({
-  imageFile,
-  imagePreview,
-  onUpload,
-  onClearImage,
-  onExportReady,
-  onError,
-  onGenerate,
-  generating = false,
-  t = (key, fallback) => fallback || key
-}, ref) {
-  const imageCanvasRef = useRef(null);
-  const maskCanvasRef = useRef(null);
-  const cursorCanvasRef = useRef(null);
-  const wrapRef = useRef(null);
-  const stateRef = useRef(createMaskState());
-  const drawingRef = useRef(false);
-  const [maskState, setMaskState] = useState(() => createMaskState());
-
-  const syncState = (updater) => {
-    const current = stateRef.current;
-    const next = typeof updater === 'function' ? updater(current) : updater;
-    stateRef.current = next;
-    setMaskState(next);
-    return next;
-  };
-
-  const pushHistory = (base = stateRef.current) => {
-    const snapshot = createMaskSnapshot(base);
-    const history = base.history.slice(0, base.historyIndex + 1);
-    history.push(snapshot);
-    const trimmed = history.slice(-MASK_HISTORY_LIMIT);
-    return {
-      ...base,
-      history: trimmed,
-      historyIndex: trimmed.length - 1
-    };
-  };
-
-  const redraw = (state = stateRef.current) => {
-    const imageCanvas = imageCanvasRef.current;
-    const maskCanvas = maskCanvasRef.current;
-    const cursorCanvas = cursorCanvasRef.current;
-    const { width, height } = state.imageSize;
-    if (!imageCanvas || !maskCanvas || !width || !height) return;
-    for (const canvas of [imageCanvas, maskCanvas, cursorCanvas].filter(Boolean)) {
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.width = `${Math.round(width * state.zoom)}px`;
-      canvas.style.height = `${Math.round(height * state.zoom)}px`;
-    }
-    const imageContext = imageCanvas.getContext('2d');
-    const maskContext = maskCanvas.getContext('2d');
-    if (!imageContext || !maskContext) return;
-    const image = new Image();
-    image.onload = () => {
-      imageContext.clearRect(0, 0, width, height);
-      imageContext.drawImage(image, 0, 0, width, height);
-      maskContext.clearRect(0, 0, width, height);
-      maskContext.globalAlpha = clamp(Number(state.overlayAlpha) || 50, 10, 100) / 100;
-      if (state.inverted) {
-        maskContext.fillStyle = MASK_FILL_COLOR;
-        maskContext.fillRect(0, 0, width, height);
-      }
-      drawMaskSnapshot(maskContext, state);
-      maskContext.globalAlpha = 1;
-    };
-    image.src = state.imageUrl;
-  };
-
-  useEffect(() => {
-    if (!imageFile || !imagePreview) {
-      syncState(createMaskState());
-      return;
-    }
-    let cancelled = false;
-    loadImageDimensions(imagePreview).then((imageSize) => {
-      if (cancelled) return;
-      const next = pushHistory({
-        ...createMaskState(),
-        imageUrl: imagePreview,
-        imageName: imageFile.name || '参考图',
-        imageSize,
-        zoom: imageSize.width > 1400 ? 0.5 : imageSize.width > 900 ? 0.7 : 1
-      });
-      syncState(next);
-      requestAnimationFrame(() => redraw(next));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [imageFile, imagePreview]);
-
-  useEffect(() => {
-    redraw(maskState);
-  }, [maskState.brushSize, maskState.hardness, maskState.overlayAlpha, maskState.zoom, maskState.tool, maskState.inverted, maskState.strokes.length]);
-
-  useImperativeHandle(ref, () => ({
-    exportMask() {
-      return exportMaskFile();
-    }
-  }), []);
-
-  function exportMaskFile() {
-    const state = stateRef.current;
-    if (!state.inverted && !state.strokes.length && !state.currentStroke) return null;
-    const dataUrl = maskSnapshotToImageData(state);
-    if (!dataUrl) return null;
-    return dataUrlToFile(dataUrl, 'mask.png');
-  }
-
-  const canvasPoint = (event) => {
-    const canvas = maskCanvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
-    const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
-    return {
-      x: clamp(x, 0, canvas.width),
-      y: clamp(y, 0, canvas.height)
-    };
-  };
-
-  const startStroke = (event) => {
-    const point = canvasPoint(event);
-    if (!point || !maskState.imageUrl) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    drawingRef.current = true;
-    const next = {
-      ...stateRef.current,
-      currentStroke: {
-        tool: stateRef.current.tool,
-        size: stateRef.current.brushSize,
-        hardness: stateRef.current.hardness,
-        points: [point]
-      }
-    };
-    syncState(next);
-    redraw(next);
-  };
-
-  const moveStroke = (event) => {
-    if (!drawingRef.current) return;
-    const point = canvasPoint(event);
-    if (!point) return;
-    event.preventDefault();
-    const next = {
-      ...stateRef.current,
-      currentStroke: {
-        ...stateRef.current.currentStroke,
-        points: [...(stateRef.current.currentStroke?.points || []), point]
-      }
-    };
-    syncState(next);
-    redraw(next);
-  };
-
-  const finishStroke = (event) => {
-    if (!drawingRef.current) return;
-    event?.preventDefault?.();
-    drawingRef.current = false;
-    const currentStroke = stateRef.current.currentStroke;
-    if (!currentStroke?.points?.length) {
-      syncState({ ...stateRef.current, currentStroke: null });
-      return;
-    }
-    const next = pushHistory({
-      ...stateRef.current,
-      strokes: [...stateRef.current.strokes, currentStroke],
-      currentStroke: null
-    });
-    syncState(next);
-    redraw(next);
-  };
-
-  const updateMaskState = (patch) => {
-    const next = { ...stateRef.current, ...patch };
-    syncState(next);
-    redraw(next);
-  };
-
-  const undo = () => {
-    const current = stateRef.current;
-    if (current.historyIndex <= 0) return;
-    const snapshot = current.history[current.historyIndex - 1];
-    const restored = restoreMaskSnapshot(snapshot);
-    restored.history = current.history;
-    restored.historyIndex = current.historyIndex - 1;
-    syncState(restored);
-    requestAnimationFrame(() => redraw(restored));
-  };
-
-  const redo = () => {
-    const current = stateRef.current;
-    if (current.historyIndex >= current.history.length - 1) return;
-    const snapshot = current.history[current.historyIndex + 1];
-    const restored = restoreMaskSnapshot(snapshot);
-    restored.history = current.history;
-    restored.historyIndex = current.historyIndex + 1;
-    syncState(restored);
-    requestAnimationFrame(() => redraw(restored));
-  };
-
-  const clearMask = () => {
-    const next = pushHistory({ ...stateRef.current, strokes: [], currentStroke: null, inverted: false });
-    syncState(next);
-    redraw(next);
-  };
-
-  const invertMask = () => {
-    const next = pushHistory({ ...stateRef.current, inverted: !stateRef.current.inverted, currentStroke: null });
-    syncState(next);
-    redraw(next);
-  };
-
-  const exportMask = () => {
-    const file = exportMaskFile();
-    if (!file) {
-      onError?.(t('mask.needImage', '请先上传参考图并绘制 mask。'));
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    onExportReady?.(url, file);
-  };
-
-  const canUndo = maskState.historyIndex > 0;
-  const canRedo = maskState.historyIndex < maskState.history.length - 1;
-
-  return (
-    <div className="maskEditorPanel">
-      <div className="maskToolbar">
-        <div className="maskToolGroup">
-          <label className="uploadMaskSource">
-            <Upload size={15} />
-            <span>{imageFile ? t('mask.replaceReference', '替换参考图') : t('mask.uploadReference', '上传参考图')}</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => {
-                onUpload?.(event.target.files);
-                event.target.value = '';
-              }}
-            />
-          </label>
-          {imageFile ? (
-            <button type="button" onClick={onClearImage}>
-              <Trash2 size={15} />
-              {t('settings.clear', '清除')}
-            </button>
-          ) : null}
-        </div>
-        <div className="maskToolGroup">
-          <button type="button" className={maskState.tool === 'brush' ? 'active' : ''} onClick={() => updateMaskState({ tool: 'brush' })}>
-            <Brush size={15} />
-            {t('mask.brush', '涂抹')}
-          </button>
-          <button type="button" className={maskState.tool === 'eraser' ? 'active' : ''} onClick={() => updateMaskState({ tool: 'eraser' })}>
-            <Eraser size={15} />
-            {t('mask.eraser', '橡皮')}
-          </button>
-        </div>
-        <label className="maskRange">
-          <span>{t('mask.brushSize', '笔刷 {value}px', { value: maskState.brushSize })}</span>
-          <input type="range" min="6" max="220" value={maskState.brushSize} onChange={(event) => updateMaskState({ brushSize: Number(event.target.value) })} />
-        </label>
-        <label className="maskRange">
-          <span>{t('mask.previewAlpha', '预览 {value}%', { value: maskState.overlayAlpha })}</span>
-          <input type="range" min="15" max="90" value={maskState.overlayAlpha} onChange={(event) => updateMaskState({ overlayAlpha: Number(event.target.value) })} />
-        </label>
-        <label className="maskRange">
-          <span>{t('mask.canvasZoom', '画布 {value}%', { value: Math.round(maskState.zoom * 100) })}</span>
-          <input type="range" min="20" max="140" value={Math.round(maskState.zoom * 100)} onChange={(event) => updateMaskState({ zoom: clamp(Number(event.target.value) / 100, 0.2, 1.4) })} />
-        </label>
-        <div className="maskToolGroup">
-          <button type="button" onClick={undo} disabled={!canUndo} aria-label={t('mask.undo', '撤销 mask')}>
-            <Undo2 size={15} />
-          </button>
-          <button type="button" onClick={redo} disabled={!canRedo} aria-label={t('mask.redo', '重做 mask')}>
-            <Redo2 size={15} />
-          </button>
-          <button type="button" onClick={invertMask} disabled={!imageFile}>
-            <FlipHorizontal size={15} />
-            {t('mask.invert', '反转')}
-          </button>
-          <button type="button" onClick={clearMask} disabled={!imageFile}>
-            {t('gallery.clear', '清空')}
-          </button>
-        </div>
-        <div className="maskToolGroup maskExportGroup">
-          <button type="button" onClick={exportMask} disabled={!imageFile}>
-            <Download size={15} />
-            {t('mask.export', '导出 mask')}
-          </button>
-          {onGenerate ? (
-            <button type="button" className="maskGenerateButton" onClick={onGenerate} disabled={!imageFile || generating}>
-              {generating ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}
-              {t('mask.generateWithMask', '用这个生成')}
-            </button>
-          ) : null}
-        </div>
-      </div>
-      <div className="maskCanvasWrap" ref={wrapRef}>
-        {imageFile ? (
-          <div className="maskCanvasStack">
-            <canvas ref={imageCanvasRef} />
-            <canvas
-              ref={maskCanvasRef}
-              className="maskPaintCanvas"
-              onPointerDown={startStroke}
-              onPointerMove={moveStroke}
-              onPointerUp={finishStroke}
-              onPointerCancel={finishStroke}
-              onPointerLeave={finishStroke}
-            />
-            <canvas ref={cursorCanvasRef} className="maskCursorCanvas" />
-          </div>
-        ) : (
-          <div className="maskCanvasEmpty">
-            <ScanLine size={30} />
-            <strong>{t('mask.emptyTitle', '上传一张参考图开始制作 mask')}</strong>
-            <span>{t('mask.emptyHint', '涂抹区域会在生成时被重绘，未涂区域会保留。')}</span>
-          </div>
-        )}
-      </div>
-      <div className="maskMetaLine">
-        <span>{imageFile ? `${maskState.imageName} · ${maskState.imageSize.width}×${maskState.imageSize.height}` : t('mask.sizeAuto', 'Mask 尺寸会自动匹配当前参考图')}</span>
-        <span>{t('mask.transparentMeansRedraw', '透明区 = 要重绘')}</span>
-      </div>
-    </div>
-  );
-});
 function CreationDesk({
   sessionId,
   activeWorkspace,
@@ -2472,6 +734,7 @@ function CreationDesk({
   remoteSessionReady,
   persistenceKey,
   onSessionSnapshot,
+  sessionSnapshot,
   promptPresets,
   appendTemplateRequest,
   onAppendTemplateConsumed,
@@ -2480,8 +743,14 @@ function CreationDesk({
   t
 }) {
   const draftRef = useRef(loadDraft());
-  const currentSessionRef = useRef(loadCurrentSession(sessionId));
-  const restoredSession = currentSessionRef.current;
+  // sessionSnapshot (pushed by the parent, local-first) is the authoritative
+  // restored-session source. We fall back to loadCurrentSession only for the
+  // very first mount of an anonymous desk before the parent effect has run —
+  // once the parent is wired, the prop is always set first. The previous
+  // design read localStorage directly here and never re-synced, which is why
+  // canvas nodes bled across sessions when the parent's remote sync landed.
+  const currentSessionRef = useRef(sessionSnapshot || loadCurrentSession(sessionId));
+  const restoredSession = sessionSnapshot || currentSessionRef.current;
   const sessionCreatedAtRef = useRef(restoredSession?.createdAt || new Date().toISOString());
   const initialParameters = restoredSession?.parameters || draftRef.current || {};
   const restoredMode = restoredSession?.mode || (activeWorkspace === 'video' ? 'video' : 'image');
@@ -2560,29 +829,52 @@ function CreationDesk({
   const [videoDropActive, setVideoDropActive] = useState(false);
   const [maskExportUrl, setMaskExportUrl] = useState('');
   const [layoutSections, setLayoutSections] = useState(() => loadWorkbenchLayout());
-  const [activeParamPanel, setActiveParamPanel] = useState('');
+  const [rightContextPanel, setRightContextPanel] = useState('references');
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
-  const [canvasView, setCanvasView] = useState(() => restoredSession?.canvasView || { x: 0, y: 0, zoom: 1 });
-  const [canvasViewport, setCanvasViewport] = useState({ width: 1200, height: 720 });
-  const [canvasNodes, setCanvasNodes] = useState(() => Array.isArray(restoredSession?.canvasNodes) ? restoredSession.canvasNodes : []);
-  const canvasNodesRef = useRef(Array.isArray(restoredSession?.canvasNodes) ? restoredSession.canvasNodes : []);
-  const [canvasCustomLinks, setCanvasCustomLinks] = useState(() => Array.isArray(restoredSession?.canvasCustomLinks) ? restoredSession.canvasCustomLinks : []);
-  const [selectedCanvasNodeId, setSelectedCanvasNodeId] = useState(() => restoredSession?.selectedCanvasNodeId || '');
-  const [canvasLinkDraft, setCanvasLinkDraft] = useState(null);
+  const [generationConfirmOpen, setGenerationConfirmOpen] = useState(false);
+  const [generationConfirmTask, setGenerationConfirmTask] = useState(null);
+  const {
+    canvasView,
+    setCanvasView,
+    canvasViewport,
+    setCanvasViewport,
+    canvasDragRef,
+    suppressCanvasClickRef,
+    focusCanvasOnNodes: focusCanvasOnNodesBase
+  } = useCanvasView(restoredSession);
+  const {
+    canvasNodes,
+    setCanvasNodes,
+    canvasNodesRef,
+    canvasCustomLinks,
+    setCanvasCustomLinks,
+    selectedCanvasNodeId,
+    setSelectedCanvasNodeId,
+    canvasLinkDraft,
+    setCanvasLinkDraft,
+    canvasNodeMap,
+    canvasEdges,
+    canvasLinkPreview,
+    childNodeIds,
+    parentNodeIds,
+    linkedNodeIds,
+    selectedCanvasNode
+  } = useCanvasNodes(restoredSession);
   const [canvasEditorNodeId, setCanvasEditorNodeId] = useState('');
   const [canvasEditorPrompt, setCanvasEditorPrompt] = useState('');
   const [canvasEditorMode, setCanvasEditorMode] = useState('image');
   const [pendingCanvasGenerate, setPendingCanvasGenerate] = useState(null);
   const [pendingSuggestionGenerate, setPendingSuggestionGenerate] = useState(null);
-  const [generationQueue, setGenerationQueue] = useState(() => Array.isArray(restoredSession?.generationQueue) ? restoredSession.generationQueue : []);
+  const {
+    generationQueue,
+    setGenerationQueue,
+    generationQueueRef,
+    generationQueueRunnerRef,
+    restoredQueueStartedRef,
+    recoveredJobIdsRef
+  } = useGenerationQueue(restoredSession);
   const workPreviewRef = useRef(null);
-  const canvasDragRef = useRef(null);
-  const suppressCanvasClickRef = useRef(false);
   const appliedRemoteSessionRef = useRef('');
-  const generationQueueRef = useRef(Array.isArray(restoredSession?.generationQueue) ? restoredSession.generationQueue : []);
-  const generationQueueRunnerRef = useRef(false);
-  const restoredQueueStartedRef = useRef(false);
-  const recoveredJobIdsRef = useRef(new Set());
   const stateBlobUrlsRef = useRef(new Set());
   const updateLayoutSections = (patch) => {
     setLayoutSections((current) => {
@@ -2593,12 +885,9 @@ function CreationDesk({
   };
   const showComposerForGeneration = () => updateLayoutSections({
     bottomComposer: true,
-    composerFolded: false
+    composerFolded: false,
+    composerParameters: false
   });
-
-  useEffect(() => {
-    canvasNodesRef.current = canvasNodes;
-  }, [canvasNodes]);
 
   useEffect(() => {
     if (status !== 'loading' && timing?.status !== 'running') return undefined;
@@ -2686,8 +975,6 @@ function CreationDesk({
   const visiblePromptPresets = (promptPresets || PROMPT_PRESETS).filter((item) => item.mode === mode);
   const referenceFiles = referenceItems.map((item) => item.file);
   const isImageEditMode = mode === 'edit' || mode === 'mask';
-  const selectedCanvasNode = canvasNodes.find((node) => node.id === selectedCanvasNodeId) || null;
-  const canvasNodeMap = useMemo(() => new Map(canvasNodes.map((node) => [node.id, node])), [canvasNodes]);
   const deskModeLabel = (value) => {
     if (value === 'image') return t('mode.textToImage', '文生图');
     if (value === 'edit') return t('mode.referenceEdit', '参考图');
@@ -2745,72 +1032,6 @@ function CreationDesk({
     customSizeOptions
   ]);
 
-  const canvasEdges = useMemo(() => {
-    const edges = [];
-    const seen = new Set();
-    const pushEdge = (fromId, toId, type = 'lineage') => {
-      if (!fromId || !toId || fromId === toId) return;
-      const from = canvasNodeMap.get(fromId);
-      const to = canvasNodeMap.get(toId);
-      if (!from || !to) return;
-      const id = `${fromId}-${toId}`;
-      if (seen.has(id)) return;
-      seen.add(id);
-      edges.push({ id, from, to, type });
-    };
-    canvasNodes.forEach((node) => pushEdge(node.parentId, node.id, 'lineage'));
-    canvasCustomLinks.forEach((link) => pushEdge(link.fromId, link.toId, 'custom'));
-    return edges;
-  }, [canvasNodes, canvasCustomLinks, canvasNodeMap]);
-  const canvasLinkPreview = useMemo(() => {
-    if (!canvasLinkDraft?.fromId) return null;
-    const from = canvasNodeMap.get(canvasLinkDraft.fromId);
-    if (!from) return null;
-    return { from, point: canvasLinkDraft.point || null };
-  }, [canvasLinkDraft, canvasNodeMap]);
-  const childNodeIds = useMemo(() => {
-    if (!selectedCanvasNodeId) return new Set();
-    const ids = new Set();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const node of canvasNodes) {
-        const isCustomChild = canvasCustomLinks.some((link) => link.toId === node.id && (link.fromId === selectedCanvasNodeId || ids.has(link.fromId)));
-        if (!ids.has(node.id) && (node.parentId === selectedCanvasNodeId || ids.has(node.parentId) || isCustomChild)) {
-          ids.add(node.id);
-          changed = true;
-        }
-      }
-    }
-    return ids;
-  }, [canvasNodes, canvasCustomLinks, selectedCanvasNodeId]);
-  const parentNodeIds = useMemo(() => {
-    if (!selectedCanvasNodeId) return new Set();
-    const ids = new Set();
-    const visit = (nodeId) => {
-      const current = canvasNodeMap.get(nodeId);
-      const parentIds = [
-        current?.parentId,
-        ...canvasCustomLinks.filter((link) => link.toId === nodeId).map((link) => link.fromId)
-      ].filter(Boolean);
-      parentIds.forEach((parentId) => {
-        if (ids.has(parentId) || !canvasNodeMap.has(parentId)) return;
-        ids.add(parentId);
-        visit(parentId);
-      });
-    };
-    visit(selectedCanvasNodeId);
-    return ids;
-  }, [canvasNodeMap, canvasCustomLinks, selectedCanvasNodeId]);
-  const linkedNodeIds = useMemo(() => {
-    if (!canvasLinkDraft?.fromId) return new Set();
-    return new Set([
-      canvasLinkDraft.fromId,
-      ...canvasEdges
-        .filter((edge) => edge.from.id === canvasLinkDraft.fromId || edge.to.id === canvasLinkDraft.fromId)
-        .flatMap((edge) => [edge.from.id, edge.to.id])
-    ]);
-  }, [canvasEdges, canvasLinkDraft?.fromId]);
   const canvasPerformanceMode = canvasNodes.length >= CANVAS_PERFORMANCE_NODE_THRESHOLD || canvasEdges.length >= CANVAS_PERFORMANCE_EDGE_THRESHOLD;
   const visibleCanvasNodeIds = useMemo(() => {
     const zoom = canvasView.zoom || 1;
@@ -2859,21 +1080,7 @@ function CreationDesk({
         || visibleCanvasNodeIds.has(edge.to.id);
     });
   }, [canvasEdges, canvasPerformanceMode, visibleCanvasNodeIds, selectedCanvasNodeId, childNodeIds, parentNodeIds]);
-  function canvasPlanePointFromEvent(event) {
-    const eventTarget = event.currentTarget || event.target;
-    const rect = eventTarget?.closest?.('.infiniteCanvas')?.getBoundingClientRect();
-    const zoom = canvasView.zoom || 1;
-    if (!rect) {
-      return {
-        x: CANVAS_PLANE_WIDTH / 2,
-        y: CANVAS_PLANE_HEIGHT / 2
-      };
-    }
-    return {
-      x: (event.clientX - rect.left - rect.width / 2 - canvasView.x) / zoom + CANVAS_PLANE_WIDTH / 2,
-      y: (event.clientY - rect.top - rect.height / 2 - canvasView.y) / zoom + CANVAS_PLANE_HEIGHT / 2
-    };
-  }
+
   function addCanvasCustomLink(fromId, toId) {
     if (!fromId || !toId || fromId === toId) return false;
     if (!canvasNodeMap.has(fromId) || !canvasNodeMap.has(toId)) return false;
@@ -2909,43 +1116,8 @@ function CreationDesk({
     return true;
   }
 
-  function findCanvasLinkTarget(event, fromId) {
-    const targetElement = document.elementFromPoint(event.clientX, event.clientY);
-    const domNodeId = targetElement?.dataset?.nodeId || targetElement?.closest?.('.graphNode')?.dataset?.nodeId;
-    if (domNodeId && domNodeId !== fromId && canvasNodeMap.has(domNodeId)) return domNodeId;
-
-    const point = canvasPlanePointFromEvent(event);
-    const threshold = 56 / (canvasView.zoom || 1);
-    let closest = null;
-    for (const node of canvasNodes) {
-      if (!node?.id || node.id === fromId) continue;
-      const portX = CANVAS_PLANE_WIDTH / 2 + Number(node.x || 0);
-      const portY = CANVAS_PLANE_HEIGHT / 2 + Number(node.y || 0) + nodeHeight(node) * 0.48;
-      const distance = Math.hypot(point.x - portX, point.y - portY);
-      if (distance <= threshold && (!closest || distance < closest.distance)) {
-        closest = { nodeId: node.id, distance };
-      }
-    }
-    return closest?.nodeId || '';
-  }
-
-  function canvasEdgeLineageClass(edge) {
-    if (!selectedCanvasNodeId) return 'idle';
-    const fromSelected = edge.from.id === selectedCanvasNodeId;
-    const toSelected = edge.to.id === selectedCanvasNodeId;
-    const fromChild = childNodeIds.has(edge.from.id);
-    const toChild = childNodeIds.has(edge.to.id);
-    const fromParent = parentNodeIds.has(edge.from.id);
-    const toParent = parentNodeIds.has(edge.to.id);
-
-    if (toChild && (fromSelected || fromChild)) {
-      return fromSelected ? 'active branchRoot' : 'active branchDown';
-    }
-    if ((toSelected && fromParent) || (fromParent && toParent)) {
-      return toSelected ? 'active branchIntoSelected' : 'active branchUp';
-    }
-    if (fromSelected || toSelected) return 'active direct';
-    return 'idle';
+  function resolveCanvasEdgeLineageClass(edge) {
+    return canvasEdgeLineageClass(edge, selectedCanvasNodeId, childNodeIds, parentNodeIds);
   }
   const draftParameters = () => ({
     aspect,
@@ -2999,70 +1171,65 @@ function CreationDesk({
   }
 
   function applySessionSnapshot(sessionSnapshot) {
-    if (!sessionSnapshot || typeof sessionSnapshot !== 'object') return;
-    const parameters = sessionSnapshot.parameters || {};
-    const nextMode = sessionSnapshot.mode || 'image';
-    const nextSize = normalizeSize(parameters.size || parameters.customSize || customSize);
-    setMode(nextMode);
-    setPrompt(sessionSnapshot.prompt || '');
-    setModel(sessionSnapshot.model || IMAGE_MODELS[0]);
-    setAspect(normalizeAspect(parameters.aspect || parameters.aspectRatio, nextSize));
-    setCustomSize(normalizeSize(parameters.customSize || nextSize));
-    setQuality(normalizeQuality(parameters.quality));
-    setResolutionTier(normalizeResolutionTier(parameters.resolutionTier));
-    setOutputFormat(normalizeOutputFormat(parameters.outputFormat));
-    setModeration(normalizeModeration(parameters.moderation));
-    setCount(normalizeCount(parameters.count));
-    setVideoModel(parameters.videoModel || VIDEO_MODELS[0]);
-    setVideoAspect(normalizeVideoAspect(parameters.videoAspect || parameters.videoAspectRatio));
-    setVideoDuration(normalizeVideoDuration(parameters.videoDuration || parameters.duration));
-    setVideoFps(normalizeVideoFps(parameters.videoFps || parameters.fps));
-    setVideoMotion(normalizeVideoMotion(parameters.videoMotion));
-    setVideoStyle(normalizeVideoStyle(parameters.videoStyle));
-    setVideoQuality(normalizeVideoQuality(parameters.videoQuality));
-    setNegativePrompt(parameters.negativePrompt || '');
-    setResults(Array.isArray(sessionSnapshot.results) ? sessionSnapshot.results : []);
-    setVideoResults(Array.isArray(sessionSnapshot.videoResults) ? sessionSnapshot.videoResults : []);
-    setResultBatchMeta(sessionSnapshot.resultBatchMeta || null);
-    setCanvasNodes(Array.isArray(sessionSnapshot.canvasNodes) ? sessionSnapshot.canvasNodes : []);
-    setCanvasCustomLinks(Array.isArray(sessionSnapshot.canvasCustomLinks) ? sessionSnapshot.canvasCustomLinks : []);
-    const nextGenerationQueue = Array.isArray(sessionSnapshot.generationQueue)
-      ? sessionSnapshot.generationQueue.map(serializeGenerationQueueItem).filter(Boolean).slice(-GENERATION_QUEUE_LIMIT)
-      : [];
-    generationQueueRef.current = nextGenerationQueue;
-    setGenerationQueue(nextGenerationQueue);
-    setSelectedCanvasNodeId(sessionSnapshot.selectedCanvasNodeId || '');
-    setCanvasEditorNodeId(sessionSnapshot.canvasEditorNodeId || '');
+    const next = deriveSessionStateFromSnapshot(sessionSnapshot, {
+      fallbackCustomSize: customSize,
+      imageModels: IMAGE_MODELS,
+      videoModels: VIDEO_MODELS,
+      generationQueueLimit: GENERATION_QUEUE_LIMIT,
+      normalizeSize,
+      normalizeAspect,
+      normalizeQuality,
+      normalizeResolutionTier,
+      normalizeOutputFormat,
+      normalizeModeration,
+      normalizeCount,
+      normalizeVideoAspect,
+      normalizeVideoDuration,
+      normalizeVideoFps,
+      normalizeVideoMotion,
+      normalizeVideoStyle,
+      normalizeVideoQuality,
+      serializeGenerationQueueItem,
+      serializeAssistantMessage,
+      serializePromptSuggestion,
+      hasRestorableServerGeneration
+    });
+    if (!next) return;
+    setMode(next.mode);
+    setPrompt(next.prompt);
+    setModel(next.model);
+    setAspect(next.aspect);
+    setCustomSize(next.customSize);
+    setQuality(next.quality);
+    setResolutionTier(next.resolutionTier);
+    setOutputFormat(next.outputFormat);
+    setModeration(next.moderation);
+    setCount(next.count);
+    setVideoModel(next.videoModel);
+    setVideoAspect(next.videoAspect);
+    setVideoDuration(next.videoDuration);
+    setVideoFps(next.videoFps);
+    setVideoMotion(next.videoMotion);
+    setVideoStyle(next.videoStyle);
+    setVideoQuality(next.videoQuality);
+    setNegativePrompt(next.negativePrompt);
+    setResults(next.results);
+    setVideoResults(next.videoResults);
+    setResultBatchMeta(next.resultBatchMeta);
+    setCanvasNodes(next.canvasNodes);
+    setCanvasCustomLinks(next.canvasCustomLinks);
+    generationQueueRef.current = next.generationQueue;
+    setGenerationQueue(next.generationQueue);
+    setSelectedCanvasNodeId(next.selectedCanvasNodeId);
+    setCanvasEditorNodeId(next.canvasEditorNodeId);
     setCanvasLinkDraft(null);
-    setCanvasView(sessionSnapshot.canvasView || { x: 0, y: 0, zoom: 1 });
-    setAssistantMessages(Array.isArray(sessionSnapshot.assistantMessages)
-      ? sessionSnapshot.assistantMessages.map(serializeAssistantMessage).filter(Boolean).slice(-24)
-      : []);
-    setPromptSuggestion(serializePromptSuggestion(sessionSnapshot.promptSuggestion));
-    const hasRestorableServerJob = hasRestorableServerGeneration(sessionSnapshot);
-    setStatus(sessionSnapshot.status === 'loading'
-      ? hasRestorableServerJob ? 'loading' : 'error'
-      : (sessionSnapshot.status || 'idle'));
-    const interruptedHasResult = sessionSnapshot.status === 'loading' && (
-      (Array.isArray(sessionSnapshot.results) && sessionSnapshot.results.length)
-      || (Array.isArray(sessionSnapshot.videoResults) && sessionSnapshot.videoResults.length)
-      || (Array.isArray(sessionSnapshot.canvasNodes) && sessionSnapshot.canvasNodes.length)
-    );
-    setMessage(sessionSnapshot.status === 'loading'
-      ? hasRestorableServerJob
-        ? '检测到服务端仍有生成任务，正在继续同步状态；刷新页面不会丢失队列。'
-        : interruptedHasResult
-        ? '页面刷新前有生成请求正在进行，已保留收到的预览/画布。上游可能仍已扣费，请先检查结果或等待，不要立刻重复提交。'
-        : '页面刷新前有生成请求正在进行，但本页已断开监听。上游可能仍已扣费，请先到历史图库或服务端确认，再决定是否重试。'
-      : (sessionSnapshot.message || ''));
-    setProgress(sessionSnapshot.status === 'loading'
-      ? {
-        ...(sessionSnapshot.progress || {}),
-        stage: hasRestorableServerJob ? (sessionSnapshot.progress?.stage || 'upstream') : interruptedHasResult ? 'pending_review' : 'failed',
-        percent: sessionSnapshot.progress?.percent || (hasRestorableServerJob ? 52 : 0)
-      }
-      : (sessionSnapshot.progress || { stage: 'idle', percent: 0, completed: 0, total: 1 }));
-    setTiming(sessionSnapshot.timing || null);
+    setCanvasView(next.canvasView);
+    setAssistantMessages(next.assistantMessages);
+    setPromptSuggestion(next.promptSuggestion);
+    setStatus(next.status);
+    setMessage(next.message);
+    setProgress(next.progress);
+    setTiming(next.timing);
   }
 
   function commitCurrentSessionPatch(patch) {
@@ -3072,12 +1239,11 @@ function CreationDesk({
       ...patch
     });
     currentSessionRef.current = snapshot;
-    const encodedSnapshot = sessionSnapshotComparePayload(snapshot);
-    if (lastSessionSnapshotPayloadRef.current !== encodedSnapshot) {
-      lastSessionSnapshotPayloadRef.current = encodedSnapshot;
-      onSessionSnapshot?.(snapshot);
-    }
-    return snapshot;
+    return notifySessionSnapshotChange(snapshot, {
+      encodePayload: sessionSnapshotComparePayload,
+      lastEncodedRef: lastSessionSnapshotPayloadRef,
+      onSessionSnapshot
+    });
   }
 
   function commitGenerationQueue(nextQueue) {
@@ -3199,11 +1365,11 @@ function CreationDesk({
       }
     });
     currentSessionRef.current = snapshot;
-    const encodedSnapshot = sessionSnapshotComparePayload(snapshot);
-    if (lastSessionSnapshotPayloadRef.current !== encodedSnapshot) {
-      lastSessionSnapshotPayloadRef.current = encodedSnapshot;
-      onSessionSnapshot?.(snapshot);
-    }
+    notifySessionSnapshotChange(snapshot, {
+      encodePayload: sessionSnapshotComparePayload,
+      lastEncodedRef: lastSessionSnapshotPayloadRef,
+      onSessionSnapshot
+    });
   }, [
     sessionId,
     mode,
@@ -3246,10 +1412,7 @@ function CreationDesk({
   useEffect(() => {
     if (restoredQueueStartedRef.current) return;
     if (!isReady) return;
-    const hasRestorableQueuedTask = generationQueueRef.current.some((item) => (
-      item.status === 'queued' && item.restored && item.restorable !== false && !item.remote
-    ));
-    if (!hasRestorableQueuedTask) return;
+    if (!hasRestorableLocalQueueTask(generationQueueRef.current)) return;
     restoredQueueStartedRef.current = true;
     setMessage(t('statusMessages.localQueueRestored', '已恢复刷新前的本地排队任务，正在继续执行。'));
     runGenerationQueue();
@@ -3258,17 +1421,17 @@ function CreationDesk({
   useEffect(() => {
     const thread = composerThreadRef.current;
     if (!layoutSections.bottomComposer || !thread) return;
-    if (promptSuggestion && assistantMessages.length) {
-      thread.scrollTo({
-        top: Math.max(0, thread.scrollHeight - thread.clientHeight - 6),
-        behavior: 'smooth'
-      });
-      return;
-    }
-    thread.scrollTo({
-      top: thread.scrollHeight,
-      behavior: 'smooth'
+    const frame = window.requestAnimationFrame(() => {
+      if (promptSuggestion && assistantMessages.length) {
+        const suggestion = thread.querySelector('.promptSuggestion');
+        if (suggestion) {
+          thread.scrollTop = Math.max(0, suggestion.offsetTop - 6);
+          return;
+        }
+      }
+      thread.scrollTop = thread.scrollHeight;
     });
+    return () => window.cancelAnimationFrame(frame);
   }, [
     assistantMessages,
     promptSuggestion?.finalPrompt,
@@ -3284,247 +1447,10 @@ function CreationDesk({
     updateLayoutSections({ [key]: !layoutSections[key] });
   }
 
-  function openParamPanel(panel) {
-    setActiveParamPanel(panel);
-    setLayoutSections((current) => {
-      if (current.parameters && current.parametersRail === false) return current;
-      const next = { ...current, parameters: true, parametersRail: false };
-      saveWorkbenchLayout(next);
-      return next;
-    });
-  }
-
-  function setCanvasZoom(nextZoom) {
-    setCanvasView((current) => ({
-      ...current,
-      zoom: Math.max(0.55, Math.min(1.8, typeof nextZoom === 'function' ? nextZoom(current.zoom) : nextZoom))
-    }));
-  }
-
-  function resetCanvasView() {
-    setCanvasView({ x: 0, y: 0, zoom: 1 });
-  }
-
-  useEffect(() => {
-    function handleCanvasZoomShortcut(event) {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      if (event.altKey) return;
-      if (event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
-      if (event.key === '-' || event.key === '_') {
-        event.preventDefault();
-        setCanvasZoom((value) => value - 0.1);
-      } else if (event.key === '=' || event.key === '+') {
-        event.preventDefault();
-        setCanvasZoom((value) => value + 0.1);
-      } else if (event.key === '0') {
-        event.preventDefault();
-        resetCanvasView();
-      }
-    }
-
-    window.addEventListener('keydown', handleCanvasZoomShortcut);
-    return () => window.removeEventListener('keydown', handleCanvasZoomShortcut);
-  }, []);
-
-  function startCanvasPan(event) {
-    if (event.button !== 0) return;
-    if (event.target.closest?.('button, a, video, input, select, textarea, .graphNode, .canvasPort')) return;
-    if (canvasLinkDraft) setCanvasLinkDraft(null);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    canvasDragRef.current = {
-      type: 'pan',
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: canvasView.x,
-      originY: canvasView.y
-    };
-  }
-
-  function moveCanvasPan(event) {
-    const drag = canvasDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    if (drag.type === 'node-resize') {
-      resizeCanvasNode(event, drag);
-      return;
-    }
-    if (drag.type === 'node-move') {
-      moveCanvasNode(event, drag);
-      return;
-    }
-    if (drag.type === 'link-create') {
-      const point = canvasPlanePointFromEvent(event);
-      setCanvasLinkDraft((current) => current?.fromId === drag.fromId ? {
-        ...current,
-        point
-      } : current);
-      return;
-    }
-    setCanvasView((current) => ({
-      ...current,
-      x: drag.originX + event.clientX - drag.startX,
-      y: drag.originY + event.clientY - drag.startY
-    }));
-  }
-
-  function endCanvasPan(event) {
-    const drag = canvasDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    if (drag.type === 'node-move' && drag.moved) {
-      suppressCanvasClickRef.current = true;
-      window.setTimeout(() => {
-        suppressCanvasClickRef.current = false;
-      }, 0);
-    }
-    if (drag.type === 'link-create') {
-      const targetNodeId = findCanvasLinkTarget(event, drag.fromId);
-      const linked = addCanvasCustomLink(drag.fromId, targetNodeId);
-      const moved = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE;
-      if (linked || moved) {
-        setCanvasLinkDraft(null);
-      } else {
-        setCanvasLinkDraft((current) => current?.fromId === drag.fromId ? { fromId: drag.fromId, point: null } : { fromId: drag.fromId, point: null });
-        setMessage(t('statusMessages.linkTargetHint', '选择另一张图左侧圆点，或拖到目标图片上建立关联。'));
-      }
-    }
-    canvasDragRef.current = null;
-  }
-
-  function nodeWidth(node) {
-    return clamp(Number(node?.width) || CANVAS_NODE_WIDTH, CANVAS_NODE_MIN_WIDTH, CANVAS_NODE_MAX_WIDTH);
-  }
-
-  function nodeHeight(node) {
-    return clamp(Number(node?.height) || CANVAS_NODE_HEIGHT, CANVAS_NODE_MIN_HEIGHT, CANVAS_NODE_MAX_HEIGHT);
-  }
-
-  function canvasViewForNodes(nodes = [], preferredId = '') {
-    const visibleNodes = Array.isArray(nodes) ? nodes.filter(Boolean) : [];
-    if (!visibleNodes.length) return { x: 0, y: 0, zoom: 1 };
-    const preferred = preferredId ? visibleNodes.find((node) => node.id === preferredId) : null;
-    const focusNodes = preferred ? [preferred] : visibleNodes;
-    const left = Math.min(...focusNodes.map((node) => node.x));
-    const top = Math.min(...focusNodes.map((node) => node.y));
-    const right = Math.max(...focusNodes.map((node) => node.x + nodeWidth(node)));
-    const bottom = Math.max(...focusNodes.map((node) => node.y + nodeHeight(node)));
-    return {
-      x: -((left + right) / 2),
-      y: -((top + bottom) / 2),
-      zoom: 1
-    };
-  }
-
   function focusCanvasOnNodes(nodes = canvasNodes, preferredId = selectedCanvasNodeId) {
-    setCanvasView(canvasViewForNodes(nodes, preferredId));
+    focusCanvasOnNodesBase(nodes, preferredId);
   }
 
-  function startCanvasNodeResize(event, node) {
-    if (!node?.id || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    canvasDragRef.current = {
-      type: 'node-resize',
-      pointerId: event.pointerId,
-      nodeId: node.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      originWidth: nodeWidth(node),
-      originHeight: nodeHeight(node)
-    };
-    setSelectedCanvasNodeId(node.id);
-  }
-
-  function startCanvasNodeDrag(event, node) {
-    if (!node?.id || event.button !== 0) return;
-    if (event.target.closest?.('a, input, select, textarea, .canvasPort, .canvasNodeResize, .canvasInlineEditor, .canvasNodeToolbar, .canvasNodeContinue')) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    canvasDragRef.current = {
-      type: 'node-move',
-      pointerId: event.pointerId,
-      nodeId: node.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: Number(node.x) || 0,
-      originY: Number(node.y) || 0,
-      moved: false
-    };
-    setSelectedCanvasNodeId(node.id);
-  }
-
-  function resizeCanvasNode(event, drag) {
-    const zoom = canvasView.zoom || 1;
-    const nextWidth = clamp(
-      drag.originWidth + (event.clientX - drag.startX) / zoom,
-      CANVAS_NODE_MIN_WIDTH,
-      CANVAS_NODE_MAX_WIDTH
-    );
-    const nextHeight = clamp(
-      drag.originHeight + (event.clientY - drag.startY) / zoom,
-      CANVAS_NODE_MIN_HEIGHT,
-      CANVAS_NODE_MAX_HEIGHT
-    );
-    setCanvasNodes((current) => current.map((node) => (
-      node.id === drag.nodeId
-        ? { ...node, width: Math.round(nextWidth), height: Math.round(nextHeight) }
-        : node
-    )));
-  }
-
-  function moveCanvasNode(event, drag) {
-    const zoom = canvasView.zoom || 1;
-    const dx = (event.clientX - drag.startX) / zoom;
-    const dy = (event.clientY - drag.startY) / zoom;
-    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE) {
-      drag.moved = true;
-    }
-    setCanvasNodes((current) => current.map((node) => (
-      node.id === drag.nodeId
-        ? {
-          ...node,
-          x: Math.round(drag.originX + dx),
-          y: Math.round(drag.originY + dy)
-        }
-        : node
-    )));
-  }
-
-  function startCanvasLink(event, node) {
-    if (!node?.id || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const point = canvasPlanePointFromEvent(event);
-    canvasDragRef.current = {
-      type: 'link-create',
-      pointerId: event.pointerId,
-      fromId: node.id,
-      startX: event.clientX,
-      startY: event.clientY
-    };
-    setSelectedCanvasNodeId(node.id);
-    setCanvasLinkDraft({ fromId: node.id, point });
-    setStatus('idle');
-    setMessage('');
-  }
-
-  function finishCanvasLink(event, node) {
-    event.preventDefault();
-    event.stopPropagation();
-    const draft = canvasLinkDraft;
-    if (!draft?.fromId) return;
-    addCanvasCustomLink(draft.fromId, node.id);
-    setCanvasLinkDraft(null);
-    canvasDragRef.current = null;
-  }
-
-  function handleCanvasNodeMediaClick(event, node) {
-    event.stopPropagation();
-    if (suppressCanvasClickRef.current) return;
-    selectCanvasNode(node);
-  }
 
   function appendCanvasNodes(urls, { kind = 'image', parentId = '', promptText = '', title = '生成结果', downloadMeta, replaceBatchId = '', persistedUrls = [] } = {}) {
     if (!urls.length) return;
@@ -3622,6 +1548,7 @@ function CreationDesk({
 
   function syncRemoteGenerationJob(job) {
     if (!job?.id) return;
+    if (job.sessionId && job.sessionId !== sessionId) return;
     commitGenerationQueue(upsertRemoteGenerationJobTask(generationQueueRef.current, job, {
       defaultModel: IMAGE_MODELS[0],
       fallbackSummary: '服务端任务'
@@ -3642,10 +1569,7 @@ function CreationDesk({
       .then(async (jobs) => {
         if (cancelled) return;
         const knownJobIds = new Set(jobs.map((job) => job?.id).filter(Boolean));
-        const restoredJobIds = generationQueueRef.current
-          .filter((item) => item?.serverJobId && item.remote && ['queued', 'running'].includes(item.status))
-          .map((item) => item.serverJobId)
-          .filter((jobId) => !knownJobIds.has(jobId));
+        const restoredJobIds = restorableRemoteJobIds(generationQueueRef.current, knownJobIds);
         if (restoredJobIds.length) {
           const restoredJobs = await Promise.all(restoredJobIds.map((jobId) => (
             historyClient.getGenerationJob(jobId).catch(() => null)
@@ -3653,7 +1577,7 @@ function CreationDesk({
           if (cancelled) return;
           jobs = [
             ...jobs,
-            ...restoredJobs.filter((job) => job?.id && !knownJobIds.has(job.id))
+            ...restoredJobs.filter((job) => job?.id && !knownJobIds.has(job.id) && (!job.sessionId || job.sessionId === sessionId))
           ];
         }
         const visibleRemoteJobs = jobs.filter(isVisibleServerJob);
@@ -3670,6 +1594,7 @@ function CreationDesk({
         if (!activeJob || recoveredJobIdsRef.current.has(activeJob.id)) {
           const interruptedJob = jobs.find((job) => ['unknown', 'failed'].includes(job.status));
           if (interruptedJob && !recoveredJobIdsRef.current.has(interruptedJob.id)) {
+            clearRemoteGenerationJob(interruptedJob.id, queueStatusFromServerJob(interruptedJob));
             setStatus('error');
             setProgress(serverJobProgress(interruptedJob, interruptedJob.count));
             setMessage(serverJobMessage(interruptedJob, t));
@@ -3707,22 +1632,11 @@ function CreationDesk({
     };
   }, [remoteSessionReady, persistenceKey, sessionId]);
 
-  function composeCanvasContinuationPrompt(node, instruction) {
-    const currentPrompt = String(instruction || '').trim();
-    const parentPrompt = String(node?.prompt || '').trim();
-    if (!currentPrompt) return parentPrompt;
-    if (!parentPrompt || currentPrompt.startsWith(parentPrompt)) return currentPrompt;
-    return `${parentPrompt}\n\n基于画布 #${node?.canvasIndex || ''} 继续优化：\n${currentPrompt}`.trim();
-  }
-
   function composedGenerationPrompt() {
     const currentPrompt = prompt.trim();
     if (!currentPrompt) return selectedCanvasNode?.prompt?.trim() || '';
     if (!selectedCanvasNode?.prompt) return currentPrompt;
     return composeCanvasContinuationPrompt(selectedCanvasNode, currentPrompt);
-    const parentPrompt = selectedCanvasNode.prompt.trim();
-    if (!parentPrompt || currentPrompt.startsWith(parentPrompt)) return currentPrompt;
-    return `${parentPrompt}\n\n基于画布 ${selectedCanvasNode.canvasIndex || ''} 继续优化：${currentPrompt}`.trim();
   }
 
   function assistantBasePrompt() {
@@ -3895,6 +1809,39 @@ function CreationDesk({
     setStatus('idle');
     setMessage('');
   }
+
+  const {
+    setCanvasZoom,
+    resetCanvasView,
+    startCanvasPan,
+    moveCanvasPan,
+    endCanvasPan,
+    startCanvasNodeResize,
+    startCanvasNodeDrag,
+    startCanvasLink,
+    finishCanvasLink,
+    handleCanvasNodeMediaClick
+  } = useCanvasInteraction({
+    canvasView,
+    setCanvasView,
+    canvasNodes,
+    setCanvasNodes,
+    canvasNodeMap,
+    canvasEdges,
+    canvasCustomLinks,
+    setCanvasCustomLinks,
+    canvasLinkDraft,
+    setCanvasLinkDraft,
+    selectedCanvasNodeId,
+    setSelectedCanvasNodeId,
+    canvasDragRef,
+    suppressCanvasClickRef,
+    addCanvasCustomLink,
+    selectCanvasNode,
+    setStatus,
+    setMessage,
+    t
+  });
 
   function casePromptKey(item) {
     if (!item) return '';
@@ -4228,7 +2175,7 @@ function CreationDesk({
     if (prompt !== pendingCanvasGenerate.prompt) return;
     setPendingCanvasGenerate(null);
     closeCanvasEditor();
-    enqueueGeneration({
+    openGenerationConfirm({
       mode: pendingCanvasGenerate.mode,
       prompt: pendingCanvasGenerate.prompt,
       referenceItems: pendingCanvasGenerate.referenceItems,
@@ -4242,7 +2189,7 @@ function CreationDesk({
     if (!pendingSuggestionGenerate) return;
     if (prompt !== pendingSuggestionGenerate.prompt) return;
     setPendingSuggestionGenerate(null);
-    enqueueGeneration();
+    openGenerationConfirm();
   }, [pendingSuggestionGenerate?.requestId, prompt]);
 
   function applyCreativeRecipe(recipe) {
@@ -4293,7 +2240,13 @@ function CreationDesk({
   }
 
   async function optimizeCurrentPrompt() {
-    const currentPrompt = prompt.trim();
+    // Use the same prompt-composition path the generator uses, so that
+    // optimizing while a canvas node is selected (and the composer is
+    // empty) optimizes the node's prompt instead of erroring out. The
+    // previous implementation only read `prompt.trim()`, which made the
+    // "optimize" button unusable from the canvas-continuation flow even
+    // though the error message promised it would work.
+    const currentPrompt = composedGenerationPrompt().trim();
     if (!currentPrompt) {
       setStatus('error');
       setMessage(caseResolving
@@ -4508,64 +2461,36 @@ function CreationDesk({
   }
 
   function buildGenerationTask(overrides = {}) {
-    const basePrompt = typeof overrides.prompt === 'string' ? overrides.prompt : composedGenerationPrompt();
-    const taskMode = overrides.mode || mode;
-    const taskReferenceItems = Array.isArray(overrides.referenceItems) ? overrides.referenceItems : referenceItems;
-    const taskSelectedCanvasNode = overrides.selectedCanvasNodeSnapshot
-      || (selectedCanvasNode ? { ...selectedCanvasNode } : null);
-    return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      status: 'queued',
-      createdAt: Date.now(),
-      mode: taskMode,
-      prompt: basePrompt,
+    const fallbackPrompt = composedGenerationPrompt();
+    return buildGenerationTaskPure({
+      mode,
       model,
       aspect,
-      aspectRatio: aspect,
       customSize,
       size,
       quality,
       resolutionTier,
       outputFormat,
       moderation,
-      count: countValue,
+      countValue,
       videoModel,
       videoAspect,
-      videoAspectRatio: videoAspect,
       videoDuration,
-      duration: videoDuration,
       videoFps,
-      fps: videoFps,
       videoMotion,
       videoStyle,
       videoQuality,
       negativePrompt,
-      referenceItems: taskReferenceItems,
+      referenceItems,
       videoReferenceFiles,
-      maskFile: taskMode === 'mask' ? maskEditorRef.current?.exportMask?.() || null : null,
-      selectedCanvasNodeId: overrides.selectedCanvasNodeId ?? selectedCanvasNodeId,
-      selectedCanvasNodeSnapshot: taskSelectedCanvasNode,
-      referencesOpen: overrides.referencesOpen ?? layoutSections.references,
-      fingerprint: generationTaskFingerprint({
-        sessionId,
-        mode: taskMode,
-        route: taskMode === 'edit' || taskMode === 'mask' ? 'edits' : 'generations',
-        providerId: providerSettings.providerId,
-        apiKeySource: providerSettings.apiKeySource,
-        model,
-        prompt: basePrompt,
-        size,
-        quality,
-        resolutionTier,
-        outputFormat,
-        moderation,
-        count: countValue,
-        selectedCanvasNodeId: overrides.selectedCanvasNodeId ?? selectedCanvasNodeId,
-        referenceCount: taskReferenceItems.length,
-        hasMask: taskMode === 'mask'
-      }),
-      summary: basePrompt || prompt.trim() || selectedCanvasNode?.prompt?.trim() || '未填写提示词'
-    };
+      selectedCanvasNode,
+      selectedCanvasNodeId,
+      sessionId,
+      providerSettings,
+      layoutSectionsReferences: layoutSections.references,
+      maskFile: mode === 'mask' ? maskEditorRef.current?.exportMask?.() || null : null,
+      fallbackPrompt
+    }, overrides);
   }
 
   function markGenerationTask(id, patch) {
@@ -4610,7 +2535,7 @@ function CreationDesk({
     const target = generationQueueRef.current.find((item) => item.id === id);
     if (!target) return;
     const retryResult = retryGenerationQueueTask(generationQueueRef.current, id, {
-      createId: () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createId: createGenerationTaskId,
       fallbackSummary: t('statusMessages.queueRetryFallbackSummary', '重试生成任务')
     });
     if (retryResult.blocked) {
@@ -4633,34 +2558,67 @@ function CreationDesk({
     }
   }
 
-  function enqueueGeneration(overrides = {}) {
-    const task = buildGenerationTask(overrides);
+  function validateGenerationTask(task) {
     if (!task.prompt) {
       setStatus('error');
       setMessage(caseResolving
         ? t('statusMessages.templateLoading', '模板提示词正在读取，请稍后。')
         : t('statusMessages.promptRequired', '请先填写提示词，或先选中一个画布节点继续。'));
-      return;
+      return false;
+    }
+    const taskCanvasReference = task.selectedCanvasNodeSnapshot;
+    const taskUsesCanvasReference = Boolean(taskCanvasReference && taskCanvasReference.kind !== 'video' && taskCanvasReference.url && (task.mode === 'edit' || task.mode === 'mask'));
+    const taskReferenceCount = Array.isArray(task.referenceItems) ? task.referenceItems.filter((item) => item?.file).length : 0;
+    if ((task.mode === 'edit' || task.mode === 'mask') && !taskReferenceCount && !taskUsesCanvasReference) {
+      setStatus('error');
+      setMessage(task.mode === 'mask'
+        ? t('statusMessages.maskModeReferenceRequired', '请先在 Mask 模式上传参考图。')
+        : t('statusMessages.referenceRequired', '请先上传参考图。'));
+      return false;
+    }
+    if (task.mode === 'mask' && !task.maskFile) {
+      setStatus('error');
+      setMessage(t('statusMessages.maskEditorRequired', '请先在 Mask 编辑器里上传参考图并涂抹要重绘的区域。'));
+      return false;
+    }
+    if (task.mode === 'video' && (!hasSyncedVideoModels || !task.videoModel)) {
+      setStatus('error');
+      setMessage(modelsStatus === 'loading'
+        ? t('statusMessages.videoModelsLoadingWait', '正在读取当前 Key 的视频模型，请稍后。')
+        : t('statusMessages.videoModelsUnavailable', '当前 Key 没有开放视频模型。'));
+      showComposerForGeneration();
+      return false;
     }
     const activeCount = activeGenerationQueueCount(generationQueueRef.current);
     if (activeCount >= GENERATION_QUEUE_LIMIT) {
       setStatus('error');
       setMessage(t('statusMessages.queueLimit', '当前队列已满，最多保留 {count} 个待生成任务。', { count: GENERATION_QUEUE_LIMIT }));
-      return;
+      return false;
     }
     const duplicateTask = findDuplicateActiveGenerationTask(generationQueueRef.current, task.fingerprint);
     if (duplicateTask) {
       setStatus('error');
       setMessage(t('statusMessages.duplicateGenerationTask', '相同的生成请求已经在队列中，请等它完成或先取消后再提交。'));
       showComposerForGeneration();
-      return;
+      return false;
     }
+    return true;
+  }
+
+  function enqueueGenerationTask(task) {
+    if (!validateGenerationTask(task)) return false;
+    const activeCount = activeGenerationQueueCount(generationQueueRef.current);
     showComposerForGeneration();
     commitGenerationQueue(appendGenerationQueueTask(generationQueueRef.current, task));
     setMessage(activeCount
       ? t('statusMessages.queueAddedBehind', '已加入队列，前面还有 {count} 个任务。', { count: activeCount })
       : t('statusMessages.queueAdded', '已加入队列。'));
     runGenerationQueue();
+    return true;
+  }
+
+  function enqueueGeneration(overrides = {}) {
+    return enqueueGenerationTask(buildGenerationTask(overrides));
   }
 
   async function runGenerationQueue() {
@@ -4694,12 +2652,7 @@ function CreationDesk({
   }
 
   async function generationFilesForJob(files) {
-    const source = Array.isArray(files) ? files.slice(0, IMAGE_REFERENCE_LIMIT) : [];
-    return Promise.all(source.map(async (file, index) => ({
-      name: file?.name || `reference-${index + 1}.png`,
-      type: file?.type || 'image/png',
-      dataUrl: await fileToDataUrl(file)
-    })));
+    return generationFilesForJobPure(files, IMAGE_REFERENCE_LIMIT);
   }
 
 
@@ -4709,20 +2662,14 @@ function CreationDesk({
   }
 
   async function waitForServerJob(historyClient, jobId, { signal, total }) {
-    let latest = await historyClient.getGenerationJob(jobId);
-    while (latest && !isFinalServerJobStatus(latest.status)) {
-      setProgress(serverJobProgress(latest, total));
-      setMessage(serverJobMessage(latest, t));
-      syncServerJobTiming(latest);
-      await delay(1400, signal);
-      latest = await historyClient.getGenerationJob(jobId);
-    }
-    if (latest) {
-      setProgress(serverJobProgress(latest, total));
-      setMessage(serverJobMessage(latest, t));
-      syncServerJobTiming(latest);
-    }
-    return latest;
+    return waitForServerJobPure(historyClient, jobId, {
+      signal,
+      total,
+      t,
+      onProgress: setProgress,
+      onMessage: setMessage,
+      onTiming: (job) => setTiming((current) => serverJobTimingPatch(job, current))
+    });
   }
 
   async function generate(options = {}) {
@@ -5341,12 +3288,40 @@ function CreationDesk({
   const confirmRegenerate = () => {
     enqueueGeneration();
   };
+  const openGenerationConfirm = (overrides = {}) => {
+    const task = buildGenerationTask(overrides);
+    if (!validateGenerationTask(task)) return;
+    setGenerationConfirmTask(task);
+    setGenerationConfirmOpen(true);
+  };
+  const closeGenerationConfirm = () => {
+    setGenerationConfirmOpen(false);
+    setGenerationConfirmTask(null);
+  };
+  const confirmGenerationAction = () => {
+    const task = generationConfirmTask;
+    closeGenerationConfirm();
+    if (task) enqueueGenerationTask(task);
+  };
+  const adjustGenerationParams = () => {
+    closeGenerationConfirm();
+    openBottomParamShelf();
+  };
   const handleGenerateAction = () => {
-    if (isGenerating) {
-      enqueueGeneration();
-      return;
+    openGenerationConfirm();
+  };
+  const switchWorkbenchMode = (nextWorkspace) => {
+    if (nextWorkspace === activeWorkspace) return;
+    if (nextWorkspace === 'image') setMode((current) => (current === 'video' ? 'image' : current));
+    if (nextWorkspace === 'video') {
+      setMode('video');
+      updateLayoutSections({
+        bottomComposer: true,
+        composerFolded: false,
+        composerParameters: false
+      });
     }
-    enqueueGeneration();
+    onOpenWorkspace?.(nextWorkspace);
   };
   const maskSourcePreview = referencePreviews[0] || (mode === 'mask' && selectedCanvasNode && selectedCanvasNode.kind !== 'video' ? selectedCanvasNode.url : '');
   const maskSourceFile = referenceFiles[0] || (maskSourcePreview ? { name: selectedCanvasNode ? `#${selectedCanvasNode.canvasIndex || 1}.png` : 'reference.png' } : null);
@@ -5378,11 +3353,53 @@ function CreationDesk({
       ? t('composer.contextUsesReference', '当前会把选中图片作为参考图')
       : t('composer.contextLineageOnly', '当前只继承提示词和画布关系')
     : mode === 'video'
-      ? t('composer.contextVideo', '视频参数在右侧设置')
+      ? t('composer.contextVideo', '视频参数在底部参数栏设置')
       : t('composer.title', '把想法说出来，先整理，再生成');
   const composerGenerationVisible = status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review' || (status === 'error' && Boolean(message));
   const composerThreadHasContent = Boolean(assistantMessages.length || promptSuggestion);
   const activeGenerationQueueItems = generationQueue.filter((item) => CURRENT_PROJECT_QUEUE_STATUSES.has(item.status));
+  const activeQueuedGenerationCount = activeGenerationQueueCount(generationQueue);
+  const confirmTaskModelInfo = generationConfirmTask?.mode === 'video'
+    ? videoModelOptions.find((item) => item.id === generationConfirmTask.videoModel)
+    : imageModelOptions.find((item) => item.id === generationConfirmTask?.model);
+  const confirmTaskReferenceCount = generationConfirmTask
+    ? generationConfirmTask.mode === 'video'
+      ? (generationConfirmTask.videoReferenceFiles || []).length
+      : Math.min(
+          IMAGE_REFERENCE_LIMIT,
+          (generationConfirmTask.referenceItems || []).filter((item) => item?.file).length
+            + (generationConfirmTask.selectedCanvasNodeSnapshot?.url && generationConfirmTask.selectedCanvasNodeSnapshot?.kind !== 'video' && (generationConfirmTask.mode === 'edit' || generationConfirmTask.mode === 'mask') ? 1 : 0)
+        )
+    : 0;
+  const confirmTaskReferenceLimit = generationConfirmTask?.mode === 'video' || generationConfirmTask?.mode === 'mask' ? 1 : IMAGE_REFERENCE_LIMIT;
+  const confirmTaskRouteLabel = generationConfirmTask?.mode === 'video'
+    ? t('composer.routeVideo', '视频任务接口')
+    : generationConfirmTask?.mode === 'mask' || (generationConfirmTask?.mode === 'edit' && confirmTaskReferenceCount > 0)
+      ? '/v1/images/edits'
+      : '/v1/images/generations';
+  const confirmTaskOutputLabel = generationConfirmTask?.mode === 'video'
+    ? `${generationConfirmTask.videoAspect} · ${generationConfirmTask.videoDuration}s · ${generationConfirmTask.videoFps}fps`
+    : generationConfirmTask
+      ? `${generationConfirmTask.size} · ${RESOLUTION_TIER_LABELS[generationConfirmTask.resolutionTier] || generationConfirmTask.resolutionTier} · ${qualityLabel(generationConfirmTask.quality)}`
+      : '';
+  const confirmTaskCountLabel = generationConfirmTask?.mode === 'video'
+    ? `1 ${t('params.videoUnit', '段')}`
+    : generationConfirmTask
+      ? `${generationConfirmTask.count}${imageCountSuffix}`
+      : '';
+  const confirmTaskReferenceLabel = generationConfirmTask
+    ? `${confirmTaskReferenceCount}/${confirmTaskReferenceLimit}${generationConfirmTask.mode === 'mask' && generationConfirmTask.maskFile ? ' · Mask' : ''}`
+    : '';
+  const confirmTaskQueueLabel = activeQueuedGenerationCount
+    ? t('composer.confirmQueueBehind', '前面还有 {count} 个任务', { count: activeQueuedGenerationCount })
+    : t('composer.confirmQueueNow', '确认后立即排队');
+  const confirmTaskPrimaryLabel = needsReviewBeforeRetry
+    ? t('composer.confirmRegenerate', '确认重新生成')
+    : status === 'error'
+      ? t('composer.regenerate', '重新生成')
+      : isGenerating || activeQueuedGenerationCount
+        ? t('composer.queueMore', '加入队列')
+        : t('composer.confirmGeneratePrimary', '确认生成');
   const composerFolded = layoutSections.bottomComposer && layoutSections.composerFolded === true;
   const toggleComposerFold = () => updateLayoutSections({
     bottomComposer: true,
@@ -5399,6 +3416,27 @@ function CreationDesk({
     composerFolded: false
   });
   const composerReferenceLimit = mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT;
+  const sidePromptText = (promptSuggestion?.finalPrompt || promptSuggestion?.raw || prompt.trim() || selectedCanvasNode?.prompt || selectedCase?.prompt || selectedCase?.promptPreview || '').trim();
+  const sidePromptSource = promptSuggestion
+    ? t('context.promptSourceSuggestion', 'AI 建议')
+    : prompt.trim()
+      ? t('context.promptSourceInput', '输入框')
+      : selectedCanvasNode?.prompt
+        ? t('context.promptSourceNode', '画布 #{index}', { index: selectedCanvasNode.canvasIndex || '' })
+        : selectedCase?.title
+        ? t('context.promptSourceLibrary', '灵感库')
+        : t('context.promptSourceEmpty', '等待输入');
+  const copySidePrompt = async () => {
+    if (!sidePromptText) return;
+    await navigator.clipboard.writeText(sidePromptText);
+    setCopied(true);
+    setStatus('success');
+    setMessage(t('statusMessages.promptCopied', '提示词已复制。'));
+    window.setTimeout(() => {
+      setCopied(false);
+      setStatus('idle');
+    }, 1200);
+  };
   const composerPromptPlaceholder = selectedCanvasNode
     ? t('composer.placeholderCanvas', '写下要怎样延续这张图：换背景、加产品、调整风格... Enter 直接生成')
     : t('composer.placeholder', '写下提示词或创作想法，Enter 直接生成；点左侧小按钮才会调用 AI 优化。');
@@ -5447,7 +3485,7 @@ function CreationDesk({
   };
 
   return (
-    <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} ${layoutSections.parametersRail === false ? 'paramRailCollapsed' : ''} ${composerFolded ? 'composerFolded' : ''}`}>
+    <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
       <div
         ref={workPreviewRef}
         className={`workPreview infiniteCanvas ${hasPrimaryResult ? 'hasResult' : ''} ${canvasPerformanceMode ? 'performanceMode' : ''}`}
@@ -5470,6 +3508,11 @@ function CreationDesk({
           onRetry={retryGenerationTask}
           onRegenerate={openRegenerateDialog}
           onStop={stopGeneration}
+        />
+        <WorkbenchModeSwitch
+          activeWorkspace={activeWorkspace === 'video' ? 'video' : 'image'}
+          onChange={switchWorkbenchMode}
+          t={t}
         />
         <div className="canvasToolbar" aria-label={t('canvas.toolbar', '画布工具')}>
           <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label={t('canvas.zoomOut', '缩小画布')} title={`${t('canvas.zoomOut', '缩小画布')} Ctrl/Cmd + -`}>-</button>
@@ -5503,18 +3546,8 @@ function CreationDesk({
                 </filter>
               </defs>
               {renderedCanvasEdges.map((edge) => {
-                const fromWidth = nodeWidth(edge.from);
-                const fromHeight = nodeHeight(edge.from);
-                const toHeight = nodeHeight(edge.to);
-                const x1 = CANVAS_PLANE_WIDTH / 2 + edge.from.x + fromWidth + 2;
-                const y1 = CANVAS_PLANE_HEIGHT / 2 + edge.from.y + fromHeight * 0.48;
-                const x2 = CANVAS_PLANE_WIDTH / 2 + edge.to.x - 2;
-                const y2 = CANVAS_PLANE_HEIGHT / 2 + edge.to.y + toHeight * 0.48;
-                const bend = Math.max(96, Math.abs(x2 - x1) * 0.46);
-                const path = `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
-                const jointX = (x1 + x2) / 2;
-                const jointY = (y1 + y2) / 2;
-                const edgeClass = canvasEdgeLineageClass(edge);
+                const { path, jointX, jointY } = canvasEdgeGeometry(edge.from, edge.to, CANVAS_PLANE_WIDTH, CANVAS_PLANE_HEIGHT);
+                const edgeClass = resolveCanvasEdgeLineageClass(edge);
                 const isEdgeActive = edgeClass.includes('active');
                 return (
                   <g className={`canvasLinkGroup ${edgeClass} ${edge.type === 'custom' ? 'custom' : 'lineage'}`} key={edge.id}>
@@ -5530,179 +3563,62 @@ function CreationDesk({
                 );
               })}
               {canvasLinkPreview?.point ? (() => {
-                const fromWidth = nodeWidth(canvasLinkPreview.from);
-                const fromHeight = nodeHeight(canvasLinkPreview.from);
-                const x1 = CANVAS_PLANE_WIDTH / 2 + canvasLinkPreview.from.x + fromWidth + 2;
-                const y1 = CANVAS_PLANE_HEIGHT / 2 + canvasLinkPreview.from.y + fromHeight * 0.48;
-                const x2 = canvasLinkPreview.point.x;
-                const y2 = canvasLinkPreview.point.y;
-                const bend = Math.max(70, Math.abs(x2 - x1) * 0.38);
-                const path = `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+                const path = canvasLinkPreviewGeometry(canvasLinkPreview.from, canvasLinkPreview.point, CANVAS_PLANE_WIDTH, CANVAS_PLANE_HEIGHT);
                 return <path className="canvasLinkPreview" d={path} />;
               })() : null}
             </svg>
           ) : null}
-          {canvasNodes.length ? canvasNodes.map((node) => {
-            const nodeIndex = Math.max(0, (node.canvasIndex || 1) - 1);
-            const currentNodeWidth = nodeWidth(node);
-            const currentNodeHeight = nodeHeight(node);
-            const nodeIsVisible = visibleCanvasNodeIds.has(node.id);
-            const nodeIsVirtualized = canvasPerformanceMode && !nodeIsVisible;
-            const nodeExtension = node.kind === 'video' ? resultVideoExtension(node.url) : resultExtension(node.url, outputFormat);
-            const nodeDownloadName = buildStudioDownloadFilename({
-              ...(node.downloadMeta || currentDownloadMeta || {}),
-              mode: node.kind === 'video' ? 'video' : 'image',
-              index: nodeIndex,
-              extension: nodeExtension
-            });
-            return (
-              <div
-                className={`canvasNode resultNode graphNode ${selectedCanvasNodeId === node.id ? 'selected' : ''} ${childNodeIds.has(node.id) ? 'lineageChild' : ''} ${parentNodeIds.has(node.id) ? 'lineageParent' : ''} ${linkedNodeIds.has(node.id) ? 'linkingRelated' : ''} ${canvasLinkDraft?.fromId === node.id ? 'linkingSource' : ''} ${canvasEditorNodeId === node.id ? 'editing' : ''} ${nodeIsVirtualized ? 'virtualized' : ''}`}
-                key={node.id}
-                style={{
-                  left: `calc(50% + ${node.x}px)`,
-                  top: `calc(50% + ${node.y}px)`,
-                  width: currentNodeWidth,
-                  height: currentNodeHeight
-                }}
-                data-node-id={node.id}
-                onPointerDown={(event) => startCanvasNodeDrag(event, node)}
-                onDoubleClick={(event) => {
-                  event.stopPropagation();
-                  openCanvasEditor(node);
-                }}
-              >
-                <button
-                  type="button"
-                  className="canvasPort canvasPortIn"
-                  data-node-id={node.id}
-                  onPointerDown={(event) => finishCanvasLink(event, node)}
-                  aria-label={`${t('canvas.connectTo', '连接到这张图')} #${node.canvasIndex || ''}`}
-                  title={t('canvas.connectTo', '连接到这张图')}
-                />
-                <button
-                  type="button"
-                  className="canvasPort canvasPortOut"
-                  data-node-id={node.id}
-                  onPointerDown={(event) => startCanvasLink(event, node)}
-                  aria-label={`${t('canvas.dragConnect', '拖到另一张图建立关联')} #${node.canvasIndex || ''}`}
-                  title={t('canvas.dragConnect', '拖到另一张图建立关联')}
-                />
-                <button
-                  type="button"
-                  className="canvasNodeMedia"
-                  onClick={(event) => handleCanvasNodeMediaClick(event, node)}
-                  onDoubleClick={(event) => {
-                    event.stopPropagation();
-                    openCanvasEditor(node);
-                  }}
-                >
-                  {nodeIsVirtualized ? (
-                    <div className="canvasNodePlaceholder">
-                      <ImageIcon size={20} />
-                      <strong>#{node.canvasIndex || ''}</strong>
-                      <span>{compact(node.prompt || node.title || '', 32)}</span>
-                    </div>
-                  ) : node.kind === 'video' ? (
-                    <video src={displayResultUrl(node.url)} playsInline preload="metadata" />
-                  ) : (
-                    <>
-                      <ProtectedStudioImage
-                        src={displayResultUrl(node.url)}
-                        alt={node.title}
-                        fallback={<span className="canvasNodeMissing">{t('canvas.recovering', '图片正在恢复，若仍为空请从历史图库重新打开本次会话')}</span>}
-                      />
-                    </>
-                  )}
-                </button>
-                <span className="canvasNodeLabel">#{node.canvasIndex || ''}</span>
-                <button
-                  type="button"
-                  className="canvasNodeContinue"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openCanvasEditor(node);
-                  }}
-                >
-                  <SquarePen size={13} />
-                  {t('canvas.continueEdit', '继续优化')}
-                </button>
-                <div className="canvasNodeToolbar" onClick={(event) => event.stopPropagation()}>
-                  <button type="button" onClick={() => previewCanvasNode(node)} aria-label={`${t('canvas.preview', '预览')} #${node.canvasIndex || ''}`} title={t('canvas.preview', '预览')}>
-                    <Search size={13} />
-                  </button>
-                  <button type="button" onClick={() => openCanvasEditor(node)} aria-label={`${t('canvas.continueEdit', '继续优化')} #${node.canvasIndex || ''}`} title={t('canvas.continueEdit', '继续优化')}>
-                    <SquarePen size={13} />
-                  </button>
-                  {node.kind !== 'video' ? (
-                    <button type="button" onClick={() => setCanvasNodeAsReference(node)} aria-label={`${t('canvas.setReference', '设为参考')} #${node.canvasIndex || ''}`} title={t('canvas.setReference', '设为参考')}>
-                      <ImageIcon size={13} />
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => copyCanvasNodePrompt(node)} disabled={!node.prompt} aria-label={`${t('canvas.copyPrompt', '复制提示词')} #${node.canvasIndex || ''}`} title={t('canvas.copyPrompt', '复制提示词')}>
-                    <Copy size={13} />
-                  </button>
-                  <a href={displayResultUrl(node.url)} download={nodeDownloadName} aria-label={`${t('canvas.download', '下载')} #${node.canvasIndex || ''}`} title={t('canvas.download', '下载')}>
-                    <Download size={13} />
-                  </a>
-                  <button type="button" onClick={() => deleteCanvasNode(node)} aria-label={`${t('canvas.delete', '删除')} #${node.canvasIndex || ''}`} title={t('canvas.delete', '删除')}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-                {canvasEditorNodeId === node.id ? (
-                  <div className="canvasInlineEditor" onClick={(event) => event.stopPropagation()}>
-                    <div className="canvasInlineEditorHead">
-                      <strong>{t('canvas.inlineContinue', '#{index} 继续优化', { index: node.canvasIndex || '' })}</strong>
-                      <button type="button" onClick={closeCanvasEditor} aria-label={t('settings.close', '关闭')}>
-                        <X size={13} />
-                      </button>
-                    </div>
-                    <textarea
-                      value={canvasEditorPrompt}
-                      onChange={(event) => setCanvasEditorPrompt(event.target.value)}
-                      placeholder={t('canvas.inlinePlaceholder', '输入这一轮要补充、调整或重绘的地方')}
-                      autoFocus
-                    />
-                    <div className="canvasInlineModes" role="group" aria-label={t('canvas.continueMode', '续作方式')}>
-                      <button type="button" className={canvasEditorMode === 'image' ? 'active' : ''} onClick={() => changeCanvasEditorMode('image')}>{t('canvas.derive', '衍生')}</button>
-                      <button type="button" className={canvasEditorMode === 'edit' ? 'active' : ''} onClick={() => changeCanvasEditorMode('edit')}>{t('canvas.referenceEdit', '参考编辑')}</button>
-                      <button type="button" className={canvasEditorMode === 'mask' ? 'active' : ''} onClick={() => changeCanvasEditorMode('mask')}>Mask</button>
-                    </div>
-                    {canvasEditorMode === 'image' ? <p>{t('canvas.deriveHint', '只继承提示词和画布关系，不把原图作为参考图。')}</p> : null}
-                    {canvasEditorMode === 'edit' ? <p>{t('canvas.editHint', '会把这张图作为参考图，调用 /v1/images/edits。')}</p> : null}
-                    {canvasEditorMode === 'mask' ? <p>{t('canvas.maskHint', '先在 Mask 面板涂抹要重绘的区域，再用这个节点继续生成。')}</p> : null}
-                    <button
-                      type="button"
-                      className={`canvasInlineGenerate ${generationActionClass}`}
-                      onClick={() => generateFromCanvasEditor(node)}
-                      disabled={generationActionDisabled}
-                    >
-                      {status === 'error' ? <Redo2 size={14} /> : <Sparkles size={14} />}
-                      {generationActionLabel}
-                    </button>
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  className="canvasNodeResize"
-                  onPointerDown={(event) => startCanvasNodeResize(event, node)}
-                  aria-label={`${t('canvas.resize', '拖拽调整窗口大小')} #${node.canvasIndex || ''}`}
-                  title={t('canvas.resize', '拖拽调整窗口大小')}
-                />
-                <small>{compact(node.prompt, 46)}</small>
-                {selectedCanvasNodeId === node.id && !childNodeIds.size ? (
-                  <div className="canvasNextHint">
-                    <strong>{t('canvas.continueTitle', '继续这张图')}</strong>
-                    <span>{t('canvas.continueHint', '在下方会话补充要求，或点右上角继续优化。')}</span>
-                  </div>
-                ) : null}
-              </div>
-            );
-          }) : primaryVideoResult ? (
+          {canvasNodes.length ? canvasNodes.map((node) => (
+            <CanvasNodeCard
+              key={node.id}
+              node={node}
+              outputFormat={outputFormat}
+              currentDownloadMeta={currentDownloadMeta}
+              visibleCanvasNodeIds={visibleCanvasNodeIds}
+              canvasPerformanceMode={canvasPerformanceMode}
+              selectedCanvasNodeId={selectedCanvasNodeId}
+              childNodeIds={childNodeIds}
+              parentNodeIds={parentNodeIds}
+              linkedNodeIds={linkedNodeIds}
+              canvasLinkDraft={canvasLinkDraft}
+              canvasEditorNodeId={canvasEditorNodeId}
+              canvasEditorPrompt={canvasEditorPrompt}
+              canvasEditorMode={canvasEditorMode}
+              status={status}
+              generationActionClass={generationActionClass}
+              generationActionDisabled={generationActionDisabled}
+              generationActionLabel={generationActionLabel}
+              t={t}
+              onStartNodeDrag={startCanvasNodeDrag}
+              onStartNodeResize={startCanvasNodeResize}
+              onFinishCanvasLink={finishCanvasLink}
+              onStartCanvasLink={startCanvasLink}
+              onMediaClick={handleCanvasNodeMediaClick}
+              onOpenEditor={openCanvasEditor}
+              onCloseEditor={closeCanvasEditor}
+              onEditorPromptChange={setCanvasEditorPrompt}
+              onEditorModeChange={changeCanvasEditorMode}
+              onPreview={previewCanvasNode}
+              onSetAsReference={setCanvasNodeAsReference}
+              onCopyPrompt={copyCanvasNodePrompt}
+              onDelete={deleteCanvasNode}
+              onGenerateFromEditor={generateFromCanvasEditor}
+            />
+          )) : primaryVideoResult ? (
             <div className="canvasNode emptyCanvasNode previewFallbackNode">
               <Video size={28} />
               <strong>{t('canvas.videoResult', '视频结果')}</strong>
               <span>{t('canvas.nextNodeHint', '下一次生成会在画布里形成节点关系。')}</span>
+            </div>
+          ) : mode === 'video' ? (
+            <div className="canvasNode emptyCanvasNode videoDraftNode">
+              <Video size={30} />
+              <strong>{t('canvas.videoDraftTitle', '视频创作初稿')}</strong>
+              <span>{t('canvas.videoDraftHint', '输入分镜或画面描述，配置时长、比例和参考图；生成前会先确认模型与接口。')}</span>
+              <button type="button" onClick={openBottomParamShelf}>
+                <SlidersHorizontal size={14} />
+                {t('canvas.videoDraftParams', '检查视频参数')}
+              </button>
             </div>
           ) : workPreviewImage ? (
             <div className="canvasNode sourceNode previewFallbackNode">
@@ -5722,239 +3638,282 @@ function CreationDesk({
           )}
         </div>
       </div>
-      <aside className={`referenceSidePanel ${layoutSections.references ? 'isOpen' : 'isCollapsed'}`} aria-label={t('references.title', '参考图（可选）')}>
+      <aside className={`referenceSidePanel contextSidePanel ${layoutSections.references ? 'isOpen' : 'isCollapsed'} ${rightContextPanel === 'prompt' ? 'promptPanelOpen' : 'referencePanelOpen'}`} aria-label={t('context.title', '创作上下文')}>
         {layoutSections.references ? (
           <>
             <div className="referenceSideHead">
               <div>
-                <strong>{mode === 'mask' ? t('references.maskTitle', '参考图与蒙版') : t('references.title', '参考图（可选）')}</strong>
-                <span>{mode === 'mask' ? 'Mask / edits' : referenceFiles.length || videoReferenceFiles.length ? t('references.selected', '已选择 {count} 张', { count: mode === 'video' ? videoReferenceFiles.length : referenceFiles.length }) : t('references.sideHint', '拖拽、粘贴或上传')}</span>
+                <strong>{t('context.title', '创作上下文')}</strong>
+                <span>{rightContextPanel === 'prompt' ? sidePromptSource : (mode === 'mask' ? 'Mask / edits' : referenceFiles.length || videoReferenceFiles.length ? t('references.selected', '已选择 {count} 张', { count: mode === 'video' ? videoReferenceFiles.length : referenceFiles.length }) : t('references.sideHint', '拖拽、粘贴或上传'))}</span>
               </div>
               <button type="button" onClick={() => toggleLayoutSection('references')} aria-label={t('references.collapse', '收起参考图')}>
                 <PanelLeftClose size={15} />
               </button>
             </div>
-            {mode === 'mask' ? (
-              <div className="referenceSideBody maskReferenceSideBody">
-                <MaskEditor
-                  ref={maskEditorRef}
-                  imageFile={maskSourceFile}
-                  imagePreview={maskSourcePreview}
-                  onUpload={(files) => {
-                    const nextFile = supportedReferenceFiles(files, 1)[0];
-                    if (!nextFile) {
-                      setStatus('error');
-                      setMessage(t('references.unsupportedFormat', '只支持 PNG / JPG / WebP 参考图。'));
-                      return;
-                    }
-                    setReferenceItems([createReferenceItem(nextFile, 'identity')]);
-                    if (maskExportUrl) {
-                      URL.revokeObjectURL(maskExportUrl);
-                      setMaskExportUrl('');
-                    }
-                    setStatus('idle');
-                    setMessage('');
-                  }}
-                  onClearImage={clearReferenceImages}
-                  onExportReady={handleMaskExportReady}
-                  onError={(nextMessage) => {
-                    setStatus('error');
-                    setMessage(nextMessage);
-                  }}
-                  onGenerate={selectedCanvasNode ? generateMaskFromPanel : null}
-                  generating={status === 'loading'}
-                  t={t}
-                />
-                {maskExportUrl ? (
-                  <div className="maskExportPreview">
-                    <img src={maskExportUrl} alt="已导出的 mask" />
-                    <span>{t('references.exportedMask', '已导出 mask.png')}</span>
-                  </div>
-                ) : null}
-              </div>
-            ) : mode === 'video' ? (
-              <div className={`referenceSideBody ${videoReferencePreviews.length ? 'hasReferenceItems' : ''}`}>
-                <label
-                  className={`uploadDrop sideUploadDrop ${videoDropActive ? 'isDragging' : ''}`}
-                  tabIndex={0}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    setVideoDropActive(true);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setVideoDropActive(true);
-                  }}
-                  onDragLeave={() => setVideoDropActive(false)}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setVideoDropActive(false);
-                    appendVideoReferenceImage(event.dataTransfer?.files);
-                  }}
-                  onPaste={videoReferencePasteFiles}
-                >
-                  <Upload size={18} />
-                  <span>{videoReferenceFiles.length ? t('references.replaceVideo', '更换 / 拖入更多') : t('references.optionalUpload', '拖拽 / 粘贴 / 上传参考图，可选')}</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) => {
-                      appendVideoReferenceImage(event.target.files);
-                      event.target.value = '';
-                    }}
-                  />
-                </label>
-                {videoReferencePreviews.length ? (
-                  <div className="referenceThumbs sideReferenceThumbs videoReferenceThumbs">
-                    {videoReferencePreviews.map((url, index) => (
-                      <figure key={url}>
-                        <button
-                          type="button"
-                          className="referencePreviewButton"
-                          onClick={() => setPreviewImage({
-                            url,
-                            index,
-                            downloadMeta: {
-                              mode: 'image',
-                              providerId: mode === 'video' ? videoModel : model,
-                              prompt: prompt.trim(),
-                              createdAt: new Date().toISOString()
-                            }
-                          })}
-                          aria-label={t('references.preview', '查看参考图')}
+            <div className="rightContextStack">
+              <section className={`rightContextSection referenceContextSection ${rightContextPanel === 'references' ? 'isActive' : 'isCollapsed'}`}>
+                <button type="button" className="rightContextSectionHead" onClick={() => setRightContextPanel('references')} aria-expanded={rightContextPanel === 'references'}>
+                  <span><Images size={15} />{t('references.title', '参考图')}</span>
+                  <em>{referenceSideCount}/{referenceSideLimit}</em>
+                </button>
+                {rightContextPanel === 'references' ? (
+                  <>
+                    {mode === 'mask' ? (
+                      <div className="referenceSideBody maskReferenceSideBody">
+                        <React.Suspense fallback={null}>
+                          <MaskEditor
+                            ref={maskEditorRef}
+                            imageFile={maskSourceFile}
+                            imagePreview={maskSourcePreview}
+                            onUpload={(files) => {
+                              const nextFile = supportedReferenceFiles(files, 1)[0];
+                              if (!nextFile) {
+                                setStatus('error');
+                                setMessage(t('references.unsupportedFormat', '只支持 PNG / JPG / WebP 参考图。'));
+                                return;
+                              }
+                              setReferenceItems([createReferenceItem(nextFile, 'identity')]);
+                              if (maskExportUrl) {
+                                URL.revokeObjectURL(maskExportUrl);
+                                setMaskExportUrl('');
+                              }
+                              setStatus('idle');
+                              setMessage('');
+                            }}
+                            onClearImage={clearReferenceImages}
+                            onExportReady={handleMaskExportReady}
+                            onError={(nextMessage) => {
+                              setStatus('error');
+                              setMessage(nextMessage);
+                            }}
+                            onGenerate={selectedCanvasNode ? generateMaskFromPanel : null}
+                            generating={status === 'loading'}
+                            t={t}
+                          />
+                        </React.Suspense>
+                        {maskExportUrl ? (
+                          <div className="maskExportPreview">
+                            <img src={maskExportUrl} alt="已导出的 mask" />
+                            <span>{t('references.exportedMask', '已导出 mask.png')}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : mode === 'video' ? (
+                      <div className={`referenceSideBody ${videoReferencePreviews.length ? 'hasReferenceItems' : ''}`}>
+                        <label
+                          className={`uploadDrop sideUploadDrop ${videoDropActive ? 'isDragging' : ''}`}
+                          tabIndex={0}
+                          onDragEnter={(event) => {
+                            event.preventDefault();
+                            setVideoDropActive(true);
+                          }}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            setVideoDropActive(true);
+                          }}
+                          onDragLeave={() => setVideoDropActive(false)}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            setVideoDropActive(false);
+                            appendVideoReferenceImage(event.dataTransfer?.files);
+                          }}
+                          onPaste={videoReferencePasteFiles}
                         >
-                          <LazyImage src={url} alt={videoReferenceFiles[index]?.name || t('references.videoReference', '视频参考图')} />
-                        </button>
-                        <button type="button" onClick={removeVideoReferenceImage} aria-label={t('references.remove', '移除参考图')}>
-                          <X size={13} />
-                        </button>
-                      </figure>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className={`referenceSideBody ${referencePreviews.length ? 'hasReferenceItems' : ''} ${selectedLibraryReferenceThumb ? 'hasLibraryReference' : ''}`}>
-                {selectedLibraryReferenceThumb ? (
-                  <figure className="libraryReferencePreview">
-                    <button
-                      type="button"
-                      className="referencePreviewButton"
-                      onClick={() => setPreviewImage({
-                        url: selectedLibraryReferenceFull || selectedLibraryReferenceThumb,
-                        fallbackSrc: selectedLibraryReferenceFallback,
-                        index: 0,
-                        downloadMeta: {
-                          mode: 'library-reference',
-                          providerId: model,
-                          prompt: selectedCase?.prompt || selectedCase?.promptPreview || prompt.trim(),
-                          createdAt: new Date().toISOString()
-                        }
-                      })}
-                      aria-label={t('references.preview', '查看参考图')}
-                    >
-                      <LazyImage src={selectedLibraryReferenceThumb} alt={selectedCase?.imageAlt || selectedLibraryReferenceTitle} />
-                    </button>
-                    <figcaption>
-                      <span>{t('references.libraryPreview', '灵感图')}</span>
-                      <strong>{selectedLibraryReferenceTitle}</strong>
-                    </figcaption>
-                  </figure>
-                ) : null}
-                <label
-                  className={`uploadDrop sideUploadDrop ${referenceDropActive ? 'isDragging' : ''}`}
-                  tabIndex={0}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    setReferenceDropActive(true);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setReferenceDropActive(true);
-                  }}
-                  onDragLeave={() => setReferenceDropActive(false)}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setReferenceDropActive(false);
-                    appendReferenceImages(event.dataTransfer?.files);
-                  }}
-                  onPaste={referencePasteFiles}
-                >
-                  <Upload size={18} />
-                  <span>{referenceFiles.length ? t('references.addMore', '继续添加 / 拖入更多') : t('references.upload', '拖拽 / 粘贴 / 上传参考图')}</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    onChange={(event) => {
-                      appendReferenceImages(event.target.files);
-                      event.target.value = '';
-                    }}
-                  />
-                </label>
-                {referencePreviews.length ? (
-                  <div className="referenceThumbs sideReferenceThumbs">
-                    {referencePreviews.map((url, index) => (
-                      <figure key={url}>
-                        <button
-                          type="button"
-                          className="referencePreviewButton"
-                          onClick={() => setPreviewImage({
-                            url,
-                            index,
-                            downloadMeta: {
-                              mode: 'reference',
-                              providerId: mode === 'video' ? videoModel : model,
-                              prompt: prompt.trim(),
-                              createdAt: new Date().toISOString()
-                            }
-                          })}
-                          aria-label={t('references.preview', '查看参考图')}
-                        >
-                          <LazyImage src={url} alt={referenceItems[index]?.file?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })} />
-                        </button>
-                        <figcaption>
-                          <select
-                            value={referenceItems[index]?.role || 'identity'}
-                            onChange={(event) => updateReferenceRole(index, event.target.value)}
-                            aria-label={t('references.role', '参考图 {index} 角色', { index: index + 1 })}
-                          >
-                            {REFERENCE_ROLES.map((role) => (
-                              <option key={role.value} value={role.value}>{role.label}</option>
+                          <Upload size={18} />
+                          <span>{videoReferenceFiles.length ? t('references.replaceVideo', '更换 / 拖入更多') : t('references.optionalUpload', '拖拽 / 粘贴 / 上传参考图，可选')}</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={(event) => {
+                              appendVideoReferenceImage(event.target.files);
+                              event.target.value = '';
+                            }}
+                          />
+                        </label>
+                        {videoReferencePreviews.length ? (
+                          <div className="referenceThumbs sideReferenceThumbs videoReferenceThumbs">
+                            {videoReferencePreviews.map((url, index) => (
+                              <figure key={url}>
+                                <button
+                                  type="button"
+                                  className="referencePreviewButton"
+                                  onClick={() => setPreviewImage({
+                                    url,
+                                    index,
+                                    downloadMeta: {
+                                      mode: 'image',
+                                      providerId: mode === 'video' ? videoModel : model,
+                                      prompt: prompt.trim(),
+                                      createdAt: new Date().toISOString()
+                                    }
+                                  })}
+                                  aria-label={t('references.preview', '查看参考图')}
+                                >
+                                  <LazyImage src={url} alt={videoReferenceFiles[index]?.name || t('references.videoReference', '视频参考图')} />
+                                </button>
+                                <button type="button" onClick={removeVideoReferenceImage} aria-label={t('references.remove', '移除参考图')}>
+                                  <X size={13} />
+                                </button>
+                              </figure>
                             ))}
-                          </select>
-                          <span>{index === 0 ? t('references.mainReference', '主参考') : t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</span>
-                        </figcaption>
-                        <div className="referenceFileMeta">
-                          <strong>{referenceItems[index]?.file?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</strong>
-                          <span>{formatFileSize(referenceItems[index]?.file?.size) || t('references.preview', '查看参考图')}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className={`referenceSideBody ${referencePreviews.length ? 'hasReferenceItems' : ''} ${selectedLibraryReferenceThumb ? 'hasLibraryReference' : ''}`}>
+                        {selectedLibraryReferenceThumb ? (
+                          <figure className="libraryReferencePreview">
+                            <button
+                              type="button"
+                              className="referencePreviewButton"
+                              onClick={() => setPreviewImage({
+                                url: selectedLibraryReferenceFull || selectedLibraryReferenceThumb,
+                                fallbackSrc: selectedLibraryReferenceFallback,
+                                index: 0,
+                                downloadMeta: {
+                                  mode: 'library-reference',
+                                  providerId: model,
+                                  prompt: selectedCase?.prompt || selectedCase?.promptPreview || prompt.trim(),
+                                  createdAt: new Date().toISOString()
+                                }
+                              })}
+                              aria-label={t('references.preview', '查看参考图')}
+                            >
+                              <LazyImage src={selectedLibraryReferenceThumb} alt={selectedCase?.imageAlt || selectedLibraryReferenceTitle} />
+                            </button>
+                            <figcaption>
+                              <span>{t('references.libraryPreview', '灵感图')}</span>
+                              <strong>{selectedLibraryReferenceTitle}</strong>
+                            </figcaption>
+                          </figure>
+                        ) : null}
+                        <label
+                          className={`uploadDrop sideUploadDrop ${referenceDropActive ? 'isDragging' : ''}`}
+                          tabIndex={0}
+                          onDragEnter={(event) => {
+                            event.preventDefault();
+                            setReferenceDropActive(true);
+                          }}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            setReferenceDropActive(true);
+                          }}
+                          onDragLeave={() => setReferenceDropActive(false)}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            setReferenceDropActive(false);
+                            appendReferenceImages(event.dataTransfer?.files);
+                          }}
+                          onPaste={referencePasteFiles}
+                        >
+                          <Upload size={18} />
+                          <span>{referenceFiles.length ? t('references.addMore', '继续添加 / 拖入更多') : t('references.upload', '拖拽 / 粘贴 / 上传参考图')}</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            multiple
+                            onChange={(event) => {
+                              appendReferenceImages(event.target.files);
+                              event.target.value = '';
+                            }}
+                          />
+                        </label>
+                        {referencePreviews.length ? (
+                          <div className="referenceThumbs sideReferenceThumbs">
+                            {referencePreviews.map((url, index) => (
+                              <figure key={url}>
+                                <button
+                                  type="button"
+                                  className="referencePreviewButton"
+                                  onClick={() => setPreviewImage({
+                                    url,
+                                    index,
+                                    downloadMeta: {
+                                      mode: 'reference',
+                                      providerId: mode === 'video' ? videoModel : model,
+                                      prompt: prompt.trim(),
+                                      createdAt: new Date().toISOString()
+                                    }
+                                  })}
+                                  aria-label={t('references.preview', '查看参考图')}
+                                >
+                                  <LazyImage src={url} alt={referenceItems[index]?.file?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })} />
+                                </button>
+                                <figcaption>
+                                  <select
+                                    value={referenceItems[index]?.role || 'identity'}
+                                    onChange={(event) => updateReferenceRole(index, event.target.value)}
+                                    aria-label={t('references.role', '参考图 {index} 角色', { index: index + 1 })}
+                                  >
+                                    {REFERENCE_ROLES.map((role) => (
+                                      <option key={role.value} value={role.value}>{role.label}</option>
+                                    ))}
+                                  </select>
+                                  <span>{index === 0 ? t('references.mainReference', '主参考') : t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</span>
+                                </figcaption>
+                                <div className="referenceFileMeta">
+                                  <strong>{referenceItems[index]?.file?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</strong>
+                                  <span>{formatFileSize(referenceItems[index]?.file?.size) || t('references.preview', '查看参考图')}</span>
+                                </div>
+                                <div className="referenceThumbActions">
+                                  <button type="button" onClick={() => moveReferenceImage(index, -1)} disabled={index === 0} aria-label={t('references.moveBefore', '前移参考图')}>
+                                    <ArrowUp size={13} />
+                                  </button>
+                                  <button type="button" onClick={() => moveReferenceImage(index, 1)} disabled={index === referencePreviews.length - 1} aria-label={t('references.moveAfter', '后移参考图')}>
+                                    <ArrowDown size={13} />
+                                  </button>
+                                  <button type="button" onClick={() => removeReferenceImage(index)} aria-label={t('references.remove', '移除参考图')}>
+                                    <X size={13} />
+                                  </button>
+                                </div>
+                              </figure>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </section>
+              <section className={`rightContextSection promptContextSection ${rightContextPanel === 'prompt' ? 'isActive' : 'isCollapsed'}`}>
+                <button type="button" className="rightContextSectionHead" onClick={() => setRightContextPanel('prompt')} aria-expanded={rightContextPanel === 'prompt'}>
+                  <span><MessageSquareText size={15} />{t('context.prompt', '提示词')}</span>
+                  <em>{sidePromptText ? sidePromptSource : t('context.promptEmpty', '空')}</em>
+                </button>
+                {rightContextPanel === 'prompt' ? (
+                  <div className="rightPromptBody">
+                    {sidePromptText ? (
+                      <>
+                        <div className="rightPromptActions">
+                          <button type="button" onClick={copySidePrompt}>
+                            <Copy size={13} />
+                            {t('composer.copy', '复制')}
+                          </button>
+                          {promptSuggestion ? (
+                            <button type="button" onClick={replaceSuggestion}>{t('composer.putIntoInput', '放入输入框')}</button>
+                          ) : null}
+                          {promptSuggestion ? (
+                            <button type="button" className="primary" onClick={useSuggestionForGenerate}>{t('suggestion.useThis', '用这版生成')}</button>
+                          ) : null}
                         </div>
-                        <div className="referenceThumbActions">
-                          <button type="button" onClick={() => moveReferenceImage(index, -1)} disabled={index === 0} aria-label={t('references.moveBefore', '前移参考图')}>
-                            <ArrowUp size={13} />
-                          </button>
-                          <button type="button" onClick={() => moveReferenceImage(index, 1)} disabled={index === referencePreviews.length - 1} aria-label={t('references.moveAfter', '后移参考图')}>
-                            <ArrowDown size={13} />
-                          </button>
-                          <button type="button" onClick={() => removeReferenceImage(index)} aria-label={t('references.remove', '移除参考图')}>
-                            <X size={13} />
-                          </button>
-                        </div>
-                      </figure>
-                    ))}
+                        <PromptSectionList prompt={sidePromptText} t={t} />
+                      </>
+                    ) : (
+                      <div className="rightPromptEmpty">
+                        <MessageSquareText size={24} />
+                        <strong>{t('context.promptEmptyTitle', '还没有提示词')}</strong>
+                        <span>{t('context.promptEmptyHint', '在底部对话框输入想法，或从灵感库选用后会显示在这里。')}</span>
+                      </div>
+                    )}
                   </div>
                 ) : null}
-              </div>
-            )}
-            <div className="referenceSideFoot">
-              <span>{referenceSideCount}/{referenceSideLimit}</span>
-              <strong>{t('references.title', '参考图')}</strong>
+              </section>
             </div>
           </>
         ) : (
           <button type="button" className="referenceSideCollapsed" onClick={() => toggleLayoutSection('references')}>
             <Images size={17} />
-            <span>{t('references.title', '参考图')}</span>
+            <span>{t('context.title', '创作上下文')}</span>
           </button>
         )}
       </aside>
@@ -6386,7 +4345,7 @@ function CreationDesk({
                   ? t('params.loadingModels', '正在读取模型')
                   : t('params.defaultModels', '默认模型')
           })}</span>
-          <span>{t('params.billingUnit', '计费口径：{value}', { value: mode === 'video' ? modelBillingUnitLabel(activeVideoModelInfo, t('params.videoUnit', '段'), 1) : modelBillingLabel(activeModelInfo, countValue) })}</span>
+          <span>{t('params.billingUnit', '计费口径：{value}', { value: mode === 'video' ? modelBillingUnitLabel(activeVideoModelInfo, t('params.videoUnit', '段'), 1, t) : modelBillingLabel(activeModelInfo, countValue, t) })}</span>
           {mode === 'video' && videoTask?.task_id ? <span>{t('params.videoTask', '任务：{value}', { value: videoTask.task_id })}</span> : null}
           <span>{t('params.usage', '账户用量：{value}', { value: usageSummary || t('params.usageFallback', '生成后以后台记录为准') })}</span>
         </div> : null}
@@ -6536,231 +4495,73 @@ function CreationDesk({
           />
         ) : null}
       </BottomComposerPanel>
-      <RegenerateDialog
-        open={regenerateDialogOpen}
-        mode={mode}
-        prompt={prompt}
-        progress={progress}
-        status={status}
-        message={message}
-        isGenerating={isGenerating}
-        imageAspectOptions={imageAspectOptions}
-        imageCountRange={imageCountRange}
-        imageModelOptions={imageModelOptions}
-        imageQualityOptions={imageQualityOptions}
-        imageResolutionTierOptions={imageResolutionTierOptions}
-        aspect={aspect}
-        aspectLabel={aspectLabel}
-        countValue={countValue}
-        model={model}
-        onAspectChange={setAspect}
-        onCountChange={(value) => setCount(clampCountForProvider(value, currentImageProvider, normalizeCount))}
-        onConfirm={confirmRegenerate}
-        onModelChange={setModel}
-        onOpenBottomParams={openBottomParamShelf}
-        onQualityChange={setQuality}
-        onResolutionTierChange={setResolutionTier}
-        onClose={() => setRegenerateDialogOpen(false)}
-        quality={quality}
-        qualityLabel={qualityLabel}
-        resolutionTier={resolutionTier}
-        resolutionTierLabel={resolutionTierLabel}
-        t={t}
-        videoAspect={videoAspect}
-        videoAspectOptions={VIDEO_ASPECT_OPTIONS}
-        videoDuration={videoDuration}
-        videoDurations={VIDEO_DURATIONS}
-        videoModel={videoModel}
-        videoModelOptions={videoModelOptions}
-        onVideoAspectChange={setVideoAspect}
-        onVideoDurationChange={setVideoDuration}
-        onVideoModelChange={setVideoModel}
-      />
-      <aside className="paramRail" aria-label={t('params.aria', '参数')}>
-        <button
-          type="button"
-          className="paramRailHead"
-          onClick={() => {
-            const nextExpanded = layoutSections.parametersRail === false;
-            if (nextExpanded && !activeParamPanel) setActiveParamPanel('model');
-            if (!nextExpanded) setActiveParamPanel('');
-            updateLayoutSections({ parametersRail: nextExpanded, parameters: true });
-          }}
-          aria-label={layoutSections.parametersRail === false ? t('params.expand', '展开参数栏') : t('params.collapse', '收起参数栏')}
-          title={layoutSections.parametersRail === false ? t('params.expand', '展开参数栏') : t('params.collapse', '收起参数栏')}
-        >
-          {layoutSections.parametersRail === false ? (
-            <SlidersHorizontal size={18} />
-          ) : (
-            <>
-              <span>›</span>
-              {t('params.aria', '参数')}
-            </>
-          )}
-        </button>
-        <button type="button" className={activeParamPanel === 'model' ? 'active' : ''} onClick={() => openParamPanel('model')} aria-label={t('params.model', '模型')} title={t('params.model', '模型')}>
-          <Server size={18} />
-          <span>{t('params.model', '模型')}</span>
-        </button>
-        <button type="button" className={activeParamPanel === 'size' ? 'active' : ''} onClick={() => openParamPanel('size')} aria-label={t('params.size', '尺寸')} title={t('params.size', '尺寸')}>
-          <ScanLine size={18} />
-          <span>{t('params.size', '尺寸')}</span>
-        </button>
-        <button type="button" className={activeParamPanel === 'quality' ? 'active' : ''} onClick={() => openParamPanel('quality')} aria-label={t('params.quality', '质量')} title={t('params.quality', '质量')}>
-          <span className="paramRailBadge">HD</span>
-          <span>{t('params.quality', '质量')}</span>
-        </button>
-        <button type="button" className={activeParamPanel === 'count' ? 'active' : ''} onClick={() => openParamPanel('count')} aria-label={t('params.count', '数量')} title={t('params.count', '数量')}>
-          <Images size={18} />
-          <span>{t('params.count', '数量')}</span>
-        </button>
-        <button type="button" className={`paramGenerateAction ${generationActionClass}`} onClick={handleGenerateAction} disabled={generationActionDisabled} aria-label={generationActionLabel} title={generationActionLabel}>
-          {generationActionIcon}
-          <span>{generationActionLabel}</span>
-        </button>
-      </aside>
-      {layoutSections.parameters && activeParamPanel ? (
-        <aside className={`paramDrawer paramDrawer-${activeParamPanel}`} aria-label={t('params.current', '当前参数')}>
-          <div className="paramDrawerHead">
-            <strong>{activeParamPanel === 'model' ? t('params.model', '模型') : activeParamPanel === 'size' ? t('params.size', '尺寸') : activeParamPanel === 'quality' ? t('params.quality', '质量') : t('params.count', '数量')}</strong>
-            <button type="button" onClick={() => toggleLayoutSection('parameters')} aria-label={t('params.close', '收起参数')}>
-              <PanelLeftClose size={15} />
-            </button>
-          </div>
-          {activeParamPanel === 'model' ? (
-            <div className="paramDrawerBody">
-              {mode === 'video' ? (
-                <label className="paramField">
-                  <span>{t('params.videoModel', '视频模型')}</span>
-                  <select value={hasVideoModels ? videoModel : ''} onChange={(event) => setVideoModel(event.target.value)} disabled={!hasVideoModels}>
-                    {hasVideoModels ? videoModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>) : (
-                      <option value="">{t('params.currentKeyNoVideo', '当前 Key 未开放视频模型')}</option>
-                    )}
-                  </select>
-                </label>
-              ) : (
-                <label className="paramField">
-                  <span>{t('params.imageModel', '图片模型')}</span>
-                  <select value={model} onChange={(event) => setModel(event.target.value)}>
-                    {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
-                  </select>
-                </label>
-              )}
-              {mode !== 'video' ? (
-                <div className="paramHint">
-                  {mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url)) ? t('params.routeEdits', '当前会自动使用 /v1/images/edits。') : t('params.routeGenerations', '当前会自动使用 /v1/images/generations。')}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {activeParamPanel === 'size' ? (
-            <div className="paramDrawerBody">
-              {mode === 'video' ? (
-                <>
-                  <div className="paramSegment">
-                    {VIDEO_ASPECT_OPTIONS.map((item) => (
-                      <button type="button" className={videoAspect === item.value ? 'active' : ''} key={item.value} onClick={() => setVideoAspect(item.value)}>{item.label}</button>
-                    ))}
-                  </div>
-                  <div className="paramHint">{t('params.outputSize', '输出 {width} x {height}', { width: videoSize.width, height: videoSize.height })}</div>
-                </>
-              ) : (
-                <>
-                  <div className="paramSegment">
-                    {imageAspectOptions.map((item) => (
-                      <button
-                        type="button"
-                        className={aspect === item.value ? 'active' : ''}
-                        key={item.value}
-                        onClick={() => {
-                          setAspect(item.value);
-                          if (item.value !== 'custom') setCustomSize(item.size);
-                        }}
-                      >
-                        {aspectLabel(item)}
-                      </button>
-                    ))}
-                  </div>
-                  {aspect === 'custom' ? (
-                    <label className="paramField">
-                      <span>{t('params.apiSize', '接口尺寸')}</span>
-                      <select value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
-                        {customSizeOptions.map((item) => <option key={item.value} value={item.value}>{customSizeLabel(item)}</option>)}
-                      </select>
-                    </label>
-                  ) : null}
-                  <div className="paramHint">{t('params.currentSizeHint', '当前请求 size 为 {size}；2K/4K 会作为目标分辨率追加到提示词里。', { size })}</div>
-                </>
-              )}
-            </div>
-          ) : null}
-          {activeParamPanel === 'quality' ? (
-            <div className="paramDrawerBody">
-              {mode === 'video' ? (
-                <div className="paramSegment">
-                  {VIDEO_QUALITY.map((item) => (
-                    <button type="button" className={videoQuality === item ? 'active' : ''} key={item} onClick={() => setVideoQuality(item)}>
-                      {item === 'auto' ? t('params.auto', '自动') : item === 'high' ? t('params.high', '高') : t('params.standard', '标准')}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div className="paramSegment">
-                    {imageQualityOptions.map((item) => (
-                      <button type="button" className={quality === item ? 'active' : ''} key={item} onClick={() => setQuality(item)}>
-                        {qualityLabel(item)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="paramSegment">
-                    {imageResolutionTierOptions.map((item) => (
-                      <button type="button" className={resolutionTier === item.value ? 'active' : ''} key={item.value} onClick={() => setResolutionTier(item.value)}>
-                        {resolutionTierLabel(item)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="paramHint">{t('params.resolutionHint', '分辨率档位会追加到生成要求里')}</div>
-                </>
-              )}
-            </div>
-          ) : null}
-          {activeParamPanel === 'count' ? (
-            <div className="paramDrawerBody">
-              {mode === 'video' ? (
-                <>
-                  <div className="paramSegment">
-                    {VIDEO_DURATIONS.map((item) => (
-                      <button type="button" className={videoDuration === item ? 'active' : ''} key={item} onClick={() => setVideoDuration(item)}>{item}s</button>
-                    ))}
-                  </div>
-                  <div className="paramSegment">
-                    {VIDEO_FPS_OPTIONS.map((item) => (
-                      <button type="button" className={videoFps === item ? 'active' : ''} key={item} onClick={() => setVideoFps(item)}>{item} fps</button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <label className="paramRange">
-                    <span>{t('params.imageCount', '图片数量')}</span>
-                    <strong>{countValue}</strong>
-                    <input type="range" min={imageCountRange.min} max={imageCountRange.max} value={countValue} onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider, normalizeCount))} />
-                  </label>
-                  <div className="paramSegment">
-                    {imageOutputFormatOptions.map((item) => (
-                      <button type="button" className={outputFormat === item ? 'active' : ''} key={item} onClick={() => setOutputFormat(item)}>{OUTPUT_FORMAT_LABELS[item] || item}</button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ) : null}
-          <button type="button" className={`paramDrawerGenerate ${generationActionClass}`} onClick={handleGenerateAction} disabled={generationActionDisabled}>
-            {compactGenerationActionIcon}
-            {isGenerating ? t('params.queueMore', '加入队列') : needsReviewBeforeRetry ? t('params.confirmRetry', '确认后重试') : status === 'error' ? t('params.retryParams', '重试当前参数') : mode === 'video' ? t('params.generateVideo', '按当前参数生成视频') : t('params.generateImage', '按当前参数生成图片')}
-          </button>
-        </aside>
+      {regenerateDialogOpen ? (
+        <React.Suspense fallback={null}>
+          <RegenerateDialog
+            open={regenerateDialogOpen}
+            mode={mode}
+            prompt={prompt}
+            progress={progress}
+            status={status}
+            message={message}
+            isGenerating={isGenerating}
+            imageAspectOptions={imageAspectOptions}
+            imageCountRange={imageCountRange}
+            imageModelOptions={imageModelOptions}
+            imageQualityOptions={imageQualityOptions}
+            imageResolutionTierOptions={imageResolutionTierOptions}
+            aspect={aspect}
+            aspectLabel={aspectLabel}
+            countValue={countValue}
+            model={model}
+            onAspectChange={setAspect}
+            onCountChange={(value) => setCount(clampCountForProvider(value, currentImageProvider, normalizeCount))}
+            onConfirm={confirmRegenerate}
+            onModelChange={setModel}
+            onOpenBottomParams={openBottomParamShelf}
+            onQualityChange={setQuality}
+            onResolutionTierChange={setResolutionTier}
+            onClose={() => setRegenerateDialogOpen(false)}
+            quality={quality}
+            qualityLabel={qualityLabel}
+            resolutionTier={resolutionTier}
+            resolutionTierLabel={resolutionTierLabel}
+            t={t}
+            videoAspect={videoAspect}
+            videoAspectOptions={VIDEO_ASPECT_OPTIONS}
+            videoDuration={videoDuration}
+            videoDurations={VIDEO_DURATIONS}
+            videoModel={videoModel}
+            videoModelOptions={videoModelOptions}
+            onVideoAspectChange={setVideoAspect}
+            onVideoDurationChange={setVideoDuration}
+            onVideoModelChange={setVideoModel}
+          />
+        </React.Suspense>
+      ) : null}
+      {generationConfirmOpen ? (
+        <React.Suspense fallback={null}>
+          <GenerationConfirmDialog
+            open={generationConfirmOpen}
+            billingLabel={generationConfirmTask?.mode === 'video'
+              ? modelBillingUnitLabel(confirmTaskModelInfo, t('params.videoUnit', '段'), 1, t)
+              : modelBillingLabel(confirmTaskModelInfo, generationConfirmTask?.count || 1, t)}
+            confirmLabel={confirmTaskPrimaryLabel}
+            countLabel={confirmTaskCountLabel}
+            modeLabel={generationConfirmTask?.mode === 'video' ? t('workspace.video', '视频创作') : deskModeLabel(generationConfirmTask?.mode || mode)}
+            modelLabel={generationConfirmTask?.mode === 'video' ? generationConfirmTask?.videoModel : generationConfirmTask?.model}
+            onAdjustParams={adjustGenerationParams}
+            onClose={closeGenerationConfirm}
+            onConfirm={confirmGenerationAction}
+            outputLabel={confirmTaskOutputLabel}
+            prompt={generationConfirmTask?.prompt || ''}
+            providerLabel={providerLabel(providerSettings, apiKey)}
+            queueLabel={confirmTaskQueueLabel}
+            referenceLabel={confirmTaskReferenceLabel}
+            routeLabel={confirmTaskRouteLabel}
+            t={t}
+          />
+        </React.Suspense>
       ) : null}
       <Lightbox
         url={previewImage?.url}
@@ -6781,321 +4582,16 @@ function CreationDesk({
   );
 }
 
-function SettingsPanel({
-  open,
-  onClose,
-  apiKey,
-  keys,
-  onSelectKey,
-  providerSettings,
-  onProviderChange,
-  modelOptions = { image: [], responses: [], video: [] },
-  modelsStatus = 'idle',
-  isAuthenticated,
-  onLogin,
-  t
-}) {
-  useEffect(() => {
-    if (!open) return undefined;
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  const gatewayAccountDisabled = providerSettings.apiKeySource === 'manual';
-  const currentProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
-  const providerCapabilityText = [
-    currentProvider?.capabilities?.textToImage ? t('settings.capTextToImage', '生图') : '',
-    currentProvider?.capabilities?.imageEdit ? t('settings.capEdit', '编辑') : '',
-    currentProvider?.capabilities?.mask ? 'Mask' : '',
-    currentProvider?.capabilities?.modelSync ? t('settings.capModelSync', '模型同步') : ''
-  ].filter(Boolean).join(' · ');
-  const modelSyncLabel = modelsStatus === 'loading'
-    ? t('settings.modelsSyncing', '正在从上游同步模型')
-    : modelsStatus === 'ready'
-      ? t('settings.modelsSynced', '上游模型已同步')
-      : modelsStatus === 'fallback'
-        ? t('settings.modelsFallback', '未读取到上游模型，暂用默认列表')
-        : t('settings.modelsIdle', '填写接口和密钥后自动同步模型');
-  const modelSyncMeta = t('settings.modelsSyncMeta', '图片 {image} · 对话 {responses} · 视频 {video}', {
-    image: modelOptions.image?.length || 0,
-    responses: modelOptions.responses?.length || 0,
-    video: modelOptions.video?.length || 0
-  });
-  const providerChoiceOrder = ['official-openai', 'openai-compatible', 'newapi-compatible', 'gateway-account', 'nano-banana-compatible', 'video-compatible'];
-  const providerChoices = [...IMAGE_PROVIDER_REGISTRY]
-    .sort((left, right) => providerChoiceOrder.indexOf(left.id) - providerChoiceOrder.indexOf(right.id))
-    .map((provider) => ({
-      ...provider,
-      active: provider.id === currentProvider?.id,
-      nextApiKeySource: provider.authMode
-    }));
-
-  return (
-    <div className="settingsOverlay" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section className="settingsDialog">
-        <div className="settingsTitle">
-          <h2>{t('settings.title', '连接')}</h2>
-          <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')}>×</button>
-        </div>
-
-        <div className="settingsGroup providerSettingsGroup">
-          <label className="settingsSelectField">
-            <small>{t('settings.providerFamily', '接口类型')}</small>
-            <select
-              value={currentProvider?.id || providerSettings.providerId}
-              onChange={(event) => {
-                const nextProvider = providerChoices.find((provider) => provider.id === event.target.value) || providerChoices[0];
-                onProviderChange({
-                  ...providerSettings,
-                  apiKeySource: nextProvider.nextApiKeySource,
-                  providerId: nextProvider.id
-                });
-              }}
-            >
-              {providerChoices.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.label} · {provider.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span>{t('settings.key', '密钥')}</span>
-          <div className="providerChoiceGrid" role="group" aria-label={t('settings.providerFamily', '接口类型')}>
-            {providerChoices.map((provider) => (
-              <button
-                type="button"
-                className={provider.active ? 'active' : ''}
-                key={provider.id}
-                onClick={() => onProviderChange({
-                  ...providerSettings,
-                  apiKeySource: provider.nextApiKeySource,
-                  providerId: provider.id
-                })}
-              >
-                <strong>{provider.label}</strong>
-                <em>{provider.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}</em>
-              </button>
-            ))}
-          </div>
-          <div className="segmentedControl legacyProviderToggle">
-            <button
-              type="button"
-              className={usesGatewayAccount(providerSettings) ? 'active' : ''}
-              onClick={() => onProviderChange({ ...providerSettings, apiKeySource: 'gateway', providerId: 'gateway-account' })}
-            >
-              Gateway
-            </button>
-            <button
-              type="button"
-              className={providerSettings.apiKeySource === 'manual' ? 'active' : ''}
-              onClick={() => onProviderChange({ ...providerSettings, apiKeySource: 'manual', providerId: 'openai-compatible' })}
-            >
-              {t('settings.custom', '自定义')}
-            </button>
-          </div>
-        </div>
-
-        <div className="providerSummary">
-          <span>{t('settings.provider', 'Provider')}</span>
-          <strong>{currentProvider?.label || providerSettings.providerId || 'Gateway Account'}</strong>
-          <em>{currentProvider?.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}</em>
-          <small>{providerCapabilityText || t('settings.providerCompatible', 'OpenAI 兼容接口')}</small>
-        </div>
-
-        {usesGatewayAccount(providerSettings) ? (
-          <div className="keyList">
-            {isAuthenticated ? keys.map((item) => (
-              <button type="button" className={item.id === apiKey?.id ? 'active' : ''} key={item.id} onClick={() => onSelectKey(item)}>
-                <KeyRound size={16} />
-                <span>{item.name}</span>
-                <em>{apiKeyDisplay(item)} · {apiKeyMeta(item)}</em>
-              </button>
-            )) : (
-              <button type="button" className="loginInlineButton" onClick={onLogin}>
-                <KeyRound size={16} />
-                {t('settings.login', '登录')}
-              </button>
-            )}
-            {isAuthenticated && !keys.length ? (
-              <div className="settingsEmpty">{t('settings.noKey', '暂无可用 Key')}</div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="manualFields">
-            <label>
-              <span>{t('settings.gateway', '接口地址')}</span>
-              <input
-                value={providerSettings.manualGatewayBaseUrl}
-                onChange={(event) => onProviderChange({ ...providerSettings, manualGatewayBaseUrl: event.target.value })}
-                placeholder={defaultProviderGatewayBaseUrl(providerSettings)}
-              />
-            </label>
-            <label>
-              <span>{t('settings.key', '密钥')}</span>
-              <input
-                type="password"
-                value={providerSettings.manualApiKey}
-                onChange={(event) => onProviderChange({ ...providerSettings, manualApiKey: event.target.value })}
-                placeholder="sk-..."
-              />
-            </label>
-          </div>
-        )}
-
-        <div className="manualFields">
-          <p className="settingsHint">{t('settings.hint', '接口会自动选择：普通生图走 /v1/images/generations；参考图编辑和 Mask 走 /v1/images/edits。助手模型只用于底部提示词优化，会消耗当前 Key 额度。')}</p>
-          <div className="settingsCallConfig">
-            <div className="settingsCallConfigHead">
-              <strong>{t('settings.modelCallSettings', '模型调用设置')}</strong>
-              <span>{t('settings.modelCallHint', '为生图、编辑、视频和提示词助手预留不同模型；例如 nano-banana、gpt-image-2、veo3。')}</span>
-            </div>
-            <div className="settingsCallGrid">
-              <label>
-                <span>{t('settings.imageGenerationModel', '生图模型')}</span>
-                <input value={providerSettings.imageGenerationModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, imageGenerationModel: event.target.value })} placeholder="gpt-image-2 / nano-banana" />
-              </label>
-              <label>
-                <span>{t('settings.imageEditModel', '编辑 / Mask 模型')}</span>
-                <input value={providerSettings.imageEditModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, imageEditModel: event.target.value })} placeholder={providerSettings.imageGenerationModel || 'gpt-image-2'} />
-              </label>
-              <label>
-                <span>{t('settings.videoModel', '视频模型')}</span>
-                <input value={providerSettings.videoModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, videoModel: event.target.value })} placeholder="veo3 / kling / runway" />
-              </label>
-              <label>
-                <span>{t('settings.videoGateway', '视频接口 URL')}</span>
-                <input value={providerSettings.videoGatewayBaseUrl || ''} onChange={(event) => onProviderChange({ ...providerSettings, videoGatewayBaseUrl: event.target.value })} placeholder={providerSettings.manualGatewayBaseUrl || getConfiguredBaseUrls().gatewayBaseUrl} />
-              </label>
-            </div>
-          </div>
-          <div className={`settingsModelSync ${modelsStatus}`}>
-            <span>{modelSyncLabel}</span>
-            <em>{modelSyncMeta}</em>
-            <small>{t('settings.modelsProviderHint', '兼容 OpenAI / NewAPI 风格的上游；后续可继续扩展为多 Provider 调用策略。')}</small>
-          </div>
-          <label>
-            <span>{t('settings.assistantModel', '助手模型')}</span>
-            <input
-              value={providerSettings.responsesModel}
-              onChange={(event) => onProviderChange({ ...providerSettings, responsesModel: event.target.value })}
-            />
-          </label>
-          <label>
-            <span>{t('settings.previewFrames', '预览帧')}</span>
-            <input
-              type="number"
-              min="0"
-              max="3"
-              value={providerSettings.partialImages}
-              onChange={(event) => onProviderChange({ ...providerSettings, partialImages: event.target.value })}
-            />
-          </label>
-        </div>
-
-        <div className="settingsActions">
-          <button type="button" onClick={() => onProviderChange({
-            ...providerSettings,
-            manualApiKey: '',
-            manualGatewayBaseUrl: '',
-            apiKeySource: gatewayAccountDisabled ? 'manual' : 'gateway',
-            providerId: gatewayAccountDisabled ? 'openai-compatible' : 'gateway-account'
-          })}>
-            {t('settings.clear', '清除')}
-          </button>
-          <button type="button" className="primaryAction" onClick={onClose}>{t('settings.done', '完成')}</button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function InspirationUploadDialog({ open, onClose, onSubmit, t = (key, fallback) => fallback || key }) {
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Community Prompts');
-  const [prompt, setPrompt] = useState('');
-  const [note, setNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const canSubmit = prompt.trim().length >= 8;
-
-  if (!open) return null;
-
-  async function submit(event) {
-    event.preventDefault();
-    if (!canSubmit || submitting) return;
-    setSubmitting(true);
-    try {
-      await onSubmit({
-        title: title.trim() || prompt.trim().slice(0, 52),
-        category: category.trim() || 'Community Prompts',
-        prompt: prompt.trim(),
-        note: note.trim()
-      });
-      setTitle('');
-      setCategory('Community Prompts');
-      setPrompt('');
-      setNote('');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="settingsOverlay inspirationUploadOverlay" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <form className="providerSettingsPanel inspirationUploadPanel" onSubmit={submit}>
-        <div className="settingsHeader">
-          <div>
-            <span>{t('gallery.uploadInspiration', '上传灵感')}</span>
-            <h2>{t('gallery.uploadTitle', '分享一个好提示词')}</h2>
-            <p>{t('gallery.uploadHint', '先保存到你的个人灵感广场，后续可以再做公开审核和精选。')}</p>
-          </div>
-          <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')}>
-            <X size={18} />
-          </button>
-        </div>
-        <label>
-          <span>{t('gallery.promptTitle', '标题')}</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('gallery.promptTitlePlaceholder', '例如：电商主图质感提示词')} />
-        </label>
-        <label>
-          <span>{t('gallery.promptCategory', '分类')}</span>
-          <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Community Prompts" />
-        </label>
-        <label>
-          <span>{t('gallery.promptContent', '提示词')}</span>
-          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={8} placeholder={t('gallery.promptContentPlaceholder', '粘贴你觉得值得复用的完整提示词...')} />
-        </label>
-        <label>
-          <span>{t('gallery.promptNote', '说明')}</span>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder={t('gallery.promptNotePlaceholder', '适合什么场景、需要注意什么，可选')} />
-        </label>
-        <div className="settingsActions">
-          <button type="button" onClick={onClose}>{t('settings.cancel', '取消')}</button>
-          <button type="submit" className="primaryAction" disabled={!canSubmit || submitting}>
-            {submitting ? <LoaderCircle size={16} className="spin" /> : <Upload size={16} />}
-            {t('gallery.publishPrompt', '保存到广场')}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
 function StudioApp() {
-  const initialCurrentSession = useMemo(() => loadCurrentSession(), []);
+  const initialSession = useMemo(() => loadSession(), []);
+  const initialCurrentSession = useMemo(() => (
+    initialSession?.accessToken ? loadActiveCurrentSession() : loadCurrentSession()
+  ), [initialSession?.accessToken]);
   const [siteData, setSiteData] = useState(null);
-  const [session, setSession] = useState(() => loadSession());
-  const [profile, setProfile] = useState(() => loadSession()?.user || null);
+  const [session, setSession] = useState(() => initialSession);
+  const [profile, setProfile] = useState(() => initialSession?.user || null);
   const [providerSettings, setProviderSettings] = useState(() => loadProviderSettings());
-  const [client, setClient] = useState(() => new AiGatewayClient({ session: loadSession(), providerSettings: loadProviderSettings() }));
+  const [client, setClient] = useState(() => new AiGatewayClient({ session: initialSession, providerSettings: loadProviderSettings() }));
   const [apiKey, setApiKey] = useState(null);
   const [keys, setKeys] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -7120,7 +4616,7 @@ function StudioApp() {
   const [activeWorkspace, setActiveWorkspace] = useState(() => initialCurrentSession?.mode === 'video' ? 'video' : 'image');
   const [appendTemplateRequest, setAppendTemplateRequest] = useState(null);
   const [remoteSession, setRemoteSession] = useState(null);
-  const [remoteSessionReady, setRemoteSessionReady] = useState(() => !loadSession()?.accessToken);
+  const [remoteSessionReady, setRemoteSessionReady] = useState(() => !initialSession?.accessToken);
   const [currentSessionSnapshot, setCurrentSessionSnapshot] = useState(() => initialCurrentSession);
   const [deskSessionId, setDeskSessionId] = useState(() => initialCurrentSession?.sessionId || `desk-${Date.now()}`);
   const [canvasFocusSignal, setCanvasFocusSignal] = useState(0);
@@ -7175,11 +4671,7 @@ function StudioApp() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Storage is optional; the selected theme still applies for this tab.
-    }
+    saveTheme(theme);
   }, [theme]);
 
   useEffect(() => {
@@ -7411,26 +4903,44 @@ function StudioApp() {
   useEffect(() => {
     let active = true;
     setRemoteSessionReady(false);
+    // Local-first: the sessionId is the single source of truth here. We
+    // seed the snapshot from localStorage so the desk renders instantly
+    // (anonymous desk-* sessions have no remote counterpart), then layer
+    // the remote snapshot on top if one exists — but we never rewrite
+    // deskSessionId based on what the server returned. The previous
+    // "adopt remote sessionId" branch was the root cause of canvas
+    // cross-session bleed: a user clicks session B, the server (keyed on
+    // user identity rather than sessionId) returns A's content, and we'd
+    // bounce the user back to A while persisting A's canvas under B.
+    const localSnapshot = loadCurrentSession(deskSessionId);
+    if (localSnapshot) {
+      setCurrentSessionSnapshot({ ...localSnapshot, sessionId: deskSessionId });
+    }
+    if (!session?.accessToken) {
+      setRemoteSession(null);
+      setRemoteSessionReady(true);
+      return () => { active = false; };
+    }
     const historyClient = new StudioHistoryClient({ session });
     historyClient.getCurrentSession(deskSessionId)
       .then((snapshot) => snapshot ? historyClient.resolveSessionAssets(snapshot) : null)
       .then((snapshot) => {
         if (!active) return;
         if (snapshot) {
-          const remoteSnapshot = { ...snapshot, sessionId: snapshot.sessionId || deskSessionId };
-          if (remoteSnapshot.sessionId === deskSessionId) {
-            const localSnapshot = loadCurrentSession(deskSessionId);
-            const remoteUpdated = Date.parse(remoteSnapshot.updatedAt || '') || 0;
-            const localUpdated = Date.parse(localSnapshot?.updatedAt || '') || 0;
-            if (localUpdated && localUpdated > remoteUpdated && hasMeaningfulSessionContent(localSnapshot)) {
-              setCurrentSessionSnapshot(localSnapshot);
-            } else {
-              const sessionSnapshot = saveCurrentSession(remoteSnapshot);
-              setCurrentSessionSnapshot(sessionSnapshot);
-            }
+          // Stamp with the authoritative sessionId; do not adopt the
+          // server's sessionId even if it differs — the user's click
+          // decides which session is open.
+          const remoteSnapshot = { ...snapshot, sessionId: deskSessionId };
+          const remoteUpdated = Date.parse(remoteSnapshot.updatedAt || '') || 0;
+          const localUpdated = Date.parse(localSnapshot?.updatedAt || '') || 0;
+          if (localUpdated && localUpdated > remoteUpdated && hasMeaningfulSessionContent(localSnapshot)) {
+            setCurrentSessionSnapshot({ ...localSnapshot, sessionId: deskSessionId });
+          } else {
+            const merged = saveCurrentSession({ ...remoteSnapshot, sessionId: deskSessionId });
+            setCurrentSessionSnapshot(merged);
           }
         }
-        setRemoteSession(snapshot);
+        setRemoteSession(snapshot ? { ...snapshot, sessionId: deskSessionId } : null);
         setRemoteSessionReady(true);
       })
       .catch(() => {
@@ -7471,6 +4981,9 @@ function StudioApp() {
     setActiveWorkspace(nextWorkspace);
     setQuery('');
     setCategory('All');
+    if ((nextWorkspace === 'image' || nextWorkspace === 'video') && selectedHistory && options.preserveHistory) {
+      handleSelectHistory(selectedHistory, { openWorkspace: false, adoptSession: true });
+    }
     if (nextWorkspace !== 'history' && !options.preserveHistory) {
       setSelectedHistory(null);
     }
@@ -7643,12 +5156,28 @@ function StudioApp() {
     return nextCase;
   }
 
-function handleSelectHistory(item, options = {}) {
-    const { openWorkspace = true } = options;
+  function handleSelectHistory(item, options = {}) {
+    const { openWorkspace = true, adoptSession = openWorkspace } = options;
     const cases = siteData?.cases || [];
     const matchedCase = item.case?.id ? cases.find((caseItem) => caseItem.id === item.case.id) : null;
     setSelectedCase(matchedCase || item.case || null);
     setSelectedHistory(item);
+    if (adoptSession && item.sessionId && item.sessionId !== deskSessionId) {
+      if (sessionSaveRef.current.timer) {
+        window.clearTimeout(sessionSaveRef.current.timer);
+        sessionSaveRef.current.timer = null;
+      }
+      sessionSaveRef.current.lastPayload = '';
+      setRemoteSession(null);
+      // Seed the snapshot synchronously from localStorage BEFORE flipping
+      // deskSessionId, so CreationDesk (keyed by deskSessionId) remounts
+      // with the restored canvas already in hand. The Phase-1 effect will
+      // still run to merge the remote counterpart, but the desk no longer
+      // starts from an empty canvas and flashes the wrong content.
+      const seeded = loadCurrentSession(item.sessionId);
+      setCurrentSessionSnapshot(seeded ? { ...seeded, sessionId: item.sessionId } : null);
+      setDeskSessionId(item.sessionId);
+    }
     if (openWorkspace) {
       setActiveWorkspace(item.mode === 'video' || item.kind === 'video' ? 'video' : 'image');
     }
@@ -7759,6 +5288,9 @@ function handleSelectHistory(item, options = {}) {
         onLogout={handleLogout}
         onOpenSettings={() => setSettingsOpen(true)}
         onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
+        workspaces={WORKSPACES}
+        studioBackUrl={STUDIO_BACK_URL}
+        imageGenerationRouteLabel={IMAGE_GENERATION_ROUTE_LABEL}
       />
       <div className={`studioLayout ${railCollapsed ? 'railCollapsed' : ''}`}>
         <LeftRail
@@ -7806,6 +5338,7 @@ function handleSelectHistory(item, options = {}) {
             remoteSessionReady={remoteSessionReady}
             persistenceKey={persistenceKey}
             onSessionSnapshot={handleSessionSnapshot}
+            sessionSnapshot={currentSessionSnapshot}
             promptPresets={siteData?.promptPresets || PROMPT_PRESETS}
             appendTemplateRequest={appendTemplateRequest}
             onAppendTemplateConsumed={(requestId) => {
@@ -7816,95 +5349,107 @@ function handleSelectHistory(item, options = {}) {
             t={t}
           />
         ) : activeWorkspace === 'inspiration' ? (
-          <GalleryWorkspacePanel
-            type="inspiration"
-            cases={visibleCases}
-            categoryGroups={categoryGroups}
-            selected={selectedCase}
-            onSelect={handleSelectCase}
-            query={query}
-            setQuery={setQuery}
-            category={category}
-            setCategory={setCategory}
-            totalCaseCount={siteData?.cases?.length || 0}
-            loading={!siteData}
-            videoInspirations={siteData?.videoInspirations || FALLBACK_VIDEO_INSPIRATIONS}
-            historyItems={filteredHistoryItems}
-            historyStatus={historyStatus}
-            historyHasMore={historyNextOffset !== null}
-            historyLoadingMore={historyLoadingMore}
-            selectedHistoryId={selectedHistory?.id}
-            onSelectHistory={handleSelectHistory}
-            onDeleteHistory={handleDeleteHistory}
-            onClearHistory={handleClearHistory}
-            onLoadMoreHistory={handleLoadMoreHistory}
-            favoriteTemplates={favoriteTemplates}
-            showFavoritesOnly={showFavoritesOnly}
-            onToggleFavoritesOnly={() => setShowFavoritesOnly((value) => !value)}
-            onToggleTemplateFavorite={handleToggleTemplateFavorite}
-            onReactTemplate={handleReactTemplate}
-            onAppendTemplate={handleAppendTemplate}
-            onOpenUpload={() => setInspirationUploadOpen(true)}
-            licenseNotice={siteData?.license}
-            onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
-            t={t}
-          />
+          <React.Suspense fallback={null}>
+            <GalleryWorkspacePanel
+              type="inspiration"
+              cases={visibleCases}
+              categoryGroups={categoryGroups}
+              selected={selectedCase}
+              onSelect={handleSelectCase}
+              query={query}
+              setQuery={setQuery}
+              category={category}
+              setCategory={setCategory}
+              totalCaseCount={siteData?.cases?.length || 0}
+              loading={!siteData}
+              videoInspirations={siteData?.videoInspirations || FALLBACK_VIDEO_INSPIRATIONS}
+              historyItems={filteredHistoryItems}
+              historyStatus={historyStatus}
+              historyHasMore={historyNextOffset !== null}
+              historyLoadingMore={historyLoadingMore}
+              selectedHistoryId={selectedHistory?.id}
+              onSelectHistory={handleSelectHistory}
+              onDeleteHistory={handleDeleteHistory}
+              onClearHistory={handleClearHistory}
+              onLoadMoreHistory={handleLoadMoreHistory}
+              favoriteTemplates={favoriteTemplates}
+              showFavoritesOnly={showFavoritesOnly}
+              onToggleFavoritesOnly={() => setShowFavoritesOnly((value) => !value)}
+              onToggleTemplateFavorite={handleToggleTemplateFavorite}
+              onReactTemplate={handleReactTemplate}
+              onAppendTemplate={handleAppendTemplate}
+              onOpenUpload={() => setInspirationUploadOpen(true)}
+              licenseNotice={siteData?.license}
+              onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
+              t={t}
+            />
+          </React.Suspense>
         ) : (
-          <GalleryWorkspacePanel
-            type="history"
-            cases={visibleCases}
-            categoryGroups={categoryGroups}
-            selected={selectedCase}
-            onSelect={handleSelectCase}
-            query={query}
-            setQuery={setQuery}
-            category={category}
-            setCategory={setCategory}
-            totalCaseCount={siteData?.cases?.length || 0}
-            loading={!siteData}
-            videoInspirations={siteData?.videoInspirations || FALLBACK_VIDEO_INSPIRATIONS}
-            historyItems={filteredHistoryItems}
-            historyStatus={historyStatus}
-            historyHasMore={historyNextOffset !== null}
-            historyLoadingMore={historyLoadingMore}
-            selectedHistoryId={selectedHistory?.id}
-            onSelectHistory={(item) => handleSelectHistory(item, { openWorkspace: false })}
-            onDeleteHistory={handleDeleteHistory}
-            onClearHistory={handleClearHistory}
-            onLoadMoreHistory={handleLoadMoreHistory}
-            favoriteTemplates={favoriteTemplates}
-            showFavoritesOnly={showFavoritesOnly}
-            onToggleFavoritesOnly={() => setShowFavoritesOnly((value) => !value)}
-            onToggleTemplateFavorite={handleToggleTemplateFavorite}
-            onReactTemplate={handleReactTemplate}
-            onAppendTemplate={handleAppendTemplate}
-            onOpenUpload={() => setInspirationUploadOpen(true)}
-            licenseNotice={siteData?.license}
-            onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
-            t={t}
-          />
+          <React.Suspense fallback={null}>
+            <GalleryWorkspacePanel
+              type="history"
+              cases={visibleCases}
+              categoryGroups={categoryGroups}
+              selected={selectedCase}
+              onSelect={handleSelectCase}
+              query={query}
+              setQuery={setQuery}
+              category={category}
+              setCategory={setCategory}
+              totalCaseCount={siteData?.cases?.length || 0}
+              loading={!siteData}
+              videoInspirations={siteData?.videoInspirations || FALLBACK_VIDEO_INSPIRATIONS}
+              historyItems={filteredHistoryItems}
+              historyStatus={historyStatus}
+              historyHasMore={historyNextOffset !== null}
+              historyLoadingMore={historyLoadingMore}
+              selectedHistoryId={selectedHistory?.id}
+              onSelectHistory={(item) => handleSelectHistory(item, { openWorkspace: false })}
+              onDeleteHistory={handleDeleteHistory}
+              onClearHistory={handleClearHistory}
+              onLoadMoreHistory={handleLoadMoreHistory}
+              favoriteTemplates={favoriteTemplates}
+              showFavoritesOnly={showFavoritesOnly}
+              onToggleFavoritesOnly={() => setShowFavoritesOnly((value) => !value)}
+              onToggleTemplateFavorite={handleToggleTemplateFavorite}
+              onReactTemplate={handleReactTemplate}
+              onAppendTemplate={handleAppendTemplate}
+              onOpenUpload={() => setInspirationUploadOpen(true)}
+              licenseNotice={siteData?.license}
+              onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
+              t={t}
+            />
+          </React.Suspense>
         )}
       </div>
-      <SettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        apiKey={apiKey}
-        keys={keys}
-        onSelectKey={handleSelectKey}
-        providerSettings={providerSettings}
-        onProviderChange={handleProviderChange}
-        modelOptions={modelOptions}
-        modelsStatus={modelsStatus}
-        isAuthenticated={Boolean(session?.accessToken)}
-        onLogin={handleRequireLogin}
-        t={t}
-      />
-      <InspirationUploadDialog
-        open={inspirationUploadOpen}
-        onClose={() => setInspirationUploadOpen(false)}
-        onSubmit={handleCreateCommunityPrompt}
-        t={t}
-      />
+      {settingsOpen ? (
+        <React.Suspense fallback={null}>
+          <SettingsPanel
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            apiKey={apiKey}
+            keys={keys}
+            onSelectKey={handleSelectKey}
+            providerSettings={providerSettings}
+            onProviderChange={handleProviderChange}
+            modelOptions={modelOptions}
+            modelsStatus={modelsStatus}
+            isAuthenticated={Boolean(session?.accessToken)}
+            onLogin={handleRequireLogin}
+            t={t}
+          />
+        </React.Suspense>
+      ) : null}
+      {inspirationUploadOpen ? (
+        <React.Suspense fallback={null}>
+          <InspirationUploadDialog
+            open={inspirationUploadOpen}
+            onClose={() => setInspirationUploadOpen(false)}
+            onSubmit={handleCreateCommunityPrompt}
+            t={t}
+          />
+        </React.Suspense>
+      ) : null}
     </main>
   );
 }

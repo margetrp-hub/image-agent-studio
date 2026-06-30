@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { Redo2, SlidersHorizontal, X } from 'lucide-react';
 import { ProgressBar, progressText } from './generationStatus.jsx';
+import '../../styles/studio.regenerate-dialog.css';
 
 export function RegenerateDialog({
   open,

@@ -145,6 +145,7 @@ try {
   await page.waitForSelector('.referenceSideBody.hasReferenceItems .sideReferenceThumbs figure', { timeout: 12000 });
   await page.locator('.bottomComposerInput textarea').fill('Use the uploaded reference image and make the object cleaner with softer lighting.');
   await page.locator('.composerGenerateAction').click();
+  await page.locator('.generationConfirmPrimary').click();
   await page.waitForFunction(() => document.querySelectorAll('.canvasNode img').length >= 1, null, { timeout: 12000 });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 

@@ -6,7 +6,7 @@ import path from 'node:path';
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const fixtureDir = `${screenshotDir}/fixtures`;
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAWElEQVR42u3OQQ0AAAgDMMTrf2YKBhhoKrQydc1wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgOwQ0AAEEp43RAAAAAElFTkSuQmCC';
-const layoutKey = 'image-sub2api-studio:workbench-layout:v5';
+const layoutKey = 'image-sub2api-studio:workbench-layout:v6';
 const sessionKey = 'image-sub2api-studio:current-session:v1';
 
 function assert(condition, message, evidence) {
@@ -187,7 +187,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       parameters: true,
       parametersRail: false,
       bottomComposer: true,
-      composerParameters: true
+      composerParameters: false
     }));
     localStorage.setItem(sessionKey, JSON.stringify(session));
   }, { layoutKey, sessionKey, session: seedSession({ liveStatus }), referencesOpen });
@@ -227,6 +227,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     }
     const keys = {
       composer: '.bottomComposerBar',
+      canvasToolbar: '.canvasToolbar',
       queueDock: '.canvasQueueDock',
       queueItem: '.canvasQueueItem',
       queueAction: '.canvasQueueItem button',
@@ -239,6 +240,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       liveStatus: '.composerLiveStatus',
       liveProgress: '.composerLiveStatus .generationProgress',
       legacyGenerationCard: '.composerThread .composerGenerationCard',
+      paramSummary: '.composerParamSummary',
       userMessage: '.composerMessage.user',
       userMessageText: '.composerMessage.user p',
       assistantMessage: '.composerMessage.assistant:not(.promptSuggestion)',
@@ -307,6 +309,9 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       };
     }).filter(Boolean);
     const suggestionActionOverlap = overlap(rects.suggestionText, rects.suggestionActions);
+    const toolbarQueueOverlap = overlap(rects.canvasToolbar, rects.queueDock);
+    const toolbarComposerOverlap = overlap(rects.canvasToolbar, rects.composer);
+    const toolbarReferenceOverlap = overlap(rects.canvasToolbar, rects.referencePanel);
     const inputActionOverlap = overlap(rects.input, rects.actions);
     const generateAssistantOverlap = overlap(rects.generate, rects.assistant);
     const referenceComposerOverlap = overlap(rects.referencePanel, rects.composer);
@@ -352,6 +357,9 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       suggestionBodyBorderWidth,
       suggestionTextSamples,
       suggestionActionOverlap,
+      toolbarQueueOverlap,
+      toolbarComposerOverlap,
+      toolbarReferenceOverlap,
       inputActionOverlap,
       generateAssistantOverlap,
       referenceComposerOverlap,
@@ -366,6 +374,12 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
   assert(result.rects.composer, `${name}: composer was not visible.`, result);
   assert(result.rects.composer.x >= -1 && result.rects.composer.right <= result.viewport.width + 1, `${name}: composer escaped horizontally.`, result);
   assert(result.rects.composer.bottom <= result.viewport.height + 1, `${name}: composer bottom escaped the viewport.`, result);
+  if (result.rects.canvasToolbar) {
+    assert(result.rects.canvasToolbar.width >= 34 && result.rects.canvasToolbar.height >= 34, `${name}: canvas zoom toolbar became too small.`, result);
+    assert(result.rects.canvasToolbar.right <= result.viewport.width + 1, `${name}: canvas zoom toolbar escaped the viewport.`, result);
+    assert(result.toolbarComposerOverlap <= 4, `${name}: canvas zoom toolbar overlaps the composer panel.`, result);
+    assert(result.toolbarQueueOverlap <= 4, `${name}: canvas zoom toolbar overlaps the generation queue.`, result);
+  }
   if (result.viewport.width >= 1000) {
     assert(
       result.rects.composer.width >= (referencesOpen ? 700 : 820),
@@ -374,21 +388,22 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     );
     assert(result.rects.composer.width <= 1080, `${name}: expanded composer became visually too wide.`, result);
   }
-  assert(result.rects.queueDock, `${name}: generation queue dock was not visible for active queue state.`, result);
-  assert(result.rects.queueItem, `${name}: generation queue item was not visible.`, result);
-  assert(result.rects.queueAction, `${name}: generation queue action button was not visible.`, result);
-  assert(result.rects.queueDock.width <= (result.viewport.width >= 1000 ? 360 : 300), `${name}: generation queue dock became too wide.`, result);
-  assert(rectOverlap(result.rects.queueDock, result.rects.composer) <= 4, `${name}: generation queue dock overlaps the composer panel.`, result);
-  assert(result.rects.queueAction.width >= 22 && result.rects.queueAction.height >= 22, `${name}: generation queue action button became too small.`, result);
-  assert(
-    result.rects.queueAction.x >= result.rects.queueItem.x - 1
-      && result.rects.queueAction.right <= result.rects.queueItem.right + 1
-      && result.rects.queueAction.y >= result.rects.queueItem.y - 1
-      && result.rects.queueAction.bottom <= result.rects.queueItem.bottom + 1,
-    `${name}: generation queue action button escaped its item.`,
-    result
-  );
-  assert(result.rects.thread, `${name}: composer thread was not visible.`, result);
+  if (liveStatus) {
+    assert(result.rects.queueDock, `${name}: generation queue dock was not visible for active queue state.`, result);
+    assert(result.rects.queueItem, `${name}: generation queue item was not visible.`, result);
+    assert(result.rects.queueAction, `${name}: generation queue action button was not visible.`, result);
+    assert(result.rects.queueDock.width <= (result.viewport.width >= 1000 ? 360 : 300), `${name}: generation queue dock became too wide.`, result);
+    assert(rectOverlap(result.rects.queueDock, result.rects.composer) <= 4, `${name}: generation queue dock overlaps the composer panel.`, result);
+    assert(result.rects.queueAction.width >= 22 && result.rects.queueAction.height >= 22, `${name}: generation queue action button became too small.`, result);
+    assert(
+      result.rects.queueAction.x >= result.rects.queueItem.x - 1
+        && result.rects.queueAction.right <= result.rects.queueItem.right + 1
+        && result.rects.queueAction.y >= result.rects.queueItem.y - 1
+        && result.rects.queueAction.bottom <= result.rects.queueItem.bottom + 1,
+      `${name}: generation queue action button escaped its item.`,
+      result
+    );
+  }
   if (referencesOpen) {
     assert(result.rects.referencePanel, `${name}: right reference panel was not visible after upload.`, result);
     assert(result.referenceFigureCount >= files.length, `${name}: uploaded reference figures were not all visible.`, result);
@@ -400,30 +415,35 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     );
     assert(result.referenceComposerOverlap <= 4, `${name}: reference panel overlaps the composer panel.`, result);
     assert(result.referenceQueueOverlap <= 4, `${name}: reference panel overlaps the generation queue.`, result);
+    assert(result.toolbarReferenceOverlap <= 4, `${name}: canvas zoom toolbar overlaps the reference panel.`, result);
   }
   assert(!result.rects.composerReferenceStrip, `${name}: references should live in the right panel, not as a duplicated composer strip.`, result);
   assert(!result.rects.legacyGenerationCard, `${name}: legacy generation progress card is still rendered inside the scrollable thread.`, result);
-  const visibleMessageOptions = [
-    [result.rects.assistantMessage, result.rects.assistantMessageText],
-    [result.rects.userMessage, result.rects.userMessageText],
-    [result.rects.suggestion, result.rects.suggestionText]
-  ].filter(([message, text]) => message && text);
-  const [visibleMessage, visibleMessageText] = visibleMessageOptions.find(([message]) => (
-    message.y < result.rects.thread.bottom - 8 && message.bottom > result.rects.thread.y + 8
-  )) || [];
-  assert(visibleMessage && visibleMessageText, `${name}: no conversation message was visible in the composer thread.`, result);
-  assert(
-    visibleMessage.y < result.rects.thread.bottom - 8 && visibleMessage.bottom > result.rects.thread.y + 8,
-    `${name}: conversation messages are not visible in the composer thread viewport.`,
-    result
-  );
-  assert(visibleMessage.width >= Math.min(200, result.rects.thread.width - 16), `${name}: visible message collapsed into a narrow vertical bubble.`, result);
-  assert(visibleMessageText.width >= Math.min(150, result.rects.thread.width - 58), `${name}: visible message text became too narrow to read horizontally.`, result);
+  if (result.rects.thread) {
+    const visibleMessageOptions = [
+      [result.rects.assistantMessage, result.rects.assistantMessageText],
+      [result.rects.userMessage, result.rects.userMessageText],
+      [result.rects.suggestion, result.rects.suggestionText]
+    ].filter(([message, text]) => message && text);
+    const [visibleMessage, visibleMessageText] = visibleMessageOptions.find(([message]) => (
+      message.y < result.rects.thread.bottom - 8 && message.bottom > result.rects.thread.y + 8
+    )) || [];
+    assert(visibleMessage && visibleMessageText, `${name}: no conversation message was visible in the composer thread.`, result);
+    assert(
+      visibleMessage.y < result.rects.thread.bottom - 8 && visibleMessage.bottom > result.rects.thread.y + 8,
+      `${name}: conversation messages are not visible in the composer thread viewport.`,
+      result
+    );
+    assert(visibleMessage.width >= Math.min(200, result.rects.thread.width - 16), `${name}: visible message collapsed into a narrow vertical bubble.`, result);
+    assert(visibleMessageText.width >= Math.min(150, result.rects.thread.width - 58), `${name}: visible message text became too narrow to read horizontally.`, result);
+  }
   if (liveStatus) {
     assert(result.rects.liveStatus, `${name}: live generation status bar was not visible.`, result);
     assert(result.rects.liveProgress, `${name}: live generation progress track was not visible.`, result);
     assert(
-      result.rects.liveStatus.y >= result.rects.head.bottom - 2 && result.rects.liveStatus.bottom <= result.rects.thread.y + 2,
+      result.rects.thread
+        ? result.rects.liveStatus.y >= result.rects.head.bottom - 2 && result.rects.liveStatus.bottom <= result.rects.thread.y + 2
+        : result.rects.liveStatus.y >= result.rects.head.bottom - 2,
       `${name}: live status bar is not fixed between the header and chat thread.`,
       result
     );
@@ -437,41 +457,35 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     result
   );
   assert(result.rects.params, `${name}: parameter shelf was not visible.`, result);
-  assert(result.rects.params.height >= 110 && result.rects.params.height <= 164, `${name}: expanded parameter shelf should be a grouped panel, not a squeezed toolbar.`, result);
-  assert(result.paramShelfMode === 'grid', `${name}: expanded parameter shelf should use grid grouping.`, result);
-  assert(result.paramGroups.length >= 5, `${name}: expanded parameter shelf did not expose enough separate control groups.`, result);
-  assert(result.paramGroups.every((item) => item.width >= 64 && item.height >= 30), `${name}: parameter controls collapsed into unreadable fragments.`, result);
-  assert(
-    result.paramGroups.every((item) => (
-      item.x >= result.rects.params.x - 1
-      && item.right <= result.rects.params.right + 1
-      && item.y >= result.rects.params.y - 1
-      && item.bottom <= result.rects.params.bottom + 1
-    )),
-    `${name}: parameter control groups escaped the expanded shelf.`,
-    result
-  );
+  assert(result.rects.paramSummary, `${name}: parameter summary should remain visible in the default composer.`, result);
+  assert(result.rects.params.height >= 34 && result.rects.params.height <= 52, `${name}: parameters should default to a compact summary until generate or manual edit.`, result);
+  assert(result.paramGroups.length === 0, `${name}: expanded parameter controls should not be visible by default.`, result);
   assert(result.visibleHeaderPills === 0, `${name}: inactive composer header pills are still visible.`, result);
-  assert(result.rects.suggestion, `${name}: prompt suggestion was not visible.`, result);
-  assert(result.rects.suggestion.width >= Math.min(260, result.rects.thread.width - 16), `${name}: prompt suggestion collapsed into an unreadable narrow card.`, result);
-  assert(
-    result.rects.suggestion.y >= result.rects.thread.y - 1 && result.rects.suggestion.bottom <= result.rects.thread.bottom + 1,
-    `${name}: current prompt suggestion escaped the visible composer thread area.`,
-    result
-  );
-  assert(result.rects.suggestionLead, `${name}: prompt suggestion lead text was not visible.`, result);
-  assert(result.rects.suggestionText, `${name}: prompt suggestion text was not visible.`, result);
-  assert(result.rects.suggestionActions, `${name}: prompt suggestion actions were not visible.`, result);
-  assert(result.suggestionActionOverlap <= 4, `${name}: prompt suggestion actions overlap the text.`, result);
-  const minSuggestionTextWidth = name.startsWith('mobile')
-    ? Math.min(112, result.rects.suggestionBody.width - 36)
-    : Math.min(240, result.rects.suggestionBody.width - 40);
-  assert(
-    result.suggestionTextSamples.length > 0 && result.suggestionTextSamples.every((item) => item.width >= minSuggestionTextWidth),
-    `${name}: prompt suggestion text is clipped into tiny fragments.`,
-    result
-  );
-  assert(result.suggestionBodyBorderWidth === 0, `${name}: prompt suggestion body still renders as a nested bordered box.`, result);
+  if (result.rects.thread || result.rects.suggestion) {
+    assert(result.rects.suggestion, `${name}: prompt suggestion was not visible.`, result);
+    const suggestionWidthLimit = result.rects.thread ? result.rects.thread.width - 16 : result.rects.composer.width - 32;
+    assert(result.rects.suggestion.width >= Math.min(260, suggestionWidthLimit), `${name}: prompt suggestion collapsed into an unreadable narrow card.`, result);
+    if (result.rects.thread) {
+      assert(
+        result.rects.suggestion.y >= result.rects.thread.y - 1 && result.rects.suggestion.bottom <= result.rects.thread.bottom + 1,
+        `${name}: current prompt suggestion escaped the visible composer thread area.`,
+        result
+      );
+    }
+    assert(result.rects.suggestionLead, `${name}: prompt suggestion lead text was not visible.`, result);
+    assert(result.rects.suggestionText, `${name}: prompt suggestion text was not visible.`, result);
+    assert(result.rects.suggestionActions, `${name}: prompt suggestion actions were not visible.`, result);
+    assert(result.suggestionActionOverlap <= 4, `${name}: prompt suggestion actions overlap the text.`, result);
+    const minSuggestionTextWidth = name.startsWith('mobile')
+      ? Math.min(112, result.rects.suggestionBody.width - 36)
+      : Math.min(240, result.rects.suggestionBody.width - 40);
+    assert(
+      result.suggestionTextSamples.length > 0 && result.suggestionTextSamples.every((item) => item.width >= minSuggestionTextWidth),
+      `${name}: prompt suggestion text is clipped into tiny fragments.`,
+      result
+    );
+    assert(result.suggestionBodyBorderWidth === 0, `${name}: prompt suggestion body still renders as a nested bordered box.`, result);
+  }
   assert(result.sectionOverlaps.length === 0, `${name}: composer sections overlap.`, result);
   assert(result.outsideComposer.length === 0, `${name}: composer sections escaped the composer container.`, result);
   assert(result.rects.input.width >= 160 && result.rects.input.height >= 44, `${name}: prompt input became too small.`, result);

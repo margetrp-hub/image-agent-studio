@@ -1,0 +1,161 @@
+/* GPT Image Playground inspired final polish. Keep tiny: the main CSS budget is tight. */
+
+.studioLayout {
+  --studio-shell-gap: 12px;
+  --studio-left-rail-width: clamp(236px, 19vw, 292px);
+  --workbench-side-width: clamp(260px, 20vw, 306px);
+  --reference-sidebar-width: clamp(260px, 20vw, 306px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-soft) 84%, #f8fafc), color-mix(in srgb, var(--studio-surface) 94%, #fff)) !important;
+}
+
+.studioLayout.railCollapsed {
+  --studio-left-rail-width: 64px;
+}
+
+.studioLayout .creationDesk {
+  --reference-sidebar-width: var(--workbench-side-width);
+  border: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent) !important;
+  border-radius: 20px !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 4%, transparent), transparent 34%),
+    radial-gradient(circle at 74% 20%, color-mix(in srgb, var(--studio-accent) 5%, transparent), transparent 30%),
+    color-mix(in srgb, var(--studio-surface-strong) 90%, #f8fafc) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 72%, transparent), 0 18px 50px rgba(15, 23, 42, 0.07) !important;
+}
+
+.studioLayout .creationDesk .canvasToolbar {
+  top: 16px !important;
+  right: 16px !important;
+  padding: 5px !important;
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 86%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.08) !important;
+}
+
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel,
+.studioLayout .creationDesk.referencesOpen.composerOpen .bottomComposerBar.codexComposerPanel,
+.studioLayout .creationDesk.paramRailCollapsed.composerOpen .bottomComposerBar.codexComposerPanel {
+  bottom: 20px !important;
+  border-color: color-mix(in srgb, var(--studio-border) 54%, transparent) !important;
+  border-radius: 22px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent) !important;
+  box-shadow: 0 22px 68px rgba(15, 23, 42, 0.16), 0 2px 14px rgba(15, 23, 42, 0.05), inset 0 1px 0 color-mix(in srgb, #fff 64%, transparent) !important;
+  backdrop-filter: blur(28px) saturate(1.14) !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerPanelTitle strong {
+  font-size: 13px !important;
+  font-weight: 860 !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .bottomComposerInput textarea {
+  border-color: color-mix(in srgb, var(--studio-border) 56%, transparent) !important;
+  border-radius: 17px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 78%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 62%, transparent), 0 8px 22px rgba(15, 23, 42, 0.035) !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .bottomComposerInput textarea:focus {
+  border-color: color-mix(in srgb, var(--studio-primary) 48%, var(--studio-border)) !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 90%, transparent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 11%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 66%, transparent) !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerGenerateAction {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 98%, #fff), color-mix(in srgb, var(--studio-primary) 88%, #065f5b)) !important;
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--studio-primary) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerGenerateAction:hover:not(:disabled),
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerAssistantAction:hover:not(:disabled) {
+  transform: translateY(-2px) !important;
+}
+
+.studioLayout .creationDesk.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.bottomComposerBar.codexComposerPanel.isExpandedComposer.noLiveStatus .composerActionGroup {
+  height: 104px !important;
+  min-height: 104px !important;
+  max-height: 104px !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerParamShelf.isCollapsed .composerParamSummary,
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerParamShelf.isExpanded {
+  background: color-mix(in srgb, var(--studio-surface-strong) 68%, transparent) !important;
+}
+
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerModeSegment,
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerMiniSegment,
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerParamField,
+.studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerCountField {
+  border-color: color-mix(in srgb, var(--studio-border) 48%, transparent) !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 76%, transparent) !important;
+  box-shadow: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen,
+.studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen.composerFolded .referenceSidePanel.isOpen,
+.studioLayout .creationDesk.referencesOpen:not(.composerOpen) .referenceSidePanel.isOpen {
+  width: var(--reference-sidebar-width) !important;
+  min-width: var(--reference-sidebar-width) !important;
+  max-width: var(--reference-sidebar-width) !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 78%, transparent) !important;
+  backdrop-filter: blur(24px) saturate(1.1) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure::before,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure::after,
+.studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed::after {
+  display: none !important;
+  content: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton,
+.studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  border-radius: 12px !important;
+  background: color-mix(in srgb, var(--studio-surface-soft) 74%, transparent) !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton img,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton .lazyImage,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs img {
+  object-fit: contain !important;
+}
+
+:root[data-theme="dark"] .studioLayout .creationDesk {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 7%, transparent), transparent 34%), rgba(11, 18, 30, 0.92) !important;
+}
+
+:root[data-theme="dark"] .studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel,
+:root[data-theme="dark"] .studioLayout .creationDesk.referencesOpen.composerOpen .bottomComposerBar.codexComposerPanel,
+:root[data-theme="dark"] .studioLayout .creationDesk .referenceSidePanel.isOpen {
+  background: rgba(15, 23, 42, 0.78) !important;
+}
+
+@media (max-width: 860px) {
+  .studioLayout,
+  .studioLayout.railCollapsed {
+    --studio-left-rail-width: 62px;
+    --workbench-side-width: min(300px, calc(100vw - 82px));
+    --reference-sidebar-width: min(300px, calc(100vw - 82px));
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+
+  .studioLayout .creationDesk.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.bottomComposerBar.codexComposerPanel.isExpandedComposer.noLiveStatus .composerActionGroup {
+    height: 88px !important;
+    min-height: 88px !important;
+    max-height: 88px !important;
+  }
+
+  .studioLayout .creationDesk .canvasQueueDock,
+  .studioLayout .creationDesk.referencesOpen .canvasQueueDock {
+    width: min(244px, calc(100% - 72px)) !important;
+    max-width: min(244px, calc(100% - 72px)) !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isCollapsed {
+    z-index: 32 !important;
+  }
+
+}

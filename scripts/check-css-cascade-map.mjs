@@ -3,54 +3,225 @@ import path from 'node:path';
 
 const root = process.cwd();
 const studioEntry = path.join(root, 'src/studio.jsx');
-const cssFiles = [
-  'src/studio.css',
-  'src/styles/studio.left-rail.css',
-  'src/styles/studio.composer-final-guards.css',
-  'src/styles/studio.composer-shell.css',
-  'src/styles/studio.queue-progress.css',
-  'src/styles/studio.composer-layout.css',
-  'src/styles/studio.reference-panel.css',
-  'src/styles/studio.composer-conversation.css',
-  'src/styles/studio.provider-settings.css',
-  'src/styles/studio.interactions.css',
-  'src/styles/studio.gallery-cards.css',
-  'src/styles/studio.final-state.css'
-];
 const expectedCssImports = [
   './studio.css',
+  './styles/studio.polish-reference-chat.css',
+  './styles/studio.polish-concept-composer.css',
+  './styles/studio.polish-modern-console.css',
+  './styles/studio.polish-prompt-first.css',
+  './styles/studio.polish-conversation-rail.css',
+  './styles/studio.canvas-workspace.css',
+  './styles/studio.composer-compact-shell.css',
+  './styles/studio.composer-session-pane.css',
+  './styles/studio.composer-prompt-workspace.css',
+  './styles/studio.composer-creator-dock.css',
+  './styles/studio.composer-parameter-dock.css',
+  './styles/studio.composer-final-concept.css',
+  './styles/studio.reference-overrides.css',
   './styles/studio.left-rail.css',
   './styles/studio.composer-final-guards.css',
   './styles/studio.composer-shell.css',
   './styles/studio.queue-progress.css',
   './styles/studio.composer-layout.css',
   './styles/studio.reference-panel.css',
+  './styles/studio.context-side-panel.css',
   './styles/studio.composer-conversation.css',
-  './styles/studio.provider-settings.css',
   './styles/studio.interactions.css',
-  './styles/studio.gallery-cards.css',
-  './styles/studio.final-state.css'
+  './styles/studio.final-state.css',
+  './styles/studio.composer-final-base.css',
+  './styles/studio.composer-final-beta.css',
+  './styles/studio.composer-final-tooling.css',
+  './styles/studio.composer-final-modal.css',
+  './styles/studio.composer-final-locks.css',
+  './styles/studio.composer-final-live.css',
+  './styles/studio.composer-live-guards.css',
+  './styles/studio.imageforge-polish.css',
+  './styles/studio.composer-codex.css',
+  './styles/studio.composer-codex-guards.css',
+  './styles/studio.workstation-shell.css',
+  './styles/studio.playground-polish.css',
+  './styles/studio.composer-state-polish.css'
 ];
+const lazyCssImports = [
+  './styles/studio.provider-settings.css',
+  './styles/studio.gallery-cards.css',
+  './styles/studio.prompt-lightbox.css',
+  './styles/studio.regenerate-dialog.css',
+  './styles/studio.generation-confirm-dialog.css'
+];
+const cssFiles = [...expectedCssImports, ...lazyCssImports].map((importPath) => (
+  importPath === './studio.css'
+    ? 'src/studio.css'
+    : `src/${importPath.slice(2)}`
+));
 const cssBudgets = {
   'src/studio.css': {
-    lines: 18025,
-    important: 3630
+    lines: 2458,
+    important: 0
+  },
+  'src/styles/studio.polish-reference-chat.css': {
+    lines: 204,
+    important: 64
+  },
+  'src/styles/studio.polish-concept-composer.css': {
+    lines: 1853,
+    important: 995
+  },
+  'src/styles/studio.polish-modern-console.css': {
+    lines: 908,
+    important: 0
+  },
+  'src/styles/studio.polish-prompt-first.css': {
+    lines: 1227,
+    important: 4
+  },
+  'src/styles/studio.polish-conversation-rail.css': {
+    lines: 362,
+    important: 0
+  },
+  'src/styles/studio.canvas-workspace.css': {
+    lines: 2223,
+    important: 29
+  },
+  'src/styles/studio.composer-compact-shell.css': {
+    lines: 460,
+    important: 22
+  },
+  'src/styles/studio.composer-session-pane.css': {
+    lines: 743,
+    important: 62
+  },
+  'src/styles/studio.composer-prompt-workspace.css': {
+    lines: 1013,
+    important: 51
+  },
+  'src/styles/studio.composer-creator-dock.css': {
+    lines: 970,
+    important: 188
+  },
+  'src/styles/studio.composer-parameter-dock.css': {
+    lines: 385,
+    important: 23
+  },
+  'src/styles/studio.composer-final-concept.css': {
+    lines: 1438,
+    important: 566
+  },
+  'src/styles/studio.reference-overrides.css': {
+    lines: 244,
+    important: 56
+  },
+  'src/styles/studio.left-rail.css': {
+    lines: 99,
+    important: 54
   },
   'src/styles/studio.composer-final-guards.css': {
-    lines: 515,
-    important: 290
+    lines: 506,
+    important: 272
+  },
+  'src/styles/studio.composer-shell.css': {
+    lines: 1388,
+    important: 734
+  },
+  'src/styles/studio.queue-progress.css': {
+    lines: 549,
+    important: 228
+  },
+  'src/styles/studio.composer-layout.css': {
+    lines: 245,
+    important: 117
+  },
+  'src/styles/studio.reference-panel.css': {
+    lines: 1647,
+    important: 849
+  },
+  'src/styles/studio.context-side-panel.css': {
+    lines: 190,
+    important: 122
+  },
+  'src/styles/studio.composer-conversation.css': {
+    lines: 2648,
+    important: 1349
   },
   'src/styles/studio.provider-settings.css': {
-    lines: 470,
-    important: 70
+    lines: 461,
+    important: 64
   },
   'src/styles/studio.interactions.css': {
-    lines: 300,
-    important: 70
+    lines: 299,
+    important: 58
+  },
+  'src/styles/studio.gallery-cards.css': {
+    lines: 422,
+    important: 247
+  },
+  'src/styles/studio.prompt-lightbox.css': {
+    lines: 31,
+    important: 20
   },
   'src/styles/studio.final-state.css': {
-    lines: 250,
-    important: 145
+    lines: 570,
+    important: 209
+  },
+  'src/styles/studio.regenerate-dialog.css': {
+    lines: 175,
+    important: 91
+  },
+  'src/styles/studio.generation-confirm-dialog.css': {
+    lines: 244,
+    important: 0
+  },
+  'src/styles/studio.composer-final-base.css': {
+    lines: 502,
+    important: 190
+  },
+  'src/styles/studio.composer-final-beta.css': {
+    lines: 826,
+    important: 270
+  },
+  'src/styles/studio.composer-final-tooling.css': {
+    lines: 536,
+    important: 242
+  },
+  'src/styles/studio.composer-final-modal.css': {
+    lines: 578,
+    important: 266
+  },
+  'src/styles/studio.composer-final-locks.css': {
+    lines: 1091,
+    important: 586
+  },
+  'src/styles/studio.composer-final-live.css': {
+    lines: 208,
+    important: 97
+  },
+  'src/styles/studio.composer-live-guards.css': {
+    lines: 167,
+    important: 90
+  },
+  'src/styles/studio.imageforge-polish.css': {
+    lines: 391,
+    important: 142
+  },
+  'src/styles/studio.composer-codex.css': {
+    lines: 1691,
+    important: 925
+  },
+  'src/styles/studio.composer-codex-guards.css': {
+    lines: 419,
+    important: 203
+  },
+  'src/styles/studio.workstation-shell.css': {
+    lines: 1102,
+    important: 669
+  },
+  'src/styles/studio.playground-polish.css': {
+    lines: 180,
+    important: 95
+  },
+  'src/styles/studio.composer-state-polish.css': {
+    lines: 300,
+    important: 230
   }
 };
 const selectorOwnership = [
@@ -93,6 +264,8 @@ const failures = [];
 
 if (baseImportIndex === -1) {
   failures.push('src/studio.jsx must import ./studio.css.');
+} else if (baseImportIndex !== 0) {
+  failures.push('src/studio.jsx must import ./studio.css before every override layer.');
 }
 
 expectedCssImports.forEach((expectedImport, expectedIndex) => {
@@ -109,6 +282,16 @@ expectedCssImports.forEach((expectedImport, expectedIndex) => {
 if (cssImports.length !== expectedCssImports.length) {
   failures.push(`src/studio.jsx should have ${expectedCssImports.length} CSS imports, found ${cssImports.length}.`);
 }
+
+if (cssImports.at(-1) !== './styles/studio.composer-state-polish.css') {
+  failures.push('src/studio.jsx must import ./styles/studio.composer-state-polish.css last so the composer state layer remains authoritative.');
+}
+
+lazyCssImports.forEach((lazyImport) => {
+  if (cssImports.includes(lazyImport)) {
+    failures.push(`${lazyImport} should stay lazy-loaded with its owning component instead of the studio entry.`);
+  }
+});
 
 const selectorCounts = new Map();
 const report = cssFiles.map((file) => {

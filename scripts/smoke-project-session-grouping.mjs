@@ -80,12 +80,17 @@ try {
   const canvasResult = await page.evaluate(() => {
     const nodes = [...document.querySelectorAll('.canvasNode')].map((node) => node.innerText);
     const text = nodes.join('\n');
+    const storageKey = 'image-sub2api-studio:current-session:v1';
+    const activeSessionId = localStorage.getItem(`${storageKey}:active`) || '';
+    const activeSession = JSON.parse(localStorage.getItem(activeSessionId ? `${storageKey}:${activeSessionId}` : storageKey) || '{}');
     return {
       nodeCount: nodes.length,
       hasStep1: text.includes('Step 1'),
       hasStep2: text.includes('Step 2'),
       hasStep3: text.includes('Step 3'),
-      nodes
+      nodes,
+      activeSessionId,
+      storedSessionId: activeSession.sessionId || ''
     };
   });
 
@@ -94,6 +99,7 @@ try {
     'Expected one sidebar project to restore all images from the grouped session.',
     canvasResult
   );
+  assert(canvasResult.activeSessionId === 'project-session-one' && canvasResult.storedSessionId === 'project-session-one', 'Opening a history project should adopt that project session id for continued generation.', canvasResult);
 
   const queuePage = await browser.newPage({ viewport: { width: 1440, height: 980 } });
   await queuePage.addInitScript(() => {

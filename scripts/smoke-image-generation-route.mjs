@@ -138,6 +138,7 @@ try {
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 12000 });
   await page.locator('.bottomComposerInput textarea').fill('A tiny route smoke test image, simple product icon on clean background.');
   await page.locator('.composerGenerateAction').click();
+  await page.locator('.generationConfirmPrimary').click();
   await page.waitForFunction(() => document.querySelectorAll('.canvasNode img').length >= 1, null, { timeout: 12000 });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 

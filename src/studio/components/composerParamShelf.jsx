@@ -44,6 +44,9 @@ export function ComposerParamShelf({
   videoModelOptions
 }) {
   const parametersExpanded = layoutSections.composerParameters !== false;
+  const compactSummary = mode === 'video'
+    ? `${videoAspect} / ${videoDuration}s`
+    : `${aspect} / ${resolutionTierLabels[resolutionTier]} / ${qualityLabel(quality)} / ${countValue}${imageCountSuffix}`;
 
   return (
     <div className={`composerParamShelf ${parametersExpanded ? 'isExpanded' : 'isCollapsed'}`} aria-label={t('params.current', '当前参数')}>
@@ -59,7 +62,7 @@ export function ComposerParamShelf({
           <SlidersHorizontal size={14} />
           <span>{mode === 'video' ? t('workspace.video', '视频创作') : deskModeLabel(mode) || t('workspace.image', '图片创作')}</span>
           <em>{mode === 'video' ? videoModel : model}</em>
-          <strong>{mode === 'video' ? `${videoAspect} · ${videoDuration}s` : `${aspect} · ${resolutionTierLabels[resolutionTier]} · ${qualityLabel(quality)} · ${countValue}${imageCountSuffix}`}</strong>
+          <strong>{compactSummary}</strong>
           <ArrowUp size={13} />
         </button>
       ) : (

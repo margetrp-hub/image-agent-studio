@@ -134,7 +134,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
   }),
   Object.freeze({
     id: 'newapi-compatible',
-    label: 'sub2api / NewAPI Gateway',
+    label: 'NewAPI Playground Gateway',
     authMode: PROVIDER_AUTH_MODES.MANUAL,
     adapterType: PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP,
     routes: OPENAI_COMPATIBLE_ROUTES,
@@ -147,7 +147,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
       authFields: MANUAL_AUTH_FIELDS,
       modelSync: true,
       modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
-      notes: ['Use for NewAPI or compatible gateways with /v1/models support.']
+      notes: ['Use for NewAPI Playground or compatible gateways with OpenAI-style /v1 routes and /v1/models support.']
     })
   }),
   Object.freeze({

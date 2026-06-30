@@ -1,0 +1,189 @@
+/* Right context rail: reference images and prompt review share one panel. */
+.studioLayout .creationDesk .referenceSidePanel.contextSidePanel.isOpen {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 12px !important;
+  padding: 14px !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightContextStack {
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel.promptPanelOpen .rightContextStack {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+.studioLayout .creationDesk .rightContextSection {
+  min-height: 0 !important;
+  display: grid !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 46%, transparent) !important;
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 54%, transparent) !important;
+}
+
+.studioLayout .creationDesk .rightContextSection.isActive {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+.studioLayout .creationDesk .rightContextSection.isCollapsed {
+  min-height: 46px !important;
+  grid-template-rows: 46px !important;
+  background: color-mix(in srgb, var(--studio-surface-soft) 68%, transparent) !important;
+}
+
+.studioLayout .creationDesk .rightContextSectionHead {
+  width: 100% !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--studio-text-strong) !important;
+  cursor: pointer !important;
+}
+
+.studioLayout .creationDesk .rightContextSectionHead span {
+  min-width: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .rightContextSectionHead em {
+  max-width: 116px !important;
+  overflow: hidden !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+  font-weight: 850 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.studioLayout .creationDesk .rightContextSectionHead:hover,
+.studioLayout .creationDesk .rightContextSectionHead:focus-visible {
+  background: color-mix(in srgb, var(--studio-primary) 7%, transparent) !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .referenceSideBody,
+.studioLayout .creationDesk .contextSidePanel .referenceSideBody.hasReferenceItems {
+  padding: 0 10px 10px !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptBody {
+  min-height: 0 !important;
+  padding: 0 10px 10px !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptActions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 7px !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptActions button {
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 56%, transparent) !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 72%, transparent) !important;
+  color: var(--studio-text-strong) !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptActions button.primary {
+  border-color: color-mix(in srgb, var(--studio-primary) 48%, var(--studio-border)) !important;
+  background: color-mix(in srgb, var(--studio-primary) 13%, var(--studio-surface-strong)) !important;
+  color: var(--studio-primary) !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .promptSectionList {
+  min-height: 0 !important;
+  padding: 0 4px 4px 0 !important;
+  display: grid !important;
+  align-content: start !important;
+  gap: 8px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .promptSection {
+  padding: 9px 10px !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 42%, transparent) !important;
+  border-radius: 12px !important;
+  background: color-mix(in srgb, var(--studio-surface-soft) 62%, transparent) !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .promptSection span {
+  color: var(--studio-primary) !important;
+  font-size: 10.5px !important;
+  font-weight: 950 !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .promptSection p {
+  margin-top: 5px !important;
+  color: var(--studio-text) !important;
+  font-size: 12px !important;
+  line-height: 1.58 !important;
+  white-space: pre-wrap !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptEmpty {
+  min-height: 148px !important;
+  display: grid !important;
+  place-items: center !important;
+  align-content: center !important;
+  gap: 7px !important;
+  color: var(--studio-muted) !important;
+  text-align: center !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptEmpty strong {
+  color: var(--studio-text-strong) !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .rightPromptEmpty span {
+  max-width: 210px !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  line-height: 1.45 !important;
+}
+
+.studioLayout .creationDesk .paramRail,
+.studioLayout .creationDesk .paramDrawer {
+  display: none !important;
+}
+
+@media (max-width: 860px) {
+  .studioLayout .creationDesk .referenceSidePanel.contextSidePanel.isOpen {
+    padding: 10px !important;
+  }
+
+  .studioLayout .creationDesk .rightContextSectionHead em {
+    max-width: 84px !important;
+  }
+}

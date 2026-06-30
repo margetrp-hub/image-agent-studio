@@ -40,7 +40,7 @@ Use this for official or custom endpoints that expose standard image generation 
 
 `newapi-compatible`
 
-Use this for NewAPI-style deployments or similar gateways that expose OpenAI-compatible routes and may also expose model metadata.
+Use this for NewAPI Playground, NewAPI-style deployments, or similar gateways that expose OpenAI-compatible `/v1` routes. The UI syncs model metadata through `/v1/models` when a base URL and API key are configured.
 
 `gateway-account`
 
@@ -68,7 +68,7 @@ Manual provider API keys are session-only secrets. The app keeps the raw key in 
 
 - `gateway-account`: account-backed OpenAI-compatible gateway.
 - `openai-compatible`: manual OpenAI-compatible endpoint.
-- `newapi-compatible`: NewAPI-style endpoint, currently represented as a capability family for future adapter work.
+- `newapi-compatible`: NewAPI Playground or NewAPI-style endpoint with OpenAI-compatible image, edit, chat, response, and model-sync routes.
 
 Older browser settings that stored `apiKeySource: "sub2api"` are normalized to `apiKeySource: "gateway"` when loaded. This keeps existing users working while moving the new code path away from single-gateway naming.
 

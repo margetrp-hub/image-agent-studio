@@ -8,6 +8,8 @@ const runningScreenshotPath = `${screenshotDir}/generation-queue-running-cancel.
 const localQueuedScreenshotPath = `${screenshotDir}/generation-queue-local-restored.png`;
 const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';
 const manualSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
+const currentSessionKey = 'image-sub2api-studio:current-session:v1';
+const currentSessionScopedKey = (sessionId) => `${currentSessionKey}:${sessionId}`;
 
 function assert(condition, message, evidence) {
   if (!condition) {
@@ -241,10 +243,12 @@ try {
     });
   });
 
-  await page.addInitScript(() => {
+  const recoverySessionKey = currentSessionScopedKey('queue-recovery-session');
+  await page.addInitScript((sessionKey) => {
     localStorage.setItem('auth_token', 'queue-smoke-token');
     localStorage.setItem('auth_user', JSON.stringify({ id: 1, email: 'queue-smoke@example.com' }));
-    localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({
+    localStorage.setItem('image-sub2api-studio:current-session:v1:active', 'queue-recovery-session');
+    localStorage.setItem(sessionKey, JSON.stringify({
       sessionId: 'queue-recovery-session',
       status: 'loading',
       prompt: 'Local cache copy',
@@ -257,18 +261,18 @@ try {
         summary: 'Local cache copy'
       }]
     }));
-  });
+  }, recoverySessionKey);
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.waitForSelector('.canvasQueueDock', { timeout: 8000 });
   await page.waitForTimeout(2200);
-  await page.waitForFunction(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  await page.waitForFunction((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return stored.generationQueue?.[0]?.status === 'unknown';
-  }, null, { timeout: 8000 }).catch(() => {});
+  }, recoverySessionKey, { timeout: 8000 }).catch(() => {});
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate((sessionKey) => {
     const queueItems = [...document.querySelectorAll('.canvasQueueItem')].map((node) => ({
       className: node.className,
       text: node.innerText
@@ -277,14 +281,14 @@ try {
       title: node.getAttribute('title') || '',
       label: node.getAttribute('aria-label') || ''
     }));
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return {
       queueItems,
       buttons,
       storedStatus: stored.generationQueue?.[0]?.status || '',
       body: document.body.innerText.slice(0, 1200)
     };
-  });
+  }, recoverySessionKey);
 
   assert(jobPollCount >= 2, 'Restored remote generation job was not polled after page load.', { jobPollCount, result });
   assert(result.queueItems.length === 1, `Expected one restored queue item, got ${result.queueItems.length}.`, result);
@@ -413,10 +417,12 @@ try {
     contentType: 'image/png',
     body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l0X9WQAAAABJRU5ErkJggg==', 'base64')
   }));
-  await failedPage.addInitScript(() => {
+  const failedSessionKey = currentSessionScopedKey('queue-failed-session');
+  await failedPage.addInitScript((sessionKey) => {
     localStorage.setItem('auth_token', 'queue-smoke-token');
     localStorage.setItem('auth_user', JSON.stringify({ id: 1, email: 'queue-smoke@example.com' }));
-    localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({
+    localStorage.setItem('image-sub2api-studio:current-session:v1:active', 'queue-failed-session');
+    localStorage.setItem(sessionKey, JSON.stringify({
       sessionId: 'queue-failed-session',
       status: 'loading',
       prompt: 'Local failed cache copy',
@@ -429,19 +435,19 @@ try {
         summary: 'Local failed cache copy'
       }]
     }));
-  });
+  }, failedSessionKey);
   await failedPage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await failedPage.waitForSelector('.canvasQueueDock', { timeout: 8000 });
   await failedPage.waitForTimeout(1800);
   await failedPage.screenshot({ path: failedScreenshotPath, fullPage: true });
-  const failedResult = await failedPage.evaluate(() => ({
+  const failedResult = await failedPage.evaluate((sessionKey) => ({
     body: document.body.innerText.slice(0, 1800),
     queueItems: [...document.querySelectorAll('.canvasQueueItem')].map((node) => ({
       className: node.className,
       text: node.innerText
     })),
-    storedStatus: JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}')?.generationQueue?.[0]?.status || ''
-  }));
+    storedStatus: JSON.parse(localStorage.getItem(sessionKey) || '{}')?.generationQueue?.[0]?.status || ''
+  }), failedSessionKey);
   assert(failedResult.body.includes('STUDIO_ALLOWED_ORIGINS'), 'Failed restored job did not show the allowed-origin explanation.', failedResult);
   assert(!failedResult.body.includes('上游返回了未识别的英文错误'), 'Failed restored job fell back to the generic English-error message.', failedResult);
   assert(failedResult.queueItems[0]?.className.includes('failed'), 'Failed restored job did not stay visible as a failed queue item.', failedResult);
@@ -451,19 +457,20 @@ try {
   assert(failedSessionSaveCount >= 1, 'Failed queue snapshot was not saved back to the history service.', { failedSessionSaveCount });
   await failedPage.locator('.bottomComposerInput textarea').fill('A retry after a restored failed generation should submit a fresh service job.');
   await failedPage.locator('.composerGenerateAction').click();
-  await failedPage.waitForFunction(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  await failedPage.locator('.generationConfirmPrimary').click();
+  await failedPage.waitForFunction((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return stored.status === 'success' && stored.canvasNodes?.length >= 1;
-  }, null, { timeout: 10000 });
-  const failedRetryResult = await failedPage.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  }, failedSessionKey, { timeout: 10000 });
+  const failedRetryResult = await failedPage.evaluate((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return {
       status: stored.status || '',
       canvasNodes: stored.canvasNodes?.length || 0,
       hasRegenerateDialog: Boolean(document.querySelector('.regenerateDialogBackdrop')),
       body: document.body.innerText.slice(0, 1800)
     };
-  });
+  }, failedSessionKey);
   assert(failedRetryCreateCount === 1, 'Main generate action in a restored failed state did not create exactly one fresh service job.', { failedRetryCreateCount, failedRetryRequests, failedRetryResult });
   assert(failedRetryRequests[0]?.request?.route === 'generations', 'Retry from the main generate action did not use the image generations route.', { failedRetryRequests, failedRetryResult });
   assert(failedRetryRequests[0]?.request?.model === 'gpt-image-2', 'Retry from the main generate action did not preserve the image model.', { failedRetryRequests, failedRetryResult });
@@ -548,10 +555,12 @@ try {
       })
     });
   });
-  await runningPage.addInitScript(() => {
+  const runningSessionKey = currentSessionScopedKey('queue-running-session');
+  await runningPage.addInitScript((sessionKey) => {
     localStorage.setItem('auth_token', 'queue-smoke-token');
     localStorage.setItem('auth_user', JSON.stringify({ id: 1, email: 'queue-smoke@example.com' }));
-    localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({
+    localStorage.setItem('image-sub2api-studio:current-session:v1:active', 'queue-running-session');
+    localStorage.setItem(sessionKey, JSON.stringify({
       sessionId: 'queue-running-session',
       status: 'loading',
       prompt: 'Local running cache copy',
@@ -564,7 +573,7 @@ try {
         summary: 'Local running cache copy'
       }]
     }));
-  });
+  }, runningSessionKey);
   await runningPage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await runningPage.waitForSelector('.canvasQueueDock', { timeout: 8000 });
   await runningPage.waitForFunction(() => (
@@ -586,13 +595,13 @@ try {
   assert(runningBeforeCancel.buttons.some((button) => button.title.includes('停止') || button.label.includes('停止')), 'Running restored job did not expose a stop control.', runningBeforeCancel);
 
   await runningPage.locator('.canvasQueueItem button').first().click();
-  await runningPage.waitForFunction(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  await runningPage.waitForFunction((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return stored.generationQueue?.[0]?.status === 'canceled';
-  }, null, { timeout: 8000 });
+  }, runningSessionKey, { timeout: 8000 });
   await runningPage.screenshot({ path: runningScreenshotPath, fullPage: true });
-  const runningResult = await runningPage.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  const runningResult = await runningPage.evaluate((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return {
       storedStatus: stored.generationQueue?.[0]?.status || '',
       queueItems: [...document.querySelectorAll('.canvasQueueItem')].map((node) => ({
@@ -601,7 +610,7 @@ try {
       })),
       body: document.body.innerText.slice(0, 1400)
     };
-  });
+  }, runningSessionKey);
   assert(runningCancelCount === 1, 'Stop control did not call the server-side cancel endpoint exactly once.', { runningCancelCount, runningResult });
   assert(runningResult.storedStatus === 'canceled', 'Canceled running queue status was not saved back into the current session cache.', runningResult);
   assert(runningResult.queueItems[0]?.className.includes('canceled'), 'Canceled running job did not remain visible as a canceled queue item.', runningResult);
@@ -700,9 +709,11 @@ try {
     ...localQueuedSession(),
     updatedAt: new Date().toISOString()
   };
-  await localQueuedPage.addInitScript(({ snapshot, providerSettingsKey, manualSecretKey }) => {
+  const localQueuedSessionKey = currentSessionScopedKey('queue-local-session');
+  await localQueuedPage.addInitScript(({ snapshot, providerSettingsKey, manualSecretKey, sessionKey }) => {
     localStorage.setItem('auth_token', 'queue-smoke-token');
     localStorage.setItem('auth_user', JSON.stringify({ id: 1, email: 'queue-smoke@example.com' }));
+    localStorage.setItem('image-sub2api-studio:current-session:v1:active', 'queue-local-session');
     localStorage.setItem(providerSettingsKey, JSON.stringify({
       providerId: 'openai-compatible',
       apiKeySource: 'manual',
@@ -712,23 +723,23 @@ try {
       partialImages: 2
     }));
     sessionStorage.setItem(manualSecretKey, 'queue-local-restored-secret');
-    localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify(snapshot));
-  }, { snapshot: localQueuedSnapshot, providerSettingsKey, manualSecretKey });
+    localStorage.setItem(sessionKey, JSON.stringify(snapshot));
+  }, { snapshot: localQueuedSnapshot, providerSettingsKey, manualSecretKey, sessionKey: localQueuedSessionKey });
   await localQueuedPage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
-  await localQueuedPage.waitForFunction(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  await localQueuedPage.waitForFunction((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return stored.canvasNodes?.length >= 1 && stored.status === 'success';
-  }, null, { timeout: 10000 });
+  }, localQueuedSessionKey, { timeout: 10000 });
   await localQueuedPage.screenshot({ path: localQueuedScreenshotPath, fullPage: true });
-  const localQueuedResult = await localQueuedPage.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+  const localQueuedResult = await localQueuedPage.evaluate((sessionKey) => {
+    const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');
     return {
       storedStatus: stored.generationQueue?.[0]?.status || '',
       appStatus: stored.status || '',
       canvasNodes: stored.canvasNodes?.length || 0,
       body: document.body.innerText.slice(0, 1400)
     };
-  });
+  }, localQueuedSessionKey);
   assert(localJobCreateCount === 1, 'Restored local queued task did not create exactly one server generation job.', { localJobCreateCount, localQueuedResult });
   assert(localQueuedResult.appStatus === 'success', 'Restored local queued task did not finish with a success session status.', localQueuedResult);
   assert(localQueuedResult.storedStatus !== 'failed', 'Restored local queued task was marked failed even though the result was recovered.', localQueuedResult);

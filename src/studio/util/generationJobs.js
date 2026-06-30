@@ -396,3 +396,36 @@ export function serverJobTimingPatch(job, current = {}) {
     spec: current?.spec || [job.size, job.quality].filter(Boolean).join(' · ')
   };
 }
+
+// True if the local queue contains tasks that were restored from a previous
+// session (`restored: true`) and are still safely re-runnable from this
+// browser. The startup effect uses this to decide whether to auto-resume the
+// runner on cold load. Remote-only items are excluded — those are tracked
+// server-side and resumed by the polling effect instead.
+export function hasRestorableLocalQueueTask(queue) {
+  return Array.isArray(queue) && queue.some((item) => (
+    item?.status === 'queued'
+    && item.restored
+    && item.restorable !== false
+    && !item.remote
+  ));
+}
+
+// Returns the `serverJobId`s of queue items that look active locally but
+// aren't present in the server's last-N jobs listing — i.e. jobs we need to
+// fetch individually so the queue UI matches reality. Used by the remote
+// session sync effect.
+export function restorableRemoteJobIds(queue, knownJobIds) {
+  if (!Array.isArray(queue)) return [];
+  const known = knownJobIds instanceof Set ? knownJobIds : new Set(knownJobIds || []);
+  return queue
+    .filter((item) => item?.serverJobId && item.remote && (item.status === 'queued' || item.status === 'running'))
+    .map((item) => item.serverJobId)
+    .filter((jobId) => !known.has(jobId));
+}
+
+// Stable-enough id for an in-memory queue item. We don't need crypto
+// uniqueness — these only need to disambiguate items in the current queue.
+export function createGenerationTaskId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}

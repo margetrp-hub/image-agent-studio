@@ -729,6 +729,205 @@
   }
 }
 
+/* Final stability guard: keep the Codex-style composer usable on narrow
+   canvases and prevent the right reference rail from adding decorative noise. */
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel .composerPromptRow,
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel .bottomComposerInput,
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel .composerActionGroup,
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel .composerParamShelf,
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel .composerParamLane,
+.studioLayout .creationDesk.composerOpen .bottomComposerBar.codexComposerPanel .composerParamGroup {
+  min-width: 0 !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure::before {
+  display: none !important;
+  content: none !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    box-shadow 160ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:hover,
+.studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton:focus-visible {
+  border-color: color-mix(in srgb, var(--studio-primary) 58%, var(--studio-border)) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--studio-primary) 10%, transparent),
+    0 10px 24px rgba(15, 23, 42, 0.11) !important;
+  transform: translateY(-1px) !important;
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer,
+  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer {
+    left: 50% !important;
+    width: min(322px, calc(100% - 18px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 18px) !important;
+    padding: 12px !important;
+    transform: translateX(-50%) !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPanelHead {
+    min-height: 36px !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerSessionIdentity {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerSessionIcon {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    border-radius: 12px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPromptRow,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPromptRow {
+    grid-template-columns: minmax(0, 1fr) 54px !important;
+    gap: 8px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .bottomComposerInput textarea {
+    padding: 12px 13px !important;
+    font-size: 13px !important;
+    line-height: 1.42 !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerActionGroup {
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    grid-template-rows: 1fr 1fr !important;
+    gap: 7px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerGenerateAction,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerAssistantAction {
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    min-height: 34px !important;
+    border-radius: 14px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerGenerateAction span,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerAssistantAction span {
+    max-width: 44px !important;
+    overflow: hidden !important;
+    font-size: 10.5px !important;
+    line-height: 1 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded {
+    grid-template-columns: 32px minmax(0, 1fr) !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas:
+      "fold primary"
+      "fold secondary" !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerParamShelf.isExpanded .composerParamFoldButton {
+    width: 32px !important;
+    min-width: 32px !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamLane.primary,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamLane.secondary {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-rows: repeat(2, minmax(30px, 1fr)) !important;
+    gap: 7px !important;
+    overflow: hidden !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamModelGroup {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    min-height: 30px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamGroup,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerModeSegment,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerMiniSegment,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamField,
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerCountField {
+    min-width: 0 !important;
+    min-height: 30px !important;
+    padding: 5px 7px !important;
+    gap: 5px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen {
+    width: min(286px, calc(100% - 12px)) !important;
+    min-width: min(286px, calc(100% - 12px)) !important;
+    max-width: min(286px, calc(100% - 12px)) !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .sideReferenceThumbs figure {
+    min-height: 104px !important;
+    padding: 0 22px 0 0 !important;
+  }
+
+  .studioLayout .creationDesk .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
+    min-height: 78px !important;
+    aspect-ratio: 4 / 3 !important;
+  }
+}
+
+/* Follow-up guard: the mobile rail overlays the canvas, so the composer must
+   center in the usable canvas area instead of under the rail. */
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPanelHead {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: grid !important;
+  justify-self: stretch !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerSessionIdentity {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerHeaderActions {
+  justify-self: end !important;
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer,
+  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer,
+  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer {
+    left: calc((100vw - 58px) / 2) !important;
+    width: min(314px, calc(100vw - 58px - 18px)) !important;
+    max-width: calc(100vw - 58px - 18px) !important;
+  }
+}
+
 /* Folded state stays a real mini chat composer, not an inherited icon bar. */
 .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.codexComposerPanel.isFolded .composerPromptRow,
 .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.codexComposerPanel.isFolded.noThread .composerPromptRow,
@@ -1375,316 +1574,5 @@
       opacity: 1;
       transform: translateY(0) scale(1);
     }
-  }
-}
-
-/* Final lock for the expanded parameter shelf. Older live-status guards have
-   higher specificity, so keep this at the end and target the real composer. */
-@media (min-width: 761px) {
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) {
-    height: min(640px, calc(100dvh - 64px)) !important;
-    min-height: min(520px, calc(100dvh - 64px)) !important;
-    max-height: min(640px, calc(100dvh - 64px)) !important;
-    grid-template-rows: 44px minmax(0, 1fr) 104px 132px !important;
-    gap: 12px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) {
-    height: min(640px, calc(100dvh - 64px)) !important;
-    min-height: min(540px, calc(100dvh - 64px)) !important;
-    max-height: min(640px, calc(100dvh - 64px)) !important;
-    grid-template-rows: 44px 74px minmax(0, 1fr) 88px 132px !important;
-    gap: 10px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerLiveStatus,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerLiveStatus {
-    grid-row: 2 !important;
-    height: 74px !important;
-    min-height: 74px !important;
-    max-height: 74px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerThread,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerThread {
-    grid-row: 3 !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput textarea,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput textarea {
-    grid-row: 4 !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-    position: static !important;
-    inset: auto !important;
-    margin: 0 !important;
-    align-self: stretch !important;
-    transform: none !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerActionGroup,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerActionGroup {
-    grid-row: 4 !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-    grid-template-rows: 40px 40px !important;
-    gap: 8px !important;
-    position: static !important;
-    inset: auto !important;
-    margin: 0 !important;
-    align-self: stretch !important;
-    transform: none !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerGenerateAction,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerAssistantAction,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerGenerateAction,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerAssistantAction {
-    height: 40px !important;
-    min-height: 40px !important;
-    max-height: 40px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded {
-    grid-row: 4 !important;
-    height: 132px !important;
-    min-height: 132px !important;
-    max-height: 132px !important;
-    padding: 8px !important;
-    display: grid !important;
-    grid-template-columns: 36px minmax(0, 1.25fr) minmax(0, 1fr) !important;
-    grid-template-areas: "fold primary secondary" !important;
-    align-items: stretch !important;
-    gap: 10px !important;
-    overflow: hidden !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded {
-    grid-row: 5 !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPromptRow {
-    grid-row: 4 !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 62px !important;
-    grid-template-rows: 88px !important;
-    align-items: stretch !important;
-    align-self: stretch !important;
-    gap: 10px !important;
-    position: static !important;
-    inset: auto !important;
-    margin: 0 !important;
-    transform: none !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput {
-    grid-column: 1 !important;
-    grid-row: 1 !important;
-    width: 100% !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-    align-self: stretch !important;
-    justify-self: stretch !important;
-    position: static !important;
-    inset: auto !important;
-    margin: 0 !important;
-    transform: none !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput textarea,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .bottomComposerInput textarea {
-    width: 100% !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-    position: static !important;
-    inset: auto !important;
-    margin: 0 !important;
-    transform: none !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerActionGroup,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerActionGroup {
-    grid-column: 2 !important;
-    grid-row: 1 !important;
-    width: 62px !important;
-    min-width: 62px !important;
-    max-width: 62px !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-    align-self: stretch !important;
-    justify-self: stretch !important;
-    position: static !important;
-    inset: auto !important;
-    margin: 0 !important;
-    transform: none !important;
-  }
-}
-
-@media (max-width: 760px) {
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) {
-    height: min(650px, calc(100dvh - 20px)) !important;
-    min-height: min(540px, calc(100dvh - 20px)) !important;
-    max-height: min(650px, calc(100dvh - 20px)) !important;
-    grid-template-rows: 38px minmax(0, 1fr) 88px 148px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) {
-    height: min(650px, calc(100dvh - 20px)) !important;
-    min-height: min(540px, calc(100dvh - 20px)) !important;
-    max-height: min(650px, calc(100dvh - 20px)) !important;
-    grid-template-rows: 38px 76px minmax(0, 1fr) 74px 148px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) {
-    height: min(650px, calc(100dvh - 20px)) !important;
-    min-height: min(540px, calc(100dvh - 20px)) !important;
-    max-height: min(650px, calc(100dvh - 20px)) !important;
-    grid-template-rows: 38px 76px minmax(0, 1fr) 74px 148px !important;
-    gap: 10px !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPanelHead,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPanelHead {
-    grid-row: 1 !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerLiveStatus,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerLiveStatus {
-    grid-row: 2 !important;
-    height: 76px !important;
-    min-height: 76px !important;
-    max-height: 76px !important;
-    margin: 0 !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerThread,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerThread {
-    grid-row: 3 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    overflow-y: auto !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerPromptRow {
-    grid-row: 4 !important;
-    height: 74px !important;
-    min-height: 74px !important;
-    max-height: 74px !important;
-    margin: 0 !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded {
-    grid-row: 5 !important;
-    height: 148px !important;
-    min-height: 148px !important;
-    max-height: 148px !important;
-    margin: 0 !important;
-  }
-
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasLiveStatus.paramsExpanded:has(.composerLiveStatus):has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded {
-    height: 148px !important;
-    min-height: 148px !important;
-    max-height: 148px !important;
-    padding: 8px !important;
-    display: grid !important;
-    grid-template-columns: 34px minmax(0, 1fr) !important;
-    grid-template-areas:
-      "fold primary"
-      "fold secondary" !important;
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) !important;
-    gap: 8px !important;
-    overflow: hidden !important;
-  }
-
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.noLiveStatus.paramsExpanded:has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.noLiveStatus.paramsExpanded:has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded),
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) {
-    height: min(650px, calc(100dvh - 20px)) !important;
-    min-height: min(540px, calc(100dvh - 20px)) !important;
-    max-height: min(650px, calc(100dvh - 20px)) !important;
-    grid-template-rows: 38px minmax(0, 1fr) 88px 148px !important;
-    gap: 10px !important;
-  }
-
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.noLiveStatus.paramsExpanded:has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.noLiveStatus.paramsExpanded:has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerPromptRow,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerPromptRow {
-    grid-row: 3 !important;
-    height: 88px !important;
-    min-height: 88px !important;
-    max-height: 88px !important;
-  }
-
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.noLiveStatus.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.noLiveStatus.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded {
-    grid-row: 4 !important;
-    height: 148px !important;
-    min-height: 148px !important;
-    max-height: 148px !important;
-    padding: 8px !important;
-  }
-
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamLane.primary,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamLane.secondary,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamLane.primary,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamLane.secondary,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamLane.primary,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamLane.secondary {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    grid-template-rows: repeat(2, minmax(30px, 1fr)) !important;
-    gap: 7px !important;
-  }
-
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamGroup,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerModeSegment,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerMiniSegment,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamField,
-  .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerCountField,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamGroup,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerModeSegment,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerMiniSegment,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamField,
-  .studioLayout .creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.noReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerCountField,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamGroup,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerModeSegment,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerMiniSegment,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerParamField,
-  .studioLayout .creationDesk.paramRailCollapsed.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.codexComposerPanel.isExpandedComposer.hasThread.hasReferences.paramsExpanded:has(.composerParamShelf.isExpanded) .composerParamShelf.isExpanded .composerCountField {
-    min-height: 30px !important;
-    height: auto !important;
   }
 }

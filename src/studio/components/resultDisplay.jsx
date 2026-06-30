@@ -1,4 +1,5 @@
 import { Copy, Download, ImageIcon, Video, X } from 'lucide-react';
+import '../../styles/studio.prompt-lightbox.css';
 import { PromptSectionList } from './promptTools.jsx';
 import { ProtectedStudioImage } from './media.jsx';
 import {

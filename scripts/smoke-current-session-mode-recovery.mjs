@@ -34,7 +34,13 @@ async function runScenario(browser, baseUrl, scenario) {
   await page.addInitScript(({ sessionKey, session }) => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
-    localStorage.setItem(sessionKey, JSON.stringify(session));
+    if (session.scopedOnly) {
+      localStorage.removeItem(sessionKey);
+      localStorage.setItem(`${sessionKey}:active`, session.sessionId);
+      localStorage.setItem(`${sessionKey}:${session.sessionId}`, JSON.stringify(session));
+    } else {
+      localStorage.setItem(sessionKey, JSON.stringify(session));
+    }
   }, { sessionKey, session: scenario.session });
 
   const consoleMessages = [];
@@ -64,7 +70,11 @@ async function runScenario(browser, baseUrl, scenario) {
       text: select.selectedOptions?.[0]?.innerText || ''
     })),
     modeButtons: [...document.querySelectorAll('.composerModeSegment button, .composerModeSegment.singleMode')].map((node) => node.innerText),
-    storedMode: JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}')?.mode || ''
+    storedMode: (() => {
+      const storageKey = 'image-sub2api-studio:current-session:v1';
+      const activeId = localStorage.getItem(`${storageKey}:active`);
+      return JSON.parse(localStorage.getItem(activeId ? `${storageKey}:${activeId}` : storageKey) || '{}')?.mode || '';
+    })()
   }));
 
   for (const text of scenario.mustInclude) {
@@ -104,6 +114,30 @@ try {
 
   browser = await chromium.launch({ headless: true });
   const scenarios = [
+    {
+      name: 'local-scoped',
+      session: {
+        scopedOnly: true,
+        sessionId: 'mode-recovery-local-scoped-session',
+        mode: 'image',
+        status: 'idle',
+        prompt: 'Restore a scoped local manual-key session after refresh.',
+        model: 'gpt-image-2',
+        generationQueue: [],
+        assistantMessages: [],
+        canvasNodes: [
+          {
+            id: 'local-scoped-node-1',
+            canvasIndex: 1,
+            kind: 'image',
+            url: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22220%22%3E%3Crect width=%22320%22 height=%22220%22 fill=%22%230f766e%22/%3E%3Ctext x=%22160%22 y=%22122%22 fill=%22white%22 font-size=%2238%22 text-anchor=%22middle%22%3ELOCAL%3C/text%3E%3C/svg%3E',
+            prompt: 'Restore a scoped local manual-key session after refresh.'
+          }
+        ]
+      },
+      mustInclude: ['Restore a scoped local manual-key', '#1', '1 节点'],
+      mustNotInclude: ['/v1/images/edits']
+    },
     {
       name: 'mask',
       session: {

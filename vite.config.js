@@ -48,6 +48,14 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         studio: resolve(__dirname, 'studio.html')
+      },
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('react')) return 'vendor-react';
+          if (id.includes('lucide-react') || id.includes('lucide')) return 'vendor-icons';
+          return 'vendor';
+        }
       }
     }
   }

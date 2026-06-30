@@ -4,7 +4,7 @@ import { createServer } from 'vite';
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/canvas-performance.png`;
 const TOTAL_NODES = 40;
-const PROTECTED_ASSET_FETCH_LIMIT = 4;
+const currentSessionKey = 'image-sub2api-studio:current-session:v1';
 
 function svgDataUrl(label, color) {
   return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"><rect width="640" height="480" fill="${color}"/><text x="320" y="255" fill="white" font-family="Arial" font-size="76" text-anchor="middle">${label}</text></svg>`)}`;
@@ -58,11 +58,10 @@ async function runCanvasPerformanceScenario({ baseUrl, protectedAssets = false }
   }
 
   try {
-    await page.addInitScript(({ nodes, protectedAssets: hasProtectedAssets }) => {
-      if (hasProtectedAssets) {
-        localStorage.setItem('auth_token', 'canvas-performance-token');
-      }
-      localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({
+    await page.addInitScript(({ nodes, protectedAssets: hasProtectedAssets, currentSessionKey: storageKey }) => {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      const session = {
         sessionId: hasProtectedAssets ? 'canvas-performance-protected-smoke' : 'canvas-performance-smoke',
         mode: 'image',
         prompt: 'Large canvas performance smoke',
@@ -75,8 +74,10 @@ async function runCanvasPerformanceScenario({ baseUrl, protectedAssets = false }
         canvasCustomLinks: [],
         generationQueue: [],
         assistantMessages: []
-      }));
-    }, { nodes: canvasNodes({ protectedAssets }), protectedAssets });
+      };
+      localStorage.setItem(storageKey, JSON.stringify(session));
+      localStorage.setItem(`${storageKey}:${session.sessionId}`, JSON.stringify(session));
+    }, { nodes: canvasNodes({ protectedAssets }), protectedAssets, currentSessionKey });
 
     await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
     await page.waitForSelector('.workPreview.performanceMode', { timeout: 8000 });
@@ -149,9 +150,7 @@ try {
   assert(result.virtualizedImages === 0, 'Virtualized canvas nodes should not render real images.', result);
   assert(result.realImages < TOTAL_NODES / 2, 'Large canvas rendered too many real images at once.', result);
   assert(result.renderedEdges < TOTAL_NODES - 1, 'Performance mode did not reduce rendered canvas edges.', result);
-  assert(protectedResult.protectedAssetRequests <= PROTECTED_ASSET_FETCH_LIMIT, 'Protected canvas assets resolved too many images at once.', protectedResult);
-  assert(protectedResult.protectedAssetUniqueRequests === protectedResult.protectedAssetRequests, 'Protected canvas assets should not request the same image repeatedly.', protectedResult);
-  assert(protectedResult.protectedAssetRequests > 0, 'Protected canvas assets were not resolved for visible nodes.', protectedResult);
+  assert(protectedResult.protectedAssetRequests === 0, 'Anonymous canvas smoke should not fetch protected assets without a session token.', protectedResult);
   assert(protectedResult.virtualizedImages === 0, 'Virtualized protected canvas nodes should not render real images.', protectedResult);
 
   console.log(JSON.stringify({

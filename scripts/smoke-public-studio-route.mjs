@@ -197,6 +197,7 @@ try {
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 20_000 });
   await page.locator('.bottomComposerInput textarea').fill('A tiny public route smoke test image, simple icon on white background.');
   await page.locator('.composerGenerateAction').click();
+  await page.locator('.generationConfirmPrimary').click();
   await page.waitForTimeout(6_000);
 
   const result = await page.evaluate(() => ({

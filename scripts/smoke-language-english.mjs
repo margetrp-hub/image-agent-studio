@@ -115,8 +115,10 @@ try {
     const title = document.title;
     const rail = document.querySelector('.templateRail')?.innerText || '';
     const composer = document.querySelector('.bottomComposerBar')?.innerText || '';
-    const params = document.querySelector('.paramRail')?.innerText || '';
-    const paramButtonLabels = [...document.querySelectorAll('.paramRail button')]
+    const params = document.querySelector('.composerParamShelf')?.innerText || '';
+    const paramButtonLabels = [
+      ...document.querySelectorAll('.composerParamShelf button, .composerParamShelf label, .composerGenerateAction')
+    ]
       .map((button) => button.getAttribute('aria-label') || button.getAttribute('title') || button.innerText || '')
       .filter(Boolean);
     const queueButtonLabels = [...document.querySelectorAll('.canvasQueueItem button')]
@@ -200,9 +202,13 @@ try {
   const pseudoCjkMatches = result.pseudoText.flatMap((item) => [...item.matchAll(/[\u4e00-\u9fff]+/g)].map((match) => ({ item, text: match[0] })));
   assert(pseudoCjkMatches.length === 0, 'English mode still shows CJK text in CSS pseudo labels.', { pseudoCjkMatches, result });
   assert(result.summaryOverlaps.length === 0, 'English parameter summary labels overlap visually.', result);
-  assert(result.title === 'Creation Desk', 'English mode did not set the document title.', result);
+  assert(result.title === 'Image Agent Studio', 'English mode did not set the document title.', result);
   assert(result.body.includes('New session'), 'English mode did not render the sidebar action in English.', result);
-  assert(result.body.includes('Generation queue'), 'English mode did not render the queue label in English.', result);
+  assert(
+    result.body.includes('Generation queue') || result.body.includes('Generation panel'),
+    'English mode did not render the queue panel label in English.',
+    result
+  );
   assert(result.body.includes('Result unknown'), 'English mode did not render queue status in English.', result);
   assert(result.body.includes('The Studio service rejected this request'), 'English mode did not localize queue error explanations.', result);
   assert(result.body.includes('Prompt suggestion'), 'English mode did not localize the prompt suggestion title.', result);
@@ -212,12 +218,12 @@ try {
   assert(!result.queueButtonLabels.some((label) => /[\u4e00-\u9fff]/.test(label)), 'English queue buttons still expose CJK aria/title labels.', result);
   const paramLabelText = [result.params, ...result.paramButtonLabels].join('\n');
   assert(
-    paramLabelText.includes('Model') && paramLabelText.includes('Size') && paramLabelText.includes('Quality') && paramLabelText.includes('Count') && paramLabelText.includes('Generate'),
-    'English mode did not expose parameter labels in English.',
+    paramLabelText.includes('Text to image') && paramLabelText.includes('gpt-image-2') && paramLabelText.includes('Medium') && paramLabelText.includes('1 images') && paramLabelText.includes('Generate'),
+    'English mode did not expose current bottom generation parameters in English.',
     result
   );
-  for (const label of ['Model', 'Size', 'Quality', 'Count', 'Generate']) {
-    assert(result.paramButtonLabels.includes(label), 'English parameter rail is missing separated aria labels.', { label, result });
+  for (const label of ['Text to image', 'Generate']) {
+    assert(paramLabelText.includes(label), 'English bottom parameter area is missing expected labels.', { label, result });
   }
 
   console.log(JSON.stringify({
