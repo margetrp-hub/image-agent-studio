@@ -121,7 +121,8 @@ async function runScenario(browser, baseUrl, viewport, name) {
 
   assert(result.composer, `${name}: composer is not visible.`, result);
   assert(!result.thread, `${name}: empty composer should not render a blank thread panel.`, result);
-  assert(result.composer.height <= 210, `${name}: empty composer is too tall.`, result);
+  assert(result.composer.height >= 320, `${name}: expanded empty composer should grow with the dialog.`, result);
+  assert(result.composer.height <= Math.min(470, result.viewport.height - 20), `${name}: expanded empty composer escaped the intended viewport height.`, result);
   assert(viewportInside(result.viewport, result.composer), `${name}: empty composer escaped the viewport.`, result);
   for (const key of ['prompt', 'input', 'textarea', 'params', 'action', 'generate', 'optimize']) {
     assert(result[key], `${name}: ${key} is not visible.`, result);
@@ -129,6 +130,8 @@ async function runScenario(browser, baseUrl, viewport, name) {
     assert(viewportInside(result.viewport, result[key]), `${name}: ${key} escaped the viewport.`, result);
   }
   assert(result.action.y >= result.prompt.y - 1 && result.action.bottom <= result.prompt.bottom + 1, `${name}: action rail is not aligned with the input row.`, result);
+  assert(result.prompt.height >= 190 || viewport.height < 560, `${name}: expanded empty prompt row did not grow with the dialog.`, result);
+  assert(result.textarea.height >= 190 || viewport.height < 560, `${name}: expanded empty prompt input did not grow with the dialog.`, result);
   assert(result.textarea.width >= 220 || viewport.width < 500, `${name}: prompt textarea became too narrow.`, result);
 
   await page.close();
