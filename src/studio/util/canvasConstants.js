@@ -3,8 +3,8 @@
 // that moves one consumer doesn't leave the others referencing stale inline
 // copies.
 
-export const CANVAS_PLANE_WIDTH = 6000;
-export const CANVAS_PLANE_HEIGHT = 4200;
+export const CANVAS_PLANE_WIDTH = 12000;
+export const CANVAS_PLANE_HEIGHT = 8400;
 export const CANVAS_NODE_WIDTH = 340;
 export const CANVAS_NODE_HEIGHT = 280;
 export const CANVAS_NODE_MIN_WIDTH = 240;

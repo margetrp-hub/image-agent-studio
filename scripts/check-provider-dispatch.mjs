@@ -2,10 +2,12 @@ import {
   IMAGE_PROVIDER_REGISTRY,
   PROVIDER_ADAPTER_TYPES,
   PROVIDER_ROUTE_MODES,
+  PROVIDER_VIDEO_TRANSPORTS,
   PROVIDER_WORKSPACES,
   resolveProviderAdapter,
   resolveImageEditDispatch,
-  resolveImageGenerationDispatch
+  resolveImageGenerationDispatch,
+  resolveVideoGenerationDispatch
 } from '../src/studio/providers/index.js';
 
 const EXPECTED_GENERATION_ENDPOINT = '/v1/images/generations';
@@ -25,6 +27,10 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
     providerId: provider.id,
     authMode: provider.authMode
   });
+  const video = resolveVideoGenerationDispatch({
+    providerId: provider.id,
+    authMode: provider.authMode
+  });
   const adapter = resolveProviderAdapter({
     providerId: provider.id,
     authMode: provider.authMode
@@ -33,6 +39,7 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
     requestedRoute: PROVIDER_ROUTE_MODES.AUTO
   });
   const editPlan = adapter.buildEditPlan();
+  const videoPlan = adapter.buildVideoPlan();
   const parameters = provider.parameters || {};
   const descriptor = provider.descriptor || {};
 
@@ -44,8 +51,11 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
     generationTransport: generation.transport,
     edit: edit.endpoint,
     editTransport: edit.transport,
+    video: video.createEndpoint,
+    videoTransport: video.transport,
     generationPlan: generationPlan.endpoint,
-    editPlan: editPlan.endpoint
+    editPlan: editPlan.endpoint,
+    videoPlan: videoPlan.endpoint
   });
 
   if (generation.transport !== PROVIDER_ROUTE_MODES.IMAGES) {
@@ -71,6 +81,15 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   }
   if (editPlan.endpoint !== EXPECTED_EDIT_ENDPOINT) {
     failures.push(`${provider.id}: adapter edit endpoint must be ${EXPECTED_EDIT_ENDPOINT}, got ${editPlan.endpoint}`);
+  }
+  if (!Object.values(PROVIDER_VIDEO_TRANSPORTS).includes(video.transport)) {
+    failures.push(`${provider.id}: video transport is not registered: ${video.transport}`);
+  }
+  if (videoPlan.transport !== video.transport) {
+    failures.push(`${provider.id}: adapter video transport must match dispatch transport`);
+  }
+  if (videoPlan.endpoint !== video.createEndpoint) {
+    failures.push(`${provider.id}: adapter video endpoint must match dispatch endpoint`);
   }
   if (!Array.isArray(parameters.sizes) || !parameters.sizes.length) {
     failures.push(`${provider.id}: provider parameters must declare supported sizes`);
@@ -125,6 +144,15 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   }
   if (provider.capabilities?.videoGeneration && !descriptor.workspaces.includes(PROVIDER_WORKSPACES.VIDEO)) {
     failures.push(`${provider.id}: videoGeneration capability must include the video workspace`);
+  }
+  if (provider.capabilities?.videoGeneration && !descriptor.modelSlots?.some((slot) => slot?.key === 'videoModel' && slot?.route === 'video')) {
+    failures.push(`${provider.id}: videoGeneration capability must include a videoModel slot`);
+  }
+  if (provider.capabilities?.videoGeneration && !provider.routes?.videoCreate) {
+    failures.push(`${provider.id}: videoGeneration capability must declare a videoCreate route`);
+  }
+  if (provider.capabilities?.videoGeneration && !parameters.defaultVideoModel) {
+    failures.push(`${provider.id}: videoGeneration capability must declare defaultVideoModel`);
   }
 }
 

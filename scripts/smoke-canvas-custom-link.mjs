@@ -95,13 +95,17 @@ try {
 
   await page.waitForFunction(() => document.querySelectorAll('.canvasLinkGroup.custom').length >= 1, null, { timeout: 8000 });
   await page.waitForFunction(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+    const storageKey = 'image-sub2api-studio:current-session:v1';
+    const activeId = localStorage.getItem(`${storageKey}:active`);
+    const stored = JSON.parse(localStorage.getItem(activeId ? `${storageKey}:${activeId}` : storageKey) || '{}');
     return Array.isArray(stored.canvasCustomLinks) && stored.canvasCustomLinks.length === 1;
   }, null, { timeout: 8000 }).catch(() => {});
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const result = await page.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('image-sub2api-studio:current-session:v1') || '{}');
+    const storageKey = 'image-sub2api-studio:current-session:v1';
+    const activeId = localStorage.getItem(`${storageKey}:active`);
+    const stored = JSON.parse(localStorage.getItem(activeId ? `${storageKey}:${activeId}` : storageKey) || '{}');
     return {
       customLinks: stored.canvasCustomLinks || [],
       customEdgeCount: document.querySelectorAll('.canvasLinkGroup.custom').length,

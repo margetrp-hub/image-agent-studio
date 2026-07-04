@@ -1,4 +1,4 @@
-import { getImageProvider, PROVIDER_ROUTE_MODES, providerRoute } from './registry.js';
+import { getImageProvider, PROVIDER_ROUTE_MODES, PROVIDER_VIDEO_TRANSPORTS, providerRoute } from './registry.js';
 
 export function normalizeImageRouteMode(value) {
   const route = String(value || '').toLowerCase();
@@ -30,5 +30,22 @@ export function resolveImageEditDispatch({ providerId, authMode } = {}) {
     routeMode: PROVIDER_ROUTE_MODES.IMAGES,
     transport: PROVIDER_ROUTE_MODES.IMAGES,
     endpoint: providerRoute(provider, 'edits') || '/v1/images/edits'
+  };
+}
+
+export function resolveVideoGenerationDispatch({ providerId, authMode } = {}) {
+  const provider = getImageProvider(providerId, authMode);
+  const transport = provider?.parameters?.videoTransport || PROVIDER_VIDEO_TRANSPORTS.TASK_JSON;
+  const createEndpoint = providerRoute(provider, 'videoCreate') || (
+    transport === PROVIDER_VIDEO_TRANSPORTS.OPENAI_VIDEOS ? '/v1/videos' : '/v1/video/generations'
+  );
+  return {
+    provider,
+    transport,
+    createEndpoint,
+    retrieveEndpoint: providerRoute(provider, 'videoRetrieve') || (
+      transport === PROVIDER_VIDEO_TRANSPORTS.OPENAI_VIDEOS ? '/v1/videos/{id}' : '/v1/video/generations/{id}'
+    ),
+    contentEndpoint: providerRoute(provider, 'videoContent') || ''
   };
 }

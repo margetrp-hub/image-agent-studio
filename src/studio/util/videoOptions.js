@@ -9,7 +9,7 @@ export const VIDEO_ASPECT_OPTIONS = Object.freeze([
   { value: '1:1', label: '1:1', width: 1024, height: 1024 }
 ]);
 
-export const VIDEO_DURATIONS = Object.freeze([5, 10]);
+export const VIDEO_DURATIONS = Object.freeze([4, 5, 8, 10, 12]);
 export const VIDEO_FPS_OPTIONS = Object.freeze([24, 30]);
 
 export const VIDEO_MOTIONS = Object.freeze([

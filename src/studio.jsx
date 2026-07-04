@@ -829,7 +829,6 @@ function CreationDesk({
   const [videoDropActive, setVideoDropActive] = useState(false);
   const [maskExportUrl, setMaskExportUrl] = useState('');
   const [layoutSections, setLayoutSections] = useState(() => loadWorkbenchLayout());
-  const [rightContextPanel, setRightContextPanel] = useState('references');
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [generationConfirmOpen, setGenerationConfirmOpen] = useState(false);
   const [generationConfirmTask, setGenerationConfirmTask] = useState(null);
@@ -917,6 +916,11 @@ function CreationDesk({
 
   const isReady = connectionReady(providerSettings, apiKey, isAuthenticated);
   const currentImageProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
+  const currentProviderAdapter = resolveProviderAdapter({
+    providerId: providerSettings.providerId,
+    authMode: providerSettings.apiKeySource
+  });
+  const currentVideoPlan = currentProviderAdapter.buildVideoPlan();
   const imageAspectOptions = useMemo(() => providerAspectOptions(currentImageProvider, ASPECT_OPTIONS, SIZES), [currentImageProvider]);
   const customSizeOptions = useMemo(() => providerCustomSizeOptions(currentImageProvider, CUSTOM_SIZE_OPTIONS, SIZES), [currentImageProvider]);
   const imageQualityOptions = useMemo(() => (
@@ -1425,7 +1429,7 @@ function CreationDesk({
       if (promptSuggestion && assistantMessages.length) {
         const suggestion = thread.querySelector('.promptSuggestion');
         if (suggestion) {
-          thread.scrollTop = Math.max(0, suggestion.offsetTop - 6);
+          thread.scrollTop = thread.scrollHeight;
           return;
         }
       }
@@ -2696,6 +2700,7 @@ function CreationDesk({
       providerId: providerSettings.providerId,
       authMode: providerSettings.apiKeySource
     });
+    const videoPlan = providerAdapter.buildVideoPlan();
     const activeImageParameters = providerAdapter.normalizeImageParameters({
       size: activeSize,
       quality: activeQuality,
@@ -2774,6 +2779,7 @@ function CreationDesk({
       return false;
     }
     const providerRequest = resolveProviderRequest(providerSettings, apiKey);
+    const activeVideoGatewayBaseUrl = String(providerSettings.videoGatewayBaseUrl || '').trim() || providerRequest.gatewayBaseUrl || '';
     if (!providerRequest.apiKey) {
       setStatus('error');
       setMessage(providerSettings.apiKeySource === 'manual'
@@ -2863,6 +2869,11 @@ function CreationDesk({
         if (!isCurrentRequest()) return false;
         const payload = await client.generateVideo({
           ...providerRequest,
+          gatewayBaseUrl: activeVideoGatewayBaseUrl,
+          transport: videoPlan.transport,
+          createEndpoint: videoPlan.createEndpoint,
+          retrieveEndpoint: videoPlan.retrieveEndpoint,
+          contentEndpoint: videoPlan.contentEndpoint,
           model: activeVideoModel,
           prompt: basePrompt,
           image: referenceImage,
@@ -3321,7 +3332,7 @@ function CreationDesk({
         composerParameters: false
       });
     }
-    onOpenWorkspace?.(nextWorkspace);
+    window.queueMicrotask(() => onOpenWorkspace?.(nextWorkspace));
   };
   const maskSourcePreview = referencePreviews[0] || (mode === 'mask' && selectedCanvasNode && selectedCanvasNode.kind !== 'video' ? selectedCanvasNode.url : '');
   const maskSourceFile = referenceFiles[0] || (maskSourcePreview ? { name: selectedCanvasNode ? `#${selectedCanvasNode.canvasIndex || 1}.png` : 'reference.png' } : null);
@@ -3339,7 +3350,7 @@ function CreationDesk({
   const referenceSideLimit = mode === 'mask' || mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT;
   const composerUsesEditRoute = mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url));
   const composerRouteLabel = mode === 'video'
-    ? t('composer.routeVideo', '视频任务接口')
+    ? currentVideoPlan.endpoint
     : composerUsesEditRoute
       ? '/v1/images/edits'
       : '/v1/images/generations';
@@ -3356,7 +3367,7 @@ function CreationDesk({
       ? t('composer.contextVideo', '视频参数在底部参数栏设置')
       : t('composer.title', '把想法说出来，先整理，再生成');
   const composerGenerationVisible = status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review' || (status === 'error' && Boolean(message));
-  const composerThreadHasContent = Boolean(assistantMessages.length || promptSuggestion);
+  const composerThreadHasContent = Boolean(assistantMessages.length);
   const activeGenerationQueueItems = generationQueue.filter((item) => CURRENT_PROJECT_QUEUE_STATUSES.has(item.status));
   const activeQueuedGenerationCount = activeGenerationQueueCount(generationQueue);
   const confirmTaskModelInfo = generationConfirmTask?.mode === 'video'
@@ -3373,7 +3384,7 @@ function CreationDesk({
     : 0;
   const confirmTaskReferenceLimit = generationConfirmTask?.mode === 'video' || generationConfirmTask?.mode === 'mask' ? 1 : IMAGE_REFERENCE_LIMIT;
   const confirmTaskRouteLabel = generationConfirmTask?.mode === 'video'
-    ? t('composer.routeVideo', '视频任务接口')
+    ? currentVideoPlan.endpoint
     : generationConfirmTask?.mode === 'mask' || (generationConfirmTask?.mode === 'edit' && confirmTaskReferenceCount > 0)
       ? '/v1/images/edits'
       : '/v1/images/generations';
@@ -3638,27 +3649,26 @@ function CreationDesk({
           )}
         </div>
       </div>
-      <aside className={`referenceSidePanel contextSidePanel ${layoutSections.references ? 'isOpen' : 'isCollapsed'} ${rightContextPanel === 'prompt' ? 'promptPanelOpen' : 'referencePanelOpen'}`} aria-label={t('context.title', '创作上下文')}>
+      <aside className={`referenceSidePanel contextSidePanel ${layoutSections.references ? 'isOpen' : 'isCollapsed'} promptWorkspaceDocked`} aria-label={t('context.title', '创作上下文')}>
         {layoutSections.references ? (
           <>
             <div className="referenceSideHead">
               <div>
                 <strong>{t('context.title', '创作上下文')}</strong>
-                <span>{rightContextPanel === 'prompt' ? sidePromptSource : (mode === 'mask' ? 'Mask / edits' : referenceFiles.length || videoReferenceFiles.length ? t('references.selected', '已选择 {count} 张', { count: mode === 'video' ? videoReferenceFiles.length : referenceFiles.length }) : t('references.sideHint', '拖拽、粘贴或上传'))}</span>
+                <span>{`${mode === 'mask' ? 'Mask / edits' : referenceFiles.length || videoReferenceFiles.length ? t('references.selected', '已选择 {count} 张', { count: mode === 'video' ? videoReferenceFiles.length : referenceFiles.length }) : t('references.sideHint', '拖拽、粘贴或上传')} · ${sidePromptText ? sidePromptSource : t('context.promptEmpty', '空')}`}</span>
               </div>
               <button type="button" onClick={() => toggleLayoutSection('references')} aria-label={t('references.collapse', '收起参考图')}>
                 <PanelLeftClose size={15} />
               </button>
             </div>
             <div className="rightContextStack">
-              <section className={`rightContextSection referenceContextSection ${rightContextPanel === 'references' ? 'isActive' : 'isCollapsed'}`}>
-                <button type="button" className="rightContextSectionHead" onClick={() => setRightContextPanel('references')} aria-expanded={rightContextPanel === 'references'}>
+              <section className="rightContextSection referenceContextSection isActive">
+                <div className="rightContextSectionHead">
                   <span><Images size={15} />{t('references.title', '参考图')}</span>
                   <em>{referenceSideCount}/{referenceSideLimit}</em>
-                </button>
-                {rightContextPanel === 'references' ? (
-                  <>
-                    {mode === 'mask' ? (
+                </div>
+                <>
+                  {mode === 'mask' ? (
                       <div className="referenceSideBody maskReferenceSideBody">
                         <React.Suspense fallback={null}>
                           <MaskEditor
@@ -3871,42 +3881,39 @@ function CreationDesk({
                           </div>
                         ) : null}
                       </div>
-                    )}
-                  </>
-                ) : null}
+                  )}
+                </>
               </section>
-              <section className={`rightContextSection promptContextSection ${rightContextPanel === 'prompt' ? 'isActive' : 'isCollapsed'}`}>
-                <button type="button" className="rightContextSectionHead" onClick={() => setRightContextPanel('prompt')} aria-expanded={rightContextPanel === 'prompt'}>
+              <section className="rightContextSection promptContextSection isActive">
+                <div className="rightContextSectionHead">
                   <span><MessageSquareText size={15} />{t('context.prompt', '提示词')}</span>
                   <em>{sidePromptText ? sidePromptSource : t('context.promptEmpty', '空')}</em>
-                </button>
-                {rightContextPanel === 'prompt' ? (
-                  <div className="rightPromptBody">
-                    {sidePromptText ? (
-                      <>
-                        <div className="rightPromptActions">
-                          <button type="button" onClick={copySidePrompt}>
-                            <Copy size={13} />
-                            {t('composer.copy', '复制')}
-                          </button>
-                          {promptSuggestion ? (
-                            <button type="button" onClick={replaceSuggestion}>{t('composer.putIntoInput', '放入输入框')}</button>
-                          ) : null}
-                          {promptSuggestion ? (
-                            <button type="button" className="primary" onClick={useSuggestionForGenerate}>{t('suggestion.useThis', '用这版生成')}</button>
-                          ) : null}
-                        </div>
-                        <PromptSectionList prompt={sidePromptText} t={t} />
-                      </>
-                    ) : (
-                      <div className="rightPromptEmpty">
-                        <MessageSquareText size={24} />
-                        <strong>{t('context.promptEmptyTitle', '还没有提示词')}</strong>
-                        <span>{t('context.promptEmptyHint', '在底部对话框输入想法，或从灵感库选用后会显示在这里。')}</span>
+                </div>
+                <div className="rightPromptBody">
+                  {sidePromptText ? (
+                    <>
+                      <div className="rightPromptActions">
+                        <button type="button" onClick={copySidePrompt}>
+                          <Copy size={13} />
+                          {t('composer.copy', '复制')}
+                        </button>
+                        {promptSuggestion ? (
+                          <button type="button" onClick={replaceSuggestion}>{t('composer.putIntoInput', '放入输入框')}</button>
+                        ) : null}
+                        {promptSuggestion ? (
+                          <button type="button" className="primary" onClick={useSuggestionForGenerate}>{t('suggestion.useThis', '用这版生成')}</button>
+                        ) : null}
                       </div>
-                    )}
-                  </div>
-                ) : null}
+                      <PromptSectionList prompt={sidePromptText} t={t} />
+                    </>
+                  ) : (
+                    <div className="rightPromptEmpty">
+                      <MessageSquareText size={24} />
+                      <strong>{t('context.promptEmptyTitle', '还没有提示词')}</strong>
+                      <span>{t('context.promptEmptyHint', '在底部对话框输入想法，或从灵感库选用后会显示在这里。')}</span>
+                    </div>
+                  )}
+                </div>
               </section>
             </div>
           </>
@@ -4419,12 +4426,7 @@ function CreationDesk({
           <ComposerThread
             ref={composerThreadRef}
             messages={assistantMessages}
-            promptSuggestion={promptSuggestion}
-            onCopySuggestion={copySuggestion}
-            onMergeSuggestion={mergeSuggestion}
-            onReplaceSuggestion={replaceSuggestion}
             onUseFinalPrompt={setPrompt}
-            onUseSuggestion={useSuggestionForGenerate}
             t={t}
           />
         ) : null}

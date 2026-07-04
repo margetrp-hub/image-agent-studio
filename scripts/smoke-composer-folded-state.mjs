@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const screenshotPath = 'D:/wiki/image-sub2api-studio/output/playwright/composer-folded-state.png';
-const layoutKey = 'image-sub2api-studio:workbench-layout:v5';
+const layoutKey = 'image-sub2api-studio:workbench-layout:v6';
 const sessionKey = 'image-sub2api-studio:current-session:v1';
 
 function assert(condition, message, evidence) {
@@ -207,12 +207,12 @@ async function runReopenScenario(browser, baseUrl) {
   assert(before.topElement?.className?.includes('bottomComposerReopen') || before.topElement?.tag === 'BUTTON', 'reopen: dock is covered by another layer.', before);
   await page.mouse.click(before.dock.center.x, before.dock.center.y);
   await page.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 5000 });
-  const after = await page.evaluate(() => ({
+  const after = await page.evaluate((key) => ({
     dockVisible: Boolean(document.querySelector('.bottomComposerReopenDock')),
     expandedVisible: Boolean(document.querySelector('.bottomComposerBar.isExpandedComposer')),
     foldedVisible: Boolean(document.querySelector('.bottomComposerBar.isFolded')),
-    layout: localStorage.getItem('image-sub2api-studio:workbench-layout:v5')
-  }));
+    layout: localStorage.getItem(key)
+  }), layoutKey);
   assert(after.expandedVisible && !after.dockVisible && !after.foldedVisible, 'reopen: clicking dock did not restore the expanded composer.', { before, after });
   await page.close();
   return { before, after };

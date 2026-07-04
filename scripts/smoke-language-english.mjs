@@ -211,8 +211,8 @@ try {
   );
   assert(result.body.includes('Result unknown'), 'English mode did not render queue status in English.', result);
   assert(result.body.includes('The Studio service rejected this request'), 'English mode did not localize queue error explanations.', result);
-  assert(result.body.includes('Prompt suggestion'), 'English mode did not localize the prompt suggestion title.', result);
-  assert(result.body.includes('Executable prompt'), 'English mode did not localize the prompt suggestion final prompt label.', result);
+  assert(result.body.includes('Prompt') && result.body.includes('AI suggestion'), 'English mode did not localize the right prompt workspace title/source.', result);
+  assert(result.body.includes('Subject') && result.body.includes('Scene'), 'English mode did not render the prompt workspace sections.', result);
   assert(result.body.includes('Generate this'), 'English mode did not localize the prompt suggestion generate action.', result);
   assert(result.queueButtonLabels.includes('Dismiss queue notice'), 'English queue dismiss button is missing an English aria/title label.', result);
   assert(!result.queueButtonLabels.some((label) => /[\u4e00-\u9fff]/.test(label)), 'English queue buttons still expose CJK aria/title labels.', result);

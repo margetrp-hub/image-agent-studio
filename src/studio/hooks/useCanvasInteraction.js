@@ -85,7 +85,7 @@ export function useCanvasInteraction(deps) {
   function setCanvasZoom(nextZoom) {
     setCanvasView((current) => ({
       ...current,
-      zoom: Math.max(0.55, Math.min(1.8, typeof nextZoom === 'function' ? nextZoom(current.zoom) : nextZoom))
+      zoom: Math.max(0.28, Math.min(2.4, typeof nextZoom === 'function' ? nextZoom(current.zoom) : nextZoom))
     }));
   }
 

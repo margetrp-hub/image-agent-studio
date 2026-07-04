@@ -168,7 +168,7 @@ const cssBudgets = {
     important: 91
   },
   'src/styles/studio.generation-confirm-dialog.css': {
-    lines: 244,
+    lines: 360,
     important: 0
   },
   'src/styles/studio.composer-final-base.css': {

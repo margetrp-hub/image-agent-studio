@@ -9,6 +9,11 @@ export const PROVIDER_ROUTE_MODES = Object.freeze({
   AUTO: 'auto'
 });
 
+export const PROVIDER_VIDEO_TRANSPORTS = Object.freeze({
+  TASK_JSON: 'task-json',
+  OPENAI_VIDEOS: 'openai-videos'
+});
+
 export const PROVIDER_ADAPTER_TYPES = Object.freeze({
   OPENAI_COMPATIBLE_HTTP: 'openai-compatible-http'
 });
@@ -28,7 +33,16 @@ const OPENAI_COMPATIBLE_ROUTES = Object.freeze({
   edits: '/v1/images/edits',
   assistant: '/v1/chat/completions',
   responses: '/v1/responses',
-  models: '/v1/models'
+  models: '/v1/models',
+  videoCreate: '/v1/videos',
+  videoRetrieve: '/v1/videos/{id}',
+  videoContent: '/v1/videos/{id}/content'
+});
+
+const VIDEO_TASK_ROUTES = Object.freeze({
+  videoCreate: '/v1/video/generations',
+  videoRetrieve: '/v1/video/generations/{id}',
+  videoContent: ''
 });
 
 const OPENAI_IMAGE_CAPABILITIES = Object.freeze({
@@ -51,7 +65,9 @@ const OPENAI_IMAGE_PARAMETERS = Object.freeze({
   countRange: Object.freeze([1, 4]),
   maxReferenceImages: 4,
   defaultImageModel: 'gpt-image-2',
-  defaultAssistantModel: 'gpt-5.5'
+  defaultAssistantModel: 'gpt-5.5',
+  defaultVideoModel: 'sora-2',
+  videoTransport: PROVIDER_VIDEO_TRANSPORTS.OPENAI_VIDEOS
 });
 
 const MANUAL_AUTH_FIELDS = Object.freeze([
@@ -101,6 +117,9 @@ const OPENAI_IMAGE_MODEL_SLOTS = freezeModelSlots([
   { key: 'responsesModel', label: 'Prompt assistant', defaultModel: 'gpt-5.5', route: 'assistant' }
 ]);
 
+const OPENAI_VIDEO_MODEL_SLOT = Object.freeze({ key: 'videoModel', label: 'Video generation', defaultModel: 'sora-2', route: 'video' });
+const TASK_VIDEO_MODEL_SLOT = Object.freeze({ key: 'videoModel', label: 'Video generation', defaultModel: 'veo3', route: 'video' });
+
 export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
   Object.freeze({
     id: 'official-openai',
@@ -110,16 +129,18 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     routes: OPENAI_COMPATIBLE_ROUTES,
     capabilities: Object.freeze({
       ...OPENAI_IMAGE_CAPABILITIES,
-      modelSync: true
+      modelSync: true,
+      videoGeneration: true
     }),
     parameters: OPENAI_IMAGE_PARAMETERS,
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
       baseUrlExample: 'https://api.openai.com/v1',
-      docsUrl: 'https://platform.openai.com/docs/api-reference/images',
+      docsUrl: 'https://platform.openai.com/docs/api-reference/videos',
       modelSync: true,
-      modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
-      notes: ['Official OpenAI API using /v1/images and /v1/models.']
+      workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
+      modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, OPENAI_VIDEO_MODEL_SLOT]),
+      notes: ['Official OpenAI API using /v1/images, /v1/videos, and /v1/models.']
     })
   }),
   Object.freeze({
@@ -130,15 +151,17 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     routes: OPENAI_COMPATIBLE_ROUTES,
     capabilities: Object.freeze({
       ...OPENAI_IMAGE_CAPABILITIES,
-      modelSync: true
+      modelSync: true,
+      videoGeneration: true
     }),
     parameters: OPENAI_IMAGE_PARAMETERS,
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
       baseUrlExample: 'https://gateway.example.com/v1',
       modelSync: true,
-      modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
-      notes: ['Custom OpenAI-compatible endpoint with /v1/models support.']
+      workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
+      modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, OPENAI_VIDEO_MODEL_SLOT]),
+      notes: ['Custom OpenAI-compatible endpoint with /v1/images, /v1/videos, and /v1/models support.']
     })
   }),
   Object.freeze({
@@ -146,20 +169,29 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     label: 'NewAPI Playground Gateway',
     authMode: PROVIDER_AUTH_MODES.MANUAL,
     adapterType: PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP,
-    routes: OPENAI_COMPATIBLE_ROUTES,
+    routes: Object.freeze({
+      ...OPENAI_COMPATIBLE_ROUTES,
+      ...VIDEO_TASK_ROUTES
+    }),
     capabilities: Object.freeze({
       ...OPENAI_IMAGE_CAPABILITIES,
-      modelSync: true
+      modelSync: true,
+      videoGeneration: true
     }),
-    parameters: OPENAI_IMAGE_PARAMETERS,
+    parameters: Object.freeze({
+      ...OPENAI_IMAGE_PARAMETERS,
+      videoTransport: PROVIDER_VIDEO_TRANSPORTS.TASK_JSON,
+      defaultVideoModel: 'veo3'
+    }),
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
       baseUrlExample: 'https://newapi.example.com/v1',
       docsUrl: 'https://github.com/QuantumNous/new-api',
       modelSync: true,
-      modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
-      setupHint: 'Enter the NewAPI public endpoint root or /v1 endpoint. The studio normalizes both to /v1, then syncs models from /v1/models and sends image jobs to /v1/images/generations.',
-      notes: ['Use for NewAPI Playground or compatible gateways with OpenAI-style /v1 routes and /v1/models support.']
+      workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
+      modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, TASK_VIDEO_MODEL_SLOT]),
+      setupHint: 'Enter the NewAPI public endpoint root or /v1 endpoint. The studio normalizes both to /v1, syncs models, sends image jobs to /v1/images/generations, and sends video jobs to /v1/video/generations when a video model is selected.',
+      notes: ['Use for NewAPI Playground or compatible gateways with OpenAI-style /v1 routes, /v1/models support, and task-style video generation.']
     })
   }),
   Object.freeze({
@@ -193,7 +225,10 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     label: 'Video Model Gateway',
     authMode: PROVIDER_AUTH_MODES.MANUAL,
     adapterType: PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP,
-    routes: OPENAI_COMPATIBLE_ROUTES,
+    routes: Object.freeze({
+      ...OPENAI_COMPATIBLE_ROUTES,
+      ...VIDEO_TASK_ROUTES
+    }),
     capabilities: Object.freeze({
       ...OPENAI_IMAGE_CAPABILITIES,
       modelSync: true,
@@ -202,7 +237,8 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     parameters: Object.freeze({
       ...OPENAI_IMAGE_PARAMETERS,
       defaultImageModel: 'gpt-image-2',
-      defaultVideoModel: 'veo3'
+      defaultVideoModel: 'veo3',
+      videoTransport: PROVIDER_VIDEO_TRANSPORTS.TASK_JSON
     }),
     descriptor: providerDescriptor({
       authFields: MANUAL_AUTH_FIELDS,
@@ -211,9 +247,9 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
       workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
       modelSlots: freezeModelSlots([
         ...OPENAI_IMAGE_MODEL_SLOTS,
-        { key: 'videoModel', label: 'Video generation', defaultModel: 'veo3', route: 'video' }
+        TASK_VIDEO_MODEL_SLOT
       ]),
-      notes: ['Reserved for compatible video gateways while image routes stay OpenAI-compatible.']
+      notes: ['Task-style compatible video gateways while image routes stay OpenAI-compatible.']
     })
   }),
   Object.freeze({
@@ -223,6 +259,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     adapterType: PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP,
     routes: Object.freeze({
       ...OPENAI_COMPATIBLE_ROUTES,
+      ...VIDEO_TASK_ROUTES,
       profile: '/api/v1/user/profile',
       keys: '/api/v1/keys',
       models: '/v1/models'
@@ -230,14 +267,20 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
     capabilities: Object.freeze({
       ...OPENAI_IMAGE_CAPABILITIES,
       modelSync: true,
-      accountKeys: true
+      accountKeys: true,
+      videoGeneration: true
     }),
-    parameters: OPENAI_IMAGE_PARAMETERS,
+    parameters: Object.freeze({
+      ...OPENAI_IMAGE_PARAMETERS,
+      defaultVideoModel: 'veo3',
+      videoTransport: PROVIDER_VIDEO_TRANSPORTS.TASK_JSON
+    }),
     descriptor: providerDescriptor({
       authFields: GATEWAY_AUTH_FIELDS,
       baseUrlExample: '/v1',
       modelSync: true,
-      modelSlots: OPENAI_IMAGE_MODEL_SLOTS,
+      workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
+      modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, TASK_VIDEO_MODEL_SLOT]),
       notes: ['Uses the signed-in gateway account and selected key.']
     })
   })

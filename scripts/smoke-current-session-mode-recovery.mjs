@@ -174,7 +174,7 @@ try {
         assistantMessages: [],
         canvasNodes: []
       },
-      mustInclude: ['视频创作', '视频任务接口'],
+      mustInclude: ['视频创作', '/v1/video/generations'],
       mustNotInclude: ['文生图'],
       expectedSelectValue: 'veo3'
     }

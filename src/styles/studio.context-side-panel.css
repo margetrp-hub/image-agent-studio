@@ -8,13 +8,9 @@
 .studioLayout .creationDesk .contextSidePanel .rightContextStack {
   min-height: 0 !important;
   display: grid !important;
-  grid-template-rows: minmax(0, 1fr) auto !important;
+  grid-template-rows: minmax(180px, 0.92fr) minmax(240px, 1.08fr) !important;
   gap: 10px !important;
   overflow: hidden !important;
-}
-
-.studioLayout .creationDesk .contextSidePanel.promptPanelOpen .rightContextStack {
-  grid-template-rows: auto minmax(0, 1fr) !important;
 }
 
 .studioLayout .creationDesk .rightContextSection {
@@ -30,14 +26,7 @@
   grid-template-rows: auto minmax(0, 1fr) !important;
 }
 
-.studioLayout .creationDesk .rightContextSection.isCollapsed {
-  min-height: 46px !important;
-  grid-template-rows: 46px !important;
-  background: color-mix(in srgb, var(--studio-surface-soft) 68%, transparent) !important;
-}
-
 .studioLayout .creationDesk .rightContextSectionHead {
-  width: 100% !important;
   height: 46px !important;
   min-height: 46px !important;
   padding: 0 12px !important;
@@ -48,7 +37,6 @@
   border: 0 !important;
   background: transparent !important;
   color: var(--studio-text-strong) !important;
-  cursor: pointer !important;
 }
 
 .studioLayout .creationDesk .rightContextSectionHead span {
@@ -74,11 +62,6 @@
   white-space: nowrap !important;
 }
 
-.studioLayout .creationDesk .rightContextSectionHead:hover,
-.studioLayout .creationDesk .rightContextSectionHead:focus-visible {
-  background: color-mix(in srgb, var(--studio-primary) 7%, transparent) !important;
-}
-
 .studioLayout .creationDesk .contextSidePanel .referenceSideBody,
 .studioLayout .creationDesk .contextSidePanel .referenceSideBody.hasReferenceItems {
   padding: 0 10px 10px !important;
@@ -91,6 +74,12 @@
   grid-template-rows: auto minmax(0, 1fr) !important;
   gap: 10px !important;
   overflow: hidden !important;
+}
+
+.studioLayout .creationDesk .contextSidePanel .promptContextSection {
+  border-color: color-mix(in srgb, var(--studio-primary) 24%, var(--studio-border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 4%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-surface-strong) 62%, transparent)) !important;
 }
 
 .studioLayout .creationDesk .contextSidePanel .rightPromptActions {
@@ -181,6 +170,10 @@
 @media (max-width: 860px) {
   .studioLayout .creationDesk .referenceSidePanel.contextSidePanel.isOpen {
     padding: 10px !important;
+  }
+
+  .studioLayout .creationDesk .contextSidePanel .rightContextStack {
+    grid-template-rows: minmax(132px, 0.86fr) minmax(220px, 1.14fr) !important;
   }
 
   .studioLayout .creationDesk .rightContextSectionHead em {

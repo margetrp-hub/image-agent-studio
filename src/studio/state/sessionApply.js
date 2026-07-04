@@ -132,7 +132,9 @@ export function notifySessionSnapshotChange(snapshot, {
   const encoded = encodePayload(snapshot);
   if (lastEncodedRef.current !== encoded) {
     lastEncodedRef.current = encoded;
-    onSessionSnapshot?.(snapshot);
+    if (onSessionSnapshot) {
+      window.queueMicrotask(() => onSessionSnapshot(snapshot));
+    }
   }
   return snapshot;
 }

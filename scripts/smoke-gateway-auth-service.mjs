@@ -107,18 +107,21 @@ try {
     method: 'POST',
     body: JSON.stringify(session)
   });
-  const loaded = await request('/studio-api/session');
+  const loaded = await request(`/studio-api/session?sessionId=${encodeURIComponent(session.sessionId)}`);
   const files = await fs.readdir(path.join(dataDir, 'users', userKey));
+  const sessionFiles = await fs.readdir(path.join(dataDir, 'users', userKey, 'sessions'));
 
   assert(loaded.session?.sessionId === session.sessionId, 'Gateway-authenticated session should round-trip.', loaded);
-  assert(files.includes('session.json'), 'Gateway-authenticated user directory should persist session.json.', files);
+  assert(files.includes('sessions'), 'Gateway-authenticated user directory should persist session directory.', files);
+  assert(sessionFiles.includes(`${session.sessionId}.json`), 'Gateway-authenticated session should persist under sessions/<sessionId>.json.', sessionFiles);
   assert(gatewayHits.some((hit) => hit.url === '/api/v1/auth/me' && hit.auth === `Bearer ${token}`), 'History service should authenticate through the configured gateway.', gatewayHits);
 
   console.log(JSON.stringify({
     ok: true,
     dataDir,
     gatewayHits,
-    userDirFiles: files
+    userDirFiles: files,
+    sessionFiles
   }, null, 2));
 } finally {
   child.kill('SIGTERM');

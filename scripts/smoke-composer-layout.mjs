@@ -251,11 +251,12 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       actions: '.composerActionGroup',
       assistant: '.composerAssistantAction',
       generate: '.composerGenerateAction',
-      suggestion: '.promptSuggestion.composerMessage',
-      suggestionBody: '.promptSuggestionBody',
-      suggestionLead: '.promptSuggestionLead',
-      suggestionText: '.promptSuggestionText, .promptSuggestionPlain',
-      suggestionActions: '.promptSuggestionActions'
+      suggestion: '.composerThread .promptSuggestion.composerMessage',
+      promptWorkspace: '.promptContextSection',
+      promptWorkspaceBody: '.promptContextSection .rightPromptBody',
+      promptWorkspaceList: '.promptContextSection .promptSectionList',
+      promptWorkspaceSection: '.promptContextSection .promptSection',
+      promptWorkspaceActions: '.promptContextSection .rightPromptActions'
     };
     const rects = Object.fromEntries(Object.entries(keys).map(([key, selector]) => [key, rect(selector)]));
     const visibleHeaderPills = Array.from(document.querySelectorAll('.composerHeaderPill')).filter((node) => {
@@ -288,14 +289,13 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     const paramTopSpread = paramChildren.length
       ? Math.max(...paramChildren.map((item) => item.top)) - Math.min(...paramChildren.map((item) => item.top))
       : 0;
-    const suggestionBodyStyle = document.querySelector('.promptSuggestionBody')
-      ? getComputedStyle(document.querySelector('.promptSuggestionBody'))
+    const promptWorkspaceBodyStyle = document.querySelector('.promptContextSection .rightPromptBody')
+      ? getComputedStyle(document.querySelector('.promptContextSection .rightPromptBody'))
       : null;
-    const suggestionBodyBorderWidth = suggestionBodyStyle
-      ? ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']
-        .reduce((total, key) => total + Number.parseFloat(suggestionBodyStyle[key] || '0'), 0)
+    const promptWorkspaceListStyle = document.querySelector('.promptContextSection .promptSectionList')
+      ? getComputedStyle(document.querySelector('.promptContextSection .promptSectionList'))
       : null;
-    const suggestionTextSamples = Array.from(document.querySelectorAll('.promptSuggestionText span, .promptSuggestionPlain')).map((node) => {
+    const promptWorkspaceSamples = Array.from(document.querySelectorAll('.promptContextSection .promptSection p')).map((node) => {
       const style = getComputedStyle(node);
       const box = node.getBoundingClientRect();
       if (style.display === 'none' || style.visibility === 'hidden' || box.width <= 0 || box.height <= 0) return null;
@@ -308,7 +308,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
         textOverflow: style.textOverflow
       };
     }).filter(Boolean);
-    const suggestionActionOverlap = overlap(rects.suggestionText, rects.suggestionActions);
+    const promptWorkspaceActionOverlap = overlap(rects.promptWorkspaceList, rects.promptWorkspaceActions);
     const toolbarQueueOverlap = overlap(rects.canvasToolbar, rects.queueDock);
     const toolbarComposerOverlap = overlap(rects.canvasToolbar, rects.composer);
     const toolbarReferenceOverlap = overlap(rects.canvasToolbar, rects.referencePanel);
@@ -354,9 +354,10 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       paramShelfOverflowX: paramShelfStyle?.overflowX || '',
       paramShelfOverflowY: paramShelfStyle?.overflowY || '',
       paramTopSpread,
-      suggestionBodyBorderWidth,
-      suggestionTextSamples,
-      suggestionActionOverlap,
+      promptWorkspaceBodyDisplay: promptWorkspaceBodyStyle?.display || '',
+      promptWorkspaceListOverflowY: promptWorkspaceListStyle?.overflowY || '',
+      promptWorkspaceSamples,
+      promptWorkspaceActionOverlap,
       toolbarQueueOverlap,
       toolbarComposerOverlap,
       toolbarReferenceOverlap,
@@ -423,11 +424,12 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     const visibleMessageOptions = [
       [result.rects.assistantMessage, result.rects.assistantMessageText],
       [result.rects.userMessage, result.rects.userMessageText],
-      [result.rects.suggestion, result.rects.suggestionText]
     ].filter(([message, text]) => message && text);
-    const [visibleMessage, visibleMessageText] = visibleMessageOptions.find(([message]) => (
+    const visibleCandidates = visibleMessageOptions.filter(([message]) => (
       message.y < result.rects.thread.bottom - 8 && message.bottom > result.rects.thread.y + 8
-    )) || [];
+    ));
+    const [visibleMessage, visibleMessageText] = visibleCandidates
+      .sort((a, b) => (b[1]?.width || 0) - (a[1]?.width || 0))[0] || [];
     assert(visibleMessage && visibleMessageText, `${name}: no conversation message was visible in the composer thread.`, result);
     assert(
       visibleMessage.y < result.rects.thread.bottom - 8 && visibleMessage.bottom > result.rects.thread.y + 8,
@@ -461,30 +463,21 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
   assert(result.rects.params.height >= 34 && result.rects.params.height <= 52, `${name}: parameters should default to a compact summary until generate or manual edit.`, result);
   assert(result.paramGroups.length === 0, `${name}: expanded parameter controls should not be visible by default.`, result);
   assert(result.visibleHeaderPills === 0, `${name}: inactive composer header pills are still visible.`, result);
-  if (result.rects.thread || result.rects.suggestion) {
-    assert(result.rects.suggestion, `${name}: prompt suggestion was not visible.`, result);
-    const suggestionWidthLimit = result.rects.thread ? result.rects.thread.width - 16 : result.rects.composer.width - 32;
-    assert(result.rects.suggestion.width >= Math.min(260, suggestionWidthLimit), `${name}: prompt suggestion collapsed into an unreadable narrow card.`, result);
-    if (result.rects.thread) {
-      assert(
-        result.rects.suggestion.y >= result.rects.thread.y - 1 && result.rects.suggestion.bottom <= result.rects.thread.bottom + 1,
-        `${name}: current prompt suggestion escaped the visible composer thread area.`,
-        result
-      );
-    }
-    assert(result.rects.suggestionLead, `${name}: prompt suggestion lead text was not visible.`, result);
-    assert(result.rects.suggestionText, `${name}: prompt suggestion text was not visible.`, result);
-    assert(result.rects.suggestionActions, `${name}: prompt suggestion actions were not visible.`, result);
-    assert(result.suggestionActionOverlap <= 4, `${name}: prompt suggestion actions overlap the text.`, result);
-    const minSuggestionTextWidth = name.startsWith('mobile')
-      ? Math.min(112, result.rects.suggestionBody.width - 36)
-      : Math.min(240, result.rects.suggestionBody.width - 40);
+  assert(!result.rects.suggestion, `${name}: prompt suggestion should live in the right prompt workspace, not inside the scrollable composer thread.`, result);
+  if (referencesOpen) {
+    assert(result.rects.promptWorkspace, `${name}: fixed prompt workspace is not visible in the right context panel.`, result);
+    assert(result.rects.promptWorkspaceBody, `${name}: prompt workspace body is not visible.`, result);
+    assert(result.rects.promptWorkspaceList, `${name}: prompt workspace list is not visible.`, result);
+    assert(result.rects.promptWorkspaceSection, `${name}: prompt sections are not visible.`, result);
+    assert(result.rects.promptWorkspaceActions, `${name}: prompt workspace actions are not visible.`, result);
+    assert(result.promptWorkspaceBodyDisplay === 'grid', `${name}: prompt workspace should be a stable grid area.`, result);
+    assert(['auto', 'scroll'].includes(result.promptWorkspaceListOverflowY), `${name}: prompt workspace should own long prompt scrolling internally.`, result);
+    assert(result.promptWorkspaceActionOverlap <= 4, `${name}: prompt workspace actions overlap the prompt text.`, result);
     assert(
-      result.suggestionTextSamples.length > 0 && result.suggestionTextSamples.every((item) => item.width >= minSuggestionTextWidth),
-      `${name}: prompt suggestion text is clipped into tiny fragments.`,
+      result.promptWorkspaceSamples.length > 0 && result.promptWorkspaceSamples.every((item) => item.width >= Math.min(140, result.rects.promptWorkspaceBody.width - 42)),
+      `${name}: prompt workspace text is clipped into tiny fragments.`,
       result
     );
-    assert(result.suggestionBodyBorderWidth === 0, `${name}: prompt suggestion body still renders as a nested bordered box.`, result);
   }
   assert(result.sectionOverlaps.length === 0, `${name}: composer sections overlap.`, result);
   assert(result.outsideComposer.length === 0, `${name}: composer sections escaped the composer container.`, result);

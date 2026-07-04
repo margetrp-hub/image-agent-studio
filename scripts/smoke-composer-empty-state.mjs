@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const screenshotPath = 'D:/wiki/image-sub2api-studio/output/playwright/composer-empty-compact-rerun.png';
-const layoutKey = 'image-sub2api-studio:workbench-layout:v5';
+const layoutKey = 'image-sub2api-studio:workbench-layout:v6';
 const sessionKey = 'image-sub2api-studio:current-session:v1';
 
 function assert(condition, message, evidence) {

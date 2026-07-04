@@ -1,5 +1,5 @@
 import { getImageProvider, PROVIDER_ADAPTER_TYPES, PROVIDER_ROUTE_MODES } from './registry.js';
-import { resolveImageEditDispatch, resolveImageGenerationDispatch } from './dispatch.js';
+import { resolveImageEditDispatch, resolveImageGenerationDispatch, resolveVideoGenerationDispatch } from './dispatch.js';
 
 function adapterTypeForProvider(provider) {
   return provider?.adapterType || PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP;
@@ -95,6 +95,24 @@ export function resolveProviderAdapter({ providerId, authMode } = {}) {
         endpoint: dispatch.endpoint,
         allowImagesFallback: false,
         payloadFormat: 'multipart'
+      };
+    },
+    buildVideoPlan() {
+      const dispatch = resolveVideoGenerationDispatch({
+        providerId: provider?.id || providerId,
+        authMode: provider?.authMode || authMode
+      });
+      return {
+        provider,
+        adapterType: adapterTypeForProvider(provider),
+        mode: 'video',
+        method: 'POST',
+        transport: dispatch.transport,
+        endpoint: dispatch.createEndpoint,
+        createEndpoint: dispatch.createEndpoint,
+        retrieveEndpoint: dispatch.retrieveEndpoint,
+        contentEndpoint: dispatch.contentEndpoint,
+        payloadFormat: dispatch.transport === 'openai-videos' ? 'multipart' : 'json'
       };
     }
   };

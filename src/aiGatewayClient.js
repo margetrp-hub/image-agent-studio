@@ -11,7 +11,7 @@ import {
   selectImageGenerationModel,
   shouldFallbackToImagesTransport
 } from './gateway/index.js';
-import { normalizeImageRouteMode, normalizeProviderId } from './studio/providers/index.js';
+import { PROVIDER_VIDEO_TRANSPORTS, normalizeImageRouteMode, normalizeProviderId } from './studio/providers/index.js';
 
 const SESSION_KEY = 'sub2api-studio:session:v1';
 const SELECTED_KEY_ID = 'sub2api-studio:selected-key-id:v1';
@@ -119,6 +119,18 @@ function base64ToDataUrl(base64, format = 'png') {
   return base64 ? `data:${imageMimeType(format)};base64,${base64}` : '';
 }
 
+function dataUrlToBlob(value) {
+  const raw = String(value || '');
+  const match = raw.match(/^data:([^;,]+);base64,([a-zA-Z0-9+/=\s]+)$/);
+  if (!match) return null;
+  const bytes = atob(match[2].replace(/\s+/g, ''));
+  const buffer = new Uint8Array(bytes.length);
+  for (let index = 0; index < bytes.length; index += 1) {
+    buffer[index] = bytes.charCodeAt(index);
+  }
+  return new Blob([buffer], { type: match[1] || 'application/octet-stream' });
+}
+
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -129,6 +141,10 @@ function fileToDataUrl(file) {
 }
 
 const compactObject = compactGatewayObject;
+
+function applyEndpointTemplate(endpoint, values = {}) {
+  return String(endpoint || '').replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key) => encodeURIComponent(values[key] || ''));
+}
 
 function sleep(ms, signal) {
   return new Promise((resolve, reject) => {
@@ -1176,17 +1192,28 @@ export class AiGatewayClient {
     seed,
     responseFormat = 'url',
     metadata = {},
+    transport = PROVIDER_VIDEO_TRANSPORTS.TASK_JSON,
+    createEndpoint = '/v1/video/generations',
     gatewayBaseUrl,
     signal
   }) {
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
-    const response = await fetch(`${resolvedGatewayBaseUrl}/video/generations`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(compactObject({
+    const requestUrl = gatewayEndpointUrl(resolvedGatewayBaseUrl, createEndpoint);
+    const isOpenAiVideos = transport === PROVIDER_VIDEO_TRANSPORTS.OPENAI_VIDEOS;
+    const body = isOpenAiVideos
+      ? (() => {
+        const form = new FormData();
+        form.append('model', model);
+        form.append('prompt', prompt);
+        if (width && height) form.append('size', `${width}x${height}`);
+        if (duration) form.append('seconds', String(duration));
+        if (n) form.append('n', String(n));
+        if (seed !== undefined && seed !== null && seed !== '') form.append('seed', String(seed));
+        const referenceBlob = dataUrlToBlob(image);
+        if (referenceBlob) form.append('input_reference', referenceBlob, 'reference.png');
+        return form;
+      })()
+      : JSON.stringify(compactObject({
         model,
         prompt,
         image,
@@ -1198,15 +1225,24 @@ export class AiGatewayClient {
         n,
         response_format: responseFormat,
         metadata: compactObject(metadata)
-      })),
+      }));
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: isOpenAiVideos
+        ? { Authorization: `Bearer ${apiKey}` }
+        : {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+      body,
       ...(signal ? { signal } : {})
     });
     return normalizeVideoTask(await readJsonResponse(response));
   }
 
-  async getVideoTask({ apiKey, taskId, gatewayBaseUrl, signal }) {
+  async getVideoTask({ apiKey, taskId, retrieveEndpoint = '/v1/video/generations/{id}', gatewayBaseUrl, signal }) {
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
-    const response = await fetch(`${resolvedGatewayBaseUrl}/video/generations/${encodeURIComponent(taskId)}`, {
+    const response = await fetch(gatewayEndpointUrl(resolvedGatewayBaseUrl, applyEndpointTemplate(retrieveEndpoint, { id: taskId })), {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
@@ -1214,6 +1250,20 @@ export class AiGatewayClient {
       ...(signal ? { signal } : {})
     });
     return normalizeVideoTask(await readJsonResponse(response));
+  }
+
+  async getVideoContentUrl({ apiKey, taskId, contentEndpoint, gatewayBaseUrl, signal }) {
+    if (!contentEndpoint) return '';
+    const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
+    const response = await fetch(gatewayEndpointUrl(resolvedGatewayBaseUrl, applyEndpointTemplate(contentEndpoint, { id: taskId })), {
+      headers: {
+        Authorization: `Bearer ${apiKey}`
+      },
+      ...(signal ? { signal } : {})
+    });
+    if (!response.ok) await readJsonResponse(response);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
   }
 
   async generateVideo({
@@ -1229,6 +1279,10 @@ export class AiGatewayClient {
     seed,
     metadata,
     gatewayBaseUrl,
+    transport = PROVIDER_VIDEO_TRANSPORTS.TASK_JSON,
+    createEndpoint = '/v1/video/generations',
+    retrieveEndpoint = '/v1/video/generations/{id}',
+    contentEndpoint = '',
     onProgress,
     pollIntervalMs = 4000,
     maxPollAttempts = 90,
@@ -1247,11 +1301,25 @@ export class AiGatewayClient {
       n,
       seed,
       metadata,
+      transport,
+      createEndpoint,
       gatewayBaseUrl,
       signal
     });
     const taskId = created.task_id || created.id;
     if (!taskId) throw new Error('VIDEO_TASK_ID_MISSING');
+
+    const withContentUrl = async (task) => {
+      if (task?.status !== 'completed' || task.video_url || !contentEndpoint) return task;
+      const contentUrl = await this.getVideoContentUrl({ apiKey, taskId, contentEndpoint, gatewayBaseUrl, signal });
+      if (!contentUrl) return task;
+      return normalizeVideoTask({
+        ...task.raw,
+        ...task,
+        url: contentUrl,
+        video_url: contentUrl
+      });
+    };
 
     onProgress?.({
       stage: created.status === 'in_progress' ? 'video' : 'queued',
@@ -1262,13 +1330,13 @@ export class AiGatewayClient {
       total: Math.max(1, Number(n || 1))
     });
 
-    if (created.status === 'completed') return created;
+    if (created.status === 'completed') return withContentUrl(created);
     if (created.status === 'failed') throw new Error(created.error?.message || 'VIDEO_GENERATION_FAILED');
 
     let latest = created;
     for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
       await sleep(pollIntervalMs, signal);
-      latest = await this.getVideoTask({ apiKey, taskId, gatewayBaseUrl, signal });
+      latest = await this.getVideoTask({ apiKey, taskId, retrieveEndpoint, gatewayBaseUrl, signal });
       const fallbackPercent = Math.min(96, 16 + Math.round(((attempt + 1) / maxPollAttempts) * 76));
       onProgress?.({
         stage: latest.status === 'completed' ? 'completed' : latest.status === 'failed' ? 'failed' : latest.status === 'in_progress' ? 'video' : 'queued',
@@ -1278,11 +1346,11 @@ export class AiGatewayClient {
         completed: latest.status === 'completed' ? 1 : 0,
         total: Math.max(1, Number(n || 1))
       });
-      if (latest.status === 'completed') return latest;
+      if (latest.status === 'completed') return withContentUrl(latest);
       if (latest.status === 'failed') throw new Error(latest.error?.message || 'VIDEO_GENERATION_FAILED');
     }
 
-    return latest;
+    return withContentUrl(latest);
   }
 
   async generateImageViaResponses({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, referenceImages = [], onPartial, onProgress, gatewayBaseUrl, responsesModel, partialImages, endpoint = '/v1/responses', signal }) {
