@@ -3,10 +3,8 @@
 // generation settings are reviewed from the generate confirmation dialog, not
 // restored as a large panel on every visit.
 
-const WORKBENCH_LAYOUT_KEY = 'image-sub2api-studio:workbench-layout:v6';
-const LEGACY_WORKBENCH_LAYOUT_KEYS = [
-  'image-sub2api-studio:workbench-layout:v5'
-];
+const WORKBENCH_LAYOUT_KEY = 'image-sub2api-studio:workbench-layout:v7';
+const LEGACY_WORKBENCH_LAYOUT_KEYS = [];
 
 const DEFAULT_LAYOUT = Object.freeze({
   prompt: false,
@@ -16,7 +14,7 @@ const DEFAULT_LAYOUT = Object.freeze({
   bottomComposer: true,
   composerParameters: false,
   composerFolded: false,
-  flowMode: 'canvas'
+  flowMode: 'single'
 });
 
 export function loadWorkbenchLayout() {
@@ -33,7 +31,7 @@ export function loadWorkbenchLayout() {
       bottomComposer: stored?.bottomComposer !== false,
       composerParameters: false,
       composerFolded: stored?.composerFolded === true,
-      flowMode: stored?.flowMode === 'single' ? 'single' : 'canvas'
+      flowMode: stored?.flowMode === 'canvas' ? 'canvas' : 'single'
     };
   } catch {
     return { ...DEFAULT_LAYOUT };

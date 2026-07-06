@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const screenshotPath = 'D:/wiki/image-sub2api-studio/output/playwright/composer-folded-state.png';
-const layoutKey = 'image-sub2api-studio:workbench-layout:v6';
+const layoutKey = 'image-sub2api-studio:workbench-layout:v7';
 const sessionKey = 'image-sub2api-studio:current-session:v1';
 
 function assert(condition, message, evidence) {
@@ -55,7 +55,8 @@ async function runScenario(browser, baseUrl) {
       parametersRail: false,
       bottomComposer: true,
       composerParameters: true,
-      composerFolded: false
+      composerFolded: false,
+      flowMode: 'canvas'
     }));
     localStorage.setItem(sessionKey, JSON.stringify({
       sessionId: 'composer-folded-smoke-session',
@@ -174,7 +175,8 @@ async function runReopenScenario(browser, baseUrl) {
       parametersRail: false,
       bottomComposer: false,
       composerParameters: false,
-      composerFolded: false
+      composerFolded: false,
+      flowMode: 'canvas'
     }));
     localStorage.setItem(sessionKey, JSON.stringify({
       sessionId: 'composer-reopen-smoke-session',

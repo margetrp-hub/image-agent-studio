@@ -6,7 +6,7 @@ import path from 'node:path';
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const fixtureDir = `${screenshotDir}/fixtures`;
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAWElEQVR42u3OQQ0AAAgDMMTrf2YKBhhoKrQydc1wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgOwQ0AAEEp43RAAAAAElFTkSuQmCC';
-const layoutKey = 'image-sub2api-studio:workbench-layout:v6';
+const layoutKey = 'image-sub2api-studio:workbench-layout:v7';
 const sessionKey = 'image-sub2api-studio:current-session:v1';
 
 function assert(condition, message, evidence) {
@@ -187,7 +187,8 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
       parameters: true,
       parametersRail: false,
       bottomComposer: true,
-      composerParameters: false
+      composerParameters: false,
+      flowMode: 'canvas'
     }));
     localStorage.setItem(sessionKey, JSON.stringify(session));
   }, { layoutKey, sessionKey, session: seedSession({ liveStatus }), referencesOpen });
@@ -516,7 +517,8 @@ async function runCloseReopenScenario(browser, baseUrl) {
       parametersRail: false,
       bottomComposer: true,
       composerParameters: false,
-      composerFolded: false
+      composerFolded: false,
+      flowMode: 'canvas'
     }));
     localStorage.setItem(sessionKey, JSON.stringify(session));
   }, { layoutKey, sessionKey, session: seedSession() });
@@ -576,7 +578,8 @@ async function runCloseReopenScenario(browser, baseUrl) {
       parametersRail: false,
       bottomComposer: false,
       composerParameters: false,
-      composerFolded: false
+      composerFolded: false,
+      flowMode: 'canvas'
     }));
     localStorage.setItem(sessionKey, JSON.stringify(session));
   }, { layoutKey, sessionKey, session: seedSession() });

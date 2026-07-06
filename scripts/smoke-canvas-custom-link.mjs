@@ -36,6 +36,16 @@ try {
   await page.addInitScript(({ nodeOneUrl, nodeTwoUrl }) => {
     localStorage.clear();
     sessionStorage.clear();
+    localStorage.setItem('image-sub2api-studio:workbench-layout:v7', JSON.stringify({
+      prompt: false,
+      references: true,
+      parameters: true,
+      parametersRail: false,
+      bottomComposer: true,
+      composerParameters: false,
+      composerFolded: false,
+      flowMode: 'canvas'
+    }));
     localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({
       sessionId: 'canvas-custom-link-smoke',
       mode: 'image',

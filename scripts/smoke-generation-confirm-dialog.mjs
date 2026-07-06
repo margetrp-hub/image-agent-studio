@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const screenshotPath = 'D:/wiki/image-sub2api-studio/output/playwright/generation-confirm-dialog.png';
-const layoutKey = 'image-sub2api-studio:workbench-layout:v6';
+const layoutKey = 'image-sub2api-studio:workbench-layout:v7';
 const sessionKey = 'image-sub2api-studio:current-session:v1';
 
 function assert(condition, message, evidence) {
@@ -63,7 +63,8 @@ try {
       parametersRail: false,
       bottomComposer: true,
       composerParameters: false,
-      composerFolded: false
+      composerFolded: false,
+      flowMode: 'canvas'
     }));
     localStorage.setItem(sessionKey, JSON.stringify({
       sessionId: 'generation-confirm-smoke-session',
