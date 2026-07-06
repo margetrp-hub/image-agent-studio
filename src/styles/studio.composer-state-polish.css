@@ -15,15 +15,15 @@
 }
 
 .studioLayout .creationDesk {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 54%, transparent) !important;
+  border-radius: var(--studio-radius-shell, 26px) !important;
+  background: color-mix(in srgb, var(--studio-surface-strong) 84%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent), 0 18px 50px rgba(15, 23, 42, 0.07) !important;
 }
 
 .studioLayout .creationDesk .workPreview.infiniteCanvas {
   inset: 0 var(--workbench-side-reserved) 0 0 !important;
-  border-radius: 0 !important;
+  border-radius: var(--studio-radius-shell, 26px) 0 0 var(--studio-radius-shell, 26px) !important;
   background-color: var(--studio-bg) !important;
 }
 
@@ -48,7 +48,7 @@
   gap: 10px !important;
   overflow: hidden !important;
   transform: none !important;
-  border-radius: 20px !important;
+  border-radius: var(--studio-radius-panel, 22px) !important;
 }
 
 .studioLayout .creationDesk.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.bottomComposerBar.codexComposerPanel.isExpandedComposer.isEmptyComposer.paramsExpanded:has(.composerParamShelf.isExpanded) {
@@ -75,7 +75,7 @@
   min-width: 34px !important;
   height: 34px !important;
   min-height: 34px !important;
-  border-radius: 12px !important;
+  border-radius: var(--studio-radius-control, 16px) !important;
 }
 
 .studioLayout .creationDesk .bottomComposerBar.codexComposerPanel.isExpandedComposer.isEmptyComposer .composerPanelTitle {
@@ -113,7 +113,7 @@
 
 .studioLayout .creationDesk .bottomComposerBar.codexComposerPanel.isExpandedComposer.isEmptyComposer .bottomComposerInput textarea {
   padding: 16px 18px !important;
-  border-radius: 18px !important;
+  border-radius: var(--studio-radius-field, 18px) !important;
   font-size: 14.5px !important;
   line-height: 1.55 !important;
 }
@@ -150,7 +150,7 @@
   height: 46px !important;
   min-height: 46px !important;
   max-height: 46px !important;
-  border-radius: 14px !important;
+  border-radius: var(--studio-radius-control, 16px) !important;
 }
 
 .studioLayout .creationDesk .bottomComposerBar.codexComposerPanel.isExpandedComposer.isEmptyComposer .composerParamShelf.isCollapsed {

@@ -40,6 +40,7 @@ const expectedCssImports = [
   './styles/studio.composer-codex-guards.css',
   './styles/studio.workstation-shell.css',
   './styles/studio.playground-polish.css',
+  './styles/studio.flow-modes.css',
   './styles/studio.composer-state-polish.css'
 ];
 const lazyCssImports = [
@@ -218,6 +219,10 @@ const cssBudgets = {
   'src/styles/studio.playground-polish.css': {
     lines: 180,
     important: 95
+  },
+  'src/styles/studio.flow-modes.css': {
+    lines: 13,
+    important: 37
   },
   'src/styles/studio.composer-state-polish.css': {
     lines: 300,

@@ -75,8 +75,8 @@ import './styles/studio.composer-codex.css';
 import './styles/studio.composer-codex-guards.css';
 import './styles/studio.workstation-shell.css';
 import './styles/studio.playground-polish.css';
-import './styles/studio.composer-state-polish.css';
 import './styles/studio.flow-modes.css';
+import './styles/studio.composer-state-polish.css';
 import {
   AiGatewayClient,
   StudioHistoryClient,
