@@ -31,6 +31,7 @@
     "ops:restore": "node scripts/ops-restore.mjs",
     "ops:self-check": "node scripts/ops-self-check.mjs",
     "ops:upgrade": "node scripts/ops-upgrade.mjs",
+    "ops:prepare-image-library": "node scripts/prepare-image-library.mjs",
     "ops:localize-inspirations": "node scripts/localize-inspiration-assets.mjs",
     "package:release": "node scripts/package-release.mjs && npm run check:release",
     "package:windows": "node scripts/package-windows.mjs",

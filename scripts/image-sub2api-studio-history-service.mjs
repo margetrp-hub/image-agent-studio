@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
@@ -16,7 +16,12 @@ const PORT = Number(process.env.PORT || process.env.STUDIO_HISTORY_PORT || 8787)
 const HOST = process.env.HOST || process.env.STUDIO_HISTORY_HOST || '127.0.0.1';
 const DATA_DIR = path.resolve(process.env.STUDIO_DATA_DIR || path.join(__dirname, '..', '.image-sub2api-studio-data'));
 const LIBRARY_DIR = path.resolve(process.env.STUDIO_LIBRARY_DIR || path.join(__dirname, '..', 'data'));
-const LIBRARY_ASSET_DIR = path.resolve(process.env.STUDIO_LIBRARY_ASSET_DIR || path.join(LIBRARY_DIR, 'images'));
+const LIBRARY_ASSET_DIR = path.resolve(process.env.STUDIO_LIBRARY_ASSET_DIR || path.join(LIBRARY_DIR, 'image-library'));
+const LEGACY_LIBRARY_ASSET_DIR = path.resolve(path.join(LIBRARY_DIR, 'images'));
+const LIBRARY_ASSET_DIRS = [...new Set([
+  LIBRARY_ASSET_DIR,
+  LEGACY_LIBRARY_ASSET_DIR
+])];
 const AUTH_MODE = String(process.env.STUDIO_AUTH_MODE || 'gateway').toLowerCase();
 const AI_GATEWAY_BASE_URL = String(process.env.AI_GATEWAY_BASE_URL || process.env.SUB2API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
 const HISTORY_LIMIT = Number(process.env.STUDIO_HISTORY_LIMIT || 200);
@@ -628,15 +633,41 @@ function protectedLibraryAssetUrl(value) {
   return '';
 }
 
+function safeLibraryAssetSegments(rawAssetPath) {
+  const segments = String(rawAssetPath || '').split('/').filter(Boolean);
+  if (!segments.length || segments.some((segment) => segment === '..' || segment.includes('\0'))) return null;
+  return segments;
+}
+
+function resolveLibraryAssetPath(segments) {
+  if (!segments?.length) return '';
+  for (const assetDir of LIBRARY_ASSET_DIRS) {
+    const filePath = path.join(assetDir, ...segments);
+    const relative = path.relative(assetDir, filePath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+    if (existsSync(filePath)) return filePath;
+  }
+  return '';
+}
+
+function libraryAssetExists(value) {
+  const raw = String(value || '').trim();
+  if (!/^\/studio-api\/library-assets\//i.test(raw)) return false;
+  const assetPath = decodeURIComponent(raw.replace(/^\/studio-api\/library-assets\//i, ''));
+  return Boolean(resolveLibraryAssetPath(safeLibraryAssetSegments(assetPath)));
+}
+
 function protectedLibraryThumbnailUrl(item) {
   const direct = protectedLibraryAssetUrl(item.thumbnail || item.thumb || item.thumbnail_url || item.thumbnailUrl);
-  if (direct) return direct;
+  if (direct && (/^https?:\/\//i.test(direct) || libraryAssetExists(direct))) return direct;
 
   const image = String(item.image || item.image_url || '').trim();
-  if (/(?:^|\/)thumbs\//i.test(image)) return protectedLibraryAssetUrl(image);
+  const localImage = protectedLibraryAssetUrl(image);
+  if (/(?:^|\/)thumbs\//i.test(image)) return localImage;
   const match = image.match(/^(?:\.\/)?\/?images\/(.+)\.(png|jpe?g)$/i);
-  if (!match) return '';
-  return `/studio-api/library-assets/thumbs/${match[1]}.webp`;
+  if (!match) return libraryAssetExists(localImage) ? localImage : '';
+  const generated = `/studio-api/library-assets/thumbs/${match[1]}.webp`;
+  return libraryAssetExists(generated) ? generated : (libraryAssetExists(localImage) ? localImage : '');
 }
 
 function sanitizeLibrarySummary(item) {
@@ -1550,19 +1581,36 @@ async function serveAsset(req, res, auth, parts) {
   createReadStream(filePath).pipe(res);
 }
 
+function assetEtag(stat) {
+  return `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+}
+
+function normalizeEtag(value) {
+  return String(value || '').trim().replace(/^W\//i, '').replace(/^"|"$/g, '');
+}
+
+function libraryAssetIsFresh(req, stat, etag) {
+  const ifNoneMatch = String(req.headers['if-none-match'] || '').trim();
+  if (ifNoneMatch) {
+    return ifNoneMatch
+      .split(',')
+      .map(normalizeEtag)
+      .some((value) => value === '*' || value === normalizeEtag(etag));
+  }
+  const ifModifiedSince = Date.parse(String(req.headers['if-modified-since'] || ''));
+  if (!Number.isFinite(ifModifiedSince)) return false;
+  return Math.floor(stat.mtimeMs / 1000) * 1000 <= ifModifiedSince;
+}
+
 async function serveLibraryAsset(req, res, auth, parts) {
   const rawAssetPath = decodeURIComponent(parts.slice(2).join('/'));
-  const segments = rawAssetPath.split('/').filter(Boolean);
-  if (!segments.length || segments.some((segment) => segment === '..' || segment.includes('\0'))) {
+  const segments = safeLibraryAssetSegments(rawAssetPath);
+  if (!segments) {
     return sendJson(res, 404, { ok: false, error: 'ASSET_NOT_FOUND' });
   }
 
-  const filePath = path.join(LIBRARY_ASSET_DIR, ...segments);
-  const relative = path.relative(LIBRARY_ASSET_DIR, filePath);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    return sendJson(res, 404, { ok: false, error: 'ASSET_NOT_FOUND' });
-  }
-
+  const filePath = resolveLibraryAssetPath(segments);
+  if (!filePath) return sendJson(res, 404, { ok: false, error: 'ASSET_NOT_FOUND' });
   const stat = await fs.stat(filePath).catch(() => null);
   if (!stat?.isFile()) return sendJson(res, 404, { ok: false, error: 'ASSET_NOT_FOUND' });
 
@@ -1574,11 +1622,23 @@ async function serveLibraryAsset(req, res, auth, parts) {
       : ext === 'svg'
         ? 'image/svg+xml'
         : 'image/png';
-  res.writeHead(200, {
+  const etag = assetEtag(stat);
+  const headers = {
     'Content-Type': mime,
-    'Content-Length': stat.size,
-    'Cache-Control': 'private, max-age=300',
+    'Cache-Control': 'public, max-age=604800, stale-while-revalidate=604800',
+    ETag: etag,
+    'Last-Modified': stat.mtime.toUTCString(),
+    'X-Content-Type-Options': 'nosniff',
     'X-Robots-Tag': 'noindex, nofollow, noarchive'
+  };
+  if (libraryAssetIsFresh(req, stat, etag)) {
+    res.writeHead(304, headers);
+    res.end();
+    return;
+  }
+  res.writeHead(200, {
+    ...headers,
+    'Content-Length': stat.size
   });
   createReadStream(filePath).pipe(res);
 }
@@ -1610,6 +1670,25 @@ async function handler(req, res) {
   }
 
   try {
+    const hasAuthHeader = Boolean(String(req.headers.authorization || '').trim());
+
+    if (!hasAuthHeader && req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'library' && parts.length === 2) {
+      const { payload } = await readLibrary(null);
+      return sendJson(res, 200, payload);
+    }
+
+    if (!hasAuthHeader && req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'library' && parts.length === 3) {
+      const id = cleanLibraryId(decodeURIComponent(parts[2]));
+      const { rawCases } = await readLibrary(null);
+      const item = rawCases.find((caseItem) => String(caseItem.id) === id);
+      if (!item) return sendJson(res, 404, { ok: false, error: 'LIBRARY_ITEM_NOT_FOUND' });
+      return sendJson(res, 200, { ok: true, case: sanitizeLibraryDetail(item) });
+    }
+
+    if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'library-assets') {
+      return serveLibraryAsset(req, res, null, parts);
+    }
+
     const auth = await authenticate(req);
 
     if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'backup' && parts.length === 2) {

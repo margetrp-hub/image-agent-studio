@@ -1,15 +1,21 @@
+.singleGenerationWorkspace,
+body:has(.singleGenerationWorkspace),
+#studio-root:has(.singleGenerationWorkspace) {
+  overflow: hidden;
+}
+
 .singleGenerationWorkspace {
   position: absolute;
   inset: 0;
-  padding: 78px 28px 34px;
+  padding: 78px 18px 30px;
   overflow: auto;
 }
 
 .singleGenerationWorkspace > div {
-  width: min(1180px, 100%);
+  width: min(1500px, calc(100% - 24px));
   margin: auto;
   display: grid;
-  grid-template-columns: minmax(360px, 470px) minmax(0, 1fr);
+  grid-template-columns: minmax(420px, 540px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -37,6 +43,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .singleGenerationHead strong,
@@ -72,6 +79,10 @@
   font-size: 13px;
   font-weight: 820;
   white-space: nowrap;
+}
+
+.singleGenerationHead > div:first-child {
+  min-width: 0;
 }
 
 .singleFieldGrid {
@@ -268,11 +279,41 @@
 
 @media (max-width: 760px) {
   .singleGenerationWorkspace {
-    padding: 118px 14px 22px;
+    padding: 104px 10px 18px;
   }
 
   .singleGenerationWorkspace section {
-    padding: 14px;
+    padding: 12px;
+    border-radius: var(--studio-radius-card, 14px);
+  }
+
+  .singleGenerationWorkspace > div {
+    gap: 12px;
+  }
+
+  .singleGenerationHead,
+  .singleBlockTitle {
+    gap: 10px;
+  }
+
+  .singleGenerationHead > button,
+  .singleActionBar button,
+  .singleKeyButton {
+    min-height: 36px;
+    padding: 0 11px;
+    border-radius: var(--studio-radius-control, 11px);
+  }
+
+  .singlePromptBox textarea {
+    min-height: 132px;
+    padding: 11px 12px;
+    border-radius: var(--studio-radius-field, 12px);
+  }
+
+  .singleUploadDrop {
+    min-height: 96px;
+    padding: 12px;
+    border-radius: var(--studio-radius-card, 14px);
   }
 
   .singleFieldGrid,

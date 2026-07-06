@@ -86,7 +86,7 @@ const inspirations = countArray(path.join(libraryDir, 'inspirations.json'), 'cas
 const templates = countArray(path.join(libraryDir, 'style-library.json'), 'templates');
 
 let images = 0;
-const imageRoot = path.join(libraryDir, 'images');
+const imageRoots = [path.join(libraryDir, 'image-library'), path.join(libraryDir, 'images')];
 function walk(dir) {
   let entries = [];
   try {
@@ -100,7 +100,7 @@ function walk(dir) {
     else if (/\.(png|jpe?g|webp)$/i.test(entry.name)) images += 1;
   }
 }
-walk(imageRoot);
+for (const imageRoot of imageRoots) walk(imageRoot);
 
 console.log(`library cases: ${cases}`);
 console.log(`library inspirations: ${inspirations}`);
@@ -225,7 +225,7 @@ Environment="SUB2API_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="STUDIO_AUTH_MODE=$STUDIO_AUTH_MODE"
 Environment="STUDIO_DATA_DIR=$DATA_DIR"
 Environment="STUDIO_LIBRARY_DIR=$DATA_DIR/library"
-Environment="STUDIO_LIBRARY_ASSET_DIR=$DATA_DIR/library/images"
+Environment="STUDIO_LIBRARY_ASSET_DIR=$DATA_DIR/library/image-library"
 Environment="STUDIO_ALLOWED_ORIGINS=$(allowed_origins)"
 Environment="STUDIO_JOB_TIMEOUT_MS=$STUDIO_JOB_TIMEOUT_MS"
 Environment="STUDIO_GATEWAY_FETCH_TIMEOUT_MS=$STUDIO_GATEWAY_FETCH_TIMEOUT_MS"

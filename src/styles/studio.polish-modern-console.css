@@ -464,9 +464,7 @@ label span,
   color: var(--studio-primary);
 }
 
-.categoryThumbs {
-  min-height: 102px;
-}
+.categoryThumbs { min-height: 102px; position: relative; overflow: hidden; }
 
 .categoryThumbs img,
 .caseMedia img {
@@ -484,7 +482,7 @@ label span,
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.22));
+  background: linear-gradient(180deg, transparent 70%, rgba(15, 23, 42, 0.08));
   pointer-events: none;
 }
 

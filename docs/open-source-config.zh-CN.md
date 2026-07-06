@@ -62,7 +62,7 @@ STUDIO_AUTH_MODE=gateway
 AI_GATEWAY_BASE_URL=http://127.0.0.1:8080
 STUDIO_DATA_DIR=/var/lib/image-sub2api-studio
 STUDIO_LIBRARY_DIR=/var/lib/image-sub2api-studio/library
-STUDIO_LIBRARY_ASSET_DIR=/var/lib/image-sub2api-studio/library/images
+STUDIO_LIBRARY_ASSET_DIR=/var/lib/image-sub2api-studio/library/image-library
 ```
 
 服务会把历史图库、当前画布会话、队列任务和生成图片写入 `STUDIO_DATA_DIR`。运行时 API Key 不会写入 `records.json`、`session.json` 或 `jobs.json`。

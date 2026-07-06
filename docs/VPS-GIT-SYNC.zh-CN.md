@@ -105,7 +105,7 @@ for f in "$DATA_DIR/library/cases.json" \
   sudo node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); for (const [k,v] of Object.entries(j)) if (Array.isArray(v)) console.log(k, v.length);" "$f"
 done
 
-sudo find "$DATA_DIR/library/images" \
+sudo find "$DATA_DIR/library/image-library" \
   -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | wc -l
 ```
 
@@ -127,7 +127,7 @@ sudo install -d -o www-data -g www-data -m 750 "$NEW_LIBRARY"
 sudo install -o www-data -g www-data -m 640 "$OLD_PUBLIC/cases.json" "$NEW_LIBRARY/cases.json"
 sudo install -o www-data -g www-data -m 640 "$OLD_PUBLIC/inspirations.json" "$NEW_LIBRARY/inspirations.json"
 sudo install -o www-data -g www-data -m 640 "$OLD_PUBLIC/style-library.json" "$NEW_LIBRARY/style-library.json"
-sudo cp -a "$OLD_PUBLIC/images" "$NEW_LIBRARY/"
+sudo cp -a "$OLD_PUBLIC/images" "$NEW_LIBRARY/image-library"
 
 sudo chown -R www-data:www-data "$DATA_DIR"
 sudo find "$DATA_DIR" -type d -exec chmod 750 {} \;

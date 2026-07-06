@@ -1,16 +1,113 @@
 {
-  "updatedAt": "2026-05-24",
-  "note": "Starter source registry for prompt-template and demo-asset attribution. Source entries are references only and do not imply project ownership or asset ownership.",
   "sources": [
     {
-      "id": "signature-image-prompts-gpt-image-2",
-      "type": "prompt-template-reference",
-      "sourceName": "signature-image-prompts-gpt-image-2.md",
-      "sourceUrl": "https://github.com/zaizhi-1112/ai-image-extension-playbook/blob/main/signature-image-prompts-gpt-image-2.md",
-      "author": "@liyue_ai",
-      "authorUrl": "https://x.com/liyue_ai",
-      "license": "CC-BY-4.0",
-      "usage": "Prompt template learning reference only",
+      "id": "evolinkai",
+      "type": "markdown",
+      "sourceName": "EvoLinkAI",
+      "sourceUrl": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-prompts/main/README.md",
+      "author": "EvoLinkAI",
+      "authorUrl": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-prompts/main/README.md",
+      "license": "verify-before-commercial-use",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "youmind",
+      "type": "markdown",
+      "sourceName": "YouMind",
+      "sourceUrl": "https://raw.githubusercontent.com/YouMind-OpenLab/awesome-gpt-image-2/main/README.md",
+      "author": "YouMind",
+      "authorUrl": "https://raw.githubusercontent.com/YouMind-OpenLab/awesome-gpt-image-2/main/README.md",
+      "license": "public-community-content",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "youmind-prompt-search",
+      "type": "youmind-search-manifest",
+      "sourceName": "YouMind Prompt Search",
+      "sourceUrl": "https://raw.githubusercontent.com/YouMind-OpenLab/gpt-image-2-prompts-search/main/references/manifest.json",
+      "author": "YouMind Prompt Search",
+      "authorUrl": "https://raw.githubusercontent.com/YouMind-OpenLab/gpt-image-2-prompts-search/main/references/manifest.json",
+      "license": "MIT",
+      "usage": "allowed-with-attribution",
+      "includesAssets": false
+    },
+    {
+      "id": "gptimage2-api",
+      "type": "markdown",
+      "sourceName": "GPTImage2 API",
+      "sourceUrl": "https://raw.githubusercontent.com/gpt-image2/awesome-gptimage2-prompts/main/README.md",
+      "author": "GPTImage2 API",
+      "authorUrl": "https://raw.githubusercontent.com/gpt-image2/awesome-gptimage2-prompts/main/README.md",
+      "license": "verify-before-commercial-use",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "cyberbara",
+      "type": "markdown",
+      "sourceName": "Cyberbara",
+      "sourceUrl": "https://raw.githubusercontent.com/ZeroLu/awesome-gpt-image/main/README.md",
+      "author": "Cyberbara",
+      "authorUrl": "https://raw.githubusercontent.com/ZeroLu/awesome-gpt-image/main/README.md",
+      "license": "review-repository-license",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "magiccreator",
+      "type": "markdown",
+      "sourceName": "MagicCreator",
+      "sourceUrl": "https://raw.githubusercontent.com/magiccreator-ai/awesome-gpt-image-2-prompts/main/README.md",
+      "author": "MagicCreator",
+      "authorUrl": "https://raw.githubusercontent.com/magiccreator-ai/awesome-gpt-image-2-prompts/main/README.md",
+      "license": "verify-before-commercial-use",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "toolify",
+      "type": "markdown",
+      "sourceName": "Toolify",
+      "sourceUrl": "https://raw.githubusercontent.com/Toolify-AI/awesome-gpt-image-2-prompts/main/README.zh-CN.md",
+      "author": "Toolify",
+      "authorUrl": "https://raw.githubusercontent.com/Toolify-AI/awesome-gpt-image-2-prompts/main/README.zh-CN.md",
+      "license": "verify-before-commercial-use",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "gpt-image-gallery",
+      "type": "gallery-json",
+      "sourceName": "GPT Image Gallery",
+      "sourceUrl": "https://raw.githubusercontent.com/pyth0nb3st/awesome-gpt-image-2/main/gallery.json",
+      "author": "GPT Image Gallery",
+      "authorUrl": "https://raw.githubusercontent.com/pyth0nb3st/awesome-gpt-image-2/main/gallery.json",
+      "license": "verify-before-commercial-use",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "meigen-trending",
+      "type": "markdown",
+      "sourceName": "MeiGen Trending",
+      "sourceUrl": "https://raw.githubusercontent.com/jau123/nanobanana-trending-prompts/main/README.md",
+      "author": "MeiGen Trending",
+      "authorUrl": "https://raw.githubusercontent.com/jau123/nanobanana-trending-prompts/main/README.md",
+      "license": "verify-before-commercial-use",
+      "usage": "review",
+      "includesAssets": false
+    },
+    {
+      "id": "gpt-4o-legacy-prompts",
+      "type": "gpt4o-prompts-html",
+      "sourceName": "GPT-4o Legacy Prompts",
+      "sourceUrl": "https://raw.githubusercontent.com/ImgEdify/Awesome-GPT4o-Image-Prompts/main/Prompts.html",
+      "author": "GPT-4o Legacy Prompts",
+      "authorUrl": "https://raw.githubusercontent.com/ImgEdify/Awesome-GPT4o-Image-Prompts/main/Prompts.html",
+      "license": "MIT",
+      "usage": "allowed",
       "includesAssets": false
     }
   ]

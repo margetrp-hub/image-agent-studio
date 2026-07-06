@@ -391,7 +391,8 @@ export function GalleryWorkspacePanel({
   const imageCases = cases.filter(hasLibraryPreviewImage);
   const promptOnlyCases = cases.filter((item) => !hasLibraryPreviewImage(item));
   const visibleCases = imageCases.slice(0, visibleLimit);
-  const visiblePromptCases = promptOnlyCases.slice(0, Math.max(6, Math.ceil(visibleLimit / 2)));
+  const promptVisibleLimit = imageCases.length ? Math.max(6, Math.ceil(visibleLimit / 2)) : visibleLimit;
+  const visiblePromptCases = promptOnlyCases.slice(0, promptVisibleLimit);
   const visibleLibraryCaseCount = visibleCases.length + visiblePromptCases.length;
   const videoNeedle = query.trim().toLowerCase();
   const visibleVideoInspirations = (videoInspirations || []).filter((item) => {

@@ -5,11 +5,11 @@
   --studio-left-rail-width: clamp(248px, 20vw, 308px);
   --workbench-side-width: clamp(292px, 22vw, 320px);
   --workbench-side-reserved: 0px;
-  --studio-radius-shell: 26px;
-  --studio-radius-panel: 22px;
-  --studio-radius-card: 20px;
-  --studio-radius-field: 18px;
-  --studio-radius-control: 16px;
+  --studio-radius-shell: 20px;
+  --studio-radius-panel: 16px;
+  --studio-radius-card: 14px;
+  --studio-radius-field: 12px;
+  --studio-radius-control: 11px;
   min-height: calc(100dvh - var(--studio-topbar-height)) !important;
   height: calc(100dvh - var(--studio-topbar-height)) !important;
   padding: var(--studio-shell-gap) !important;

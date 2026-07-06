@@ -62,13 +62,13 @@ ENV STUDIO_HISTORY_HOST=0.0.0.0
 ENV STUDIO_HISTORY_PORT=8787
 ENV STUDIO_DATA_DIR=/data
 ENV STUDIO_LIBRARY_DIR=/app/library
-ENV STUDIO_LIBRARY_ASSET_DIR=/app/library/images
+ENV STUDIO_LIBRARY_ASSET_DIR=/app/library/image-library
 
 COPY scripts/image-sub2api-studio-history-service.mjs ./scripts/image-sub2api-studio-history-service.mjs
 COPY scripts/image-agent-studio-history-service.mjs ./scripts/image-agent-studio-history-service.mjs
 COPY public ./library
 
-RUN mkdir -p /data /app/library/images \
+RUN mkdir -p /data /app/library/image-library \
   && chown -R node:node /data /app
 
 USER node

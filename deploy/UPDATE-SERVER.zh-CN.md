@@ -169,7 +169,7 @@ for f in "$DATA_DIR/library/cases.json" \
   sudo node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); for (const [k,v] of Object.entries(j)) if (Array.isArray(v)) console.log(k, v.length);" "$f"
 done
 
-sudo find "$DATA_DIR/library/images" \
+sudo find "$DATA_DIR/library/image-library" \
   -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | wc -l
 ```
 

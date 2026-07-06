@@ -3721,6 +3721,10 @@ function CreationDesk({
                     <strong>{t('single.title', '单次生图')}</strong>
                     <span>{t('single.subtitle', '填好提示词、参考图和输出参数后，一次确认生成。')}</span>
                   </div>
+                  <button type="button" onClick={() => onOpenWorkspace?.('inspiration')}>
+                    <Sparkles size={15} />
+                    {t('workspace.inspiration', '灵感库')}
+                  </button>
                   <button type="button" onClick={onOpenSettings}>
                     <KeyRound size={15} />
                     {t('settings.title', '设置')}

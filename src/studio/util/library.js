@@ -94,10 +94,33 @@ export async function fetchPublicJson(fileName, fallback = {}) {
   return fallback;
 }
 
+export async function fetchServiceLibraryData() {
+  try {
+    const response = await fetch('/studio-api/library', {
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) throw new Error(`HTTP_${response.status}`);
+    const payload = await response.json();
+    if (payload?.ok === false) throw new Error(payload.error || 'LIBRARY_UNAVAILABLE');
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 // Loads + merges the static library payloads in parallel and tags every case
 // with `staticLibrary: true` so downstream code can distinguish bundled cases
 // from user-saved ones.
 export async function loadStaticLibraryData(options = {}) {
+  const serviceData = await fetchServiceLibraryData();
+  if (serviceData?.cases?.length) {
+    const data = normalizeLibraryPayload(serviceData, options);
+    return {
+      ...data,
+      cases: data.cases.map((item) => ({ ...item, staticLibrary: true }))
+    };
+  }
+
   const [localData, inspirationData] = await Promise.all([
     fetchPublicJson('cases.json', { cases: [] }),
     fetchPublicJson('inspirations.json', { cases: [] })

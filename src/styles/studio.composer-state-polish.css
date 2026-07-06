@@ -26,6 +26,7 @@
   border-radius: var(--studio-radius-shell, 26px) 0 0 var(--studio-radius-shell, 26px) !important;
   background-color: var(--studio-bg) !important;
 }
+.railPreferenceRow .railLanguageButton{display:flex!important;flex-direction:row!important}
 
 .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
   border-right: 1px solid color-mix(in srgb, var(--studio-border) 42%, transparent) !important;
@@ -197,6 +198,12 @@
   .studioLayout,
   .studioLayout.railCollapsed {
     --studio-left-rail-width: 62px !important;
+  }
+
+  .studioLayout .templateRail {
+    width: var(--studio-left-rail-width) !important;
+    min-width: var(--studio-left-rail-width) !important;
+    max-width: var(--studio-left-rail-width) !important;
   }
 
   .studioLayout .creationDesk.creationDesk.composerOpen:not(.composerFolded) .bottomComposerBar.bottomComposerBar.codexComposerPanel.isExpandedComposer.isEmptyComposer {

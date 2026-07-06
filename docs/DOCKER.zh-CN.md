@@ -262,7 +262,7 @@ STUDIO_LIBRARY_DIR=/srv/image-agent-studio-library
 /srv/image-agent-studio-library/cases.json
 /srv/image-agent-studio-library/inspirations.json
 /srv/image-agent-studio-library/style-library.json
-/srv/image-agent-studio-library/images/
+/srv/image-agent-studio-library/image-library/
 ```
 
 前端会通过 `/studio-api/library` 和 `/studio-api/library-assets/...` 登录后读取，避免直接暴露 `/studio/cases.json` 和 `/studio/images/`。

@@ -4,23 +4,42 @@
 .settingsOverlay {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 120;
   display: grid;
   place-items: center;
-  background: rgba(2, 6, 23, 0.62);
-  backdrop-filter: blur(12px);
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(8px);
 }
 
 .settingsDialog {
-  width: min(680px, calc(100vw - 32px));
-  max-height: min(820px, calc(100vh - 28px));
+  box-sizing: border-box;
+  width: min(620px, calc(100vw - 40px));
+  max-height: min(740px, calc(100dvh - 32px));
   overflow: auto;
-  padding: 22px;
-  border: 1px solid var(--studio-border);
-  border-radius: 8px;
-  background: var(--studio-surface-strong);
-  box-shadow: var(--studio-shadow-soft);
-  backdrop-filter: blur(18px);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--studio-muted) 42%, transparent) transparent;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
+  border-radius: var(--studio-radius-panel, 18px);
+  background: color-mix(in srgb, var(--studio-surface-strong) 96%, transparent);
+  box-shadow: 0 20px 58px rgba(15, 23, 42, 0.18), inset 0 1px 0 color-mix(in srgb, #fff 58%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.settingsDialog::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settingsDialog::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settingsDialog::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-muted) 36%, transparent);
+  background-clip: content-box;
 }
 
 .settingsTitle {
@@ -28,22 +47,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .settingsDialog h2 {
   margin: 0;
+  font-size: 21px;
+  line-height: 1.15;
 }
 
 .settingsDialog p {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: var(--studio-muted);
 }
 
 .settingsGroup {
   display: grid;
-  gap: 8px;
-  margin: 14px 0;
+  gap: 7px;
+  margin: 10px 0;
 }
 
 .settingsGroup > span {
@@ -80,15 +101,15 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 }
 
 .providerSummary {
-  min-height: 58px;
+  min-height: 52px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px 10px;
   align-items: center;
-  margin: 10px 0 !important;
-  padding: 10px 12px;
+  margin: 8px 0 !important;
+  padding: 9px 11px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
-  border-radius: 10px;
+  border-radius: var(--studio-radius-control, 13px);
   background: color-mix(in srgb, var(--studio-surface-soft) 76%, transparent);
 }
 
@@ -137,13 +158,13 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 .settingsDialog .manualFields {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 12px 0;
+  gap: 10px;
+  margin: 10px 0;
 }
 
 .settingsDialog .manualFields {
-  gap: 10px 12px !important;
-  margin: 10px 0 !important;
+  gap: 9px 10px !important;
+  margin: 8px 0 !important;
 }
 
 .settingsDialog .manualFields label {
@@ -151,7 +172,7 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 }
 
 .settingsDialog .manualFields input {
-  min-height: 42px !important;
+  min-height: 38px !important;
 }
 
 .settingsHint {
@@ -165,11 +186,12 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 
 .keyList {
   display: grid;
-  gap: 10px;
-  margin: 12px 0;
+  gap: 8px;
+  margin: 10px 0;
 }
 
 .keyList button {
+  min-height: 38px;
   justify-content: start;
   border: 1px solid var(--studio-border);
   background: var(--studio-surface-soft);
@@ -197,25 +219,32 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 }
 
 .settingsEmpty {
-  min-height: 48px;
+  min-height: 42px;
   display: grid;
   place-items: center;
   border: 1px dashed rgba(34, 51, 43, 0.18);
-  border-radius: 8px;
+  border-radius: var(--studio-radius-control, 13px);
   color: #6a766e;
 }
 
 .settingsActions {
+  position: sticky;
+  right: 0;
+  bottom: -16px;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 12px 0 0;
+  gap: 8px;
+  margin: 8px -16px -16px;
+  padding: 9px 16px 10px;
   border-top: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .settingsActions button {
-  min-height: 40px !important;
+  min-height: 36px !important;
+  padding: 0 13px !important;
+  border-radius: var(--studio-radius-control, 13px) !important;
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease !important;
 }
 
@@ -225,7 +254,7 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 
 .settingsSelectField {
   display: grid !important;
-  gap: 7px !important;
+  gap: 6px !important;
 }
 
 .settingsSelectField small,
@@ -251,10 +280,10 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 
 .settingsSelectField select {
   width: 100% !important;
-  min-height: 46px !important;
-  padding: 0 40px 0 14px !important;
+  min-height: 42px !important;
+  padding: 0 38px 0 13px !important;
   border: 1px solid color-mix(in srgb, var(--studio-primary) 18%, var(--studio-border)) !important;
-  border-radius: 14px !important;
+  border-radius: var(--studio-radius-control, 13px) !important;
   background:
     linear-gradient(180deg, color-mix(in srgb, #fff 88%, transparent), color-mix(in srgb, var(--studio-surface-soft) 88%, transparent)),
     var(--studio-surface) !important;
@@ -273,10 +302,10 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 .settingsCallConfig {
   grid-column: 1 / -1 !important;
   display: grid !important;
-  gap: 10px !important;
-  padding: 12px !important;
+  gap: 9px !important;
+  padding: 11px !important;
   border: 1px solid color-mix(in srgb, var(--studio-border) 78%, transparent) !important;
-  border-radius: 16px !important;
+  border-radius: var(--studio-radius-control, 13px) !important;
   background:
     radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--studio-primary) 8%, transparent), transparent 42%),
     color-mix(in srgb, var(--studio-surface-soft) 72%, transparent) !important;
@@ -286,7 +315,7 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
   display: flex !important;
   align-items: baseline !important;
   justify-content: space-between !important;
-  gap: 12px !important;
+  gap: 10px !important;
 }
 
 .settingsCallConfigHead strong {
@@ -303,7 +332,7 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 .settingsCallGrid {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 8px 10px !important;
+  gap: 8px !important;
 }
 
 .settingsCallGrid label {
@@ -311,17 +340,17 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 }
 
 .settingsCallGrid input {
-  min-height: 42px !important;
+  min-height: 38px !important;
 }
 
 .settingsModelSync {
   grid-column: 1 / -1 !important;
-  min-height: 54px !important;
-  padding: 10px 12px !important;
+  min-height: 48px !important;
+  padding: 9px 11px !important;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 70%, transparent);
-  border-radius: 14px !important;
+  border-radius: var(--studio-radius-control, 13px) !important;
   background: color-mix(in srgb, var(--studio-surface-soft) 72%, transparent);
 }
 
@@ -359,14 +388,41 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
 }
 
 @media (max-width: 720px) {
+  .settingsOverlay {
+    padding: 6px;
+    place-items: start center;
+  }
+
   .settingsDialog {
-    width: calc(100vw - 20px) !important;
-    padding: 16px !important;
+    width: min(100%, calc(100vw - 12px)) !important;
+    max-height: calc(100dvh - 12px) !important;
+    padding: 10px !important;
+    border-radius: var(--studio-radius-card, 16px) !important;
+  }
+
+  .settingsTitle {
+    margin-bottom: 8px;
+  }
+
+  .settingsDialog h2 {
+    font-size: 19px;
+  }
+
+  .settingsDialog .iconButton {
+    width: 34px;
+    min-height: 34px;
+    border-radius: 12px;
   }
 
   .settingsDialog .manualFields,
   .settingsCallGrid {
     grid-template-columns: 1fr !important;
+  }
+
+  .settingsActions {
+    bottom: -10px;
+    margin: 8px -10px -10px;
+    padding: 8px 10px 9px;
   }
 
   .settingsCallConfigHead {

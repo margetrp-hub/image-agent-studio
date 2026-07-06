@@ -11,7 +11,7 @@ Environment=SUB2API_BASE_URL=http://127.0.0.1:8080
 Environment=STUDIO_AUTH_MODE=local
 Environment=STUDIO_DATA_DIR=/var/lib/image-agent-studio
 Environment=STUDIO_LIBRARY_DIR=/var/lib/image-agent-studio/library
-Environment=STUDIO_LIBRARY_ASSET_DIR=/var/lib/image-agent-studio/library/images
+Environment=STUDIO_LIBRARY_ASSET_DIR=/var/lib/image-agent-studio/library/image-library
 Environment=STUDIO_HISTORY_HOST=127.0.0.1
 Environment=STUDIO_HISTORY_PORT=8787
 Environment=STUDIO_ALLOWED_ORIGINS=https://studio.example.com

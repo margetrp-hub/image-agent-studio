@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 
 const cwd = process.cwd();
 const LIBRARY_DIR = path.resolve(process.env.STUDIO_LIBRARY_DIR || path.join(cwd, 'public'));
-const ASSET_DIR = path.resolve(process.env.STUDIO_LIBRARY_ASSET_DIR || path.join(LIBRARY_DIR, 'images'));
+const ASSET_DIR = path.resolve(process.env.STUDIO_LIBRARY_ASSET_DIR || path.join(LIBRARY_DIR, 'image-library'));
 const INSPIRATIONS_FILE = path.join(LIBRARY_DIR, 'inspirations.json');
 const REPORT_FILE = path.resolve(process.env.STUDIO_LOCALIZE_REPORT || path.join(LIBRARY_DIR, 'localize-inspiration-assets-report.json'));
 const DRY_RUN = /^(1|true|yes)$/i.test(process.env.STUDIO_LOCALIZE_DRY_RUN || '');
@@ -193,6 +193,7 @@ async function main() {
     failed: 0,
     markedUnavailable: 0,
     thumbnailCommand: magick || '',
+    indexChanged: false,
     failures: []
   };
 
@@ -212,6 +213,7 @@ async function main() {
   await fs.mkdir(path.join(ASSET_DIR, 'inspirations'), { recursive: true });
   await fs.mkdir(path.join(ASSET_DIR, 'thumbs', 'inspirations'), { recursive: true });
 
+  let indexChanged = false;
   await runLimited(selectedEntries, async ({ item, index, remote }, ordinal) => {
     const stem = safeFileStem(item, index, remote.url);
     const preferredExt = extensionFromUrl(remote.url) || '.jpg';
@@ -237,9 +239,14 @@ async function main() {
       const localImage = normalizeLocalReference(relativePath);
       if (!isRemoteUrl(item.remoteImageUrl || item.originalImageUrl || item.remoteImage)) {
         item.remoteImageUrl = remote.url;
+        indexChanged = true;
       }
+      if (item.image !== localImage) indexChanged = true;
       item.image = localImage;
-      if (remote.field !== 'image') delete item[remote.field];
+      if (remote.field !== 'image') {
+        delete item[remote.field];
+        indexChanged = true;
+      }
       report[downloaded ? 'downloaded' : 'reused'] += 1;
 
       if (magick && /\.(png|jpe?g|webp)$/i.test(absolutePath)) {
@@ -253,9 +260,16 @@ async function main() {
             report.failures.push({ index, id: item.id || null, phase: 'thumbnail', error: error.message });
           }
         }
-        if (await existsWithSize(thumbAbsolute)) item.thumbnail = normalizeLocalReference(thumbRelative);
+        if (await existsWithSize(thumbAbsolute)) {
+          const localThumbnail = normalizeLocalReference(thumbRelative);
+          if (item.thumbnail !== localThumbnail) indexChanged = true;
+          item.thumbnail = localThumbnail;
+        }
       } else {
-        item.thumbnail ||= localImage;
+        if (!item.thumbnail) {
+          item.thumbnail = localImage;
+          indexChanged = true;
+        }
       }
 
       if ((ordinal + 1) % 50 === 0 || ordinal + 1 === selectedEntries.length) {
@@ -268,6 +282,7 @@ async function main() {
         item.imageUnavailable = true;
         item.imageUnavailableReason = error.message;
         item.imageUnavailableAt = new Date().toISOString();
+        indexChanged = true;
         for (const field of [...IMAGE_FIELDS, 'thumbnail', 'thumb', 'thumbnail_url', 'thumbnailUrl']) {
           if (isRemoteUrl(item[field])) delete item[field];
         }
@@ -279,7 +294,8 @@ async function main() {
 
   report.localizedOnly = selectedEntries.length - report.failed;
   report.ok = report.failed === 0;
-  await atomicWriteJson(INSPIRATIONS_FILE, data);
+  report.indexChanged = indexChanged;
+  if (indexChanged) await atomicWriteJson(INSPIRATIONS_FILE, data);
   await atomicWriteJson(REPORT_FILE, report);
   console.log(JSON.stringify(report, null, 2));
 }
