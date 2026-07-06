@@ -15,8 +15,8 @@
 .templateRail {
   min-width: 0;
   padding: 14px 7px 12px;
+  border-radius: var(--studio-radius-panel, 22px);
 }
-
 .templateRail.collapsed {
   width: 64px;
   padding: 10px 8px;
@@ -54,7 +54,7 @@
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--studio-border-strong);
-  border-radius: 8px;
+  border-radius: var(--studio-radius-control, 16px);
   background: var(--studio-text-strong);
   color: var(--studio-on-dark);
   font-size: 13px;
@@ -104,7 +104,7 @@
   gap: 9px;
   align-items: stretch;
   border: 1px solid var(--studio-border);
-  border-radius: 8px;
+  border-radius: var(--studio-radius-control, 16px);
   background: var(--studio-surface-strong);
   color: var(--studio-text);
   text-align: left;
@@ -125,7 +125,7 @@
   place-items: center;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--studio-border) 78%, transparent);
-  border-radius: 7px;
+  border-radius: 13px;
   background: var(--studio-surface-hover);
 }
 
@@ -217,7 +217,7 @@
   height: 22px;
   padding: 0;
   border: 1px solid var(--studio-border);
-  border-radius: 7px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--studio-surface-soft) 88%, transparent);
   color: var(--studio-muted);
   opacity: 0.68;
@@ -240,7 +240,7 @@
   gap: 7px;
   align-items: start;
   border: 1px solid var(--studio-border);
-  border-radius: 8px;
+  border-radius: var(--studio-radius-control, 16px);
   background: var(--studio-surface-strong);
   color: var(--studio-text);
   text-align: left;
@@ -260,7 +260,7 @@
   height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 13px;
   background: var(--studio-surface-hover);
   color: var(--studio-primary);
 }
@@ -307,7 +307,7 @@
 
 .railIconAction {
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: var(--studio-radius-control, 16px);
 }
 
 .railAvatarButton {
@@ -317,7 +317,7 @@
   display: grid;
   place-items: center;
   border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  border-radius: var(--studio-radius-control, 16px);
   background: var(--studio-text-strong);
   color: var(--studio-on-dark);
 }

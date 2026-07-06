@@ -5,6 +5,11 @@
   --studio-left-rail-width: clamp(248px, 20vw, 308px);
   --workbench-side-width: clamp(292px, 22vw, 320px);
   --workbench-side-reserved: 0px;
+  --studio-radius-shell: 26px;
+  --studio-radius-panel: 22px;
+  --studio-radius-card: 20px;
+  --studio-radius-field: 18px;
+  --studio-radius-control: 16px;
   min-height: calc(100dvh - var(--studio-topbar-height)) !important;
   height: calc(100dvh - var(--studio-topbar-height)) !important;
   padding: var(--studio-shell-gap) !important;
@@ -36,10 +41,13 @@
   padding: 0 !important;
   display: block !important;
   overflow: hidden !important;
-  border-radius: 18px !important;
+  border-radius: var(--studio-radius-shell) !important;
   background:
     radial-gradient(circle at 22% 16%, color-mix(in srgb, var(--studio-primary) 8%, transparent), transparent 28%),
     color-mix(in srgb, var(--studio-surface-soft) 82%, transparent) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--studio-border) 54%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent) !important;
 }
 
 .studioLayout .creationDesk.referencesOpen {
@@ -57,7 +65,7 @@
   grid-row: auto !important;
   z-index: 1 !important;
   overflow: hidden !important;
-  border-radius: 18px 0 0 18px !important;
+  border-radius: var(--studio-radius-shell) 0 0 var(--studio-radius-shell) !important;
 }
 
 .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
@@ -153,7 +161,7 @@
   gap: 12px !important;
   z-index: 28 !important;
   transform: none !important;
-  border-radius: 0 18px 18px 0 !important;
+  border-radius: var(--studio-radius-panel) 0 0 var(--studio-radius-panel) !important;
   border: 0 !important;
   border-left: 1px solid color-mix(in srgb, var(--studio-border) 62%, transparent) !important;
   box-shadow:
@@ -198,7 +206,7 @@
   height: 46px !important;
   min-height: 46px !important;
   max-height: 46px !important;
-  border-radius: 15px !important;
+  border-radius: var(--studio-radius-control) !important;
 }
 
 .studioLayout .creationDesk .referenceSidePanel.isCollapsed .referenceSideCollapsed span {
@@ -265,7 +273,7 @@
 .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen .referenceSideBody.hasReferenceItems .referencePreviewButton {
   min-height: 112px !important;
   aspect-ratio: 16 / 10 !important;
-  border-radius: 12px !important;
+  border-radius: var(--studio-radius-card) !important;
   overflow: hidden !important;
   background:
     linear-gradient(45deg, color-mix(in srgb, var(--studio-border) 32%, transparent) 25%, transparent 25%),
@@ -281,7 +289,7 @@
   width: 100% !important;
   height: 100% !important;
   object-fit: contain !important;
-  border-radius: 10px !important;
+  border-radius: var(--studio-radius-control) !important;
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), filter 180ms ease !important;
 }
 
@@ -327,7 +335,7 @@
   grid-template-rows: 42px minmax(0, 1fr) 108px 46px !important;
   gap: 10px !important;
   padding: 14px !important;
-  border-radius: 18px !important;
+  border-radius: var(--studio-radius-panel) !important;
   box-shadow:
     0 24px 80px rgba(15, 23, 42, 0.18),
     0 0 0 1px color-mix(in srgb, var(--studio-border) 70%, transparent),
@@ -359,7 +367,7 @@
   grid-template-columns: 42px minmax(0, 1fr) !important;
   grid-template-rows: 62px !important;
   gap: 10px !important;
-  border-radius: 18px !important;
+  border-radius: var(--studio-radius-panel) !important;
 }
 
 .studioLayout .creationDesk.composerOpen.composerFolded .bottomComposerBar.codexComposerPanel.isFolded .composerPanelHead {
@@ -396,7 +404,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  border-radius: 18px !important;
+  border-radius: var(--studio-radius-panel) !important;
   box-shadow:
     0 20px 58px rgba(15, 23, 42, 0.16),
     inset 0 1px 0 color-mix(in srgb, #fff 62%, transparent) !important;
@@ -440,7 +448,7 @@
   padding: 14px 15px !important;
   resize: none !important;
   overflow-y: auto !important;
-  border-radius: 15px !important;
+  border-radius: var(--studio-radius-field) !important;
   line-height: 1.5 !important;
 }
 
@@ -481,7 +489,7 @@
   gap: 2px !important;
   justify-items: center !important;
   align-content: center !important;
-  border-radius: 14px !important;
+  border-radius: var(--studio-radius-control) !important;
   white-space: nowrap !important;
   transition: transform 160ms ease, box-shadow 180ms ease, filter 160ms ease, border-color 160ms ease !important;
 }
@@ -533,7 +541,7 @@
 .studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerParamShelf {
   min-width: 0 !important;
   width: 100% !important;
-  border-radius: 14px !important;
+  border-radius: var(--studio-radius-control) !important;
 }
 
 .studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerParamShelf.isCollapsed {
@@ -578,7 +586,7 @@
   min-width: 36px !important;
   height: auto !important;
   min-height: 86px !important;
-  border-radius: 12px !important;
+  border-radius: var(--studio-radius-control) !important;
 }
 
 .studioLayout .creationDesk .bottomComposerBar.codexComposerPanel .composerParamLane.primary,
@@ -613,7 +621,7 @@
   flex: 0 1 auto !important;
   min-width: 0 !important;
   padding: 4px 8px !important;
-  border-radius: 12px !important;
+  border-radius: var(--studio-radius-control) !important;
   border-color: color-mix(in srgb, var(--studio-border) 48%, transparent) !important;
   background: color-mix(in srgb, var(--studio-surface) 68%, transparent) !important;
   box-shadow: none !important;
@@ -821,7 +829,7 @@
   padding: 0 !important;
   display: grid !important;
   place-items: center !important;
-  border-radius: 15px 0 0 15px !important;
+  border-radius: var(--studio-radius-field) 0 0 var(--studio-radius-field) !important;
   transform: none !important;
   writing-mode: horizontal-tb !important;
   text-orientation: mixed !important;

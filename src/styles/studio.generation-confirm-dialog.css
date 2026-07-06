@@ -16,7 +16,7 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--studio-border) 66%, transparent);
-  border-radius: 24px;
+  border-radius: calc(var(--studio-radius-shell, 26px) + 2px);
   background: linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 98%, transparent), color-mix(in srgb, var(--studio-surface) 94%, transparent));
   box-shadow: 0 30px 90px rgba(15, 23, 42, 0.24), 0 10px 28px rgba(15, 23, 42, 0.1), inset 0 1px 0 color-mix(in srgb, #fff 68%, transparent);
 }
@@ -51,7 +51,7 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border-radius: 13px;
+  border-radius: var(--studio-radius-control, 16px);
   color: #fff;
   background: linear-gradient(135deg, var(--studio-primary), color-mix(in srgb, var(--studio-primary) 70%, #0f766e));
   box-shadow: 0 12px 28px color-mix(in srgb, var(--studio-primary) 26%, transparent);
@@ -99,7 +99,7 @@
   gap: 10px;
   align-items: start;
   border: 1px solid color-mix(in srgb, var(--studio-border) 42%, transparent);
-  border-radius: 16px;
+  border-radius: var(--studio-radius-card, 20px);
   background: linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 92%, transparent), color-mix(in srgb, var(--studio-surface-soft) 72%, transparent));
 }
 
@@ -108,7 +108,7 @@
   height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--studio-radius-control, 16px);
   color: var(--studio-primary);
   background: color-mix(in srgb, var(--studio-primary) 10%, transparent);
 }
@@ -145,7 +145,7 @@
 .generationConfirmPrompt,
 .generationConfirmSummary {
   border: 1px solid color-mix(in srgb, var(--studio-border) 44%, transparent);
-  border-radius: 16px;
+  border-radius: var(--studio-radius-card, 20px);
   background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent);
 }
 
@@ -172,7 +172,7 @@
   padding: 12px;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--studio-border) 34%, transparent);
-  border-radius: 12px;
+  border-radius: var(--studio-radius-control, 16px);
   background: color-mix(in srgb, var(--studio-surface) 62%, transparent);
   color: var(--studio-text);
   font: inherit;
@@ -275,7 +275,7 @@
 .generationConfirmPrimary {
   min-height: 36px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 66%, transparent);
-  border-radius: 13px;
+  border-radius: var(--studio-radius-control, 16px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
