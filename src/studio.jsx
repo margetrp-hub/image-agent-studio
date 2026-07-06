@@ -76,6 +76,7 @@ import './styles/studio.composer-codex-guards.css';
 import './styles/studio.workstation-shell.css';
 import './styles/studio.playground-polish.css';
 import './styles/studio.composer-state-polish.css';
+import './styles/studio.flow-modes.css';
 import {
   AiGatewayClient,
   StudioHistoryClient,
@@ -712,6 +713,36 @@ function WorkbenchModeSwitch({ activeWorkspace, onChange, t }) {
   );
 }
 
+function WorkflowModeSwitch({ activeMode, onChange, t }) {
+  const items = [
+    { value: 'single', label: t('workspace.singleGeneration', '单次生图'), icon: Sparkles },
+    { value: 'canvas', label: t('workspace.infiniteCanvas', '无限画布'), icon: SquarePen }
+  ];
+
+  return (
+    <div className="workbenchModeSwitch workflowModeSwitch" role="group" aria-label={t('workspace.workflowMode', '创作模式')}>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = activeMode === item.value;
+        return (
+          <button
+            type="button"
+            className={active ? 'active' : ''}
+            key={item.value}
+            onClick={() => {
+              if (!active) onChange(item.value);
+            }}
+            aria-pressed={active}
+          >
+            <Icon size={15} />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function CreationDesk({
   sessionId,
   activeWorkspace,
@@ -887,6 +918,16 @@ function CreationDesk({
     composerFolded: false,
     composerParameters: false
   });
+  const workspaceFlowMode = layoutSections.flowMode === 'single' ? 'single' : 'canvas';
+  const switchWorkflowMode = (nextMode) => {
+    if (nextMode === workspaceFlowMode) return;
+    updateLayoutSections({ flowMode: nextMode });
+  };
+
+  useEffect(() => {
+    if (workspaceFlowMode !== 'single') return;
+    import('./styles/studio.single-flow.css');
+  }, [workspaceFlowMode]);
 
   useEffect(() => {
     if (status !== 'loading' && timing?.status !== 'running') return undefined;
@@ -3494,16 +3535,29 @@ function CreationDesk({
       handleGenerateAction();
     }
   };
+  const handleSinglePromptKeyDown = (event) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      handleGenerateAction();
+    }
+  };
+  const isVideoSingleMode = mode === 'video';
+  const singleReferencePreviews = isVideoSingleMode ? videoReferencePreviews : referencePreviews;
+  const singleReferenceFiles = isVideoSingleMode ? videoReferenceFiles : referenceFiles;
+  const singleReferenceCount = isVideoSingleMode ? videoReferenceFiles.length : referenceFiles.length;
+  const singleReferenceLimit = isVideoSingleMode ? 1 : IMAGE_REFERENCE_LIMIT;
+  const singleReferenceDropActive = isVideoSingleMode ? videoDropActive : referenceDropActive;
+  const singleResultCount = isVideoSingleMode ? videoResults.length : results.length;
 
   return (
-    <section className={`creationDesk ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
+    <section className={`creationDesk ${workspaceFlowMode === 'single' ? 'singleFlowMode' : 'canvasFlowMode'} ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
       <div
         ref={workPreviewRef}
-        className={`workPreview infiniteCanvas ${hasPrimaryResult ? 'hasResult' : ''} ${canvasPerformanceMode ? 'performanceMode' : ''}`}
-        onPointerDown={startCanvasPan}
-        onPointerMove={moveCanvasPan}
-        onPointerUp={endCanvasPan}
-        onPointerCancel={endCanvasPan}
+        className={`workPreview infiniteCanvas ${workspaceFlowMode === 'single' ? 'singleGenerationPreview' : 'canvasGenerationPreview'} ${hasPrimaryResult ? 'hasResult' : ''} ${canvasPerformanceMode ? 'performanceMode' : ''}`}
+        onPointerDown={workspaceFlowMode === 'canvas' ? startCanvasPan : undefined}
+        onPointerMove={workspaceFlowMode === 'canvas' ? moveCanvasPan : undefined}
+        onPointerUp={workspaceFlowMode === 'canvas' ? endCanvasPan : undefined}
+        onPointerCancel={workspaceFlowMode === 'canvas' ? endCanvasPan : undefined}
       >
         <GenerationQueueDock
           items={activeGenerationQueueItems}
@@ -3520,11 +3574,20 @@ function CreationDesk({
           onRegenerate={openRegenerateDialog}
           onStop={stopGeneration}
         />
+        <div className="workbenchTopControls">
+          <WorkflowModeSwitch
+            activeMode={workspaceFlowMode}
+            onChange={switchWorkflowMode}
+            t={t}
+          />
         <WorkbenchModeSwitch
           activeWorkspace={activeWorkspace === 'video' ? 'video' : 'image'}
           onChange={switchWorkbenchMode}
           t={t}
         />
+        </div>
+        {workspaceFlowMode === 'canvas' ? (
+          <>
         <div className="canvasToolbar" aria-label={t('canvas.toolbar', '画布工具')}>
           <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label={t('canvas.zoomOut', '缩小画布')} title={`${t('canvas.zoomOut', '缩小画布')} Ctrl/Cmd + -`}>-</button>
           <span>{Math.round(canvasView.zoom * 100)}%</span>
@@ -3648,7 +3711,307 @@ function CreationDesk({
             </div>
           )}
         </div>
+          </>
+        ) : (
+          <div className="singleGenerationWorkspace">
+            <div className="singleGenerationShell">
+              <section className="singleGenerationPanel singleGenerationFormPanel">
+                <div className="singleGenerationHead">
+                  <div>
+                    <strong>{t('single.title', '单次生图')}</strong>
+                    <span>{t('single.subtitle', '填好提示词、参考图和输出参数后，一次确认生成。')}</span>
+                  </div>
+                  <button type="button" onClick={onOpenSettings}>
+                    <KeyRound size={15} />
+                    {t('settings.title', '设置')}
+                  </button>
+                </div>
+                <div className="singleFieldGrid">
+                  <label className="singleField">
+                    <span>API Key</span>
+                    <button type="button" className="singleKeyButton" onClick={onOpenSettings}>
+                      <KeyRound size={14} />
+                      <strong>{providerLabel(providerSettings, apiKey)}</strong>
+                    </button>
+                    <em>{apiKeyDisplay(apiKey) || t('rail.chooseKey', '选择 Key')}</em>
+                  </label>
+                  {isVideoSingleMode ? (
+                    <label className="singleField">
+                      <span>{t('params.videoModel', '视频模型')}</span>
+                      <select value={hasVideoModels ? videoModel : ''} onChange={(event) => setVideoModel(event.target.value)} disabled={!hasVideoModels}>
+                        {hasVideoModels ? videoModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>) : (
+                          <option value="">{t('params.currentKeyNoVideo', '当前 Key 未开放视频模型')}</option>
+                        )}
+                      </select>
+                    </label>
+                  ) : (
+                    <label className="singleField">
+                      <span>{t('params.imageModel', '图片模型')}</span>
+                      <select value={model} onChange={(event) => setModel(event.target.value)}>
+                        {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <label className="singlePromptBox">
+                  <span>{t('single.promptLabel', '描述')}</span>
+                  <textarea
+                    value={prompt}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    onPaste={handleComposerPromptPaste}
+                    onKeyDown={handleSinglePromptKeyDown}
+                    placeholder={isVideoSingleMode ? t('single.videoPromptPlaceholder', '描述你要生成的视频画面、镜头运动、节奏和风格...') : t('single.promptPlaceholder', '描述你想生成的图片，包含主体、场景、风格、光线和构图...')}
+                  />
+                </label>
+                <div className="singleReferenceBlock">
+                  <div className="singleBlockTitle">
+                    <span>{t('references.title', '参考图')}</span>
+                    <em>{singleReferenceCount}/{singleReferenceLimit}</em>
+                  </div>
+                  <label
+                    className={`singleUploadDrop ${singleReferenceDropActive ? 'isDragging' : ''}`}
+                    tabIndex={0}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      if (isVideoSingleMode) setVideoDropActive(true);
+                      else setReferenceDropActive(true);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      if (isVideoSingleMode) setVideoDropActive(true);
+                      else setReferenceDropActive(true);
+                    }}
+                    onDragLeave={() => {
+                      setReferenceDropActive(false);
+                      setVideoDropActive(false);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setReferenceDropActive(false);
+                      setVideoDropActive(false);
+                      if (isVideoSingleMode) appendVideoReferenceImage(event.dataTransfer?.files);
+                      else appendReferenceImages(event.dataTransfer?.files);
+                    }}
+                    onPaste={isVideoSingleMode ? videoReferencePasteFiles : referencePasteFiles}
+                  >
+                    <Upload size={20} />
+                    <span>{singleReferenceCount ? t('references.addMore', '继续添加 / 拖入更多') : t('references.upload', '拖拽 / 粘贴 / 上传参考图')}</span>
+                    <small>{isVideoSingleMode ? t('references.optionalUpload', '可选，上传后会作为视频参考图。') : t('single.referenceHint', '可选。上传参考图会自动切换到参考图/编辑语义。')}</small>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple={!isVideoSingleMode}
+                      onChange={(event) => {
+                        if (isVideoSingleMode) appendVideoReferenceImage(event.target.files);
+                        else appendReferenceImages(event.target.files);
+                        event.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {singleReferencePreviews.length || selectedLibraryReferenceThumb ? (
+                    <div className="singleReferenceThumbs">
+                      {selectedLibraryReferenceThumb && !isVideoSingleMode ? (
+                        <figure>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({
+                              url: selectedLibraryReferenceFull || selectedLibraryReferenceThumb,
+                              fallbackSrc: selectedLibraryReferenceFallback,
+                              index: 0,
+                              downloadMeta: {
+                                mode: 'library-reference',
+                                providerId: model,
+                                prompt: selectedCase?.prompt || selectedCase?.promptPreview || prompt.trim(),
+                                createdAt: new Date().toISOString()
+                              }
+                            })}
+                          >
+                            <LazyImage src={selectedLibraryReferenceThumb} alt={selectedCase?.imageAlt || selectedLibraryReferenceTitle} />
+                          </button>
+                          <figcaption>{t('references.libraryPreview', '灵感图')}</figcaption>
+                        </figure>
+                      ) : null}
+                      {singleReferencePreviews.map((url, index) => (
+                        <figure key={url}>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({
+                              url,
+                              index,
+                              downloadMeta: {
+                                mode: 'reference',
+                                providerId: isVideoSingleMode ? videoModel : model,
+                                prompt: prompt.trim(),
+                                createdAt: new Date().toISOString()
+                              }
+                            })}
+                          >
+                            <LazyImage src={url} alt={singleReferenceFiles[index]?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })} />
+                          </button>
+                          <figcaption>{singleReferenceFiles[index]?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="singleParamsGrid">
+                  {isVideoSingleMode ? (
+                    <>
+                      <label className="singleField">
+                        <span>{t('params.videoAspect', '视频比例')}</span>
+                        <select value={videoAspect} onChange={(event) => setVideoAspect(event.target.value)}>
+                          {VIDEO_ASPECT_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.duration', '时长')}</span>
+                        <select value={videoDuration} onChange={(event) => setVideoDuration(Number(event.target.value))}>
+                          {VIDEO_DURATIONS.map((item) => <option key={item} value={item}>{item}s</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.fps', '帧率')}</span>
+                        <select value={videoFps} onChange={(event) => setVideoFps(Number(event.target.value))}>
+                          {VIDEO_FPS_OPTIONS.map((item) => <option key={item} value={item}>{item} fps</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.motion', '镜头运动')}</span>
+                        <select value={videoMotion} onChange={(event) => setVideoMotion(event.target.value)}>
+                          {VIDEO_MOTIONS.map((item) => <option key={item.value} value={item.value}>{videoMotionLabel(item)}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.style', '风格')}</span>
+                        <select value={videoStyle} onChange={(event) => setVideoStyle(event.target.value)}>
+                          {VIDEO_STYLES.map((item) => <option key={item.value} value={item.value}>{videoStyleLabel(item)}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.videoQuality', '视频画质')}</span>
+                        <select value={videoQuality} onChange={(event) => setVideoQuality(event.target.value)}>
+                          {VIDEO_QUALITY.map((item) => <option key={item} value={item}>{item === 'auto' ? t('params.auto', '自动') : item === 'high' ? t('params.high', '高') : t('params.standard', '标准')}</option>)}
+                        </select>
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <label className="singleField">
+                        <span>{t('params.aspect', '尺寸比例')}</span>
+                        <select
+                          value={aspect}
+                          onChange={(event) => {
+                            const nextAspect = event.target.value;
+                            setAspect(nextAspect);
+                            const matched = imageAspectOptions.find((item) => item.value === nextAspect);
+                            if (matched?.size) setCustomSize(matched.size);
+                          }}
+                        >
+                          {imageAspectOptions.map((item) => <option key={item.value} value={item.value}>{resolutionTierLabel(item)}</option>)}
+                        </select>
+                      </label>
+                      {aspect === 'custom' ? (
+                        <label className="singleField">
+                          <span>{t('params.apiSize', '接口尺寸')}</span>
+                          <select value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
+                            {customSizeOptions.map((item) => <option key={item.value} value={item.value}>{customSizeLabel(item)}</option>)}
+                          </select>
+                        </label>
+                      ) : null}
+                      <label className="singleField">
+                        <span>{t('params.quality', '质量')}</span>
+                        <select value={quality} onChange={(event) => setQuality(event.target.value)}>
+                          {imageQualityOptions.map((item) => <option key={item} value={item}>{qualityLabel(item)}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.resolution', '分辨率')}</span>
+                        <select value={resolutionTier} onChange={(event) => setResolutionTier(event.target.value)}>
+                          {imageResolutionTierOptions.map((item) => <option key={item.value} value={item.value}>{resolutionTierLabel(item)}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.format', '格式')}</span>
+                        <select value={outputFormat} onChange={(event) => setOutputFormat(event.target.value)}>
+                          {imageOutputFormatOptions.map((item) => <option key={item} value={item}>{OUTPUT_FORMAT_LABELS[item] || item}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.moderation', '审核')}</span>
+                        <select value={moderation} onChange={(event) => setModeration(event.target.value)}>
+                          {MODERATION.map((item) => <option key={item} value={item}>{MODERATION_LABELS[item] || item}</option>)}
+                        </select>
+                      </label>
+                      <label className="singleField">
+                        <span>{t('params.imageCount', '图片数量')}</span>
+                        <input
+                          type="number"
+                          min={imageCountRange.min}
+                          max={imageCountRange.max}
+                          value={countValue}
+                          onChange={(event) => setCount(clampCountForProvider(event.target.value, currentImageProvider, normalizeCount))}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+                <div className="singleActionBar">
+                  <button type="button" onClick={optimizeCurrentPrompt} disabled={optimizingPrompt}>
+                    {optimizingPrompt ? <LoaderCircle className="spin" size={18} /> : <WandSparkles size={18} />}
+                    {optimizingPrompt ? t('composer.optimizing', '优化中') : t('composer.optimize', '优化')}
+                  </button>
+                  <button type="button" className={`singleGenerateButton ${generationActionClass}`} onClick={handleGenerateAction} disabled={generationActionDisabled}>
+                    {generationActionIcon}
+                    {generationActionLabel}
+                  </button>
+                </div>
+              </section>
+              <div className="singleGenerationSide">
+                <section className={`singleGenerationPanel singleLatestResult ${hasPrimaryResult ? 'hasResult' : ''}`}>
+                  <div className="singleGenerationHead">
+                    <div>
+                      <strong>{isVideoSingleMode ? t('canvas.videoResult', '视频结果') : t('composer.resultTitle', '生成结果')}</strong>
+                      <span>{hasPrimaryResult ? t('composer.resultCount', '共 {count} 张', { count: singleResultCount }) : t('composer.pending', '待生成')}</span>
+                    </div>
+                  </div>
+                  {isVideoSingleMode ? (
+                    <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} t={t} />
+                  ) : (
+                    <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
+                  )}
+                </section>
+                <section className="singleGenerationPanel singleStatusPanel">
+                  <div className="singleGenerationHead">
+                    <div>
+                      <strong>{t('single.statusTitle', '生成状态')}</strong>
+                      <span>{confirmTaskRouteLabel || composerRouteLabel}</span>
+                    </div>
+                    {isGenerating ? (
+                      <button type="button" onClick={stopGeneration}>
+                        <X size={14} />
+                        {t('composer.stopWaiting', '停止')}
+                      </button>
+                    ) : null}
+                  </div>
+                  <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} t={t} />
+                  <GenerationTimingPanel timing={timing} t={t} />
+                  {message ? <p className={`singleStatusLine ${status}`}>{message}</p> : null}
+                </section>
+                <section className="singleGenerationPanel singleTipsPanel">
+                  <strong>{t('single.tipsTitle', '提示')}</strong>
+                  <div>
+                    <span>{t('single.tipPrompt', '描述里包含主体、场景、风格、光线和构图会更稳定。')}</span>
+                    <span>{t('single.tipReference', '需要延续人物或产品时，先上传参考图。')}</span>
+                    <span>{t('single.tipCanvas', '多轮分支、对比和衍生创作请切到无限画布。')}</span>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+      {workspaceFlowMode === 'canvas' ? (
+        <>
       <aside className={`referenceSidePanel contextSidePanel ${layoutSections.references ? 'isOpen' : 'isCollapsed'} promptWorkspaceDocked`} aria-label={t('context.title', '创作上下文')}>
         {layoutSections.references ? (
           <>
@@ -4497,6 +4860,8 @@ function CreationDesk({
           />
         ) : null}
       </BottomComposerPanel>
+        </>
+      ) : null}
       {regenerateDialogOpen ? (
         <React.Suspense fallback={null}>
           <RegenerateDialog

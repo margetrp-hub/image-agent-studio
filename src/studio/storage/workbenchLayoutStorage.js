@@ -15,7 +15,8 @@ const DEFAULT_LAYOUT = Object.freeze({
   parametersRail: false,
   bottomComposer: true,
   composerParameters: false,
-  composerFolded: false
+  composerFolded: false,
+  flowMode: 'canvas'
 });
 
 export function loadWorkbenchLayout() {
@@ -31,7 +32,8 @@ export function loadWorkbenchLayout() {
       parametersRail: stored?.parametersRail === true,
       bottomComposer: stored?.bottomComposer !== false,
       composerParameters: false,
-      composerFolded: stored?.composerFolded === true
+      composerFolded: stored?.composerFolded === true,
+      flowMode: stored?.flowMode === 'single' ? 'single' : 'canvas'
     };
   } catch {
     return { ...DEFAULT_LAYOUT };
