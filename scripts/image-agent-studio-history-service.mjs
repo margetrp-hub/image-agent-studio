@@ -1072,6 +1072,36 @@ function normalizeGatewayBaseUrl(value) {
   return `${raw}/v1`;
 }
 
+function modelSyncEndpointUrl(gatewayBaseUrl) {
+  const base = normalizeGatewayBaseUrl(gatewayBaseUrl);
+  let url;
+  try {
+    url = new URL(`${base}/models`);
+  } catch {
+    const error = new Error('MODEL_SYNC_GATEWAY_URL_INVALID');
+    error.status = 400;
+    throw error;
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    const error = new Error('MODEL_SYNC_GATEWAY_URL_INVALID');
+    error.status = 400;
+    throw error;
+  }
+  return url.toString();
+}
+
+async function fetchGatewayModels(apiKey, gatewayBaseUrl, signal) {
+  const response = await undiciFetch(modelSyncEndpointUrl(gatewayBaseUrl), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    dispatcher: gatewayFetchAgent,
+    signal
+  });
+  return readGatewayResponse(response);
+}
+
 function dataUrlToBuffer(value) {
   const raw = String(value || '');
   const match = raw.match(/^data:(image\/(?:png|jpeg|webp));base64,([a-zA-Z0-9+/=\s]+)$/);
@@ -1684,7 +1714,7 @@ async function handler(req, res) {
     });
   }
 
-  if (parts[0] !== 'studio-api' || !['history', 'session', 'generation-jobs', 'library', 'library-assets', 'community-prompts', 'prompt-presets', 'video-inspirations', 'backup'].includes(parts[1])) {
+  if (parts[0] !== 'studio-api' || !['history', 'session', 'generation-jobs', 'model-sync', 'library', 'library-assets', 'community-prompts', 'prompt-presets', 'video-inspirations', 'backup'].includes(parts[1])) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
 
@@ -1709,6 +1739,14 @@ async function handler(req, res) {
     }
 
     const auth = await authenticate(req);
+
+    if (req.method === 'POST' && parts[0] === 'studio-api' && parts[1] === 'model-sync' && parts.length === 2) {
+      const body = await readJsonBody(req);
+      const apiKey = text(body.apiKey, 4000);
+      if (!apiKey) return sendJson(res, 400, { ok: false, error: 'MODEL_SYNC_API_KEY_REQUIRED' });
+      const models = await fetchGatewayModels(apiKey, body.gatewayBaseUrl || AI_GATEWAY_BASE_URL, req.signal);
+      return sendJson(res, 200, { ok: true, models });
+    }
 
     if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'backup' && parts.length === 2) {
       const backup = await buildUserBackup(auth, 'manual');

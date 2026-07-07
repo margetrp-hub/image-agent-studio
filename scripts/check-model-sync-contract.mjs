@@ -1,4 +1,5 @@
 import { modelLooksLikeImage, syncGatewayModels } from '../src/studio/generation/modelSync.js';
+import { readFileSync } from 'node:fs';
 
 class GoodGateway {
   async listGatewayModels() {
@@ -50,6 +51,15 @@ if (!ready.usageSummary.includes('12') || !ready.usageSummary.includes('3')) fai
 if (!modelLooksLikeImage({ id: 'gpt-image-2' })) failures.push('gpt-image-2 should be classified as an image model');
 if (modelLooksLikeImage({ id: 'gpt-5.5' })) failures.push('gpt-5.5 should not be classified as an image model');
 if (fallback.modelsStatus !== 'fallback') failures.push(`failed model sync should return fallback, got ${fallback.modelsStatus}`);
+
+const gatewayClientSource = readFileSync(new URL('../src/aiGatewayClient.js', import.meta.url), 'utf8');
+const historyServiceSource = readFileSync(new URL('./image-agent-studio-history-service.mjs', import.meta.url), 'utf8');
+if (!gatewayClientSource.includes('listGatewayModelsViaStudio')) {
+  failures.push('manual model sync should try the same-origin Studio proxy before browser-direct upstream fetch.');
+}
+if (!historyServiceSource.includes("parts[1] === 'model-sync'") || !historyServiceSource.includes('/models')) {
+  failures.push('history service must expose /studio-api/model-sync and proxy only the /v1/models endpoint.');
+}
 
 if (failures.length) {
   console.error(`Model sync contract failed:\n${failures.map((item) => `- ${item}`).join('\n')}`);

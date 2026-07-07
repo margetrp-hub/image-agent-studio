@@ -1135,15 +1135,21 @@ export class AiGatewayClient {
 
   async listGatewayModels({ apiKey, gatewayBaseUrl, signal } = {}) {
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
-    const response = await fetch(`${resolvedGatewayBaseUrl}/models`, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      ...(signal ? { signal } : {})
-    });
-    const payload = await readJsonResponse(response);
-    const models = normalizeModelItems(payload);
+    let models = [];
+    try {
+      models = await this.listGatewayModelsViaStudio({ apiKey, gatewayBaseUrl: resolvedGatewayBaseUrl, signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      const response = await fetch(`${resolvedGatewayBaseUrl}/models`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        ...(signal ? { signal } : {})
+      });
+      const payload = await readJsonResponse(response);
+      models = normalizeModelItems(payload);
+    }
     try {
       const pricedModels = normalizeModelItems(await this.request('/models', { signal }));
       const priceById = new Map(pricedModels.map((item) => [item.id, item]));
@@ -1166,6 +1172,24 @@ export class AiGatewayClient {
       if (error?.name === 'AbortError') throw error;
       return models;
     }
+  }
+
+  async listGatewayModelsViaStudio({ apiKey, gatewayBaseUrl, signal } = {}) {
+    const historyBaseUrl = getConfiguredBaseUrls().studioHistoryBaseUrl;
+    const response = await fetch(`${historyBaseUrl}/studio-api/model-sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...studioAuthHeaders(this.session)
+      },
+      body: JSON.stringify({
+        apiKey,
+        gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl)
+      }),
+      ...(signal ? { signal } : {})
+    });
+    const payload = await readJsonResponse(response);
+    return normalizeModelItems(payload.models || payload);
   }
 
   async getGatewayUsage({ apiKey, gatewayBaseUrl, signal } = {}) {
