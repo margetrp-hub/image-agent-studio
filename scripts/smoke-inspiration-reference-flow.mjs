@@ -119,6 +119,11 @@ try {
   await page.locator('.lightboxOverlay .iconButton').first().click();
   await page.waitForSelector('.lightboxOverlay', { state: 'detached', timeout: 8000 });
   await page.locator('.caseTile .appendMiniButton').first().click();
+  await page.waitForSelector('.creationDesk', { timeout: 8000 });
+  if (await page.locator('.creationDesk.singleFlowMode').count()) {
+    await page.locator('.workflowModeSwitch button').nth(1).click();
+    await page.waitForSelector('.creationDesk.canvasFlowMode', { timeout: 8000 });
+  }
   await page.waitForSelector('.creationDesk .libraryReferencePreview img', { timeout: 8000 });
   await page.screenshot({ path: referenceScreenshotPath, fullPage: true });
 

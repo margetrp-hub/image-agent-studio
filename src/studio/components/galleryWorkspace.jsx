@@ -200,7 +200,7 @@ function PromptCaseCard({ item, selected, onSelect, favorite, onToggleFavorite, 
         {onAppend ? (
           <button
             type="button"
-            className="appendMiniButton"
+            className="appendMiniButton promptUseButton"
             onClick={(event) => {
               event.stopPropagation();
               onAppend(item);
@@ -209,6 +209,7 @@ function PromptCaseCard({ item, selected, onSelect, favorite, onToggleFavorite, 
             title={t('gallery.useTemplateHint', '选用后带入底部对话框')}
           >
             <Check size={13} />
+            <span>{t('gallery.usePrompt', '使用提示词')}</span>
           </button>
         ) : null}
         <button
@@ -421,17 +422,21 @@ export function GalleryWorkspacePanel({
     setVisibleLimit(INITIAL_TEMPLATE_LIMIT);
   }, [category, query, activeKind, type]);
 
+  const useLibraryItem = (item) => {
+    onSelect(item);
+    onAppendTemplate?.(item);
+    onOpenWorkspace?.(item?.kind === 'video-inspiration' ? 'video' : 'image');
+  };
   const selectLibraryItem = (item) => {
     if (isVideo) {
       onSelect(item);
       return;
     }
+    if (!hasLibraryPreviewImage(item)) {
+      useLibraryItem(item);
+      return;
+    }
     openTemplatePreview(item);
-  };
-  const useLibraryItem = (item) => {
-    onSelect(item);
-    onAppendTemplate?.(item);
-    onOpenWorkspace?.(item?.kind === 'video-inspiration' ? 'video' : 'image');
   };
   const openTemplatePreview = (item) => {
     const preview = templatePreviewImage(item);

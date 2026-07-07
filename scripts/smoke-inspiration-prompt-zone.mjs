@@ -92,16 +92,20 @@ try {
   assert(initial.promptCards === TOTAL_PROMPT_ITEMS, 'Prompt-only inspirations should render as prompt cards.', initial);
   assert(missingRequests.length === 0, 'Prompt-only cards should not request broken remote image URLs.', missingRequests);
 
-  await page.locator('.promptOnlyZone .caseTile.promptOnly').first().click();
-  await page.waitForSelector('.lightboxPromptOnlyStage', { timeout: 8000 });
-  const preview = await page.evaluate(() => ({
-    hasPromptOnlyStage: Boolean(document.querySelector('.lightboxPromptOnlyStage')),
+  await page.locator('.promptOnlyZone .caseTile.promptOnly .promptCaseMain').first().click();
+  await page.waitForSelector('.creationDesk textarea', { timeout: 8000 });
+  const useFlow = await page.evaluate(() => ({
+    hasLightbox: Boolean(document.querySelector('.lightboxOverlay')),
+    hasDesk: Boolean(document.querySelector('.creationDesk')),
+    imageWorkspaceActive: Boolean(document.querySelector('[data-workspace="image"].active')),
+    promptValue: document.querySelector('.creationDesk textarea')?.value || '',
     promptTextVisible: document.body.innerText.includes('Prompt-only idea 1')
   }));
-  assert(preview.hasPromptOnlyStage, 'Prompt-only preview should open a text-first lightbox.', preview);
-  assert(preview.promptTextVisible, 'Prompt-only preview should show the prompt text.', preview);
+  assert(!useFlow.hasLightbox, 'Prompt-only cards should not open the image lightbox.', useFlow);
+  assert(useFlow.hasDesk, 'Using a prompt-only inspiration should return to the creation desk.', useFlow);
+  assert(useFlow.promptValue.includes('Prompt-only idea 1'), 'Using a prompt-only inspiration should fill the composer prompt.', useFlow);
 
-  console.log(JSON.stringify({ ok: true, initial, preview }, null, 2));
+  console.log(JSON.stringify({ ok: true, initial, useFlow }, null, 2));
 } finally {
   if (browser) await browser.close();
   await server.close();

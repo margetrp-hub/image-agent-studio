@@ -295,7 +295,7 @@
 }
 
 .galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain {
-  padding: 14px 12px 48px !important;
+  padding: 44px 12px 48px !important;
   grid-template-rows: auto auto 1fr auto !important;
   gap: 8px !important;
 }
@@ -303,7 +303,7 @@
 .galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain > span {
   position: static !important;
   width: fit-content !important;
-  max-width: 100% !important;
+  max-width: calc(100% - 140px) !important;
   background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-soft)) !important;
   color: var(--studio-primary) !important;
 }
@@ -332,11 +332,33 @@
 .communityPromptStats {
   position: absolute !important;
   left: 10px !important;
-  right: 86px !important;
+  right: 10px !important;
   bottom: 10px !important;
   z-index: 3 !important;
   display: flex !important;
   gap: 5px !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileActions {
+  top: 10px !important;
+  right: 10px !important;
+  bottom: auto !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .promptUseButton {
+  width: auto !important;
+  min-width: 104px !important;
+  padding: 0 10px !important;
+  gap: 5px !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
+  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong)) !important;
+  color: var(--studio-primary) !important;
+}
+
+.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .promptUseButton span {
+  font-size: 11px !important;
+  font-weight: 950 !important;
+  white-space: nowrap !important;
 }
 
 .communityPromptStats button {
