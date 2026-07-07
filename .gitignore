@@ -49,4 +49,5 @@ tmp/
 
 # Logs
 npm-debug.log*
+tmp-*.log
 src/styles.css

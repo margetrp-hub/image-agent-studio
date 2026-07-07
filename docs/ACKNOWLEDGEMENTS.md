@@ -9,7 +9,7 @@ The project was informed by community prompt examples, public AI creation workfl
 - The creation workflow in `studio.html` and `src/studio.jsx`.
 - The image and video workspace UI, parameter controls, reference upload flow, masked key display, and history panel.
 - The OpenAI-compatible gateway client glue in `src/aiGatewayClient.js`.
-- The optional per-user history service in `scripts/image-sub2api-studio-history-service.mjs`.
+- The optional per-user history service in `scripts/image-agent-studio-history-service.mjs`.
 - The deployment examples under `deploy/`, Docker, and Nginx documentation.
 - The screenshots under `docs/screenshots/`, which show this project's own UI.
 
@@ -40,6 +40,11 @@ When adding more prompt sources, add source metadata such as:
 Public AI image tools, prompt galleries, and creator workbench products were reviewed as product and workflow references. Typical reference areas include prompt editing, parameter controls, inspiration cards, history, output preview, and protected asset libraries.
 
 No third-party product UI screenshots, private images, brand assets, or proprietary interface files are included as project assets.
+
+Recent UI and configuration references reviewed as public learning material:
+
+- [`basketikun/infinite-canvas`](https://github.com/basketikun/infinite-canvas), reviewed for canvas nodes, links, hover tools, zoom controls, and canvas-side configuration patterns.
+- [`codegrazier/cpa-image`](https://github.com/codegrazier/cpa-image), reviewed for compact settings, local-first task panels, queue states, and explicit connection/model-sync actions.
 
 ## Open-Source Dependencies
 

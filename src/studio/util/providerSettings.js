@@ -1,7 +1,7 @@
 // Provider/key display helpers shared between studio.jsx and the extracted
 // settings UI. Pure functions — no React, no DOM.
 
-import { getConfiguredBaseUrls } from '../../aiGatewayClient';
+import { getConfiguredBaseUrls } from '../../aiGatewayClient.js';
 import { getImageProvider } from '../providers/index.js';
 
 export function maskApiKey(value) {

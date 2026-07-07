@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
 const pageUrl = process.argv[2] || process.env.PUBLIC_STUDIO_URL || 'https://studio.ohlaoo.com/studio/';
 const expectedJs = process.env.EXPECTED_STUDIO_JS || '';
@@ -195,8 +196,8 @@ await page.addInitScript(({ providerSettingsKey, manualSecretKey, fakeSecret, fa
 try {
   await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 20_000 });
-  await page.locator('.bottomComposerInput textarea').fill('A tiny public route smoke test image, simple icon on white background.');
-  await page.locator('.composerGenerateAction').click();
+  await fillGenerationPrompt(page, 'A tiny public route smoke test image, simple icon on white background.');
+  await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
   await page.waitForTimeout(6_000);
 
@@ -204,7 +205,7 @@ try {
     body: document.body.innerText.slice(0, 2400),
     scriptSrc: [...document.scripts].map((script) => script.src).filter(Boolean),
     cssHref: [...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href),
-    canvasImages: document.querySelectorAll('.canvasNode img').length
+    resultImages: document.querySelectorAll('.resultGrid img, .canvasNode img').length
   }));
   const jsAssets = assetNames(result.scriptSrc);
   const cssAssets = assetNames(result.cssHref);
@@ -218,7 +219,7 @@ try {
   assert(requests.responses.length === 0, 'Public page generation attempted /v1/responses.', { requests, result });
   assert(requests.edits.length === 0, 'Text-to-image without references attempted /v1/images/edits.', { requests, result });
   assert(requests.chat.length === 0, 'Generate action attempted the prompt assistant route.', { requests, result });
-  assert(result.canvasImages >= 1, 'Public page did not render the mocked generated image.', { requests, result });
+  assert(result.resultImages >= 1, 'Public page did not render the mocked generated image.', { requests, result });
 
   console.log(JSON.stringify({
     ok: true,
@@ -226,7 +227,7 @@ try {
     jsAssets,
     cssAssets,
     requests,
-    canvasImages: result.canvasImages
+    resultImages: result.resultImages
   }, null, 2));
 } finally {
   await browser.close();

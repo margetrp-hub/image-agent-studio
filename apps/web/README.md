@@ -1,6 +1,6 @@
 # Frontend v1 Workbench Skeleton
 
-This folder is an isolated React source skeleton for the next image-sub2api Studio workbench. It is intentionally not wired into the current `src/studio.jsx` entrypoint.
+This folder is an isolated React source skeleton for the next Image Agent Studio workbench. It is intentionally not wired into the current `src/studio.jsx` entrypoint.
 
 ## Module Boundaries
 

@@ -45,6 +45,7 @@ export function historyResultItems(item) {
       displayUrl: result.displayUrl || result.url || '',
       prompt: result.prompt || result.generationPrompt || item?.prompt || item?.generationPrompt || item?.case?.promptPreview || '',
       generationPrompt: result.generationPrompt || result.prompt || item?.generationPrompt || item?.prompt || item?.case?.promptPreview || '',
+      workflow: result.workflow || item?.workflow || null,
       model: result.model || item?.model || '',
       providerId: result.providerId || item?.providerId || item?.provider || '',
       createdAt: result.createdAt || item?.createdAt || '',
@@ -63,6 +64,7 @@ export function historyResultItems(item) {
     displayUrl: displayUrls[index] || url,
     prompt: item?.prompt || item?.generationPrompt || item?.case?.promptPreview || '',
     generationPrompt: item?.generationPrompt || item?.prompt || item?.case?.promptPreview || '',
+    workflow: item?.workflow || null,
     model: item?.model || '',
     providerId: item?.providerId || item?.provider || '',
     createdAt: item?.createdAt || '',
@@ -147,6 +149,7 @@ export function currentSessionProject(session, queueStatuses = DEFAULT_VISIBLE_Q
       displayUrl: node.url,
       prompt: node.prompt || '',
       generationPrompt: node.generationPrompt || node.prompt || '',
+      workflow: node.workflow || null,
       model: node?.downloadMeta?.model || session.model || '',
       createdAt: node.createdAt || session.updatedAt || '',
       index

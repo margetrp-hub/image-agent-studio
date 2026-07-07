@@ -32,5 +32,6 @@ scripts/install-style-skill.mjs
 .env.*
 !.env.example
 npm-debug.log*
+tmp-*.log
 *.zip
 *.zip.csupload

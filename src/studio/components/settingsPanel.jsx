@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, RefreshCw } from 'lucide-react';
 import '../../styles/studio.provider-settings.css';
+import '../../styles/studio.provider-settings-sync.css';
 
 import { getConfiguredBaseUrls } from '../../aiGatewayClient';
-import { IMAGE_PROVIDER_REGISTRY, getImageProvider } from '../providers/index.js';
+import { getImageProvider, orderedImageProviders } from '../providers/index.js';
 import {
   apiKeyDisplay,
   apiKeyMeta,
@@ -21,6 +22,7 @@ export function SettingsPanel({
   onProviderChange,
   modelOptions = { image: [], responses: [], video: [] },
   modelsStatus = 'idle',
+  onSyncModels,
   isAuthenticated,
   onLogin,
   t
@@ -39,12 +41,6 @@ export function SettingsPanel({
   const gatewayAccountDisabled = providerSettings.apiKeySource === 'manual';
   const currentProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
   const providerDescriptor = currentProvider?.descriptor || {};
-  const providerCapabilityText = [
-    currentProvider?.capabilities?.textToImage ? t('settings.capTextToImage', '生图') : '',
-    currentProvider?.capabilities?.imageEdit ? t('settings.capEdit', '编辑') : '',
-    currentProvider?.capabilities?.mask ? 'Mask' : '',
-    currentProvider?.capabilities?.modelSync ? t('settings.capModelSync', '模型同步') : ''
-  ].filter(Boolean).join(' · ');
   const modelSyncLabel = modelsStatus === 'loading'
     ? t('settings.modelsSyncing', '正在从上游同步模型')
     : modelsStatus === 'ready'
@@ -57,19 +53,13 @@ export function SettingsPanel({
     responses: modelOptions.responses?.length || 0,
     video: modelOptions.video?.length || 0
   });
-  const providerChoiceOrder = ['official-openai', 'openai-compatible', 'newapi-compatible', 'gateway-account', 'nano-banana-compatible', 'video-compatible'];
-  const providerChoices = [...IMAGE_PROVIDER_REGISTRY]
-    .sort((left, right) => providerChoiceOrder.indexOf(left.id) - providerChoiceOrder.indexOf(right.id))
+  const providerChoices = orderedImageProviders()
     .map((provider) => ({
       ...provider,
       active: provider.id === currentProvider?.id,
       nextApiKeySource: provider.authMode
     }));
   const baseUrlPlaceholder = providerDescriptor.baseUrlExample || defaultProviderGatewayBaseUrl(providerSettings);
-  const providerSetupHint = providerDescriptor.setupHint
-    ? t(`settings.providerSetupHint.${currentProvider?.id}`, providerDescriptor.setupHint)
-    : t('settings.providerSetupHint.default', '填写接口地址和密钥后，会从 /v1/models 同步模型，并按当前模式调用图片或视频接口。');
-  const providerRouteHint = t('settings.providerRouteHint', '实际路径：模型 /v1/models · 生图 /v1/images/generations · 编辑 /v1/images/edits');
 
   return (
     <div className="settingsOverlay" onMouseDown={(event) => {
@@ -97,11 +87,10 @@ export function SettingsPanel({
             >
               {providerChoices.map((provider) => (
                 <option key={provider.id} value={provider.id}>
-                  {provider.label} · {provider.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}
+                  {provider.label}
                 </option>
               ))}
             </select>
-            <em>{providerSetupHint}</em>
           </label>
         </div>
 
@@ -109,7 +98,6 @@ export function SettingsPanel({
           <span>{t('settings.provider', 'Provider')}</span>
           <strong>{currentProvider?.label || providerSettings.providerId || 'Gateway Account'}</strong>
           <em>{currentProvider?.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}</em>
-          <small>{providerCapabilityText || t('settings.providerCompatible', 'OpenAI 兼容接口')}</small>
         </div>
 
         {usesGatewayAccount(providerSettings) ? (
@@ -139,7 +127,6 @@ export function SettingsPanel({
                 onChange={(event) => onProviderChange({ ...providerSettings, manualGatewayBaseUrl: event.target.value })}
                 placeholder={baseUrlPlaceholder}
               />
-              <small>{providerRouteHint}</small>
             </label>
             <label>
               <span>{t('settings.key', '密钥')}</span>
@@ -149,17 +136,14 @@ export function SettingsPanel({
                 onChange={(event) => onProviderChange({ ...providerSettings, manualApiKey: event.target.value })}
                 placeholder="sk-..."
               />
-              <small>{t('settings.sessionOnlyKey', '仅保存在当前浏览器会话，不写入 localStorage。')}</small>
             </label>
           </div>
         )}
 
         <div className="manualFields">
-          <p className="settingsHint">{t('settings.hint', '接口会自动选择：普通生图走 /v1/images/generations；参考图编辑和 Mask 走 /v1/images/edits。助手模型只用于底部提示词优化，会消耗当前 Key 额度。')}</p>
           <div className="settingsCallConfig">
             <div className="settingsCallConfigHead">
-              <strong>{t('settings.modelCallSettings', '模型调用设置')}</strong>
-              <span>{t('settings.modelCallHint', '为生图、编辑、视频和提示词助手预留不同模型；例如 nano-banana、gpt-image-2、veo3。')}</span>
+              <strong>{t('settings.modelCallSettings', '模型')}</strong>
             </div>
             <div className="settingsCallGrid">
               <label>
@@ -181,11 +165,22 @@ export function SettingsPanel({
             </div>
           </div>
           <div className={`settingsModelSync ${modelsStatus}`}>
-            <span>{modelSyncLabel}</span>
-            <em>{modelSyncMeta}</em>
-            <small>{providerDescriptor.modelSync?.endpoint
-              ? t('settings.modelsProviderHintWithEndpoint', '当前接口通过 {endpoint} 同步模型；失败时会保留默认模型供手动填写。', { endpoint: providerDescriptor.modelSync.endpoint })
-              : t('settings.modelsProviderHint', '兼容 OpenAI / NewAPI 风格的上游；后续可继续扩展为多 Provider 调用策略。')}</small>
+            <div className="settingsModelSyncText">
+              <span>{modelSyncLabel}</span>
+              <em>{modelSyncMeta}</em>
+            </div>
+            {onSyncModels ? (
+              <button
+                type="button"
+                className="settingsModelSyncButton"
+                onClick={() => onSyncModels()}
+                disabled={modelsStatus === 'loading'}
+                aria-label={t('settings.modelsSyncNowAria', '同步模型')}
+              >
+                <RefreshCw size={14} />
+                <span>{t('settings.modelsSyncNow', '同步')}</span>
+              </button>
+            ) : null}
           </div>
           <label>
             <span>{t('settings.assistantModel', '助手模型')}</span>

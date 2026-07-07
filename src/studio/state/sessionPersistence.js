@@ -4,6 +4,26 @@ function sessionUrlForServer(url, persistedUrl) {
   return value;
 }
 
+function serializeWorkflowState(workflow) {
+  if (!workflow || typeof workflow !== 'object') return null;
+  const lineage = Array.isArray(workflow.lineage)
+    ? workflow.lineage
+      .map((step, index) => ({
+        index: Number(step?.index) || index + 1,
+        jobId: String(step?.jobId || '').slice(0, 160),
+        nodeId: String(step?.nodeId || '').slice(0, 160),
+        mode: String(step?.mode || 'image').slice(0, 40),
+        route: String(step?.route || '').slice(0, 80),
+        prompt: String(step?.prompt || '').slice(0, 12000)
+      }))
+      .filter((step) => step.prompt)
+      .slice(-24)
+    : [];
+  const rootPrompt = String(workflow.rootPrompt || '').slice(0, 12000);
+  if (!rootPrompt && !lineage.length) return null;
+  return { rootPrompt, lineage };
+}
+
 export function createCurrentSessionSerializers({
   generationQueueLimit,
   imageModels,
@@ -37,6 +57,8 @@ export function createCurrentSessionSerializers({
       apiKeySource: String(item.apiKeySource || ''),
       providerLabel: String(item.providerLabel || ''),
       prompt: String(item.prompt || '').slice(0, 12000),
+      rawPrompt: String(item.rawPrompt || '').slice(0, 12000),
+      workflow: serializeWorkflowState(item.workflow),
       model: String(item.model || imageModels[0]),
       aspect: item.aspect || item.aspectRatio || '1:1',
       aspectRatio: item.aspectRatio || item.aspect || '1:1',

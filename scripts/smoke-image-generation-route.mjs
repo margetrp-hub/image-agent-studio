@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/image-generation-route.png`;
@@ -136,10 +137,10 @@ try {
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 12000 });
-  await page.locator('.bottomComposerInput textarea').fill('A tiny route smoke test image, simple product icon on clean background.');
-  await page.locator('.composerGenerateAction').click();
+  await fillGenerationPrompt(page, 'A tiny route smoke test image, simple product icon on clean background.');
+  await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
-  await page.waitForFunction(() => document.querySelectorAll('.canvasNode img').length >= 1, null, { timeout: 12000 });
+  await page.waitForFunction(() => document.querySelectorAll('.resultGrid img, .canvasNode img').length >= 1, null, { timeout: 12000 });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const result = await page.evaluate(({ providerSettingsKey, manualSecretKey, fakeSecret }) => ({
@@ -171,7 +172,7 @@ try {
   assert(!JSON.stringify(requests).includes(fakeSecret), 'Manual API key leaked into smoke request evidence.', { requests, result });
   assert(result.sessionSecret === fakeSecret, 'Manual API key was not retained in sessionStorage for the current session.', result);
   assert(!result.hasSecretInDom, 'Manual API key leaked into visible page text.', result);
-  assert(result.canvasNodes >= 1, 'Successful generation did not add a canvas node.', result);
+  assert(result.resultImages >= 1, 'Successful generation did not render a result image.', result);
   assert(!result.composerHasResultStrip, 'Generation results should stay on canvas/history, not inside the bottom chat composer.', result);
   assert(!result.composerHasThread, 'A successful result alone should not expand the bottom composer thread.', result);
 

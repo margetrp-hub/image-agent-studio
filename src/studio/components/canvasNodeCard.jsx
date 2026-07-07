@@ -11,6 +11,45 @@ import { displayResultUrl } from '../util/assets.js';
 import { compact } from '../util/formatters.js';
 import { buildStudioDownloadFilename, resultExtension, resultVideoExtension } from '../util/resultFiles.js';
 import { nodeHeight, nodeWidth } from '../util/canvasGeometry.js';
+import { buildCanvasContinuationPlan } from '../generation/promptComposition.js';
+
+function workflowLabelForMode(mode, t) {
+  if (mode === 'video') return t('canvas.workflowVideo', '视频');
+  if (mode === 'edit') return t('canvas.workflowEdit', '参考编辑');
+  return t('canvas.workflowImage', '图片');
+}
+
+function workflowArrowSummary(lineage = [], t) {
+  if (!lineage.length) return t('canvas.workflowSingle', '#1');
+  return lineage.map((step, index) => `#${step.index || index + 1}`).join(' → ');
+}
+
+function workflowRowsForNode(node, instruction, mode, t) {
+  const plan = (mode === 'image' || mode === 'video')
+    ? buildCanvasContinuationPlan(node, instruction, { mode })
+    : null;
+  const workflow = plan?.workflow || node.workflow || null;
+  const lineage = Array.isArray(plan?.lineage)
+    ? plan.lineage
+    : Array.isArray(workflow?.lineage)
+      ? workflow.lineage
+      : [];
+  const rootPrompt = plan?.rootPrompt || workflow?.rootPrompt || node.generationPrompt || node.prompt || '';
+  const previousPrompt = plan?.previousPrompt || node.generationPrompt || node.prompt || '';
+  const changePrompt = plan?.changePrompt || instruction || '';
+  const generationPrompt = plan?.generationPrompt || node.generationPrompt || node.prompt || '';
+  const rows = [
+    [t('canvas.workflowRoot', 'Root'), rootPrompt],
+    [t('canvas.workflowPrevious', 'Previous'), previousPrompt],
+    [t('canvas.workflowChange', 'This change'), changePrompt || t('canvas.workflowChangeEmpty', '输入本轮修改后会写入链路')],
+    [t('canvas.workflowFinal', 'Final prompt'), generationPrompt]
+  ].filter(([, value]) => String(value || '').trim());
+  return {
+    mode: plan?.mode || mode || node.kind || 'image',
+    lineage,
+    rows
+  };
+}
 
 export function CanvasNodeCard({
   node,
@@ -58,6 +97,9 @@ export function CanvasNodeCard({
     index: nodeIndex,
     extension: nodeExtension
   });
+  const workflowPreview = canvasEditorNodeId === node.id
+    ? workflowRowsForNode(node, canvasEditorPrompt, canvasEditorMode, t)
+    : null;
 
   return (
     <div
@@ -167,6 +209,22 @@ export function CanvasNodeCard({
             placeholder={t('canvas.inlinePlaceholder', '输入这一轮要补充、调整或重绘的地方')}
             autoFocus
           />
+          {workflowPreview ? (
+            <details className="canvasWorkflowPreview">
+              <summary>
+                <span>{t('canvas.workflowTitle', '提示词链路')}</span>
+                <em>{workflowArrowSummary(workflowPreview.lineage, t)} · {workflowLabelForMode(workflowPreview.mode, t)}</em>
+              </summary>
+              <div className="canvasWorkflowRows">
+                {workflowPreview.rows.map(([label, value]) => (
+                  <section key={label}>
+                    <span>{label}</span>
+                    <p title={String(value || '')}>{value}</p>
+                  </section>
+                ))}
+              </div>
+            </details>
+          ) : null}
           <div className="canvasInlineModes" role="group" aria-label={t('canvas.continueMode', '续作方式')}>
             <button type="button" className={canvasEditorMode === 'image' ? 'active' : ''} onClick={() => onEditorModeChange('image')}>{t('canvas.derive', '衍生')}</button>
             <button type="button" className={canvasEditorMode === 'edit' ? 'active' : ''} onClick={() => onEditorModeChange('edit')}>{t('canvas.referenceEdit', '参考编辑')}</button>

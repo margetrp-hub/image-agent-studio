@@ -169,7 +169,7 @@ export function upsertRemoteGenerationJobTask(queue, job, {
   const source = Array.isArray(queue) ? queue : [];
   const existingTask = source.find((item) => item?.serverJobId === job.id || item?.id === `remote-${job.id}`);
   if (existingTask?.status === 'canceled' && isActiveServerJobStatus(job.status)) return source;
-  const inheritedPrompt = job.prompt || existingTask?.prompt || existingTask?.summary || '';
+  const inheritedPrompt = job.generationPrompt || job.request?.generationPrompt || job.prompt || existingTask?.prompt || existingTask?.summary || '';
   const requestIds = Array.isArray(job.requestIds) ? job.requestIds.filter(Boolean).slice(0, 8) : [];
   const remoteTask = {
     id: `remote-${job.id}`,
@@ -185,6 +185,8 @@ export function upsertRemoteGenerationJobTask(queue, job, {
     apiKeySource: job.apiKeySource || '',
     providerLabel: job.providerLabel || '',
     prompt: inheritedPrompt,
+    rawPrompt: job.rawPrompt || job.request?.rawPrompt || existingTask?.rawPrompt || '',
+    workflow: job.workflow || job.request?.workflow || existingTask?.workflow || null,
     model: job.model || defaultModel,
     size: job.size || 'auto',
     quality: job.quality || 'auto',

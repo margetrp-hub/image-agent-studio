@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/video-generation-route.png`;
@@ -147,12 +148,12 @@ try {
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 12000 });
-  await page.locator('.workbenchModeSwitch button').nth(1).click();
-  await page.locator('.bottomComposerInput textarea').fill('Five second product video, slow push-in camera, clean studio light, no captions.');
-  await page.locator('.composerGenerateAction').click();
+  await page.locator('.workbenchModeSwitch button').filter({ hasText: 'Video' }).first().click();
+  await fillGenerationPrompt(page, 'Five second product video, slow push-in camera, clean studio light, no captions.');
+  await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
   await page.waitForFunction(() => (
-    document.querySelectorAll('.canvasNode video').length >= 1
+    document.querySelectorAll('.resultGrid video, .canvasNode video').length >= 1
     || /failed|error|No video models|视频模型|未开放视频/i.test(document.body.innerText)
   ), null, { timeout: 12000 }).catch(() => {});
   await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -163,6 +164,7 @@ try {
     sessionSecret: sessionStorage.getItem(manualSecretKey) || '',
     hasSecretInDom: document.body.innerText.includes(fakeSecret),
     canvasVideos: document.querySelectorAll('.canvasNode video').length,
+    resultVideos: document.querySelectorAll('.resultGrid video, .canvasNode video').length,
     routeLabel: document.body.innerText.includes('/v1/video/generations')
   }), { providerSettingsKey, manualSecretKey, fakeSecret });
   result.browserErrors = browserErrors;
@@ -176,7 +178,7 @@ try {
   assert(requests.videoCreates[0].body?.metadata?.camera_motion, 'Video task did not include motion metadata for compatible gateways.', { requests, result });
   assert(requests.imageGenerations.length === 0, 'Video generation must not call /v1/images/generations.', { requests, result });
   assert(requests.responses.length === 0, 'Video generation must not call /v1/responses.', { requests, result });
-  assert(result.canvasVideos >= 1, 'Successful video generation did not add a canvas video node.', result);
+  assert(result.resultVideos >= 1, 'Successful video generation did not render a video result.', result);
   assert(result.routeLabel, 'Video confirmation/status did not expose the concrete video route.', result);
   assert(!result.persistedSettings.includes(fakeSecret), 'Manual API key leaked into localStorage during video generation.', result);
   assert(result.sessionSecret === fakeSecret, 'Manual API key was not retained in sessionStorage.', result);

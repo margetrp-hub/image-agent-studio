@@ -287,6 +287,14 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
 ]);
 
 export const DEFAULT_IMAGE_PROVIDER_ID = 'gateway-account';
+const PROVIDER_DISPLAY_ORDER = Object.freeze([
+  'official-openai',
+  'openai-compatible',
+  'newapi-compatible',
+  'gateway-account',
+  'nano-banana-compatible',
+  'video-compatible'
+]);
 
 export function normalizeProviderId(id, authMode = '') {
   const value = String(id || '').trim();
@@ -297,6 +305,16 @@ export function normalizeProviderId(id, authMode = '') {
 
 export function findImageProvider(id) {
   return IMAGE_PROVIDER_REGISTRY.find((provider) => provider.id === id) || null;
+}
+
+export function orderedImageProviders() {
+  return [...IMAGE_PROVIDER_REGISTRY].sort((left, right) => {
+    const leftIndex = PROVIDER_DISPLAY_ORDER.indexOf(left.id);
+    const rightIndex = PROVIDER_DISPLAY_ORDER.indexOf(right.id);
+    const safeLeft = leftIndex >= 0 ? leftIndex : PROVIDER_DISPLAY_ORDER.length;
+    const safeRight = rightIndex >= 0 ? rightIndex : PROVIDER_DISPLAY_ORDER.length;
+    return safeLeft - safeRight || left.label.localeCompare(right.label);
+  });
 }
 
 export function getImageProvider(id, authMode = '') {

@@ -10,6 +10,5 @@ const repository = new HistoryRepository(storage);
 const server = createServer({ repository });
 
 server.listen(port, host, () => {
-  console.log(`image-sub2api-studio server listening at http://${host}:${port}`);
+  console.log(`image-agent-studio server listening at http://${host}:${port}`);
 });
-

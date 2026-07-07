@@ -15,11 +15,19 @@ This document describes the target v1 architecture. The current repository still
 ```text
 apps/
   web/       Browser workstation: React UI, canvas, composer, provider settings, local cache.
+  desktop/   Electron wrapper around the web workstation and local runtime.
+  miniapp/   Mini Program companion for prompt, inspiration, reference, and history workflows.
+  android/   Android companion for capture, review, sharing, and lightweight continuation.
   server/    Studio API: auth scope, sessions, history, jobs, assets, provider dispatch.
+  server-go/ Gradual Go core: Studio users, admin provider links, queue, dispatch, assets.
+packages/
+  theme/     Shared semantic theme tokens mapped into each client.
 docs/        Architecture, migration, deployment, and provider contracts.
 ```
 
 The v1 split is conceptual first, then physical. Existing code may still live under `src/` and `scripts/` until migration is complete.
+
+The Chinese product descriptor can be `创作工作台`. It is user-facing wording only; package, repository, release, and deployment names stay under the `Image Agent Studio` / `image-agent-studio` line.
 
 ### Web Layer
 
@@ -33,6 +41,24 @@ The web app owns user interaction only:
 
 The web layer does not own upstream keys, durable job execution, durable assets, or provider-specific request signing.
 
+### Mobile Client Layers
+
+Mini Program and Android clients are companion surfaces around the same Studio API:
+
+- prompt drafting, reference capture, inspiration browsing, history review, and lightweight job submission.
+- no provider key ownership, no full provider dispatch logic, and no separate durable queue.
+- local data is a cache; server sessions, jobs, history, and assets remain authoritative.
+
+### Theme Layer
+
+Shared visual decisions live in `packages/theme/tokens.json`:
+
+- Web/Desktop map tokens into CSS custom properties.
+- Mini Program maps tokens into WXSS variables or build-time constants.
+- Android maps tokens into Material/Compose theme values.
+
+Client density can differ, but token names should remain semantic and provider-neutral.
+
 ### Server Layer
 
 The server app owns durable state and protected IO:
@@ -45,6 +71,18 @@ The server app owns durable state and protected IO:
 - Backup, restore, health checks, and deployment diagnostics.
 
 The server layer may keep compatibility route names such as `/studio-api/history` and `/studio-api/generation-jobs`, but v1 code should treat them as Studio API routes rather than history-service internals.
+
+### Go Core Layer
+
+`apps/server-go` is the migration target for durable service logic. It should replace the Node service in phases:
+
+- first-party Studio users and session tokens.
+- admin-managed provider links for shared NewAPI, Sub2API, and OpenAI-compatible backend accounts.
+- generation queue state and cancellation.
+- provider dispatch and asset persistence.
+- backup, restore, and operational checks.
+
+The Studio user system is independent from upstream gateway accounts. Upstreams are provider links configured by admins, not the product identity.
 
 ## Request Flow
 
@@ -142,6 +180,32 @@ History records are append-oriented creation evidence. They should contain sanit
 ```
 
 Jobs are the source of truth while work is active. A succeeded job writes a history record. A failed, canceled, or unknown job remains visible long enough for the user to understand whether retry is safe.
+
+### Workflow Continuation
+
+Canvas links are not only visual. A lineage edge means the child job inherits the parent creative context.
+
+For image and video branches, continuation uses the same contract:
+
+```json
+{
+  "parentJobId": "job-1",
+  "mode": "image | video",
+  "rootPrompt": "prompt used for #1",
+  "previousPrompt": "submitted prompt used for the parent node",
+  "changePrompt": "what the user wants to change next",
+  "generationPrompt": "server-built prompt for the next job",
+  "workflow": {
+    "rootPrompt": "prompt used for #1",
+    "lineage": [
+      { "index": 1, "jobId": "job-1", "mode": "image", "prompt": "..." },
+      { "index": 2, "mode": "image", "prompt": "..." }
+    ]
+  }
+}
+```
+
+The next job should persist `workflow` under its request payload, especially `workflow.lineage`. This lets `#3` inherit from `#2` while still remembering the original `#1` direction. Prompt composition should preserve subject identity, style, composition logic, and important props from the parent, then apply the new change request as the next branch step. Video uses the same lineage structure, with motion/story-beat continuity rules instead of still-image composition rules.
 
 ### Asset
 

@@ -23,7 +23,23 @@ export const dictionaries = {
       video: '视频创作',
       history: '历史图库',
       desk: '工作台',
-      creationType: '创作类型'
+      creationType: '创作类型',
+      singleGeneration: '单次生图',
+      infiniteCanvas: '无限画布',
+      workflowMode: '创作模式'
+    },
+    single: {
+      title: '单次生图',
+      subtitle: '一次输入，一次确认，快速拿到结果。',
+      promptLabel: '描述',
+      videoPromptPlaceholder: '描述视频画面、镜头运动、节奏和风格...',
+      promptPlaceholder: '描述主体、场景、风格、光线和构图...',
+      referenceHint: '可选。上传后会作为本次参考图。',
+      statusTitle: '生成状态',
+      tipsTitle: '提示',
+      tipPrompt: '主体、场景、风格、光线和构图写清楚会更稳定。',
+      tipReference: '需要延续人物或产品时，先上传参考图。',
+      tipCanvas: '多轮分支、对比和衍生创作请切到无限画布。'
     },
     mode: {
       textToImage: '文生图',
@@ -428,8 +444,10 @@ export const dictionaries = {
       modelsSyncing: '正在从上游同步模型',
       modelsSynced: '上游模型已同步',
       modelsFallback: '未读取到上游模型，暂用默认列表',
-      modelsIdle: '填写接口和密钥后自动同步模型',
+      modelsIdle: '模型待同步',
       modelsSyncMeta: '图片 {image} · 对话 {responses} · 视频 {video}',
+      modelsSyncNow: '同步',
+      modelsSyncNowAria: '同步模型',
       providerFamily: '接口类型',
       providerSetupHint: {
         default: '填写接口地址和密钥后，会从 /v1/models 同步模型，并按当前模式调用图片或视频接口。',
@@ -441,7 +459,7 @@ export const dictionaries = {
       provider: '接口',
       providerCompatible: 'OpenAI 兼容接口',
       sessionOnlyKey: '仅保存在当前浏览器会话，不写入 localStorage。',
-      modelCallSettings: '模型调用设置',
+      modelCallSettings: '模型',
       modelCallHint: '分别配置生图、编辑、视频和提示词助手模型；例如 gpt-image-2、nano-banana、veo3。',
       imageGenerationModel: '生图模型',
       imageEditModel: '编辑 / Mask 模型',
@@ -648,7 +666,23 @@ export const dictionaries = {
       video: 'Video',
       history: 'History',
       desk: 'Desk',
-      creationType: 'Creation type'
+      creationType: 'Creation type',
+      singleGeneration: 'Single',
+      infiniteCanvas: 'Canvas',
+      workflowMode: 'Creation mode'
+    },
+    single: {
+      title: 'Single generation',
+      subtitle: 'One prompt, one confirmation, one clean result.',
+      promptLabel: 'Prompt',
+      videoPromptPlaceholder: 'Describe the video scene, camera motion, rhythm, and style...',
+      promptPlaceholder: 'Describe the subject, scene, style, lighting, and composition...',
+      referenceHint: 'Optional. Uploaded images are used as references for this run.',
+      statusTitle: 'Generation status',
+      tipsTitle: 'Tips',
+      tipPrompt: 'Clear subject, scene, style, lighting, and composition produce steadier results.',
+      tipReference: 'Upload a reference when a person or product needs to stay consistent.',
+      tipCanvas: 'Use Canvas for branches, comparisons, and follow-up variations.'
     },
     mode: {
       textToImage: 'Text to image',
@@ -1053,8 +1087,10 @@ export const dictionaries = {
       modelsSyncing: 'Syncing models from upstream',
       modelsSynced: 'Upstream models synced',
       modelsFallback: 'No upstream models found. Using defaults.',
-      modelsIdle: 'Models sync after gateway URL and key are set.',
+      modelsIdle: 'Model sync pending',
       modelsSyncMeta: 'Images {image} · Chat {responses} · Video {video}',
+      modelsSyncNow: 'Sync',
+      modelsSyncNowAria: 'Sync models',
       providerFamily: 'Provider type',
       providerSetupHint: {
         default: 'After the gateway URL and key are set, models sync from /v1/models and requests use the image or video route for the current mode.',
@@ -1066,7 +1102,7 @@ export const dictionaries = {
       provider: 'Provider',
       providerCompatible: 'OpenAI-compatible API',
       sessionOnlyKey: 'Stored only in the current browser session, not localStorage.',
-      modelCallSettings: 'Model call settings',
+      modelCallSettings: 'Models',
       modelCallHint: 'Configure image generation, edit, video, and prompt assistant models separately; for example gpt-image-2, nano-banana, veo3.',
       imageGenerationModel: 'Image model',
       imageEditModel: 'Edit / Mask model',

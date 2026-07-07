@@ -4,6 +4,8 @@
 
 The current implementation may still be served by `scripts/image-sub2api-studio-history-service.mjs` during migration. That script should become a compatibility wrapper only after the server boundary is moved and verified.
 
+The gradual Go service lives in `apps/server-go`. It starts with Studio-owned users, role-based admin access, session tokens, and backend provider links for shared NewAPI/Sub2API/OpenAI-compatible accounts. Keep this Node boundary available until Go has equivalent queue, dispatch, asset, backup, and restore behavior.
+
 ## Responsibilities
 
 - Resolve user scope for `local` and `gateway` auth modes.

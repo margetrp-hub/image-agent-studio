@@ -8,7 +8,6 @@ module.exports = {
     'apps/desktop/main.mjs',
     'dist/**',
     'scripts/image-agent-studio-history-service.mjs',
-    'scripts/image-sub2api-studio-history-service.mjs',
     'scripts/studio-service/**',
     'package.json'
   ],

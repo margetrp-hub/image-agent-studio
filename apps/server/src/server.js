@@ -9,7 +9,7 @@ export function createServer({ repository }) {
       if (request.method === 'GET' && url.pathname === '/health') {
         return sendJson(response, 200, {
           ok: true,
-          service: 'image-sub2api-studio-server',
+          service: 'image-agent-studio-server',
           schemaVersion: IMAGE_JOB_SCHEMA_VERSION,
         });
       }
@@ -73,4 +73,3 @@ function sendJson(response, statusCode, payload) {
   });
   response.end(body);
 }
-

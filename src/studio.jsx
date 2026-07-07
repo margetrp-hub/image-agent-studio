@@ -78,8 +78,6 @@ import './styles/studio.playground-polish.css';
 import './styles/studio.flow-modes.css';
 import './styles/studio.composer-state-polish.css';
 import {
-  AiGatewayClient,
-  StudioHistoryClient,
   clearSession,
   getImageUrls,
   getVideoUrls,
@@ -95,7 +93,6 @@ import { createHistoryCanvasBuilder } from './studio/canvas/historyCanvas.js';
 import { createCurrentSessionSerializers } from './studio/state/sessionPersistence.js';
 import { deriveSessionStateFromSnapshot, notifySessionSnapshotChange } from './studio/state/sessionApply.js';
 import {
-  IMAGE_PROVIDER_REGISTRY,
   clampCountForProvider,
   getImageProvider,
   providerAspectOptions,
@@ -135,7 +132,6 @@ import { LeftRail } from './studio/components/leftRail.jsx';
 import {
   apiKeyDisplay,
   apiKeyMeta,
-  defaultProviderGatewayBaseUrl,
   maskApiKey,
   providerLabel,
   usesGatewayAccount
@@ -173,7 +169,17 @@ const InspirationUploadDialog = React.lazy(() => import('./studio/components/ins
   default: module.InspirationUploadDialog
 })));
 import { buildGenerationTask as buildGenerationTaskPure, generationFilesForJob as generationFilesForJobPure, waitForServerJob as waitForServerJobPure } from './studio/generation/taskBuilder.js';
-import { composeCanvasContinuationPrompt } from './studio/generation/promptComposition.js';
+import { buildCanvasContinuationPlan, composeCanvasContinuationPrompt } from './studio/generation/promptComposition.js';
+import {
+  modelLooksLikeImage,
+  resolveProviderRequest,
+  syncGatewayModels
+} from './studio/generation/modelSync.js';
+import {
+  buildServerImageGenerationJobPayload,
+  endpointForGenerationTask,
+  imageGenerationRouteForMode
+} from './studio/generation/executor.js';
 import { canvasEdgeGeometry, canvasEdgeLineageClass, canvasLinkPreviewGeometry, canvasViewForNodes, nodeHeight, nodeWidth } from './studio/util/canvasGeometry.js';
 import {
   CANVAS_DRAG_CLICK_TOLERANCE,
@@ -237,7 +243,6 @@ import {
   findDuplicateActiveGenerationTask,
   firstQueuedGenerationTask,
   generationErrorMessage,
-  generationTaskFingerprint,
   hasRestorableLocalQueueTask,
   isActiveServerJobStatus,
   isFinalServerJobStatus,
@@ -267,7 +272,6 @@ import {
   wantsPromptRewrite
 } from './studio/util/formatters.js';
 import {
-  formatUsageValue,
   modelBillingLabel,
   modelBillingUnitLabel,
   payloadUsageSummary,
@@ -351,13 +355,13 @@ import {
   hasMeaningfulSessionContent,
   hasRestorableServerGeneration as _hasRestorableServerGeneration
 } from './studio/util/sessionPredicates.js';
+import { createGatewayClient, createHistoryClient } from './studio/runtime/clients.js';
 
 const IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'gpt-image-1-mini'];
 const RESPONSE_MODELS = ['gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-4.1'];
 const PROMPT_ASSISTANT_MODEL_EXCLUDE_PATTERN = /image|video|sora|runway|kling|veo|codex|review|audit|security|embed|rerank|tts|whisper/i;
 const VIDEO_MODELS = [];
 const IMAGE_GENERATION_ROUTE_LABEL = '自动选择';
-const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d/i;
 const WORKSPACES = [
   { value: 'image', label: '图片创作' },
   { value: 'inspiration', label: '灵感库' },
@@ -597,33 +601,6 @@ function buildCategoryGroups(cases) {
   return [...groups.values()].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'zh-CN'));
 }
 
-function modelLooksLikeImage(item) {
-  const raw = item?.raw || {};
-  const source = [
-    item?.id,
-    item?.label,
-    item?.type,
-    item?.category,
-    item?.mode,
-    item?.modality,
-    item?.endpoint,
-    raw.id,
-    raw.model,
-    raw.name,
-    raw.type,
-    raw.category,
-    raw.mode,
-    raw.modality,
-    raw.endpoint,
-    raw.group,
-    raw.platform,
-    ...(Array.isArray(item?.capabilities) ? item.capabilities : []),
-    ...(Array.isArray(raw.capabilities) ? raw.capabilities : [])
-  ].filter(Boolean).join(' ');
-  return IMAGE_MODEL_PATTERN.test(source) || String(source).toLowerCase().includes('images/edits');
-}
-
-
 function connectionReady(settings, apiKey, isAuthenticated) {
   if (settings.apiKeySource === 'manual') {
     return Boolean(settings.manualApiKey?.trim());
@@ -631,52 +608,8 @@ function connectionReady(settings, apiKey, isAuthenticated) {
   return Boolean(isAuthenticated && apiKey?.key);
 }
 
-function resolveProviderRequest(settings, apiKey) {
-  if (settings.apiKeySource === 'manual') {
-    return {
-      apiKey: settings.manualApiKey.trim(),
-      gatewayBaseUrl: settings.manualGatewayBaseUrl.trim() || defaultProviderGatewayBaseUrl(settings),
-      route: settings.route || 'auto',
-      responsesModel: settings.responsesModel,
-      partialImages: settings.partialImages
-    };
-  }
-  return {
-    apiKey: apiKey?.key || '',
-    route: settings.route || 'auto',
-    responsesModel: settings.responsesModel,
-    partialImages: settings.partialImages
-  };
-}
-
 function canUseClientGenerationFallback() {
   return Boolean(import.meta.env.DEV);
-}
-
-function modelMatchesVideo(item) {
-  const raw = item?.raw || {};
-  const values = [
-    item?.type,
-    item?.category,
-    item?.mode,
-    item?.modality,
-    item?.endpoint,
-    raw.type,
-    raw.category,
-    raw.mode,
-    raw.modality,
-    raw.endpoint
-  ].map((value) => String(value || '').toLowerCase());
-  const capabilities = [
-    item?.capabilities,
-    item?.capability,
-    raw.capabilities,
-    raw.capability,
-    raw.features,
-    raw.supported_generation_types,
-    raw.supportedGenerationTypes
-  ].flatMap((value) => Array.isArray(value) ? value : value ? [value] : []).map((value) => String(value || '').toLowerCase());
-  return [...values, ...capabilities].some((value) => value === 'video' || value === 'videos' || value.includes('video_generation') || value.includes('video-generation'));
 }
 
 function workspaceLabel(value) {
@@ -961,6 +894,10 @@ function CreationDesk({
     providerId: providerSettings.providerId,
     authMode: providerSettings.apiKeySource
   });
+  const currentGenerationPlan = currentProviderAdapter.buildGenerationPlan({
+    requestedRoute: providerSettings.route
+  });
+  const currentEditPlan = currentProviderAdapter.buildEditPlan();
   const currentVideoPlan = currentProviderAdapter.buildVideoPlan();
   const imageAspectOptions = useMemo(() => providerAspectOptions(currentImageProvider, ASPECT_OPTIONS, SIZES), [currentImageProvider]);
   const customSizeOptions = useMemo(() => providerCustomSizeOptions(currentImageProvider, CUSTOM_SIZE_OPTIONS, SIZES), [currentImageProvider]);
@@ -1347,7 +1284,7 @@ function CreationDesk({
       .slice(0, CANVAS_PROTECTED_ASSET_RESOLVE_LIMIT);
     if (!protectedNodes.length || !isAuthenticated) return;
     let cancelled = false;
-    const historyClient = new StudioHistoryClient({ session: loadSession() });
+    const historyClient = createHistoryClient({ session: loadSession() });
     Promise.all(protectedNodes.map(async ({ node, assetUrl }) => ({
       id: node.id,
       persistedUrl: assetUrl,
@@ -1497,7 +1434,7 @@ function CreationDesk({
   }
 
 
-  function appendCanvasNodes(urls, { kind = 'image', parentId = '', promptText = '', title = '生成结果', downloadMeta, replaceBatchId = '', persistedUrls = [] } = {}) {
+  function appendCanvasNodes(urls, { kind = 'image', parentId = '', promptText = '', title = '生成结果', downloadMeta, replaceBatchId = '', persistedUrls = [], workflow = null } = {}) {
     if (!urls.length) return;
     const activeDownloadMeta = downloadMeta || resultBatchMeta;
     setCanvasNodes((current) => {
@@ -1518,6 +1455,8 @@ function CreationDesk({
         url,
         persistedUrl: persistedUrls[index] || '',
         prompt: promptText,
+        generationPrompt: promptText,
+        workflow,
         downloadMeta: {
           mode: kind === 'video' ? 'video' : 'image',
           providerId: activeDownloadMeta?.providerId || '',
@@ -1557,15 +1496,19 @@ function CreationDesk({
       revokeBlobUrls(displayUrls);
       return false;
     }
+    const jobRequest = job.request && typeof job.request === 'object' ? job.request : {};
+    const jobPrompt = job.generationPrompt || jobRequest.generationPrompt || job.prompt || jobRequest.prompt || '';
+    const jobWorkflow = job.workflow || jobRequest.workflow || null;
     appendCanvasNodes(displayUrls, {
       kind: 'image',
-      parentId: job.parentCanvasNodeId || '',
-      promptText: job.prompt || '',
+      parentId: job.parentCanvasNodeId || jobRequest.parentCanvasNodeId || '',
+      promptText: jobPrompt,
+      workflow: jobWorkflow,
       downloadMeta: {
         mode: 'image',
         providerId: job.model || '',
         createdAt: job.createdAt || new Date().toISOString(),
-        prompt: job.prompt || '',
+        prompt: jobPrompt,
         id: job.id
       },
       title: '生成结果',
@@ -1577,7 +1520,7 @@ function CreationDesk({
       mode: 'image',
       providerId: job.model || '',
       createdAt: job.createdAt || new Date().toISOString(),
-      prompt: job.prompt || '',
+      prompt: jobPrompt,
       sessionId,
       id: job.id
     });
@@ -1609,7 +1552,7 @@ function CreationDesk({
     if (!remoteSessionReady || !sessionId) return;
     let cancelled = false;
     let syncController = null;
-    const historyClient = new StudioHistoryClient({ session: loadSession() });
+    const historyClient = createHistoryClient({ session: loadSession() });
     historyClient.listGenerationJobs({ sessionId, limit: 12 })
       .then(async (jobs) => {
         if (cancelled) return;
@@ -1681,7 +1624,7 @@ function CreationDesk({
     const currentPrompt = prompt.trim();
     if (!currentPrompt) return selectedCanvasNode?.prompt?.trim() || '';
     if (!selectedCanvasNode?.prompt) return currentPrompt;
-    return composeCanvasContinuationPrompt(selectedCanvasNode, currentPrompt);
+    return composeCanvasContinuationPrompt(selectedCanvasNode, currentPrompt, { mode });
   }
 
   function assistantBasePrompt() {
@@ -1793,9 +1736,12 @@ function CreationDesk({
   function generateFromCanvasEditor(node, modeOverride = canvasEditorMode) {
     if (!node) return;
     const nextPrompt = canvasEditorPrompt.trim();
-    const normalizedMode = modeOverride === 'mask' ? 'mask' : modeOverride === 'edit' ? 'edit' : 'image';
-    const generationPrompt = normalizedMode === 'image'
-      ? composeCanvasContinuationPrompt(node, nextPrompt)
+    const normalizedMode = modeOverride === 'video' ? 'video' : modeOverride === 'mask' ? 'mask' : modeOverride === 'edit' ? 'edit' : 'image';
+    const continuationPlan = normalizedMode === 'image' || normalizedMode === 'video'
+      ? buildCanvasContinuationPlan(node, nextPrompt, { mode: normalizedMode })
+      : null;
+    const generationPrompt = continuationPlan
+      ? continuationPlan.generationPrompt
       : nextPrompt;
     setSelectedCanvasNodeId(node.id);
     setMode(normalizedMode);
@@ -1813,6 +1759,8 @@ function CreationDesk({
       nodeId: node.id,
       mode: normalizedMode,
       prompt: generationPrompt,
+      rawPrompt: nextPrompt,
+      workflow: continuationPlan?.workflow || null,
       referenceItems: [],
       referencesOpen: normalizedMode !== 'image',
       selectedCanvasNodeSnapshot: { ...node },
@@ -2223,6 +2171,8 @@ function CreationDesk({
     openGenerationConfirm({
       mode: pendingCanvasGenerate.mode,
       prompt: pendingCanvasGenerate.prompt,
+      rawPrompt: pendingCanvasGenerate.rawPrompt,
+      workflow: pendingCanvasGenerate.workflow,
       referenceItems: pendingCanvasGenerate.referenceItems,
       referencesOpen: pendingCanvasGenerate.referencesOpen,
       selectedCanvasNodeId: pendingCanvasGenerate.nodeId,
@@ -2264,7 +2214,7 @@ function CreationDesk({
     }
     setCaseResolving(true);
     try {
-      const historyClient = new StudioHistoryClient({ session: loadSession() });
+      const historyClient = createHistoryClient({ session: loadSession() });
       const preset = await historyClient.getPromptPreset(item.id);
       if (preset?.prompt) {
         setPrompt(preset.prompt);
@@ -2506,7 +2456,22 @@ function CreationDesk({
   }
 
   function buildGenerationTask(overrides = {}) {
-    const fallbackPrompt = composedGenerationPrompt();
+    const taskMode = overrides.mode || mode;
+    const taskNode = overrides.selectedCanvasNodeSnapshot || selectedCanvasNode;
+    const rawPrompt = typeof overrides.rawPrompt === 'string' ? overrides.rawPrompt : prompt.trim();
+    let taskOverrides = { ...overrides };
+    if (taskNode && (taskMode === 'image' || taskMode === 'video') && rawPrompt) {
+      const continuationPlan = buildCanvasContinuationPlan(taskNode, rawPrompt, { mode: taskMode });
+      taskOverrides = {
+        ...taskOverrides,
+        rawPrompt,
+        workflow: taskOverrides.workflow || continuationPlan.workflow,
+        prompt: typeof taskOverrides.prompt === 'string' ? taskOverrides.prompt : continuationPlan.generationPrompt
+      };
+    } else if (rawPrompt && typeof taskOverrides.rawPrompt !== 'string') {
+      taskOverrides.rawPrompt = rawPrompt;
+    }
+    const fallbackPrompt = taskOverrides.prompt || composedGenerationPrompt();
     return buildGenerationTaskPure({
       mode,
       model,
@@ -2535,7 +2500,7 @@ function CreationDesk({
       layoutSectionsReferences: layoutSections.references,
       maskFile: mode === 'mask' ? maskEditorRef.current?.exportMask?.() || null : null,
       fallbackPrompt
-    }, overrides);
+    }, taskOverrides);
   }
 
   function markGenerationTask(id, patch) {
@@ -2546,7 +2511,7 @@ function CreationDesk({
     const target = generationQueueRef.current.find((item) => item.id === id);
     if (!target) return;
     if (target.remote && target.serverJobId) {
-      const historyClient = new StudioHistoryClient({ session: loadSession() });
+      const historyClient = createHistoryClient({ session: loadSession() });
       if (generationRef.current.remoteJobId === target.serverJobId) {
         generationRef.current.controller?.abort(new Error('JOB_CANCELED'));
         generationRef.current = { id: generationRef.current.id + 1, controller: null };
@@ -2728,6 +2693,11 @@ function CreationDesk({
       || model;
     const activePrompt = task?.prompt || composedGenerationPrompt();
     const activeSelectedNode = task?.selectedCanvasNodeSnapshot || selectedCanvasNode;
+    const activeWorkflow = task?.workflow || (
+      activeSelectedNode && (activeMode === 'image' || activeMode === 'video')
+        ? buildCanvasContinuationPlan(activeSelectedNode, task?.rawPrompt || prompt.trim(), { mode: activeMode }).workflow
+        : null
+    );
     const activeLineageParentId = activeSelectedNode?.id || '';
     const activeReferenceFiles = task?.referenceItems?.map((item) => item.file).filter(Boolean) || referenceFiles;
     const activeVideoReferenceFiles = task?.videoReferenceFiles || videoReferenceFiles;
@@ -2821,6 +2791,17 @@ function CreationDesk({
     }
     const providerRequest = resolveProviderRequest(providerSettings, apiKey);
     const activeVideoGatewayBaseUrl = String(providerSettings.videoGatewayBaseUrl || '').trim() || providerRequest.gatewayBaseUrl || '';
+    const activeRouteLabel = endpointForGenerationTask({
+      mode: activeMode,
+      referenceCount: activeReferenceFiles.length,
+      hasCanvasReference: willUseCanvasReference,
+      hasMask: Boolean(maskFile),
+      endpoints: {
+        video: videoPlan.createEndpoint,
+        edits: currentEditPlan.endpoint,
+        generations: currentGenerationPlan.endpoint
+      }
+    });
     if (!providerRequest.apiKey) {
       setStatus('error');
       setMessage(providerSettings.apiKeySource === 'manual'
@@ -2884,6 +2865,7 @@ function CreationDesk({
       firstByteAt: null,
       completedAt: null,
       model: activeMode === 'video' ? activeVideoModel : activeModel,
+      routeLabel: activeRouteLabel,
       spec: activeMode === 'video' ? `${activeVideoAspect} · ${activeVideoDuration}s · ${activeVideoFps}fps` : `${normalizedActiveSize} · ${normalizedActiveQuality} · ${RESOLUTION_TIER_LABELS[normalizedActiveResolutionTier] || normalizedActiveResolutionTier}`
     });
     setMessage(t('statusMessages.submitted', '已提交'));
@@ -2954,6 +2936,7 @@ function CreationDesk({
           kind: 'video',
           parentId: lineageParentId,
           promptText: basePrompt,
+          workflow: activeWorkflow,
           downloadMeta: generationMeta,
           title: '视频结果'
         });
@@ -2975,6 +2958,8 @@ function CreationDesk({
           kind: 'video',
           providerId: generationMeta.providerId,
           prompt: basePrompt,
+          generationPrompt: basePrompt,
+          workflow: activeWorkflow,
           model: activeVideoModel,
           aspect: activeVideoAspect,
           aspectRatio: activeVideoAspect,
@@ -3014,7 +2999,11 @@ function CreationDesk({
       const canvasReferenceFiles = willUseCanvasReference ? await selectedCanvasReferenceFiles(activeSelectedNode) : [];
       if (!isCurrentRequest()) return false;
       const editReferenceFiles = [...canvasReferenceFiles, ...activeReferenceFiles].slice(0, IMAGE_REFERENCE_LIMIT);
-      const shouldUseImageEdits = activeMode === 'mask' || (activeMode === 'edit' && editReferenceFiles.length > 0);
+      const shouldUseImageEdits = imageGenerationRouteForMode({
+        mode: activeMode,
+        referenceCount: editReferenceFiles.length,
+        hasMask: Boolean(maskFile)
+      }) === 'edits';
       const effectivePrompt = withResolutionHint(basePrompt, normalizedActiveResolutionTier, t);
       let payload = null;
       let urls = [];
@@ -3022,7 +3011,7 @@ function CreationDesk({
       const canUseServerJob = Boolean(providerRequest.apiKey && (isAuthenticated || providerSettings.apiKeySource === 'manual'));
       if (canUseServerJob) {
         try {
-          const historyClient = new StudioHistoryClient({ session: loadSession() });
+          const historyClient = createHistoryClient({ session: loadSession() });
           const jobImages = shouldUseImageEdits ? await generationFilesForJob(editReferenceFiles) : [];
           const jobMask = maskFile ? {
             name: maskFile.name || 'mask.png',
@@ -3030,52 +3019,33 @@ function CreationDesk({
             dataUrl: await fileToDataUrl(maskFile)
           } : null;
           if (!isCurrentRequest()) return false;
-          const job = await historyClient.createGenerationJob({
+          const imageRoute = shouldUseImageEdits ? 'edits' : 'generations';
+          const job = await historyClient.createGenerationJob(buildServerImageGenerationJobPayload({
             apiKey: providerRequest.apiKey,
             gatewayBaseUrl: providerRequest.gatewayBaseUrl,
             images: jobImages,
             mask: jobMask,
-            request: {
-              id: generationMeta.id,
-              clientRequestId: `studio-${generationMeta.id}`,
-              sessionId,
-              parentCanvasNodeId: lineageParentId,
-              providerId: providerSettings.providerId,
-              providerFamily: providerSettings.providerId,
-              apiKeySource: providerSettings.apiKeySource,
-              providerLabel: providerLabel(providerSettings, apiKey),
-              mode: activeMode,
-              route: shouldUseImageEdits ? 'edits' : 'generations',
-              fingerprint: generationTaskFingerprint({
-                sessionId,
-                mode: activeMode,
-                route: shouldUseImageEdits ? 'edits' : 'generations',
-                providerId: providerSettings.providerId,
-                apiKeySource: providerSettings.apiKeySource,
-                model: activeModel,
-                prompt: effectivePrompt,
-                size: normalizedActiveSize,
-                quality: normalizedActiveQuality,
-                resolutionTier: normalizedActiveResolutionTier,
-                outputFormat: normalizedActiveOutputFormat,
-                moderation: normalizedActiveModeration,
-                count: activeCount,
-                parentCanvasNodeId: lineageParentId,
-                referenceCount: editReferenceFiles.length,
-                hasMask: Boolean(maskFile)
-              }),
-              model: activeModel,
-              prompt: basePrompt,
-              generationPrompt: effectivePrompt,
-              size: normalizedActiveSize,
-              quality: normalizedActiveQuality,
-              resolutionTier: normalizedActiveResolutionTier,
-              outputFormat: normalizedActiveOutputFormat,
-              moderation: normalizedActiveModeration,
-              n: activeCount,
-              count: activeCount
-            }
-          });
+            generationMeta,
+            sessionId,
+            parentCanvasNodeId: lineageParentId,
+            providerId: providerSettings.providerId,
+            apiKeySource: providerSettings.apiKeySource,
+            providerLabel: providerLabel(providerSettings, apiKey),
+            mode: activeMode,
+            route: imageRoute,
+            model: activeModel,
+            prompt: basePrompt,
+            generationPrompt: effectivePrompt,
+            size: normalizedActiveSize,
+            quality: normalizedActiveQuality,
+            resolutionTier: normalizedActiveResolutionTier,
+            outputFormat: normalizedActiveOutputFormat,
+            moderation: normalizedActiveModeration,
+            count: activeCount,
+            referenceCount: editReferenceFiles.length,
+            hasMask: Boolean(maskFile),
+            workflow: activeWorkflow
+          }));
           if (!job?.id) throw new Error('GENERATION_JOB_CREATE_FAILED');
           generationRef.current = { ...generationRef.current, remoteJobId: job.id };
           if (options.queueTaskId) {
@@ -3150,6 +3120,7 @@ function CreationDesk({
                 kind: 'image',
                 parentId: lineageParentId,
                 promptText: basePrompt,
+                workflow: activeWorkflow,
                 downloadMeta: generationMeta,
                 title: t('statusMessages.previewTitle', '预览结果'),
                 replaceBatchId: generationMeta.id
@@ -3181,6 +3152,7 @@ function CreationDesk({
         kind: 'image',
         parentId: lineageParentId,
         promptText: basePrompt,
+        workflow: activeWorkflow,
         downloadMeta: generationMeta,
         title: t('statusMessages.resultTitle', '生成结果'),
         replaceBatchId: generationMeta.id,
@@ -3205,6 +3177,7 @@ function CreationDesk({
         providerId: generationMeta.providerId,
         prompt: basePrompt,
         generationPrompt: effectivePrompt,
+        workflow: activeWorkflow,
         model: activeModel,
         aspect: task?.aspect || aspect,
         aspectRatio: task?.aspectRatio || task?.aspect || aspect,
@@ -3278,7 +3251,7 @@ function CreationDesk({
     if (currentRunningTask) markGenerationTask(currentRunningTask.id, { status: 'failed', completedAt: stoppedAt });
     if (remoteJobId) {
       clearRemoteGenerationJob(remoteJobId, 'canceled');
-      const historyClient = new StudioHistoryClient({ session: loadSession() });
+      const historyClient = createHistoryClient({ session: loadSession() });
       historyClient.cancelGenerationJob(remoteJobId)
         .then((job) => setMessage(serverJobMessage(job || { status: 'canceled' }, t)))
         .catch(() => setMessage(t('errors.cancelFailed', '已停止本页等待；服务端取消失败，请稍后查看历史图库/当前画布，再决定是否重试。')));
@@ -3389,12 +3362,22 @@ function CreationDesk({
       ? videoReferenceFiles.length
       : referenceFiles.length;
   const referenceSideLimit = mode === 'mask' || mode === 'video' ? 1 : IMAGE_REFERENCE_LIMIT;
-  const composerUsesEditRoute = mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url));
-  const composerRouteLabel = mode === 'video'
-    ? currentVideoPlan.endpoint
-    : composerUsesEditRoute
-      ? '/v1/images/edits'
-      : '/v1/images/generations';
+  const composerUsesEditRoute = imageGenerationRouteForMode({
+    mode,
+    referenceCount: referenceFiles.length,
+    hasCanvasReference: Boolean(selectedCanvasNode?.url)
+  }) === 'edits';
+  const routeEndpoints = {
+    video: currentVideoPlan.endpoint,
+    edits: currentEditPlan.endpoint,
+    generations: currentGenerationPlan.endpoint
+  };
+  const composerRouteLabel = endpointForGenerationTask({
+    mode,
+    referenceCount: referenceFiles.length,
+    hasCanvasReference: Boolean(selectedCanvasNode?.url),
+    endpoints: routeEndpoints
+  });
   const composerContextTitle = selectedCanvasNode
     ? t('composer.contextContinue', '基于 #{index} 继续创作', { index: selectedCanvasNode.canvasIndex || '' })
     : selectedCase?.title
@@ -3424,11 +3407,12 @@ function CreationDesk({
         )
     : 0;
   const confirmTaskReferenceLimit = generationConfirmTask?.mode === 'video' || generationConfirmTask?.mode === 'mask' ? 1 : IMAGE_REFERENCE_LIMIT;
-  const confirmTaskRouteLabel = generationConfirmTask?.mode === 'video'
-    ? currentVideoPlan.endpoint
-    : generationConfirmTask?.mode === 'mask' || (generationConfirmTask?.mode === 'edit' && confirmTaskReferenceCount > 0)
-      ? '/v1/images/edits'
-      : '/v1/images/generations';
+  const confirmTaskRouteLabel = endpointForGenerationTask({
+    mode: generationConfirmTask?.mode,
+    referenceCount: confirmTaskReferenceCount,
+    hasMask: Boolean(generationConfirmTask?.maskFile),
+    endpoints: routeEndpoints
+  });
   const confirmTaskOutputLabel = generationConfirmTask?.mode === 'video'
     ? `${generationConfirmTask.videoAspect} · ${generationConfirmTask.videoDuration}s · ${generationConfirmTask.videoFps}fps`
     : generationConfirmTask
@@ -3988,7 +3972,7 @@ function CreationDesk({
                   <div className="singleGenerationHead">
                     <div>
                       <strong>{t('single.statusTitle', '生成状态')}</strong>
-                      <span>{confirmTaskRouteLabel || composerRouteLabel}</span>
+                      <span>{timing?.routeLabel || confirmTaskRouteLabel || composerRouteLabel}</span>
                     </div>
                     {isGenerating ? (
                       <button type="button" onClick={stopGeneration}>
@@ -4522,7 +4506,7 @@ function CreationDesk({
         {layoutSections.parameters && mode !== 'video' ? (
           <div className="routeStrip autoRouteStrip">
             <span><SlidersHorizontal size={15} /> {t('composer.routeLabel', '接口')}</span>
-            <p>{mode === 'mask' || (mode === 'edit' && (referenceFiles.length || selectedCanvasNode?.url)) ? t('composer.routeEditHint', '参考图 / Mask 会自动走 /v1/images/edits') : t('composer.routeImageHint', '文生图 / 继续衍生会走 /v1/images/generations')}</p>
+            <p>{composerRouteLabel}</p>
           </div>
         ) : layoutSections.parameters ? (
           <div className="routeStrip">
@@ -4962,7 +4946,7 @@ function StudioApp() {
   const [session, setSession] = useState(() => initialSession);
   const [profile, setProfile] = useState(() => initialSession?.user || null);
   const [providerSettings, setProviderSettings] = useState(() => loadProviderSettings());
-  const [client, setClient] = useState(() => new AiGatewayClient({ session: initialSession, providerSettings: loadProviderSettings() }));
+  const [client, setClient] = useState(() => createGatewayClient({ session: initialSession, providerSettings: loadProviderSettings() }));
   const [apiKey, setApiKey] = useState(null);
   const [keys, setKeys] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -5012,7 +4996,7 @@ function StudioApp() {
       return false;
     }
 
-    const nextClient = new AiGatewayClient({ session: nextSession, providerSettings });
+    const nextClient = createGatewayClient({ session: nextSession, providerSettings });
     try {
       const nextProfile = await nextClient.profile().catch(() => nextClient.me());
       setClient(nextClient);
@@ -5037,6 +5021,27 @@ function StudioApp() {
       current.setProviderSettings(savedSettings);
       return current;
     });
+  }
+
+  function syncProviderModels(options = {}) {
+    setModelsStatus('loading');
+    return syncGatewayModels({
+      session,
+      providerSettings,
+      apiKey,
+      signal: options.signal
+    })
+      .then((result) => {
+        setModelOptions(result.modelOptions);
+        setModelsStatus(result.modelsStatus);
+        setUsageSummary(result.usageSummary);
+      })
+      .catch((error) => {
+        if (error?.name === 'AbortError') return;
+        setModelOptions({ image: [], responses: [], video: [] });
+        setModelsStatus('fallback');
+        setUsageSummary('后台未开放消费接口');
+      });
   }
 
   useEffect(() => {
@@ -5071,7 +5076,7 @@ function StudioApp() {
       };
     }
     let active = true;
-    const libraryClient = new StudioHistoryClient({ session });
+    const libraryClient = createHistoryClient({ session });
     setSiteData(null);
     libraryClient.listLibrary()
       .then((payload) => {
@@ -5126,7 +5131,7 @@ function StudioApp() {
   useEffect(() => {
     if (!session?.accessToken) return;
     let active = true;
-    const nextClient = new AiGatewayClient({ session, providerSettings });
+    const nextClient = createGatewayClient({ session, providerSettings });
     setClient(nextClient);
     Promise.all([
       nextClient.profile().catch(() => nextClient.me()),
@@ -5147,48 +5152,8 @@ function StudioApp() {
   }, [session?.accessToken]);
 
   useEffect(() => {
-    const providerRequest = resolveProviderRequest(providerSettings, apiKey);
-    if (!providerRequest.apiKey) {
-      setModelOptions({ image: [], responses: [], video: [] });
-      setModelsStatus('idle');
-      setUsageSummary('');
-      return;
-    }
-
     const controller = new AbortController();
-    const nextClient = new AiGatewayClient({ session, providerSettings });
-    setModelsStatus('loading');
-      nextClient.listGatewayModels({ ...providerRequest, signal: controller.signal })
-      .then((models) => {
-        const image = models.filter(modelLooksLikeImage);
-        const video = models.filter(modelMatchesVideo);
-        setModelOptions({
-          image: image.length ? image : [],
-          responses: models,
-          video
-        });
-        setModelsStatus('ready');
-      })
-      .catch((error) => {
-        if (error?.name === 'AbortError') return;
-        setModelOptions({ image: [], responses: [], video: [] });
-        setModelsStatus('fallback');
-      });
-
-    nextClient.getGatewayUsage({ ...providerRequest, signal: controller.signal })
-      .then((usage) => {
-        const parts = [];
-        const total = usage?.total || usage?.total_usage || usage?.used || usage?.amount || usage?.cost;
-        const requests = usage?.requests || usage?.request_count || usage?.count;
-        if (total !== undefined) parts.push(`已用 ${formatUsageValue(total)}`);
-        if (requests !== undefined) parts.push(`${formatUsageValue(requests)} 次`);
-        setUsageSummary(parts.join('，') || '后台未返回消费汇总');
-      })
-      .catch((error) => {
-        if (error?.name === 'AbortError') return;
-        setUsageSummary('后台未开放消费接口');
-      });
-
+    syncProviderModels({ signal: controller.signal });
     return () => controller.abort();
   }, [
     providerSettings.providerId,
@@ -5226,7 +5191,7 @@ function StudioApp() {
 
   useEffect(() => {
     let active = true;
-    const historyClient = new StudioHistoryClient({ session });
+    const historyClient = createHistoryClient({ session });
     const scope = historyScope();
     setHistoryStatus('loading');
     setHistoryNextOffset(null);
@@ -5256,7 +5221,7 @@ function StudioApp() {
 
   function handleLoadMoreHistory() {
     if (historyNextOffset === null || historyLoadingMore) return;
-    const historyClient = new StudioHistoryClient({ session });
+    const historyClient = createHistoryClient({ session });
     const scope = historyScope();
     setHistoryLoadingMore(true);
     historyClient.listRecords({ limit: HISTORY_PAGE_SIZE, offset: historyNextOffset })
@@ -5292,7 +5257,7 @@ function StudioApp() {
       setRemoteSessionReady(true);
       return () => { active = false; };
     }
-    const historyClient = new StudioHistoryClient({ session });
+    const historyClient = createHistoryClient({ session });
     historyClient.getCurrentSession(deskSessionId)
       .then((snapshot) => snapshot ? historyClient.resolveSessionAssets(snapshot) : null)
       .then((snapshot) => {
@@ -5386,7 +5351,7 @@ function StudioApp() {
     setActiveWorkspace('image');
     setDeskSessionId(nextDeskSessionId);
     const latestSession = loadSession() || session;
-    const historyClient = new StudioHistoryClient({ session: latestSession });
+    const historyClient = createHistoryClient({ session: latestSession });
     historyClient.clearCurrentSession(nextDeskSessionId).catch(() => {});
   }
 
@@ -5446,7 +5411,7 @@ function StudioApp() {
   }
 
   async function handleCreateCommunityPrompt(item) {
-    const historyClient = new StudioHistoryClient({ session });
+    const historyClient = createHistoryClient({ session });
     const created = await historyClient.createCommunityPrompt(item);
     if (!created) return;
     setSiteData((current) => ({
@@ -5470,7 +5435,7 @@ function StudioApp() {
       else if (prompt) await navigator.clipboard?.writeText(shareText);
     }
     if (!String(item?.id || '').startsWith('share-')) return;
-    const historyClient = new StudioHistoryClient({ session });
+    const historyClient = createHistoryClient({ session });
     const updated = await historyClient.reactCommunityPrompt(item.id, action).catch(() => null);
     if (!updated) return;
     setSiteData((current) => current?.cases ? ({
@@ -5494,7 +5459,7 @@ function StudioApp() {
   async function resolveLibraryCase(item, options = {}) {
     const updateSelection = options.updateSelection !== false;
     if (!session?.accessToken || item?.prompt || item?.staticLibrary) return item;
-    const historyClient = new StudioHistoryClient({ session });
+    const historyClient = createHistoryClient({ session });
     if (item?.kind === 'video-inspiration') {
       const resolvedInspiration = await historyClient.getVideoInspiration(item.id);
       if (!resolvedInspiration) return item;
@@ -5564,7 +5529,7 @@ function StudioApp() {
     });
     const latestSession = loadSession() || session;
     if (latestSession?.accessToken) setSession(latestSession);
-    const historyClient = new StudioHistoryClient({ session: latestSession });
+    const historyClient = createHistoryClient({ session: latestSession });
     historyClient.saveRecord(normalizedItem)
       .then((savedRecord) => historyClient.resolveRecordAssets(savedRecord))
       .then((savedRecord) => {
@@ -5589,7 +5554,7 @@ function StudioApp() {
     sessionSaveRef.current.lastPayload = encoded;
     if (sessionSaveRef.current.timer) window.clearTimeout(sessionSaveRef.current.timer);
     sessionSaveRef.current.timer = window.setTimeout(() => {
-      const historyClient = new StudioHistoryClient({ session: latestSession });
+      const historyClient = createHistoryClient({ session: latestSession });
       historyClient.saveCurrentSession(payload)
         .then((savedSession) => {
           setRemoteSession((current) => {
@@ -5618,7 +5583,7 @@ function StudioApp() {
     deletePersistedHistory(recordId, historyScope());
     if (selectedHistory?.id === recordId || selectedHistory?.sessionId === recordId || selectedHistory?.recordIds?.includes?.(recordId)) setSelectedHistory(null);
     const latestSession = loadSession() || session;
-    const historyClient = new StudioHistoryClient({ session: latestSession });
+    const historyClient = createHistoryClient({ session: latestSession });
     historyClient.deleteRecord(recordId).catch(() => setHistoryStatus('local'));
   }
 
@@ -5629,7 +5594,7 @@ function StudioApp() {
     setHistoryItems([]);
     setSelectedHistory(null);
     const latestSession = loadSession() || session;
-    const historyClient = new StudioHistoryClient({ session: latestSession });
+    const historyClient = createHistoryClient({ session: latestSession });
     historyClient.clearRecords().catch(() => setHistoryStatus('local'));
   }
 
@@ -5805,6 +5770,7 @@ function StudioApp() {
             onProviderChange={handleProviderChange}
             modelOptions={modelOptions}
             modelsStatus={modelsStatus}
+            onSyncModels={syncProviderModels}
             isAuthenticated={Boolean(session?.accessToken)}
             onLogin={handleRequireLogin}
             t={t}

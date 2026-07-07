@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/generation-queue-recovery.png`;
@@ -455,8 +456,8 @@ try {
   assert(!failedResult.queueItems[0]?.text.includes('ORIGIN_NOT_ALLOWED'), 'Failed queue card exposed the raw upstream error instead of a readable explanation.', failedResult);
   assert(failedResult.storedStatus === 'failed', 'Failed queue status was not saved back into the current session cache.', failedResult);
   assert(failedSessionSaveCount >= 1, 'Failed queue snapshot was not saved back to the history service.', { failedSessionSaveCount });
-  await failedPage.locator('.bottomComposerInput textarea').fill('A retry after a restored failed generation should submit a fresh service job.');
-  await failedPage.locator('.composerGenerateAction').click();
+  await fillGenerationPrompt(failedPage, 'A retry after a restored failed generation should submit a fresh service job.');
+  await clickGenerate(failedPage);
   await failedPage.locator('.generationConfirmPrimary').click();
   await failedPage.waitForFunction((sessionKey) => {
     const stored = JSON.parse(localStorage.getItem(sessionKey) || '{}');

@@ -11,6 +11,7 @@ export function createHistoryCanvasBuilder({
     const url = resultItem.displayUrl || resultItem.url || '';
     const isVideo = item?.mode === 'video' || item?.kind === 'video';
     const prompt = resultItem.generationPrompt || resultItem.prompt || item?.generationPrompt || item?.prompt || item?.case?.promptPreview || '';
+    const workflow = resultItem.workflow || item?.workflow || null;
     const downloadMeta = {
       ...downloadMetaFromHistoryItem({
         ...item,
@@ -34,6 +35,7 @@ export function createHistoryCanvasBuilder({
       sourceUrl: resultItem.url || url,
       prompt,
       generationPrompt: resultItem.generationPrompt || prompt,
+      workflow,
       downloadMeta,
       title: isVideo ? `#${index + 1}` : `#${index + 1}`,
       x: index * (canvasNodeWidth + canvasNodeHorizontalGap),

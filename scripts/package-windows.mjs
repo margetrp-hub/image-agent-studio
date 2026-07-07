@@ -63,7 +63,6 @@ async function preparePrepackagedApp() {
   await copyIntoApp('apps/desktop');
   await copyIntoApp('dist');
   await copyIntoApp('scripts/image-agent-studio-history-service.mjs');
-  await copyIntoApp('scripts/image-sub2api-studio-history-service.mjs');
   await copyIntoApp('scripts/studio-service');
   await copyIntoApp('node_modules/undici');
 

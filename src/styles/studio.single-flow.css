@@ -7,21 +7,29 @@ body:has(.singleGenerationWorkspace),
 .singleGenerationWorkspace {
   position: absolute;
   inset: 0;
-  padding: 78px 18px 30px;
+  padding: clamp(14px, 1.7vw, 24px);
+  display: grid;
   overflow: auto;
 }
 
 .singleGenerationWorkspace > div {
-  width: min(1500px, calc(100% - 24px));
+  width: min(1760px, 100%);
+  min-height: 100%;
   margin: auto;
   display: grid;
-  grid-template-columns: minmax(420px, 540px) minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: minmax(410px, 500px) minmax(620px, 1fr);
+  gap: clamp(14px, 1.6vw, 22px);
+  align-items: stretch;
+}
+
+.studioLayout .creationDesk.singleFlowMode .workbenchTopControls {
+  left: auto;
+  right: clamp(18px, 2vw, 30px);
+  transform: none;
 }
 
 .singleGenerationWorkspace section {
-  padding: 18px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent);
   border-radius: var(--studio-radius-panel, 22px);
   background: color-mix(in srgb, var(--studio-surface-strong) 95%, transparent);
@@ -34,7 +42,17 @@ body:has(.singleGenerationWorkspace),
 .singleGenerationWorkspace section:first-child,
 .singleGenerationSide {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+}
+
+.singleGenerationSide {
+  grid-template-rows: minmax(420px, 1fr) auto auto;
+  align-self: stretch;
+}
+
+.singleGenerationFormPanel {
+  align-self: start;
+  align-content: start;
 }
 
 .singleGenerationHead,
@@ -85,16 +103,29 @@ body:has(.singleGenerationWorkspace),
   min-width: 0;
 }
 
+.singleGenerationFormPanel > .singleGenerationHead {
+  flex-wrap: nowrap;
+}
+
+.singleGenerationFormPanel > .singleGenerationHead > div:first-child {
+  flex: 1 1 auto;
+}
+
+.singleGenerationFormPanel > .singleGenerationHead > button {
+  flex: 0 0 auto;
+}
+
 .singleFieldGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
+  gap: 14px;
+  align-items: end;
 }
 
 .singleParamsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 13px;
+  gap: 11px;
 }
 
 .singleField,
@@ -102,7 +133,7 @@ body:has(.singleGenerationWorkspace),
 .singleReferenceBlock {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .singleField span,
@@ -127,12 +158,39 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleField :is(select, input) {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 12px;
 }
 
+.singleField:has(.singleKeyButton) {
+  position: relative;
+  grid-template-columns: 1fr;
+  align-items: end;
+}
+
+.singleField:has(.singleKeyButton) > span {
+  grid-column: auto;
+}
+
+.singleField:has(.singleKeyButton) .singleKeyButton {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  padding-right: 108px;
+}
+
+.singleField:has(.singleKeyButton) em {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  max-width: 94px;
+  margin: 0;
+  white-space: nowrap;
+}
+
 .singlePromptBox textarea {
-  min-height: 154px;
+  min-height: clamp(136px, 18vh, 200px);
   max-height: 260px;
   padding: 12px 13px;
   line-height: 1.55;
@@ -159,8 +217,8 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleUploadDrop {
-  min-height: 112px;
-  padding: 16px;
+  min-height: clamp(88px, 12vh, 118px);
+  padding: 14px;
   display: grid;
   place-items: center;
   gap: 6px;
@@ -239,7 +297,19 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleLatestResult :is(.resultGrid, .videoResultGrid) {
-  min-height: 210px;
+  height: 100%;
+  min-height: clamp(320px, 48vh, 640px);
+}
+
+.singleLatestResult {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-self: stretch;
+  min-height: 0;
+}
+
+.singleLatestResult :is(.resultGrid, .videoResultGrid, .emptyCanvasState, .resultEmptyState) {
+  min-height: 100%;
 }
 
 .singleStatusLine {
@@ -257,22 +327,60 @@ body:has(.singleGenerationWorkspace),
   color: var(--studio-danger);
 }
 
-.singleTipsPanel div {
+.singleGenerationSide .singleStatusPanel {
   display: grid;
   gap: 10px;
+  padding: 14px 16px;
+}
+
+.singleGenerationSide .singleTipsPanel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.singleGenerationSide .singleTipsPanel > strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.singleTipsPanel div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .singleTipsPanel span {
-  padding: 12px;
+  padding: 8px 10px;
   border-radius: var(--studio-radius-control, 16px);
   background: var(--studio-surface-soft);
   color: var(--studio-muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 @media (max-width: 1040px) {
+  .studioLayout .creationDesk.singleFlowMode .workbenchTopControls {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
   .singleGenerationWorkspace > div {
+    grid-template-columns: 1fr;
+  }
+
+  .singleGenerationSide {
+    grid-template-rows: auto;
+  }
+
+  .singleTipsPanel div {
+    grid-template-columns: 1fr;
+  }
+
+  .singleGenerationSide .singleTipsPanel {
     grid-template-columns: 1fr;
   }
 }
@@ -289,6 +397,10 @@ body:has(.singleGenerationWorkspace),
 
   .singleGenerationWorkspace > div {
     gap: 12px;
+  }
+
+  .singleGenerationFormPanel > .singleGenerationHead {
+    flex-wrap: wrap;
   }
 
   .singleGenerationHead,
@@ -320,5 +432,18 @@ body:has(.singleGenerationWorkspace),
   .singleParamsGrid,
   .singleActionBar {
     grid-template-columns: 1fr;
+  }
+
+  .singleField:has(.singleKeyButton) {
+    grid-template-columns: 1fr;
+  }
+
+  .singleField:has(.singleKeyButton) .singleKeyButton {
+    padding-right: 11px;
+  }
+
+  .singleField:has(.singleKeyButton) em {
+    position: static;
+    max-width: 100%;
   }
 }

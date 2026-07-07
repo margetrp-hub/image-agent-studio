@@ -24,18 +24,19 @@ const SUB2API_REFRESH_TOKEN_KEY = 'refresh_token';
 const SUB2API_USER_KEY = 'auth_user';
 const SUB2API_EXPIRES_AT_KEY = 'token_expires_at';
 
-const envBaseUrl = import.meta.env.VITE_AI_GATEWAY_BASE_URL || import.meta.env.VITE_SUB2API_BASE_URL || '';
-const envGatewayBaseUrl = import.meta.env.VITE_AI_GATEWAY_MODEL_BASE_URL || import.meta.env.VITE_SUB2API_GATEWAY_BASE_URL || '';
-const envLoginUrl = import.meta.env.VITE_AI_GATEWAY_LOGIN_URL || import.meta.env.VITE_SUB2API_LOGIN_URL || '';
-const envStudioHistoryBaseUrl = import.meta.env.VITE_STUDIO_HISTORY_BASE_URL || '';
-const envImageRoute = String(import.meta.env.VITE_AI_IMAGE_ROUTE || import.meta.env.VITE_SUB2API_IMAGE_ROUTE || 'auto').toLowerCase();
+const viteEnv = import.meta.env || {};
+const envBaseUrl = viteEnv.VITE_AI_GATEWAY_BASE_URL || viteEnv.VITE_SUB2API_BASE_URL || '';
+const envGatewayBaseUrl = viteEnv.VITE_AI_GATEWAY_MODEL_BASE_URL || viteEnv.VITE_SUB2API_GATEWAY_BASE_URL || '';
+const envLoginUrl = viteEnv.VITE_AI_GATEWAY_LOGIN_URL || viteEnv.VITE_SUB2API_LOGIN_URL || '';
+const envStudioHistoryBaseUrl = viteEnv.VITE_STUDIO_HISTORY_BASE_URL || '';
+const envImageRoute = String(viteEnv.VITE_AI_IMAGE_ROUTE || viteEnv.VITE_SUB2API_IMAGE_ROUTE || 'auto').toLowerCase();
 const DEFAULT_RESPONSES_MODEL = 'gpt-5.5';
-const envResponsesModelRaw = import.meta.env.VITE_AI_RESPONSES_MODEL || import.meta.env.VITE_SUB2API_RESPONSES_MODEL || DEFAULT_RESPONSES_MODEL;
+const envResponsesModelRaw = viteEnv.VITE_AI_RESPONSES_MODEL || viteEnv.VITE_SUB2API_RESPONSES_MODEL || DEFAULT_RESPONSES_MODEL;
 const envResponsesModel = String(envResponsesModelRaw).trim() === 'gpt-5.4'
   ? DEFAULT_RESPONSES_MODEL
   : String(envResponsesModelRaw).trim();
-const envResponsesPartialImages = Number(import.meta.env.VITE_AI_RESPONSES_PARTIAL_IMAGES || import.meta.env.VITE_SUB2API_RESPONSES_PARTIAL_IMAGES || 2);
-const envPromptOptimizerModel = import.meta.env.VITE_AI_PROMPT_OPTIMIZER_MODEL || import.meta.env.VITE_SUB2API_PROMPT_OPTIMIZER_MODEL || '';
+const envResponsesPartialImages = Number(viteEnv.VITE_AI_RESPONSES_PARTIAL_IMAGES || viteEnv.VITE_SUB2API_RESPONSES_PARTIAL_IMAGES || 2);
+const envPromptOptimizerModel = viteEnv.VITE_AI_PROMPT_OPTIMIZER_MODEL || viteEnv.VITE_SUB2API_PROMPT_OPTIMIZER_MODEL || '';
 const STUDIO_ASSET_BLOB_CACHE_LIMIT = 80;
 const STUDIO_ASSET_FAILURE_TTL_MS = 5 * 60 * 1000;
 const studioAssetBlobCache = new Map();
@@ -60,8 +61,8 @@ function trimTrailingSlash(value) {
 }
 
 function defaultDevSub2ApiOrigin() {
-  if (!import.meta.env.DEV) return '';
-  if (import.meta.env.VITE_DEV_AI_GATEWAY_PROXY_TARGET || import.meta.env.VITE_DEV_SUB2API_PROXY_TARGET) return '';
+  if (!viteEnv.DEV) return '';
+  if (viteEnv.VITE_DEV_AI_GATEWAY_PROXY_TARGET || viteEnv.VITE_DEV_SUB2API_PROXY_TARGET) return '';
   const host = window.location.hostname;
   if ((host === 'localhost' || host === '127.0.0.1') && window.location.port !== '8080') {
     return `${window.location.protocol}//${host}:8080`;

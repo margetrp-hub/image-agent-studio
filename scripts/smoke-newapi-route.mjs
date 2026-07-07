@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
 const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
 const screenshotPath = `${screenshotDir}/newapi-route.png`;
@@ -147,10 +148,10 @@ try {
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 12000 });
-  await page.locator('.bottomComposerInput textarea').fill('NewAPI route smoke image, clean product-style square icon.');
-  await page.locator('.composerGenerateAction').click();
+  await fillGenerationPrompt(page, 'NewAPI route smoke image, clean product-style square icon.');
+  await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
-  await page.waitForFunction(() => document.querySelectorAll('.canvasNode img').length >= 1, null, { timeout: 12000 });
+  await page.waitForFunction(() => document.querySelectorAll('.resultGrid img, .canvasNode img').length >= 1, null, { timeout: 12000 });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const result = await page.evaluate(({ providerSettingsKey, manualSecretKey, fakeSecret }) => ({
@@ -175,7 +176,7 @@ try {
   assert(!JSON.stringify(requests).includes(fakeSecret), 'Manual NewAPI key leaked into smoke request evidence.', { requests, result });
   assert(result.sessionSecret === fakeSecret, 'Manual NewAPI key was not retained in sessionStorage for the current session.', result);
   assert(!result.hasSecretInDom, 'Manual NewAPI key leaked into visible page text.', result);
-  assert(result.canvasNodes >= 1 && result.resultImages >= 1, 'Successful NewAPI-compatible generation did not add a canvas image.', result);
+  assert(result.resultImages >= 1, 'Successful NewAPI-compatible generation did not render a result image.', result);
 
   console.log(JSON.stringify({
     ok: true,

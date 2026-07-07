@@ -1,5 +1,5 @@
 [Unit]
-Description=AI Image Workbench history and session service
+Description=Image Agent Studio legacy compatibility service
 After=network.target
 
 [Service]

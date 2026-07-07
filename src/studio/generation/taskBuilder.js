@@ -66,6 +66,8 @@ export function buildGenerationTask(params, overrides = {}) {
     createdAt: Date.now(),
     mode: taskMode,
     prompt: basePrompt,
+    rawPrompt: typeof overrides.rawPrompt === 'string' ? overrides.rawPrompt : '',
+    workflow: overrides.workflow || null,
     model,
     aspect,
     aspectRatio: aspect,

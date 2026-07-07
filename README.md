@@ -177,6 +177,7 @@ Useful guides:
 - [VPS Git sync guide](docs/VPS-GIT-SYNC.zh-CN.md)
 - [Server update guide](deploy/UPDATE-SERVER.zh-CN.md)
 - [Provider and adapter notes](docs/PROVIDERS.md)
+- [Naming lines and compatibility boundaries](docs/NAMING-LINES.md)
 - [Release notes](RELEASE_NOTES.md)
 
 ## Release Packages
@@ -255,6 +256,7 @@ Focused checks for deployment work:
 ```bash
 npm run check:deploy
 npm run check:docker
+npm run check:desktop
 npm run check:env
 npm run check:docs
 npm run check:studio-build
@@ -290,8 +292,8 @@ src/
   studio.jsx                         # Main workstation UI
   studio/                            # Provider, storage, error, and workflow helpers
 scripts/
-  image-agent-studio-history-service.mjs
-  image-sub2api-studio-history-service.mjs
+  image-agent-studio-history-service.mjs     # Product-neutral service entry
+  image-sub2api-studio-history-service.mjs   # Legacy compatibility wrapper
   package-release.mjs
 deploy/
   image-agent-studio-history.service
