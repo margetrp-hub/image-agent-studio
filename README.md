@@ -22,7 +22,7 @@ If you are exploring AI image workflows, OpenAI-compatible image endpoints, gate
 - `/v1/responses` is treated as an explicit compatibility path, not the default image route.
 - Provider-neutral settings prefer `VITE_AI_*` and `AI_GATEWAY_*`.
 - Older `VITE_SUB2API_*` and `SUB2API_*` names remain as compatibility aliases for existing deployments.
-- Docker can run in `STUDIO_AUTH_MODE=local`, so the workstation can persist history, sessions, queues, and generated assets without an upstream account system.
+- Docker defaults to `STUDIO_AUTH_MODE=standalone`, so the workstation owns users, sessions, history, queues, and generated assets without an upstream account system. Self-registration is open by default through `STUDIO_AUTH_REGISTRATION_MODE=open`; set it to `disabled` for invite-only deployments. `local` remains an explicit isolated-development mode only.
 - Gateway-authenticated deployments can use `STUDIO_AUTH_MODE=gateway` for per-user isolation through an existing account service.
 - Server-side generation jobs are persisted through `/studio-api/generation-jobs`.
 - Current canvas sessions are persisted through `/studio-api/session`.

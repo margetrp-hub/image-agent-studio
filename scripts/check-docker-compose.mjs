@@ -30,8 +30,8 @@ assert(history.build?.target === 'history', 'studio-history must build the histo
 assert(web.build?.args?.VITE_BASE_PATH === '/studio/', 'studio-web must build assets for /studio/.', web.build?.args);
 assert(web.build?.args?.STUDIO_BASE_PATH === '/studio/', 'studio-web must pass STUDIO_BASE_PATH=/studio/.', web.build?.args);
 assert(web.build?.args?.VITE_AI_IMAGE_ROUTE === 'auto', 'studio-web must default image route to auto.', web.build?.args);
-assert(web.environment?.AI_GATEWAY_UPSTREAM === 'http://host.docker.internal:8080', 'studio-web must default to the host gateway upstream.', web.environment);
 assert(web.environment?.STUDIO_HISTORY_UPSTREAM === 'http://studio-history:8787', 'studio-web must proxy to studio-history.', web.environment);
+assert(!('AI_GATEWAY_UPSTREAM' in (web.environment || {})), 'standalone studio-web must not expose a direct gateway upstream.', web.environment);
 assert(web.depends_on?.['studio-history']?.condition === 'service_healthy', 'studio-web must wait for a healthy history service.', web.depends_on);
 assert(web.healthcheck?.test?.join(' ').includes('/studio/'), 'studio-web healthcheck must verify /studio/.', web.healthcheck);
 assert(web.healthcheck?.interval === '30s' && web.healthcheck?.timeout === '5s' && web.healthcheck?.retries === 5, 'studio-web healthcheck must keep production timing.', web.healthcheck);
@@ -39,7 +39,9 @@ assert(web.healthcheck?.interval === '30s' && web.healthcheck?.timeout === '5s' 
 const webPort = web.ports?.[0];
 assert(webPort?.target === 80 && String(webPort.published) === '8080', 'studio-web must publish host 8080 to container 80 by default.', web.ports);
 
-assert(history.environment?.STUDIO_AUTH_MODE === 'local', 'studio-history must default to local auth for standalone Docker.', history.environment);
+assert(web.build?.args?.VITE_STUDIO_STANDALONE === 'true', 'studio-web must default to the standalone login path.', web.build?.args);
+assert(history.environment?.STUDIO_AUTH_MODE === 'standalone', 'studio-history must default to Studio-owned authentication.', history.environment);
+assert(history.environment?.STUDIO_AUTH_REGISTRATION_MODE === 'open', 'studio-history must default to user self-registration.', history.environment);
 assert(history.environment?.STUDIO_DATA_DIR === '/data', 'studio-history must write persisted data to /data.', history.environment);
 assert(history.environment?.STUDIO_VERSION === '1.0.0', 'studio-history must expose the documented service version.', history.environment);
 assert(history.environment?.STUDIO_GATEWAY_FETCH_TIMEOUT_MS === '2640000', 'studio-history must allow slow native image jobs to outlast the default fetch timeout.', history.environment);
@@ -57,6 +59,7 @@ assert(config.volumes?.['studio-data'], 'Docker Compose must declare the studio-
 
 const dockerDoc = fs.readFileSync('docs/DOCKER.zh-CN.md', 'utf8');
 const deployDoc = fs.readFileSync('docs/DEPLOY.zh-CN.md', 'utf8');
+const nginxTemplate = fs.readFileSync('deploy/docker-nginx.conf.template', 'utf8');
 const upgradeScript = fs.readFileSync('scripts/ops-upgrade.mjs', 'utf8');
 const selfCheckScript = fs.readFileSync('scripts/ops-self-check.mjs', 'utf8');
 
@@ -68,6 +71,9 @@ assert(dockerDoc.includes('STUDIO_SKIP_PULL=true'), 'Docker doc must mention the
 assert(dockerDoc.includes('STUDIO_VERSION=1.0.0'), 'Docker doc must document the Docker service version.');
 assert(dockerDoc.includes('image-agent-studio-web:local') && dockerDoc.includes('image-agent-studio-history:local'), 'Docker doc must use the Image Agent Studio image names.');
 assert(deployDoc.includes('npm run check:docker') && deployDoc.includes('npm run smoke:docker'), 'Deploy doc must include Docker verification commands.');
+for (const route of ['location /v1/', 'location /api/', 'location /login']) {
+  assert(!nginxTemplate.includes(route), `standalone Docker Nginx must not expose ${route}.`);
+}
 assert(upgradeScript.includes('ops-backup.mjs') && upgradeScript.includes('ops-self-check.mjs'), 'Upgrade script must run backup before deploy and self-check after deploy.');
 assert(upgradeScript.includes('STUDIO_SKIP_BACKUP') && upgradeScript.includes('STUDIO_SKIP_PULL'), 'Upgrade script must keep explicit backup/pull bypass flags.');
 assert(selfCheckScript.includes('/studio-api/health') && selfCheckScript.includes('/studio/'), 'Self-check script must verify Studio and history health endpoints.');

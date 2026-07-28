@@ -1,5 +1,30 @@
 ﻿# Release Notes
 
+## 1.0.2
+
+This release turns standalone deployment into a real multi-user setup: users can create their own Image Agent Studio accounts, while the deployment owner keeps provider credentials on the server.
+
+### What Changed
+
+- Added public standalone registration through `POST /studio-api/auth/register`.
+- Registration is open by default with `STUDIO_AUTH_REGISTRATION_MODE=open`.
+- Deployments can set `STUDIO_AUTH_REGISTRATION_MODE=disabled` for invite-only or private operation.
+- The standalone login page now supports both login and account creation.
+- Successful registration immediately creates a session, so new users can enter the workstation without an admin-created account.
+- Docker Compose and environment contracts now pass the registration mode into the history service.
+- Standalone smoke tests now cover public registration, duplicate-user rejection, disabled registration, frontend registration, frontend login, and server-owned provider routing.
+
+### Verification
+
+- `npm run check:standalone-auth`
+- `npm run smoke:standalone:service`
+- `npm run smoke:standalone:frontend`
+- `npm run check:service-config`
+- `npm run check:env`
+- `npm run check:deploy`
+- `npm run check:docker`
+- `npm run build:studio`
+
 ## 1.0.1
 
 This release completes the public rename to **Image Agent Studio** and removes old release-package naming from the publishing flow.

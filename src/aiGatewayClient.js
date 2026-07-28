@@ -14,6 +14,7 @@ import {
 import { PROVIDER_VIDEO_TRANSPORTS, normalizeImageRouteMode, normalizeProviderId } from './studio/providers/index.js';
 
 const SESSION_KEY = 'sub2api-studio:session:v1';
+const STANDALONE_SESSION_KEY = 'image-agent-studio:session:v1';
 const SELECTED_KEY_ID = 'sub2api-studio:selected-key-id:v1';
 const PROVIDER_SETTINGS_KEY = 'image-sub2api-studio:provider-settings:v1';
 const LEGACY_PROVIDER_SETTINGS_KEY = 'ohlaoo-studio:provider-settings:v1';
@@ -25,6 +26,7 @@ const SUB2API_USER_KEY = 'auth_user';
 const SUB2API_EXPIRES_AT_KEY = 'token_expires_at';
 
 const viteEnv = import.meta.env || {};
+export const STUDIO_STANDALONE = String(viteEnv.VITE_STUDIO_STANDALONE || '').toLowerCase() === 'true';
 const envBaseUrl = viteEnv.VITE_AI_GATEWAY_BASE_URL || viteEnv.VITE_SUB2API_BASE_URL || '';
 const envGatewayBaseUrl = viteEnv.VITE_AI_GATEWAY_MODEL_BASE_URL || viteEnv.VITE_SUB2API_GATEWAY_BASE_URL || '';
 const envLoginUrl = viteEnv.VITE_AI_GATEWAY_LOGIN_URL || viteEnv.VITE_SUB2API_LOGIN_URL || '';
@@ -41,6 +43,15 @@ const STUDIO_ASSET_BLOB_CACHE_LIMIT = 80;
 const STUDIO_ASSET_FAILURE_TTL_MS = 5 * 60 * 1000;
 const studioAssetBlobCache = new Map();
 const studioAssetFailureCache = new Map();
+const STANDALONE_PROVIDER_KEY = Object.freeze({
+  id: 'studio-managed',
+  name: 'Studio Managed Provider',
+  key: 'studio-managed',
+  displayKey: 'Server managed',
+  status: 'active',
+  scope: 'Image Studio',
+  synthetic: true
+});
 
 const providerDefaults = {
   providerId: 'gateway-account',
@@ -201,6 +212,22 @@ function keyIsUsable(apiKey) {
 }
 
 function normalizeProviderSettings(value = {}) {
+  if (STUDIO_STANDALONE) {
+    return {
+      ...providerDefaults,
+      providerId: 'gateway-account',
+      apiKeySource: 'gateway',
+      route: normalizeImageRoute(value.route || providerDefaults.route),
+      manualApiKey: '',
+      manualGatewayBaseUrl: '',
+      imageGenerationModel: String(value.imageGenerationModel || ''),
+      imageEditModel: String(value.imageEditModel || ''),
+      videoModel: '',
+      videoGatewayBaseUrl: '',
+      responsesModel: normalizeResponsesModel(value.responsesModel),
+      partialImages: normalizePartialImageCount(value.partialImages)
+    };
+  }
   const apiKeySource = normalizeApiKeySource(value.apiKeySource);
   return {
     ...providerDefaults,
@@ -220,6 +247,13 @@ function normalizeProviderSettings(value = {}) {
 }
 
 export function getConfiguredBaseUrls() {
+  if (STUDIO_STANDALONE) {
+    return {
+      apiBaseUrl: `${trimTrailingSlash(window.location.origin)}/studio-api`,
+      gatewayBaseUrl: '',
+      studioHistoryBaseUrl: trimTrailingSlash(window.location.origin)
+    };
+  }
   return {
     apiBaseUrl: normalizeApiBaseUrl(envBaseUrl),
     gatewayBaseUrl: normalizeGatewayBaseUrl(envGatewayBaseUrl || envBaseUrl),
@@ -253,11 +287,35 @@ function writeManualProviderSecret(value) {
 }
 
 function providerSettingsForStorage(settings) {
+  if (STUDIO_STANDALONE) {
+    const normalized = normalizeProviderSettings(settings);
+    return {
+      providerId: normalized.providerId,
+      apiKeySource: normalized.apiKeySource,
+      route: normalized.route,
+      imageGenerationModel: normalized.imageGenerationModel,
+      imageEditModel: normalized.imageEditModel,
+      responsesModel: normalized.responsesModel,
+      partialImages: normalized.partialImages
+    };
+  }
   const { manualApiKey, ...storedSettings } = normalizeProviderSettings(settings);
   return storedSettings;
 }
 
 export function loadProviderSettings() {
+  if (STUDIO_STANDALONE) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(PROVIDER_SETTINGS_KEY) || 'null') || {};
+      const nextSettings = normalizeProviderSettings(parsed);
+      sessionStorage.removeItem(MANUAL_PROVIDER_SECRET_KEY);
+      localStorage.removeItem(LEGACY_PROVIDER_SETTINGS_KEY);
+      localStorage.setItem(PROVIDER_SETTINGS_KEY, JSON.stringify(providerSettingsForStorage(nextSettings)));
+      return nextSettings;
+    } catch {
+      return getDefaultProviderSettings();
+    }
+  }
   try {
     const raw = localStorage.getItem(PROVIDER_SETTINGS_KEY) || localStorage.getItem(LEGACY_PROVIDER_SETTINGS_KEY);
     const parsed = JSON.parse(raw || 'null') || {};
@@ -281,12 +339,28 @@ export function loadProviderSettings() {
 
 export function saveProviderSettings(settings) {
   const nextSettings = normalizeProviderSettings(settings);
+  if (STUDIO_STANDALONE) {
+    try {
+      sessionStorage.removeItem(MANUAL_PROVIDER_SECRET_KEY);
+      localStorage.removeItem(LEGACY_PROVIDER_SETTINGS_KEY);
+    } catch {
+      // Standalone provider settings do not depend on browser secret storage.
+    }
+    localStorage.setItem(PROVIDER_SETTINGS_KEY, JSON.stringify(providerSettingsForStorage(nextSettings)));
+    return nextSettings;
+  }
   writeManualProviderSecret(nextSettings.manualApiKey);
   localStorage.setItem(PROVIDER_SETTINGS_KEY, JSON.stringify(providerSettingsForStorage(nextSettings)));
   return nextSettings;
 }
 
 export function getLoginUrl() {
+  if (STUDIO_STANDALONE) {
+    const appBase = new URL(viteEnv.BASE_URL || '/', window.location.origin);
+    const loginUrl = new URL('login.html', appBase);
+    loginUrl.searchParams.set('redirect', `${window.location.pathname}${window.location.search || ''}${window.location.hash || ''}`);
+    return loginUrl.toString();
+  }
   const loginBase = envLoginUrl || `${trimTrailingSlash(envBaseUrl || defaultDevSub2ApiOrigin() || window.location.origin)}/login`;
   const loginUrl = new URL(loginBase, window.location.origin);
   const localRedirect = `${window.location.pathname}${window.location.search || ''}${window.location.hash || ''}`;
@@ -348,6 +422,7 @@ function authHeadersFromSession(session) {
 }
 
 function studioWorkspaceToken() {
+  if (STUDIO_STANDALONE) return '';
   try {
     let token = localStorage.getItem(STUDIO_WORKSPACE_TOKEN_KEY);
     if (!token) {
@@ -363,11 +438,12 @@ function studioWorkspaceToken() {
 
 function studioAuthHeaders(session) {
   if (session?.accessToken) return authHeadersFromSession(session);
+  if (STUDIO_STANDALONE) return {};
   return { Authorization: `Bearer ${studioWorkspaceToken()}` };
 }
 
 function studioAssetCacheKey(baseUrl, url, session) {
-  const userId = session?.user?.id || session?.user?.email || session?.accessToken || studioWorkspaceToken();
+  const userId = session?.user?.id || session?.user?.email || session?.accessToken || studioWorkspaceToken() || 'anonymous';
   return `${userId}:${trimTrailingSlash(baseUrl)}:${url}`;
 }
 
@@ -414,6 +490,14 @@ async function cachedStudioAssetBlob({ baseUrl, url, session }) {
 }
 
 export function loadSession() {
+  if (STUDIO_STANDALONE) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STANDALONE_SESSION_KEY) || 'null');
+      return parsed?.accessToken ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
   try {
     const sub2ApiSession = loadSub2ApiSession();
     if (sub2ApiSession?.accessToken) return sub2ApiSession;
@@ -427,6 +511,10 @@ export function loadSession() {
 }
 
 export function saveSession(session) {
+  if (STUDIO_STANDALONE) {
+    localStorage.setItem(STANDALONE_SESSION_KEY, JSON.stringify(session));
+    return;
+  }
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   if (session.accessToken) localStorage.setItem(SUB2API_TOKEN_KEY, session.accessToken);
   if (session.refreshToken) localStorage.setItem(SUB2API_REFRESH_TOKEN_KEY, session.refreshToken);
@@ -435,6 +523,11 @@ export function saveSession(session) {
 }
 
 export function clearSession() {
+  if (STUDIO_STANDALONE) {
+    localStorage.removeItem(STANDALONE_SESSION_KEY);
+    localStorage.removeItem(SELECTED_KEY_ID);
+    return;
+  }
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SELECTED_KEY_ID);
   localStorage.removeItem(SUB2API_TOKEN_KEY);
@@ -446,11 +539,13 @@ export function clearSession() {
 }
 
 export function loadSelectedKeyId() {
+  if (STUDIO_STANDALONE) return null;
   const value = localStorage.getItem(SELECTED_KEY_ID);
   return value ? Number(value) : null;
 }
 
 export function saveSelectedKeyId(keyId) {
+  if (STUDIO_STANDALONE) return;
   if (keyId) localStorage.setItem(SELECTED_KEY_ID, String(keyId));
   else localStorage.removeItem(SELECTED_KEY_ID);
 }
@@ -754,11 +849,18 @@ async function readResponsesStream(response, onEvent, signal) {
 }
 
 function sessionFromAuthResponse(data, previousSession = {}) {
+  const source = data?.session && typeof data.session === 'object' ? { ...data, ...data.session } : (data || {});
+  const rawExpiresAt = source.expiresAt || source.expires_at || previousSession.expiresAt || 0;
+  const expiresAt = typeof rawExpiresAt === 'number'
+    ? rawExpiresAt
+    : (Number.isFinite(Number(rawExpiresAt)) && String(rawExpiresAt).trim() !== ''
+      ? Number(rawExpiresAt)
+      : (Date.parse(String(rawExpiresAt || '')) || 0));
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token || previousSession.refreshToken || '',
-    expiresAt: data.expires_in ? Date.now() + Number(data.expires_in) * 1000 : previousSession.expiresAt || 0,
-    user: data.user || previousSession.user || null
+    accessToken: source.access_token || source.accessToken || source.token || source.sessionToken,
+    refreshToken: source.refresh_token || source.refreshToken || previousSession.refreshToken || '',
+    expiresAt: source.expires_in ? Date.now() + Number(source.expires_in) * 1000 : expiresAt,
+    user: source.user || previousSession.user || null
   };
 }
 
@@ -779,8 +881,12 @@ async function readJsonResponse(response) {
 export class AiGatewayClient {
   constructor({ apiBaseUrl, gatewayBaseUrl, session, providerSettings } = {}) {
     const bases = getConfiguredBaseUrls();
-    this.apiBaseUrl = normalizeApiBaseUrl(apiBaseUrl || bases.apiBaseUrl);
-    this.gatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || bases.gatewayBaseUrl);
+    this.apiBaseUrl = STUDIO_STANDALONE
+      ? `${trimTrailingSlash(window.location.origin)}/studio-api`
+      : normalizeApiBaseUrl(apiBaseUrl || bases.apiBaseUrl);
+    this.gatewayBaseUrl = STUDIO_STANDALONE
+      ? ''
+      : normalizeGatewayBaseUrl(gatewayBaseUrl || bases.gatewayBaseUrl);
     this.session = session || loadSession();
     this.providerSettings = normalizeProviderSettings(providerSettings || loadProviderSettings());
   }
@@ -794,6 +900,9 @@ export class AiGatewayClient {
   }
 
   async refreshSession() {
+    if (STUDIO_STANDALONE) {
+      throw new Error('STANDALONE_SESSION_REFRESH_UNSUPPORTED');
+    }
     if (!this.session?.refreshToken) {
       throw new Error('NO_REFRESH_TOKEN');
     }
@@ -851,7 +960,20 @@ export class AiGatewayClient {
     }
   }
 
-  async login({ email, password, turnstileToken }) {
+  async login({ email, identifier, password, turnstileToken }) {
+    if (STUDIO_STANDALONE) {
+      const data = await this.request('/auth/login', {
+        method: 'POST',
+        skipAuth: true,
+        skipRefresh: true,
+        body: JSON.stringify({ identifier: identifier || email, password })
+      });
+      const session = sessionFromAuthResponse(data);
+      if (!session.accessToken) throw new Error('STANDALONE_LOGIN_TOKEN_MISSING');
+      this.session = session;
+      saveSession(session);
+      return session;
+    }
     const data = await this.request('/auth/login', {
       method: 'POST',
       skipAuth: true,
@@ -870,6 +992,23 @@ export class AiGatewayClient {
     }
 
     const session = sessionFromAuthResponse(data);
+    this.session = session;
+    saveSession(session);
+    return session;
+  }
+
+  async register({ email, username, password }) {
+    if (!STUDIO_STANDALONE) {
+      throw new Error('STANDALONE_REGISTER_UNSUPPORTED');
+    }
+    const data = await this.request('/auth/register', {
+      method: 'POST',
+      skipAuth: true,
+      skipRefresh: true,
+      body: JSON.stringify({ email, username, password })
+    });
+    const session = sessionFromAuthResponse(data);
+    if (!session.accessToken) throw new Error('STANDALONE_REGISTER_TOKEN_MISSING');
     this.session = session;
     saveSession(session);
     return session;
@@ -894,24 +1033,33 @@ export class AiGatewayClient {
 
   async me() {
     const data = await this.request('/auth/me');
+    const user = STUDIO_STANDALONE ? (data?.user || data) : data;
     this.session = {
       ...(this.session || {}),
-      user: data
+      user
     };
     saveSession(this.session);
-    return data;
+    return user;
   }
 
   async profile() {
+    if (STUDIO_STANDALONE) return this.me();
     return this.request('/user/profile');
   }
 
+  async logout() {
+    if (!STUDIO_STANDALONE) return;
+    await this.request('/auth/logout', { method: 'POST', skipRefresh: true });
+  }
+
   async listKeys() {
+    if (STUDIO_STANDALONE) return this.session?.accessToken ? [{ ...STANDALONE_PROVIDER_KEY }] : [];
     const data = await this.request('/keys?page=1&page_size=50');
     return extractKeyItems(data);
   }
 
   async createStudioKey() {
+    if (STUDIO_STANDALONE) return { ...STANDALONE_PROVIDER_KEY };
     const created = await this.request('/keys', {
       method: 'POST',
       body: JSON.stringify({
@@ -923,6 +1071,7 @@ export class AiGatewayClient {
   }
 
   async ensureApiKey() {
+    if (STUDIO_STANDALONE) return this.session?.accessToken ? { ...STANDALONE_PROVIDER_KEY } : null;
     const selectedId = loadSelectedKeyId();
     const keys = await this.listKeys();
     const selected = keys.find((key) => key.id === selectedId);
@@ -940,6 +1089,7 @@ export class AiGatewayClient {
   }
 
   async generateImageViaLegacy({ apiKey, model, prompt, size, quality, n, gatewayBaseUrl, endpoint = '/v1/images/generations', onProgress, signal }) {
+    if (STUDIO_STANDALONE) throw new Error('STUDIO_SERVER_QUEUE_REQUIRED');
     const total = Math.max(1, Number(n || 1));
     const data = [];
     const payloads = [];
@@ -988,6 +1138,17 @@ export class AiGatewayClient {
   }
 
   async optimizePrompt({ apiKey, prompt, instruction = '', size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
+    if (STUDIO_STANDALONE) {
+      const result = await this.request('/prompt/optimize', {
+        method: 'POST',
+        signal,
+        body: JSON.stringify({ prompt, instruction, size, aspectRatio, quality, resolutionTier })
+      });
+      const normalized = result?.prompt ? result : (result?.data || result);
+      if (!normalized?.prompt) throw new Error('PROMPT_OPTIMIZER_RETURNED_EMPTY');
+      onPartial?.(normalized.prompt);
+      return normalized;
+    }
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const optimizerModel = normalizeResponsesModel(model || envPromptOptimizerModel || this.providerSettings.responsesModel || envResponsesModel);
     const inputLines = [
@@ -1057,6 +1218,27 @@ export class AiGatewayClient {
   }
 
   async chatPromptAssistant({ apiKey, prompt, basePrompt = '', userInstruction = '', selectedCanvasLabel = '', messages = [], size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
+    if (STUDIO_STANDALONE) {
+      const result = await this.request('/prompt/assistant', {
+        method: 'POST',
+        signal,
+        body: JSON.stringify({
+          prompt,
+          basePrompt,
+          userInstruction,
+          selectedCanvasLabel,
+          messages,
+          size,
+          aspectRatio,
+          quality,
+          resolutionTier
+        })
+      });
+      const normalized = result?.text ? result : (result?.data || result);
+      if (!normalized?.text) throw new Error('PROMPT_ASSISTANT_RETURNED_EMPTY');
+      onPartial?.(normalized.text);
+      return normalized;
+    }
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const assistantModel = normalizeResponsesModel(model || envPromptOptimizerModel || this.providerSettings.responsesModel || envResponsesModel);
     const context = [
@@ -1134,6 +1316,7 @@ export class AiGatewayClient {
   }
 
   async listGatewayModels({ apiKey, gatewayBaseUrl, signal } = {}) {
+    if (STUDIO_STANDALONE) return this.listGatewayModelsViaStudio({ signal });
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     let models = [];
     try {
@@ -1175,17 +1358,22 @@ export class AiGatewayClient {
   }
 
   async listGatewayModelsViaStudio({ apiKey, gatewayBaseUrl, signal } = {}) {
-    const historyBaseUrl = getConfiguredBaseUrls().studioHistoryBaseUrl;
+    const historyBaseUrl = STUDIO_STANDALONE
+      ? trimTrailingSlash(window.location.origin)
+      : getConfiguredBaseUrls().studioHistoryBaseUrl;
+    const body = STUDIO_STANDALONE
+      ? {}
+      : {
+        apiKey,
+        gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl)
+      };
     const response = await fetch(`${historyBaseUrl}/studio-api/model-sync`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...studioAuthHeaders(this.session)
       },
-      body: JSON.stringify({
-        apiKey,
-        gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl)
-      }),
+      body: JSON.stringify(body),
       ...(signal ? { signal } : {})
     });
     const payload = await readJsonResponse(response);
@@ -1193,6 +1381,7 @@ export class AiGatewayClient {
   }
 
   async getGatewayUsage({ apiKey, gatewayBaseUrl, signal } = {}) {
+    if (STUDIO_STANDALONE) return {};
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const response = await fetch(`${resolvedGatewayBaseUrl}/usage`, {
       headers: {
@@ -1222,6 +1411,7 @@ export class AiGatewayClient {
     gatewayBaseUrl,
     signal
   }) {
+    if (STUDIO_STANDALONE) throw new Error('STANDALONE_VIDEO_QUEUE_UNAVAILABLE');
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const requestUrl = gatewayEndpointUrl(resolvedGatewayBaseUrl, createEndpoint);
     const isOpenAiVideos = transport === PROVIDER_VIDEO_TRANSPORTS.OPENAI_VIDEOS;
@@ -1313,6 +1503,7 @@ export class AiGatewayClient {
     maxPollAttempts = 90,
     signal
   }) {
+    if (STUDIO_STANDALONE) throw new Error('STANDALONE_VIDEO_QUEUE_UNAVAILABLE');
     onProgress?.({ stage: 'request', percent: 8, completed: 0, total: Math.max(1, Number(n || 1)) });
     const created = await this.createVideoTask({
       apiKey,
@@ -1379,6 +1570,7 @@ export class AiGatewayClient {
   }
 
   async generateImageViaResponses({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, referenceImages = [], onPartial, onProgress, gatewayBaseUrl, responsesModel, partialImages, endpoint = '/v1/responses', signal }) {
+    if (STUDIO_STANDALONE) throw new Error('STUDIO_SERVER_QUEUE_REQUIRED');
     const count = Math.max(1, Number(n || 1));
     const selectedModel = String(model || '').trim();
     const directImageModel = isDirectImageResponsesModel(selectedModel);
@@ -1519,6 +1711,7 @@ export class AiGatewayClient {
   }
 
   async generateImage({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, referenceImages, onPartial, onProgress, route, gatewayBaseUrl, responsesModel, partialImages, signal }) {
+    if (STUDIO_STANDALONE) throw new Error('STUDIO_SERVER_QUEUE_REQUIRED');
     const { adapter, normalizedParameters, plan } = resolveImageAdapterContext({
       providerSettings: this.providerSettings,
       route,
@@ -1579,6 +1772,7 @@ export class AiGatewayClient {
   }
 
   async editImage({ apiKey, model, prompt, size, quality, outputFormat, moderation, n, images, mask, gatewayBaseUrl, onProgress, signal }) {
+    if (STUDIO_STANDALONE) throw new Error('STUDIO_SERVER_QUEUE_REQUIRED');
     const { adapter, normalizedParameters, plan } = resolveImageEditAdapterContext({
       providerSettings: this.providerSettings,
       parameters: {
@@ -1662,7 +1856,9 @@ export function getVideoUrls(payload) {
 export class StudioHistoryClient {
   constructor({ baseUrl, session } = {}) {
     const bases = getConfiguredBaseUrls();
-    this.baseUrl = trimTrailingSlash(baseUrl || bases.studioHistoryBaseUrl);
+    this.baseUrl = STUDIO_STANDALONE
+      ? trimTrailingSlash(window.location.origin)
+      : trimTrailingSlash(baseUrl || bases.studioHistoryBaseUrl);
     this.session = session || loadSession();
   }
 

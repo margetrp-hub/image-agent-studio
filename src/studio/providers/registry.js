@@ -36,7 +36,12 @@ const OPENAI_COMPATIBLE_ROUTES = Object.freeze({
   models: '/v1/models',
   videoCreate: '/v1/videos',
   videoRetrieve: '/v1/videos/{id}',
-  videoContent: '/v1/videos/{id}/content'
+  videoContent: '/v1/videos/{id}/content',
+  // Reserved for a dedicated upscale/super-resolution endpoint. No OpenAI-style
+  // convention exists yet, so it stays empty until a gateway wires one up — the
+  // upscale capability defaults off, and providerUpscaleRoute() returns '' so
+  // the UI can surface a "not configured" state instead of guessing a path.
+  upscale: ''
 });
 
 const VIDEO_TASK_ROUTES = Object.freeze({
@@ -53,7 +58,11 @@ const OPENAI_IMAGE_CAPABILITIES = Object.freeze({
   streamingImages: false,
   modelSync: false,
   accountKeys: false,
-  videoGeneration: false
+  videoGeneration: false,
+  // Dedicated upscale/super-resolution pass. Off everywhere by default: no
+  // provider currently exposes a standard route for it, so it stays a reserved
+  // capability a gateway can opt into later without touching call sites.
+  upscale: false
 });
 
 const OPENAI_IMAGE_PARAMETERS = Object.freeze({
@@ -334,6 +343,16 @@ export function providerSupports(providerOrId, capability) {
 export function providerRoute(providerOrId, routeName) {
   const provider = typeof providerOrId === 'string' ? getImageProvider(providerOrId) : providerOrId;
   return provider?.routes?.[routeName] || '';
+}
+
+// Convenience wrapper for the reserved upscale route. Returns '' unless a
+// provider both advertises the `upscale` capability and defines a non-empty
+// route, so callers can treat a falsy result as "upscale not configured here"
+// without separately checking the capability flag and the route string.
+export function providerUpscaleRoute(providerOrId) {
+  const provider = typeof providerOrId === 'string' ? getImageProvider(providerOrId) : providerOrId;
+  if (!provider?.capabilities?.upscale) return '';
+  return provider?.routes?.upscale || '';
 }
 
 export function providerCapabilityDescriptor(providerOrId) {

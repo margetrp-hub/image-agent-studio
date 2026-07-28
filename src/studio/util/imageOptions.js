@@ -69,6 +69,36 @@ export function withResolutionHint(prompt, resolutionTier, t = (key, fallback) =
   return hint ? `${prompt}\n\n${hint}` : prompt;
 }
 
+// The reference roles the rail lets a user assign per image. Kept here (rather
+// than in studio.jsx) so the hint builder and any request-layer consumer agree
+// on the legal set without importing the UI monolith.
+export const REFERENCE_ROLE_VALUES = Object.freeze(['identity', 'style', 'composition', 'product']);
+
+export function normalizeReferenceRole(value) {
+  return REFERENCE_ROLE_VALUES.includes(value) ? value : 'identity';
+}
+
+// Turn the ordered reference list into a localized instruction block so models
+// that only read the free-text prompt (not structured params) still learn how
+// each attached image should be used — e.g. "参考图1：沿用其主体/人物身份".
+// `referenceItems` is the rail's `[{ file, role }]` shape; items without a file
+// are skipped so the numbering matches what actually gets uploaded. Returns the
+// prompt unchanged when there are no usable references, so callers can wrap it
+// unconditionally the same way `withResolutionHint` is used.
+export function withReferenceRoleHint(prompt, referenceItems, t = (key, fallback) => fallback || key) {
+  const usable = (Array.isArray(referenceItems) ? referenceItems : []).filter((item) => item?.file);
+  if (!usable.length) return prompt;
+  const lines = usable.map((item, index) => {
+    const role = normalizeReferenceRole(item?.role);
+    const roleHint = t(`references.rolePromptHints.${role}`, '');
+    const label = t('references.referenceIndex', '参考 {index}', { index: index + 1 });
+    return roleHint ? `- ${label}: ${roleHint}` : '';
+  }).filter(Boolean);
+  if (!lines.length) return prompt;
+  const heading = t('references.rolePromptHeading', '参考图使用说明（按顺序）：');
+  return `${prompt}\n\n${heading}\n${lines.join('\n')}`;
+}
+
 export function normalizeOutputFormat(value) {
   return OUTPUT_FORMATS.includes(value) ? value : 'png';
 }

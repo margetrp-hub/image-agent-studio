@@ -2,7 +2,7 @@
 // React page shell. Keep request shaping, model classification, and usage
 // display normalization here so StudioApp only applies state updates.
 
-import { AiGatewayClient } from '../../aiGatewayClient.js';
+import { AiGatewayClient, STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 import { formatUsageValue } from '../util/billing.js';
 import { defaultProviderGatewayBaseUrl } from '../util/providerSettings.js';
 
@@ -35,6 +35,14 @@ export function modelLooksLikeImage(item) {
 }
 
 export function resolveProviderRequest(settings, apiKey) {
+  if (STUDIO_STANDALONE) {
+    return {
+      apiKey: apiKey?.key || (apiKey?.synthetic ? 'studio-managed' : ''),
+      route: settings?.route || 'auto',
+      responsesModel: settings?.responsesModel,
+      partialImages: settings?.partialImages
+    };
+  }
   if (settings.apiKeySource === 'manual') {
     const manualApiKey = String(settings.manualApiKey || '').trim();
     return {

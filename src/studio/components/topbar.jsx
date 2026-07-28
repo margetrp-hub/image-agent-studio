@@ -2,6 +2,7 @@ import { ArrowLeft, KeyRound, LogOut, Moon, Server, Sun, WandSparkles } from 'lu
 
 import { assetPath } from '../util/assets.js';
 import { providerLabel } from '../util/providerSettings.js';
+import { STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 
 function workspaceConnectionLabel(activeWorkspace, defaultLabel) {
   if (activeWorkspace === 'video') return '视频接口';
@@ -52,8 +53,12 @@ export function Topbar({
       <div className="topbarActions">
         <button type="button" className="connectionPill" onClick={onOpenSettings}>
           <Server size={15} />
-          <span>{providerLabel(providerSettings, apiKey)}</span>
-          <strong>{workspaceConnectionLabel(activeWorkspace, imageGenerationRouteLabel)}</strong>
+          <span>{STUDIO_STANDALONE
+            ? t('settings.studioManagedProvider', '服务端托管')
+            : providerLabel(providerSettings, apiKey)}</span>
+          <strong>{STUDIO_STANDALONE
+            ? t('single.serverGeneration', '图片生成')
+            : workspaceConnectionLabel(activeWorkspace, imageGenerationRouteLabel)}</strong>
         </button>
         {isAuthenticated ? (
           <>

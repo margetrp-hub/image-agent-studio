@@ -91,6 +91,7 @@ assertNoLegacyPackages();
 assertPair('core', [
   'index.html',
   'studio.html',
+  'login.html',
   'studio-assets/',
   'cases.json',
   'inspirations.json',
@@ -103,6 +104,10 @@ assertPair('service', [
   'package-lock.json',
   'scripts/image-agent-studio-history-service.mjs',
   'scripts/image-sub2api-studio-history-service.mjs',
+  'scripts/create-standalone-admin.mjs',
+  'scripts/studio-service/standaloneAuth.js',
+  'scripts/studio-service/userBackup.js',
+  'scripts/studio-service/userStorage.js',
   'deploy/sync-from-git.sh',
   'deploy/install.sh',
   'deploy/upgrade.sh',

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.2 - 2026-07-28
+
+- Added standalone self-registration so users can create Image Agent Studio accounts without admin-created credentials.
+- Added `STUDIO_AUTH_REGISTRATION_MODE=open|disabled`, defaulting to open for independent multi-user deployments.
+- Updated the standalone login page with a compact login/register flow and clean UTF-8 Chinese copy.
+- Added service and frontend smoke coverage for registration, duplicate-account rejection, disabled registration, and session creation after signup.
+- Passed the registration mode through Docker Compose and environment/config contract checks.
+
 - Added a VPS Git sync deployment path so production can pull the repository, build locally, update static/service files, and verify protected data instead of relying on manual zip uploads.
 - Documented the production data split between repository-managed code and `/var/lib/image-sub2api-studio` persistent history/library assets.
 - Simplified the creation composer into a Codex-like bottom conversation, moved image parameters below the input, moved reference images into a right-side panel, and made generation progress easier to scan.

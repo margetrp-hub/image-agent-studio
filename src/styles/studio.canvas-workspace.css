@@ -710,6 +710,75 @@
   white-space: pre-wrap;
 }
 
+.canvasWorkflowTimeline {
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 70%, transparent);
+}
+
+.canvasWorkflowTimelineTitle {
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.canvasWorkflowTimeline ol {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 150px;
+  overflow: auto;
+  list-style: none;
+}
+
+.canvasWorkflowTimeline li {
+  padding: 6px 8px;
+  display: grid;
+  gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 76%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 60%, transparent);
+}
+
+.canvasWorkflowTimeline li.latest {
+  border-color: color-mix(in srgb, var(--studio-primary) 60%, transparent);
+  background: color-mix(in srgb, var(--studio-primary) 12%, transparent);
+}
+
+.canvasWorkflowTimeline li em {
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.canvasWorkflowTimeline li p {
+  max-height: 48px;
+  margin: 0;
+  overflow: auto;
+  color: var(--studio-text);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.canvasWorkflowTimeline li.latest em {
+  color: var(--studio-primary);
+}
+
+.canvasWorkflowTimeline li p {
+  max-height: 54px;
+  margin: 0;
+  overflow: auto;
+  color: var(--studio-text);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
 .canvasInlineModes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -727,6 +796,47 @@
 .canvasInlineModes button.active {
   background: var(--studio-primary);
   color: #fff;
+}
+
+.canvasInlineReroll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 70%, transparent);
+}
+
+.canvasInlineRerollLabel {
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.canvasInlineRerollActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.canvasInlineRerollActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 82%, transparent);
+  border-radius: 6px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.canvasInlineRerollActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .canvasInlineEditor p {

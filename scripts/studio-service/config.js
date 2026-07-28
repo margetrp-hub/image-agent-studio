@@ -7,6 +7,16 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
   const libraryAssetDir = path.resolve(env.STUDIO_LIBRARY_ASSET_DIR || path.join(libraryDir, 'image-library'));
   const legacyLibraryAssetDir = path.resolve(path.join(libraryDir, 'images'));
   const jobTimeoutMs = Number(env.STUDIO_JOB_TIMEOUT_MS || 45 * 60 * 1000);
+  const authDatabasePath = path.resolve(env.STUDIO_AUTH_DB_PATH || path.join(dataDir, 'auth.sqlite'));
+  const authMode = String(env.STUDIO_AUTH_MODE || 'gateway').trim().toLowerCase();
+  if (!['gateway', 'local', 'standalone'].includes(authMode)) {
+    throw new TypeError(`Unsupported STUDIO_AUTH_MODE: ${authMode || '<empty>'}`);
+  }
+  const authRegistrationMode = String(env.STUDIO_AUTH_REGISTRATION_MODE || 'open').trim().toLowerCase();
+  if (!['open', 'disabled'].includes(authRegistrationMode)) {
+    throw new TypeError(`Unsupported STUDIO_AUTH_REGISTRATION_MODE: ${authRegistrationMode || '<empty>'}`);
+  }
+  const providerBaseUrl = String(env.STUDIO_PROVIDER_BASE_URL || '').trim().replace(/\/+$/, '');
 
   return {
     PORT: Number(env.PORT || env.STUDIO_HISTORY_PORT || 8787),
@@ -16,8 +26,21 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     LIBRARY_ASSET_DIR: libraryAssetDir,
     LEGACY_LIBRARY_ASSET_DIR: legacyLibraryAssetDir,
     LIBRARY_ASSET_DIRS: [...new Set([libraryAssetDir, legacyLibraryAssetDir])],
-    AUTH_MODE: String(env.STUDIO_AUTH_MODE || 'gateway').toLowerCase(),
+    AUTH_MODE: authMode,
+    AUTH_REGISTRATION_MODE: authRegistrationMode,
+    AUTH_DATABASE_PATH: authDatabasePath,
+    AUTH_SESSION_TTL_MS: Number(env.STUDIO_AUTH_SESSION_TTL_MS || 7 * 24 * 60 * 60 * 1000),
+    AUTH_PASSWORD_MIN_LENGTH: Number(env.STUDIO_AUTH_PASSWORD_MIN_LENGTH || 12),
+    AUTH_PASSWORD_ITERATIONS: Number(env.STUDIO_AUTH_PASSWORD_ITERATIONS || 600_000),
+    AUTH_LOGIN_MAX_FAILURES: Number(env.STUDIO_AUTH_LOGIN_MAX_FAILURES || 5),
+    AUTH_LOGIN_FAILURE_WINDOW_MS: Number(env.STUDIO_AUTH_LOGIN_FAILURE_WINDOW_MS || 15 * 60 * 1000),
+    AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS: Number(env.STUDIO_AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS || 120),
+    AUTH_LOGIN_MAX_CONCURRENCY: Number(env.STUDIO_AUTH_LOGIN_MAX_CONCURRENCY || 4),
+    AUTH_LOGIN_MAX_BODY_BYTES: Number(env.STUDIO_AUTH_LOGIN_MAX_BODY_BYTES || 16 * 1024),
     AI_GATEWAY_BASE_URL: String(env.AI_GATEWAY_BASE_URL || env.SUB2API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, ''),
+    PROVIDER_BASE_URL: providerBaseUrl,
+    PROVIDER_API_KEY: String(env.STUDIO_PROVIDER_API_KEY || ''),
+    PROVIDER_CHAT_MODEL: String(env.STUDIO_PROVIDER_CHAT_MODEL || '').trim(),
     HISTORY_LIMIT: Number(env.STUDIO_HISTORY_LIMIT || 200),
     SESSION_NODE_LIMIT: Number(env.STUDIO_SESSION_NODE_LIMIT || 80),
     SESSION_URL_LIMIT: Number(env.STUDIO_SESSION_URL_LIMIT || 24),

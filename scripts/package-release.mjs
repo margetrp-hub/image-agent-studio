@@ -10,6 +10,7 @@ const releaseDir = join(root, 'release');
 const include = [
   'index.html',
   'studio.html',
+  'login.html',
   'favicon.svg',
   'demo-canvas-1.svg',
   'demo-canvas-2.svg',
@@ -24,6 +25,8 @@ const serviceInclude = [
   'package-lock.json',
   'scripts/image-agent-studio-history-service.mjs',
   'scripts/image-sub2api-studio-history-service.mjs',
+  'scripts/create-standalone-admin.mjs',
+  'scripts/studio-service',
   'deploy/sync-from-git.sh',
   'deploy/install.sh',
   'deploy/upgrade.sh',

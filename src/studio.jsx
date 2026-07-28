@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  Server,
   Share2,
   SlidersHorizontal,
   Sparkles,
@@ -86,7 +87,8 @@ import {
   loadProviderSettings,
   loadSession,
   saveProviderSettings,
-  saveSelectedKeyId
+  saveSelectedKeyId,
+  STUDIO_STANDALONE
 } from './aiGatewayClient';
 import { createTranslator, loadStudioLanguage, nextLanguage, saveStudioLanguage, SUPPORTED_LANGUAGES } from './studio/i18n.js';
 import { createHistoryCanvasBuilder } from './studio/canvas/historyCanvas.js';
@@ -233,6 +235,10 @@ import {
   safeImageCandidate
 } from './studio/util/historyView.js';
 import {
+  buildHistoryInspirationCases,
+  mergeHistoryInspirationCases
+} from './studio/util/historyInspiration.js';
+import {
   CURRENT_PROJECT_QUEUE_STATUSES,
   GENERATION_QUEUE_LIMIT,
   GENERATION_STALL_NOTICE_MS,
@@ -307,7 +313,8 @@ import {
   normalizeResolutionTier,
   normalizeSize,
   sizeFromAspect,
-  withResolutionHint
+  withResolutionHint,
+  withReferenceRoleHint
 } from './studio/util/imageOptions.js';
 import {
   VIDEO_ASPECT_OPTIONS,
@@ -367,7 +374,7 @@ const WORKSPACES = [
   { value: 'inspiration', label: '灵感库' },
   { value: 'video', label: '视频创作' },
   { value: 'history', label: '历史图库' }
-];
+].filter((item) => !STUDIO_STANDALONE || item.value !== 'video');
 const DESK_MODES = [
   { value: 'image', label: '文生图', icon: ImageIcon },
   { value: 'edit', label: '参考图', icon: Images },
@@ -377,6 +384,7 @@ const INITIAL_TEMPLATE_LIMIT = 12;
 const TEMPLATE_PAGE_SIZE = 12;
 const HISTORY_PAGE_SIZE = 20;
 const CATEGORY_LABELS = {
+  'My Highlights': '我的高赞',
   'Architecture & Spaces': '建筑空间',
   'Brand & Logos': '品牌标识',
   'Characters & People': '人物角色',
@@ -412,6 +420,7 @@ const REFERENCE_ROLES = [
   { value: 'product', label: '产品' }
 ];
 const CATEGORY_COVERS = {
+  'My Highlights': 'latest',
   'Architecture & Spaces': 'architecture',
   'Brand & Logos': 'brand',
   'Characters & People': 'character',
@@ -609,7 +618,7 @@ function connectionReady(settings, apiKey, isAuthenticated) {
 }
 
 function canUseClientGenerationFallback() {
-  return Boolean(import.meta.env.DEV);
+  return Boolean(import.meta.env.DEV && !STUDIO_STANDALONE);
 }
 
 function workspaceLabel(value) {
@@ -620,7 +629,7 @@ function WorkbenchModeSwitch({ activeWorkspace, onChange, t }) {
   const items = [
     { value: 'image', label: t('workspace.image', '图片创作'), icon: ImageIcon },
     { value: 'video', label: t('workspace.video', '视频创作'), icon: Video }
-  ];
+  ].filter((item) => !STUDIO_STANDALONE || item.value !== 'video');
 
   return (
     <div className="workbenchModeSwitch" role="group" aria-label={t('workspace.creationType', '创作类型')}>
@@ -827,6 +836,7 @@ function CreationDesk({
   const [canvasEditorPrompt, setCanvasEditorPrompt] = useState('');
   const [canvasEditorMode, setCanvasEditorMode] = useState('image');
   const [pendingCanvasGenerate, setPendingCanvasGenerate] = useState(null);
+  const [pendingCanvasReroll, setPendingCanvasReroll] = useState(null);
   const [pendingSuggestionGenerate, setPendingSuggestionGenerate] = useState(null);
   const {
     generationQueue,
@@ -1768,6 +1778,46 @@ function CreationDesk({
     });
   }
 
+  // Node-level quick reroll: re-run a node's own prompt to get a fresh variant,
+  // optionally at a different aspect. Unlike generateFromCanvasEditor this adds
+  // no new lineage step (empty instruction inherits the node's prompt as-is);
+  // it just produces another take. Aspect changes go through setAspect first,
+  // so we stage the request and let a pending-effect fire the confirm once the
+  // size params have actually synced — mirroring the pendingCanvasGenerate flow.
+  function rerollCanvasNode(node, { aspect: nextAspect } = {}) {
+    if (!node || node.kind === 'video') return;
+    const plan = buildCanvasContinuationPlan(node, '', { mode: 'image' });
+    const generationPrompt = plan.generationPrompt || node.generationPrompt || node.prompt || '';
+    if (!generationPrompt) {
+      setStatus('error');
+      setMessage(t('statusMessages.rerollNoPrompt', '这张图没有可复用的提示词，无法重出。'));
+      window.setTimeout(() => setStatus('idle'), 1600);
+      return;
+    }
+    const resolvedAspect = nextAspect
+      ? normalizeAspect(nextAspect, sizeFromAspect(nextAspect, customSize))
+      : aspect;
+    const resolvedSize = sizeFromAspect(resolvedAspect, customSize);
+    closeCanvasEditor();
+    setSelectedCanvasNodeId(node.id);
+    setMode('image');
+    if (nextAspect && resolvedAspect !== 'custom') {
+      setAspect(resolvedAspect);
+      setCustomSize(resolvedSize);
+    }
+    setPrompt(generationPrompt);
+    setPendingCanvasReroll({
+      nodeId: node.id,
+      prompt: generationPrompt,
+      rawPrompt: '',
+      workflow: plan.workflow || node.workflow || null,
+      aspect: resolvedAspect,
+      size: resolvedSize,
+      selectedCanvasNodeSnapshot: { ...node },
+      requestId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    });
+  }
+
   function generateMaskFromPanel() {
     if (!selectedCanvasNode) {
       setStatus('error');
@@ -2179,6 +2229,30 @@ function CreationDesk({
       selectedCanvasNodeSnapshot: pendingCanvasGenerate.selectedCanvasNodeSnapshot
     });
   }, [pendingCanvasGenerate?.requestId, selectedCanvasNodeId, mode, prompt]);
+
+  // Fire the confirm dialog for a staged node reroll once selection, prompt,
+  // and (when the reroll changed the aspect) the size params have all synced.
+  // Gating on `size` too is what separates this from pendingCanvasGenerate:
+  // a "reroll at 16:9" must not open the confirm until setAspect/setCustomSize
+  // have propagated, otherwise the task would capture the old dimensions.
+  useEffect(() => {
+    if (!pendingCanvasReroll) return;
+    if (selectedCanvasNodeId !== pendingCanvasReroll.nodeId) return;
+    if (mode !== 'image') return;
+    if (prompt !== pendingCanvasReroll.prompt) return;
+    if (sizeFromAspect(aspect, customSize) !== pendingCanvasReroll.size) return;
+    setPendingCanvasReroll(null);
+    openGenerationConfirm({
+      mode: 'image',
+      prompt: pendingCanvasReroll.prompt,
+      rawPrompt: pendingCanvasReroll.rawPrompt,
+      workflow: pendingCanvasReroll.workflow,
+      referenceItems: [],
+      referencesOpen: false,
+      selectedCanvasNodeId: pendingCanvasReroll.nodeId,
+      selectedCanvasNodeSnapshot: pendingCanvasReroll.selectedCanvasNodeSnapshot
+    });
+  }, [pendingCanvasReroll?.requestId, selectedCanvasNodeId, mode, prompt, aspect, customSize]);
 
   useEffect(() => {
     if (!pendingSuggestionGenerate) return;
@@ -2699,6 +2773,7 @@ function CreationDesk({
         : null
     );
     const activeLineageParentId = activeSelectedNode?.id || '';
+    const activeReferenceItems = Array.isArray(task?.referenceItems) ? task.referenceItems : referenceItems;
     const activeReferenceFiles = task?.referenceItems?.map((item) => item.file).filter(Boolean) || referenceFiles;
     const activeVideoReferenceFiles = task?.videoReferenceFiles || videoReferenceFiles;
     const activeIsImageEditMode = activeMode === 'edit' || activeMode === 'mask';
@@ -2758,6 +2833,11 @@ function CreationDesk({
       setMessage(caseResolving
         ? t('statusMessages.templateLoading', '模板提示词正在读取，请稍后。')
         : t('statusMessages.promptRequired', '请先填写提示词，或先选中一个画布节点继续。'));
+      return false;
+    }
+    if (STUDIO_STANDALONE && activeMode === 'video') {
+      setStatus('error');
+      setMessage(t('statusMessages.standaloneVideoUnavailable', 'Video generation is not configured for this Studio deployment.'));
       return false;
     }
     const willUseCanvasReference = Boolean(activeSelectedNode && activeSelectedNode.kind !== 'video' && activeSelectedNode.url && (activeMode === 'edit' || activeMode === 'mask'));
@@ -3004,7 +3084,13 @@ function CreationDesk({
         referenceCount: editReferenceFiles.length,
         hasMask: Boolean(maskFile)
       }) === 'edits';
-      const effectivePrompt = withResolutionHint(basePrompt, normalizedActiveResolutionTier, t);
+      // Attach per-reference role guidance only when uploaded references are
+      // actually part of the request. Canvas continuation references carry no
+      // user-assigned role, so we key the hint off the rail's activeReferenceItems.
+      const promptWithRoleHint = editReferenceFiles.length
+        ? withReferenceRoleHint(basePrompt, activeReferenceItems, t)
+        : basePrompt;
+      const effectivePrompt = withResolutionHint(promptWithRoleHint, normalizedActiveResolutionTier, t);
       let payload = null;
       let urls = [];
       let persistedResultUrls = [];
@@ -3021,6 +3107,7 @@ function CreationDesk({
           if (!isCurrentRequest()) return false;
           const imageRoute = shouldUseImageEdits ? 'edits' : 'generations';
           const job = await historyClient.createGenerationJob(buildServerImageGenerationJobPayload({
+            serverManaged: STUDIO_STANDALONE,
             apiKey: providerRequest.apiKey,
             gatewayBaseUrl: providerRequest.gatewayBaseUrl,
             images: jobImages,
@@ -3661,6 +3748,8 @@ function CreationDesk({
               onCopyPrompt={copyCanvasNodePrompt}
               onDelete={deleteCanvasNode}
               onGenerateFromEditor={generateFromCanvasEditor}
+              onReroll={rerollCanvasNode}
+              imageAspectOptions={imageAspectOptions}
             />
           )) : primaryVideoResult ? (
             <div className="canvasNode emptyCanvasNode previewFallbackNode">
@@ -3716,12 +3805,16 @@ function CreationDesk({
                 </div>
                 <div className="singleFieldGrid">
                   <label className="singleField">
-                    <span>API Key</span>
+                    <span>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : 'API Key'}</span>
                     <button type="button" className="singleKeyButton" onClick={onOpenSettings}>
-                      <KeyRound size={14} />
-                      <strong>{providerLabel(providerSettings, apiKey)}</strong>
+                      {STUDIO_STANDALONE ? <Server size={14} /> : <KeyRound size={14} />}
+                      <strong>{STUDIO_STANDALONE
+                        ? t('settings.studioManagedProvider', '服务端托管')
+                        : providerLabel(providerSettings, apiKey)}</strong>
                     </button>
-                    <em>{apiKeyDisplay(apiKey) || t('rail.chooseKey', '选择 Key')}</em>
+                    <em>{STUDIO_STANDALONE
+                      ? t('settings.serverManagedShort', '系统安全托管')
+                      : (apiKeyDisplay(apiKey) || t('rail.chooseKey', '选择 Key'))}</em>
                   </label>
                   {isVideoSingleMode ? (
                     <label className="singleField">
@@ -3972,7 +4065,9 @@ function CreationDesk({
                   <div className="singleGenerationHead">
                     <div>
                       <strong>{t('single.statusTitle', '生成状态')}</strong>
-                      <span>{timing?.routeLabel || confirmTaskRouteLabel || composerRouteLabel}</span>
+                      <span>{STUDIO_STANDALONE
+                        ? t('single.serverGeneration', '图片生成')
+                        : (timing?.routeLabel || confirmTaskRouteLabel || composerRouteLabel)}</span>
                     </div>
                     {isGenerating ? (
                       <button type="button" onClick={stopGeneration}>
@@ -4968,7 +5063,7 @@ function StudioApp() {
   const [theme, setTheme] = useState(() => loadTheme());
   const [language, setLanguage] = useState(() => loadStudioLanguage());
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const [activeWorkspace, setActiveWorkspace] = useState(() => initialCurrentSession?.mode === 'video' ? 'video' : 'image');
+  const [activeWorkspace, setActiveWorkspace] = useState(() => !STUDIO_STANDALONE && initialCurrentSession?.mode === 'video' ? 'video' : 'image');
   const [appendTemplateRequest, setAppendTemplateRequest] = useState(null);
   const [remoteSession, setRemoteSession] = useState(null);
   const [remoteSessionReady, setRemoteSessionReady] = useState(() => !initialSession?.accessToken);
@@ -5004,7 +5099,8 @@ function StudioApp() {
       setProfile(nextProfile || nextSession.user || null);
       return true;
     } catch {
-      if (!options.keepExisting) {
+      if (STUDIO_STANDALONE) clearSession();
+      if (!options.keepExisting || STUDIO_STANDALONE) {
         setSession(null);
         setProfile(null);
         setApiKey(null);
@@ -5055,6 +5151,12 @@ function StudioApp() {
     document.title = t('app.title', '创作工作台');
     saveStudioLanguage(language);
   }, [language, t]);
+
+  useEffect(() => {
+    if (STUDIO_STANDALONE && !session?.accessToken) {
+      window.location.replace(getLoginUrl());
+    }
+  }, [session?.accessToken]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -5289,9 +5391,20 @@ function StudioApp() {
     };
   }, [deskSessionId, persistenceKey, profile?.id, profile?.email, profile?.username]);
 
-  const categoryGroups = useMemo(() => buildCategoryGroups(siteData?.cases || []), [siteData]);
+  // Derive the user's own top past work into inspiration cases and merge them
+  // ahead of the community library, so the wall opens with "My Highlights"
+  // pulled from real history rather than only bundled community prompts.
+  const historyHighlightCases = useMemo(
+    () => buildHistoryInspirationCases(historyItems, { t }),
+    [historyItems, t]
+  );
+  const inspirationSourceCases = useMemo(
+    () => mergeHistoryInspirationCases(siteData?.cases || [], historyHighlightCases),
+    [siteData, historyHighlightCases]
+  );
+  const categoryGroups = useMemo(() => buildCategoryGroups(inspirationSourceCases), [inspirationSourceCases]);
   const visibleCases = useMemo(() => {
-    const source = orderTemplates(siteData?.cases || []);
+    const source = orderTemplates(inspirationSourceCases);
     const needle = query.trim().toLowerCase();
     return source.filter((item) => {
       const matchesCategory = category === 'All' || item.category === category;
@@ -5299,7 +5412,7 @@ function StudioApp() {
       const matchesFavorite = !showFavoritesOnly || favoriteTemplates.has(templateKey(item));
       return matchesCategory && matchesQuery && matchesFavorite;
     });
-  }, [siteData, query, category, favoriteTemplates, showFavoritesOnly]);
+  }, [inspirationSourceCases, query, category, favoriteTemplates, showFavoritesOnly]);
 
   const filteredHistoryItems = useMemo(() => {
     if (activeWorkspace === 'image') return historyItems.filter((item) => item.mode !== 'video' && item.kind !== 'video');
@@ -5313,6 +5426,7 @@ function StudioApp() {
   );
 
   function handleWorkspaceChange(nextWorkspace, options = {}) {
+    if (STUDIO_STANDALONE && nextWorkspace === 'video') return;
     setSettingsOpen(false);
     setActiveWorkspace(nextWorkspace);
     setQuery('');
@@ -5367,7 +5481,12 @@ function StudioApp() {
     window.location.href = getLoginUrl();
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await client?.logout?.();
+    } catch {
+      // Local session cleanup must still complete if the server is unavailable.
+    }
     clearSession();
     setSession(null);
     setProfile(null);
@@ -5403,7 +5522,7 @@ function StudioApp() {
     const nextPrompt = resolved?.prompt || resolved?.promptPreview || item?.prompt || item?.promptPreview || item?.summary || '';
     if (!nextPrompt) return;
     setSelectedCase(resolved || item);
-    setActiveWorkspace((resolved || item)?.kind === 'video-inspiration' ? 'video' : 'image');
+    setActiveWorkspace(!STUDIO_STANDALONE && (resolved || item)?.kind === 'video-inspiration' ? 'video' : 'image');
     setAppendTemplateRequest({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       prompt: nextPrompt
@@ -5515,7 +5634,7 @@ function StudioApp() {
       setDeskSessionId(item.sessionId);
     }
     if (openWorkspace) {
-      setActiveWorkspace(item.mode === 'video' || item.kind === 'video' ? 'video' : 'image');
+      setActiveWorkspace(!STUDIO_STANDALONE && (item.mode === 'video' || item.kind === 'video') ? 'video' : 'image');
     }
   }
 
@@ -5602,6 +5721,10 @@ function StudioApp() {
     return <main className="studioError">加载失败：{bootError}</main>;
   }
 
+  if (STUDIO_STANDALONE && !session?.accessToken) {
+    return <main className="studioError">正在前往登录...</main>;
+  }
+
   return (
     <main>
       {isLibraryLocked ? (
@@ -5634,7 +5757,9 @@ function StudioApp() {
           onWorkspaceChange={handleWorkspaceChange}
           onNewSession={handleNewSession}
           accountLabel={Boolean(session?.accessToken) ? (profile?.email || profile?.username || t('rail.loggedIn', '已登录用户')) : t('rail.notLoggedIn', '未登录')}
-          accountDetail={Boolean(session?.accessToken) ? (apiKeyDisplay(apiKey) || t('rail.hiddenKey', 'Key 已隐藏')) : t('rail.chooseKey', '选择 Key')}
+          accountDetail={Boolean(session?.accessToken)
+            ? (STUDIO_STANDALONE ? t('rail.serverManaged', 'Server managed') : (apiKeyDisplay(apiKey) || t('rail.hiddenKey', 'Key 已隐藏')))
+            : t('rail.notLoggedIn', '未登录')}
           onOpenSettings={() => setSettingsOpen(true)}
           theme={theme}
           onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}

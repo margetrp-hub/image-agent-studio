@@ -6,9 +6,11 @@ After=network.target
 Type=simple
 WorkingDirectory=/opt/image-agent-studio
 Environment=NODE_ENV=production
-Environment=AI_GATEWAY_BASE_URL=http://127.0.0.1:8080
-Environment=SUB2API_BASE_URL=http://127.0.0.1:8080
-Environment=STUDIO_AUTH_MODE=local
+Environment=STUDIO_AUTH_MODE=standalone
+Environment=STUDIO_AUTH_DB_PATH=/var/lib/image-agent-studio/auth.sqlite
+Environment=STUDIO_AUTH_PASSWORD_MIN_LENGTH=12
+Environment=STUDIO_AUTH_PASSWORD_ITERATIONS=600000
+EnvironmentFile=-/etc/image-agent-studio.env
 Environment=STUDIO_DATA_DIR=/var/lib/image-agent-studio
 Environment=STUDIO_LIBRARY_DIR=/var/lib/image-agent-studio/library
 Environment=STUDIO_LIBRARY_ASSET_DIR=/var/lib/image-agent-studio/library/image-library

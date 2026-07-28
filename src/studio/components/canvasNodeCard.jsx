@@ -4,7 +4,7 @@
 // business logic and state ownership. Geometry helpers come from
 // canvasGeometry.js, asset/download helpers from the shared util modules.
 
-import { Copy, Download, ImageIcon, Redo2, Search, Sparkles, SquarePen, Trash2, X } from 'lucide-react';
+import { Copy, Download, ImageIcon, Ratio, Redo2, Search, Shuffle, Sparkles, SquarePen, Trash2, X } from 'lucide-react';
 
 import { ProtectedStudioImage } from './media.jsx';
 import { displayResultUrl } from '../util/assets.js';
@@ -83,7 +83,9 @@ export function CanvasNodeCard({
   onSetAsReference,
   onCopyPrompt,
   onDelete,
-  onGenerateFromEditor
+  onGenerateFromEditor,
+  onReroll,
+  imageAspectOptions = []
 }) {
   const nodeIndex = Math.max(0, (node.canvasIndex || 1) - 1);
   const currentNodeWidth = nodeWidth(node);
@@ -223,6 +225,23 @@ export function CanvasNodeCard({
                   </section>
                 ))}
               </div>
+              {workflowPreview.lineage.length > 1 ? (
+                <div className="canvasWorkflowTimeline">
+                  <span className="canvasWorkflowTimelineTitle">{t('canvas.workflowTimeline', '版本演进')}</span>
+                  <ol>
+                    {workflowPreview.lineage.map((step, index) => {
+                      const stepIndex = step.index || index + 1;
+                      const isLatest = index === workflowPreview.lineage.length - 1;
+                      return (
+                        <li key={`${stepIndex}-${index}`} className={isLatest ? 'latest' : ''}>
+                          <em>#{stepIndex} · {workflowLabelForMode(step.mode, t)}{isLatest ? ` · ${t('canvas.workflowTimelineLatest', '本轮')}` : ''}</em>
+                          <p title={String(step.prompt || '')}>{step.prompt}</p>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              ) : null}
             </details>
           ) : null}
           <div className="canvasInlineModes" role="group" aria-label={t('canvas.continueMode', '续作方式')}>
@@ -233,6 +252,36 @@ export function CanvasNodeCard({
           {canvasEditorMode === 'image' ? <p>{t('canvas.deriveHint', '只继承提示词和画布关系，不把原图作为参考图。')}</p> : null}
           {canvasEditorMode === 'edit' ? <p>{t('canvas.editHint', '会把这张图作为参考图，调用 /v1/images/edits。')}</p> : null}
           {canvasEditorMode === 'mask' ? <p>{t('canvas.maskHint', '先在 Mask 面板涂抹要重绘的区域，再用这个节点继续生成。')}</p> : null}
+          {node.kind !== 'video' && onReroll ? (
+            <div className="canvasInlineReroll">
+              <span className="canvasInlineRerollLabel">{t('canvas.rerollTitle', '快捷重出（沿用本图提示词，不写入本轮修改）')}</span>
+              <div className="canvasInlineRerollActions">
+                <button
+                  type="button"
+                  onClick={() => onReroll(node, {})}
+                  disabled={generationActionDisabled}
+                  title={t('canvas.rerollVariantHint', '用相同提示词与比例再生成一张，得到不同结果')}
+                >
+                  <Shuffle size={13} />
+                  {t('canvas.rerollVariant', '生成变体')}
+                </button>
+                {imageAspectOptions
+                  .filter((option) => option.value !== 'custom')
+                  .map((option) => (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => onReroll(node, { aspect: option.value })}
+                      disabled={generationActionDisabled}
+                      title={t('canvas.rerollAspectHint', '换成 {label} 比例重出', { label: option.label })}
+                    >
+                      <Ratio size={13} />
+                      {option.label}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             className={`canvasInlineGenerate ${generationActionClass}`}

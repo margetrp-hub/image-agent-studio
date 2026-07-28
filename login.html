@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="登录或创建 Image Agent Studio 创作工作台账号。" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>登录 | Image Agent Studio</title>
+  </head>
+  <body>
+    <main class="studioLoginShell">
+      <section class="studioLoginPanel" aria-labelledby="studio-login-title">
+        <div class="studioLoginBrand">
+          <span class="studioLoginMark" aria-hidden="true">I</span>
+          <div>
+            <h1 id="studio-login-title">Image Agent Studio</h1>
+            <p>独立创作工作台</p>
+          </div>
+        </div>
+        <div class="studioLoginMode" role="tablist" aria-label="账号操作">
+          <button class="is-active" id="studio-login-mode-login" type="button" data-mode="login" role="tab" aria-selected="true">登录</button>
+          <button id="studio-login-mode-register" type="button" data-mode="register" role="tab" aria-selected="false">创建账号</button>
+        </div>
+        <form class="studioLoginForm" id="studio-login-form">
+          <label class="studioLoginField" id="studio-login-identifier-field" for="studio-login-identifier">
+            <span>账号</span>
+            <input id="studio-login-identifier" name="identifier" type="text" autocomplete="username" maxlength="254" required autofocus />
+          </label>
+          <label class="studioLoginField" id="studio-login-email-field" for="studio-login-email" hidden>
+            <span>邮箱</span>
+            <input id="studio-login-email" name="email" type="email" autocomplete="email" maxlength="254" />
+          </label>
+          <label class="studioLoginField" id="studio-login-username-field" for="studio-login-username" hidden>
+            <span>用户名</span>
+            <input id="studio-login-username" name="username" type="text" autocomplete="username" maxlength="80" />
+          </label>
+          <label class="studioLoginField" for="studio-login-password">
+            <span>密码</span>
+            <input id="studio-login-password" name="password" type="password" autocomplete="current-password" maxlength="4096" required />
+          </label>
+          <button class="studioLoginSubmit" id="studio-login-submit" type="submit">登录</button>
+          <p class="studioLoginStatus" id="studio-login-status" role="status" aria-live="polite"></p>
+        </form>
+        <p class="studioLoginFootnote">账号用于隔离你的会话、历史图库、队列和生成资产。模型与密钥由部署方在服务端统一配置。</p>
+      </section>
+    </main>
+    <script type="module" src="/src/studioLogin.js"></script>
+  </body>
+</html>

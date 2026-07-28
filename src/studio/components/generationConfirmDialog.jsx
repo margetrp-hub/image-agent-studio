@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { CheckCircle2, Clock3, ImageIcon, Layers3, Route, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 import '../../styles/studio.generation-confirm-dialog.css';
 
 export function GenerationConfirmDialog({
@@ -31,16 +32,25 @@ export function GenerationConfirmDialog({
 
   if (!open) return null;
 
+  const visibleRouteLabel = STUDIO_STANDALONE
+    ? t('composer.confirmStandaloneRoute', '服务端生成')
+    : routeLabel;
+  const visibleProviderLabel = STUDIO_STANDALONE
+    ? t('composer.confirmStandaloneService', '服务端托管')
+    : providerLabel;
+  const visibleQueueLabel = STUDIO_STANDALONE
+    ? t('composer.confirmStandaloneSave', '完成后进入历史图库')
+    : queueLabel;
   const rows = [
     [t('composer.confirmMode', '模式'), modeLabel],
     [t('composer.confirmModel', '模型'), modelLabel],
-    [t('composer.confirmRoute', '接口'), routeLabel],
+    [STUDIO_STANDALONE ? t('composer.confirmService', '服务') : t('composer.confirmRoute', '接口'), visibleRouteLabel],
     [t('composer.confirmOutput', '输出'), outputLabel],
     [t('composer.confirmCount', '数量'), countLabel],
     [t('composer.confirmReferences', '参考'), referenceLabel],
     [t('composer.confirmBilling', '计费口径'), billingLabel],
-    [t('composer.confirmProvider', '连接'), providerLabel],
-    [t('composer.confirmQueue', '队列'), queueLabel]
+    [STUDIO_STANDALONE ? t('composer.confirmService', '服务') : t('composer.confirmProvider', '连接'), visibleProviderLabel],
+    [STUDIO_STANDALONE ? t('composer.confirmSave', '保存') : t('composer.confirmQueue', '队列'), visibleQueueLabel]
   ].filter(([, value]) => Boolean(value));
 
   const promptPreview = String(prompt || '').trim();
@@ -49,8 +59,8 @@ export function GenerationConfirmDialog({
   const checkpoints = [
     {
       icon: <Route size={14} />,
-      title: t('composer.confirmCheckpointRoute', '调用路径'),
-      text: routeLabel || t('composer.confirmCheckpointRouteAuto', '按当前模式自动选择')
+      title: STUDIO_STANDALONE ? t('composer.confirmStandaloneRouteTitle', '生成方式') : t('composer.confirmCheckpointRoute', '调用路径'),
+      text: visibleRouteLabel || t('composer.confirmCheckpointRouteAuto', '按当前模式自动选择')
     },
     {
       icon: <ImageIcon size={14} />,
@@ -60,7 +70,7 @@ export function GenerationConfirmDialog({
     {
       icon: <Layers3 size={14} />,
       title: t('composer.confirmCheckpointReferences', '参考与队列'),
-      text: [referenceLabel, queueLabel].filter(Boolean).join(' · ') || t('composer.confirmCheckpointReady', '确认后加入当前队列')
+      text: [referenceLabel, visibleQueueLabel].filter(Boolean).join(' · ') || t('composer.confirmCheckpointReady', '确认后加入当前队列')
     }
   ];
 
@@ -78,7 +88,9 @@ export function GenerationConfirmDialog({
             <span><Sparkles size={16} /></span>
             <div>
               <strong>{t('composer.confirmGenerateTitle', '确认本次生成')}</strong>
-              <p>{t('composer.confirmGenerateHint', '最后核对提示词、模型和调用路径，确认后才会进入生成队列。')}</p>
+              <p>{STUDIO_STANDALONE
+                ? t('composer.confirmStandaloneHint', '核对提示词、模型、规格和数量，确认后进入生成队列。')
+                : t('composer.confirmGenerateHint', '最后核对提示词、模型和调用路径，确认后才会进入生成队列。')}</p>
             </div>
           </div>
           <button type="button" className="generationConfirmClose" onClick={onClose} aria-label={t('settings.close', '关闭')}>
@@ -130,7 +142,9 @@ export function GenerationConfirmDialog({
 
           <p className="generationConfirmNotice">
             <Clock3 size={14} />
-            <span>{t('composer.confirmGenerateNotice', '如果上游很慢，页面会继续监听；刷新后请先查看历史图库或当前画布，再决定是否重试。')}</span>
+            <span>{STUDIO_STANDALONE
+              ? t('composer.confirmStandaloneNotice', '生成完成后，结果会保存到你的历史图库。')
+              : t('composer.confirmGenerateNotice', '如果上游很慢，页面会继续监听；刷新后请先查看历史图库或当前画布，再决定是否重试。')}</span>
           </p>
         </div>
 

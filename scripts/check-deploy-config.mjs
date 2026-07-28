@@ -22,6 +22,13 @@ function mustMatch(file, pattern, reason) {
   }
 }
 
+function mustNotInclude(file, text, reason) {
+  const body = read(file);
+  if (body.includes(text)) {
+    failures.push(`${file}: contains forbidden ${JSON.stringify(text)} (${reason})`);
+  }
+}
+
 function mustScriptInclude(scriptName, command, reason) {
   const pkg = JSON.parse(read('package.json'));
   const script = pkg.scripts?.[scriptName] || '';
@@ -35,7 +42,8 @@ mustMatch('vite.config.js', /base:\s*process\.env\.STUDIO_BASE_PATH\s*\|\|\s*pro
 mustInclude('docker-compose.yml', 'VITE_BASE_PATH: ${VITE_BASE_PATH:-/studio/}', 'Docker web image should build for /studio/');
 mustInclude('docker-compose.yml', 'STUDIO_BASE_PATH: ${STUDIO_BASE_PATH:-/studio/}', 'Docker web image should build with matching Studio base path');
 mustInclude('docker-compose.yml', 'STUDIO_HISTORY_UPSTREAM: http://studio-history:8787', 'Nginx must proxy the history service container');
-mustInclude('docker-compose.yml', 'STUDIO_AUTH_MODE: ${STUDIO_AUTH_MODE:-local}', 'Docker should support account-system-free local persistence');
+mustInclude('docker-compose.yml', 'STUDIO_AUTH_MODE: ${STUDIO_AUTH_MODE:-standalone}', 'Docker should default to Studio-owned user authentication');
+mustInclude('docker-compose.yml', 'STUDIO_AUTH_REGISTRATION_MODE: ${STUDIO_AUTH_REGISTRATION_MODE:-open}', 'Docker should default to user self-registration');
 mustInclude('docker-compose.yml', 'studio-data:/data', 'History, sessions, jobs, and generated assets must persist in a volume');
 mustInclude('docker-compose.yml', 'STUDIO_JOB_CONCURRENCY: ${STUDIO_JOB_CONCURRENCY:-1}', 'Server-side queue concurrency must be explicit and conservative');
 mustInclude('docker-compose.yml', 'STUDIO_GATEWAY_FETCH_TIMEOUT_MS: ${STUDIO_GATEWAY_FETCH_TIMEOUT_MS:-2640000}', 'Gateway fetch timeout must outlast slow native image jobs');
@@ -44,9 +52,9 @@ mustInclude('deploy/docker-nginx.conf.template', 'location /studio/', 'Docker Ng
 mustInclude('deploy/docker-nginx.conf.template', 'try_files $uri $uri/ /studio.html;', 'Studio route must SPA-fallback to studio.html');
 mustInclude('deploy/docker-nginx.conf.template', 'location /studio-api/', 'Docker Nginx must expose the persistence API');
 mustInclude('deploy/docker-nginx.conf.template', 'proxy_pass ${STUDIO_HISTORY_UPSTREAM};', 'Persistence API must proxy to studio-history');
-mustInclude('deploy/docker-nginx.conf.template', 'location /v1/images/', 'Image generation and edits must proxy through the same domain');
-mustInclude('deploy/docker-nginx.conf.template', 'location /v1/chat/completions', 'Prompt assistant route must proxy through the same domain');
-mustInclude('deploy/docker-nginx.conf.template', 'location /v1/models', 'NewAPI/OpenAI-compatible model sync must proxy through the same domain');
+mustNotInclude('deploy/docker-nginx.conf.template', 'location /v1/', 'Standalone browser traffic must stay behind the authenticated Studio API');
+mustNotInclude('deploy/docker-nginx.conf.template', 'location /api/', 'Standalone Nginx must not expose a legacy account gateway');
+mustNotInclude('deploy/docker-nginx.conf.template', 'location /login', 'Standalone Nginx must use the Studio-owned login page');
 mustInclude('deploy/docker-nginx.conf.template', 'client_max_body_size ${STUDIO_NGINX_CLIENT_MAX_BODY_SIZE};', 'Reference image uploads need an explicit body limit');
 
 mustInclude('deploy/sync-from-git.sh', 'REPO_DIR="${REPO_DIR:-/opt/image-agent-studio-repo}"', 'Git sync should default to the standard repository root');
@@ -68,8 +76,9 @@ mustInclude('deploy/self-check.sh', '/studio-api/health', 'Self-check helper mus
 mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/;', 'Standard Nginx static root must match Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/studio-assets/;', 'Standard Nginx asset root must match Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Standard Nginx must proxy the Studio persistence API to the local service');
-mustInclude('deploy/nginx-image-agent-studio.conf', 'location /v1/images/', 'Standard Nginx must expose image generation and edits through the same public origin');
-mustInclude('deploy/nginx-image-agent-studio.conf', 'location /v1/models', 'Standard Nginx must expose model sync for OpenAI-compatible gateways');
+mustNotInclude('deploy/nginx-image-agent-studio.conf', 'location /v1/', 'Standard standalone Nginx must not expose a provider directly');
+mustNotInclude('deploy/nginx-image-agent-studio.conf', 'location /api/', 'Standard standalone Nginx must not expose a legacy account gateway');
+mustNotInclude('deploy/nginx-image-agent-studio.conf', 'location /login', 'Standard standalone Nginx must use the Studio-owned login page');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/;', 'Nginx static root must match the Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'alias /var/www/ohlaoo-studio/studio-assets/;', 'Nginx asset root must match the Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-sub2api-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Nginx must proxy the Studio persistence API to the local service');
@@ -108,8 +117,9 @@ mustInclude('.dockerignore', 'output', 'Docker context must not include Playwrig
 mustInclude('.dockerignore', 'release', 'Docker context must not include generated release packages');
 mustInclude('.dockerignore', 'release/desktop', 'Docker context must not include generated desktop executables');
 
-mustInclude('.env.example', 'STUDIO_AUTH_MODE=local', 'Example config must document local persistence mode');
-mustInclude('.env.example', 'AI_GATEWAY_UPSTREAM=http://host.docker.internal:8080', 'Example config must document host gateway proxying');
+mustInclude('.env.example', 'STUDIO_AUTH_MODE=standalone', 'Example config must default to Studio-owned user authentication');
+mustInclude('.env.example', 'STUDIO_AUTH_REGISTRATION_MODE=open', 'Example config must default to user self-registration');
+mustInclude('.env.example', 'STUDIO_PROVIDER_BASE_URL=', 'Example config must document the server-owned provider URL');
 mustInclude('.env.example', 'STUDIO_ALLOWED_ORIGINS=https://studio.example.com', 'Example config must document production origin allow-listing');
 
 mustInclude('package.json', '"check:docker": "node scripts/check-docker-compose.mjs"', 'Docker Compose config must have a dedicated parsed-config check');

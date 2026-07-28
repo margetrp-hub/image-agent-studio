@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { atomicWriteJson } from './jsonFiles.js';
-import { text } from './text.js';
 import { readAssetSnapshot, restoreAssetSnapshot } from './assetSnapshots.js';
 
 export function createUserBackupService({
   serviceVersion,
+  normalizeSessionId,
+  normalizeRecordId,
   ensureUserDirs,
   backupsDir,
   sessionPath,
@@ -81,10 +82,27 @@ export function createUserBackupService({
       throw error;
     }
     const data = payload.data || {};
+    const records = Array.isArray(data.records)
+      ? data.records.map((record) => {
+        if (!record || typeof record !== 'object' || Array.isArray(record)) {
+          const error = new Error('RECORD_ID_INVALID');
+          error.status = 400;
+          throw error;
+        }
+        return { ...record, id: normalizeRecordId(record.id) };
+      })
+      : [];
+    const session = data.session && typeof data.session === 'object'
+      ? { ...data.session, sessionId: normalizeSessionId(data.session.sessionId) }
+      : null;
     return {
-      records: Array.isArray(data.records) ? data.records : [],
-      session: data.session && typeof data.session === 'object' ? data.session : null,
-      sessions: Array.isArray(data.sessions) ? data.sessions.filter((session) => session && typeof session === 'object') : [],
+      records,
+      session,
+      sessions: Array.isArray(data.sessions)
+        ? data.sessions
+          .filter((session) => session && typeof session === 'object')
+          .map((session) => ({ ...session, sessionId: normalizeSessionId(session.sessionId, { allowEmpty: false }) }))
+        : [],
       jobs: Array.isArray(data.jobs) ? data.jobs : [],
       communityPrompts: Array.isArray(data.communityPrompts) ? data.communityPrompts : [],
       assets: Array.isArray(data.assets) ? data.assets : []
@@ -103,8 +121,7 @@ export function createUserBackupService({
     }
     await fs.rm(sessionsDir(auth), { recursive: true, force: true });
     for (const session of snapshot.sessions) {
-      const sessionId = text(session.sessionId, 120);
-      if (sessionId) await writeSession(auth, session, sessionId);
+      await writeSession(auth, session, session.sessionId);
     }
     await writeJobs(auth, snapshot.jobs);
     await writeCommunityPrompts(auth, snapshot.communityPrompts);

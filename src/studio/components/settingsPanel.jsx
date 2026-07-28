@@ -3,7 +3,7 @@ import { KeyRound, RefreshCw } from 'lucide-react';
 import '../../styles/studio.provider-settings.css';
 import '../../styles/studio.provider-settings-sync.css';
 
-import { getConfiguredBaseUrls } from '../../aiGatewayClient';
+import { getConfiguredBaseUrls, STUDIO_STANDALONE } from '../../aiGatewayClient';
 import { getImageProvider, orderedImageProviders } from '../providers/index.js';
 import {
   apiKeyDisplay,
@@ -48,12 +48,15 @@ export function SettingsPanel({
       : modelsStatus === 'fallback'
         ? t('settings.modelsFallback', '未读取到上游模型，暂用默认列表')
         : t('settings.modelsIdle', '填写接口和密钥后自动同步模型');
-  const modelSyncMeta = t('settings.modelsSyncMeta', '图片 {image} · 对话 {responses} · 视频 {video}', {
+  const modelSyncMeta = t(STUDIO_STANDALONE ? 'settings.studioModelsSyncMeta' : 'settings.modelsSyncMeta', STUDIO_STANDALONE
+    ? '图片 {image} · 提示词 {responses}'
+    : '图片 {image} · 对话 {responses} · 视频 {video}', {
     image: modelOptions.image?.length || 0,
     responses: modelOptions.responses?.length || 0,
     video: modelOptions.video?.length || 0
   });
-  const providerChoices = orderedImageProviders()
+  const providerChoices = (STUDIO_STANDALONE ? [currentProvider] : orderedImageProviders())
+    .filter(Boolean)
     .map((provider) => ({
       ...provider,
       active: provider.id === currentProvider?.id,
@@ -67,15 +70,16 @@ export function SettingsPanel({
     }}>
       <section className="settingsDialog">
         <div className="settingsTitle">
-          <h2>{t('settings.title', '连接')}</h2>
+          <h2>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : t('settings.title', '连接')}</h2>
           <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')}>×</button>
         </div>
 
         <div className="settingsGroup providerSettingsGroup">
           <label className="settingsSelectField">
-            <small>{t('settings.providerFamily', '接口类型')}</small>
+            <small>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : t('settings.providerFamily', '接口类型')}</small>
             <select
               value={currentProvider?.id || providerSettings.providerId}
+              disabled={STUDIO_STANDALONE}
               onChange={(event) => {
                 const nextProvider = providerChoices.find((provider) => provider.id === event.target.value) || providerChoices[0];
                 onProviderChange({
@@ -87,7 +91,7 @@ export function SettingsPanel({
             >
               {providerChoices.map((provider) => (
                 <option key={provider.id} value={provider.id}>
-                  {provider.label}
+                  {STUDIO_STANDALONE ? t('settings.studioManagedProvider', '服务端托管') : provider.label}
                 </option>
               ))}
             </select>
@@ -95,12 +99,18 @@ export function SettingsPanel({
         </div>
 
         <div className="providerSummary">
-          <span>{t('settings.provider', 'Provider')}</span>
-          <strong>{currentProvider?.label || providerSettings.providerId || 'Gateway Account'}</strong>
-          <em>{currentProvider?.authMode === 'manual' ? t('settings.providerManual', '手动密钥') : t('settings.providerGateway', '网关账号')}</em>
+          <span>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : t('settings.provider', 'Provider')}</span>
+          <strong>{STUDIO_STANDALONE ? t('settings.studioManagedProvider', '服务端托管') : (currentProvider?.label || providerSettings.providerId || 'Gateway Account')}</strong>
+          <em>{STUDIO_STANDALONE
+            ? t('settings.serverManagedCredentials', 'Credentials are managed by the server')
+            : currentProvider?.authMode === 'manual'
+              ? t('settings.providerManual', '手动密钥')
+              : t('settings.providerGateway', '网关账号')}</em>
         </div>
 
-        {usesGatewayAccount(providerSettings) ? (
+        {STUDIO_STANDALONE ? (
+          <div className="settingsEmpty">{t('settings.noBrowserSecrets', 'No provider key or gateway URL is stored in this browser.')}</div>
+        ) : usesGatewayAccount(providerSettings) ? (
           <div className="keyList">
             {isAuthenticated ? keys.map((item) => (
               <button type="button" className={item.id === apiKey?.id ? 'active' : ''} key={item.id} onClick={() => onSelectKey(item)}>
@@ -141,7 +151,7 @@ export function SettingsPanel({
         )}
 
         <div className="manualFields">
-          <div className="settingsCallConfig">
+          {!STUDIO_STANDALONE ? <div className="settingsCallConfig">
             <div className="settingsCallConfigHead">
               <strong>{t('settings.modelCallSettings', '模型')}</strong>
             </div>
@@ -154,16 +164,16 @@ export function SettingsPanel({
                 <span>{t('settings.imageEditModel', '编辑 / Mask 模型')}</span>
                 <input value={providerSettings.imageEditModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, imageEditModel: event.target.value })} placeholder={providerSettings.imageGenerationModel || 'gpt-image-2'} />
               </label>
-              <label>
+              {!STUDIO_STANDALONE ? <label>
                 <span>{t('settings.videoModel', '视频模型')}</span>
                 <input value={providerSettings.videoModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, videoModel: event.target.value })} placeholder="veo3 / kling / runway" />
-              </label>
-              <label>
+              </label> : null}
+              {!STUDIO_STANDALONE ? <label>
                 <span>{t('settings.videoGateway', '视频接口 URL')}</span>
                 <input value={providerSettings.videoGatewayBaseUrl || ''} onChange={(event) => onProviderChange({ ...providerSettings, videoGatewayBaseUrl: event.target.value })} placeholder={providerSettings.manualGatewayBaseUrl || getConfiguredBaseUrls().gatewayBaseUrl} />
-              </label>
+              </label> : null}
             </div>
-          </div>
+          </div> : null}
           <div className={`settingsModelSync ${modelsStatus}`}>
             <div className="settingsModelSyncText">
               <span>{modelSyncLabel}</span>
@@ -182,14 +192,14 @@ export function SettingsPanel({
               </button>
             ) : null}
           </div>
-          <label>
+          {!STUDIO_STANDALONE ? <label>
             <span>{t('settings.assistantModel', '助手模型')}</span>
             <input
               value={providerSettings.responsesModel}
               onChange={(event) => onProviderChange({ ...providerSettings, responsesModel: event.target.value })}
             />
-          </label>
-          <label>
+          </label> : null}
+          {!STUDIO_STANDALONE ? <label>
             <span>{t('settings.previewFrames', '预览帧')}</span>
             <input
               type="number"
@@ -198,11 +208,11 @@ export function SettingsPanel({
               value={providerSettings.partialImages}
               onChange={(event) => onProviderChange({ ...providerSettings, partialImages: event.target.value })}
             />
-          </label>
+          </label> : null}
         </div>
 
         <div className="settingsActions">
-          <button type="button" onClick={() => onProviderChange({
+          {!STUDIO_STANDALONE ? <button type="button" onClick={() => onProviderChange({
             ...providerSettings,
             manualApiKey: '',
             manualGatewayBaseUrl: '',
@@ -210,7 +220,7 @@ export function SettingsPanel({
             providerId: gatewayAccountDisabled ? 'openai-compatible' : 'gateway-account'
           })}>
             {t('settings.clear', '清除')}
-          </button>
+          </button> : null}
           <button type="button" className="primaryAction" onClick={onClose}>{t('settings.done', '完成')}</button>
         </div>
       </section>

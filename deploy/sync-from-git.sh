@@ -11,7 +11,8 @@ BASE_PATH="${BASE_PATH:-/studio/}"
 SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"
 LEGACY_SERVICE_NAME="${LEGACY_SERVICE_NAME:-image-sub2api-studio-history}"
 AI_GATEWAY_BASE_URL="${AI_GATEWAY_BASE_URL:-${SUB2API_BASE_URL:-http://127.0.0.1:8080}}"
-STUDIO_AUTH_MODE="${STUDIO_AUTH_MODE:-gateway}"
+STUDIO_AUTH_MODE="${STUDIO_AUTH_MODE:-standalone}"
+VITE_STUDIO_STANDALONE="${VITE_STUDIO_STANDALONE:-true}"
 STUDIO_JOB_TIMEOUT_MS="${STUDIO_JOB_TIMEOUT_MS:-2700000}"
 STUDIO_GATEWAY_FETCH_TIMEOUT_MS="${STUDIO_GATEWAY_FETCH_TIMEOUT_MS:-2640000}"
 STUDIO_JOB_CONCURRENCY="${STUDIO_JOB_CONCURRENCY:-1}"
@@ -175,7 +176,7 @@ cd "$REPO_DIR"
 read_env_file "$REPO_DIR/.env.production"
 read_env_file "$REPO_DIR/.env.production.local"
 npm ci
-STUDIO_BASE_PATH="$BASE_PATH" npm run build
+STUDIO_BASE_PATH="$BASE_PATH" VITE_STUDIO_STANDALONE="$VITE_STUDIO_STANDALONE" npm run build
 
 info "Deploy static files"
 mkdir -p "$STATIC_DIR"
@@ -203,8 +204,8 @@ npm ci --omit=dev
 
 mkdir -p "$DATA_DIR/library"
 chown -R www-data:www-data "$DATA_DIR"
-find "$DATA_DIR" -type d -exec chmod 750 {} \;
-find "$DATA_DIR" -type f -exec chmod 640 {} \;
+find "$DATA_DIR" -type d -exec chmod 700 {} \;
+find "$DATA_DIR" -type f -exec chmod 600 {} \;
 
 if [ "$INSTALL_SYSTEMD_UNIT" = "1" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
   info "Install systemd unit"
@@ -223,6 +224,7 @@ cat > "$UNIT_DROPIN_DIR/10-sync-overrides.conf" <<EOF
 Environment="AI_GATEWAY_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="SUB2API_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="STUDIO_AUTH_MODE=$STUDIO_AUTH_MODE"
+EnvironmentFile=-/etc/image-agent-studio.env
 Environment="STUDIO_DATA_DIR=$DATA_DIR"
 Environment="STUDIO_LIBRARY_DIR=$DATA_DIR/library"
 Environment="STUDIO_LIBRARY_ASSET_DIR=$DATA_DIR/library/image-library"

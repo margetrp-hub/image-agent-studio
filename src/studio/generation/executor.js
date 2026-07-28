@@ -13,6 +13,7 @@ export function endpointForGenerationTask({ mode, referenceCount = 0, hasCanvasR
 }
 
 export function buildServerImageGenerationJobPayload({
+  serverManaged = false,
   apiKey,
   gatewayBaseUrl,
   images = [],
@@ -42,8 +43,7 @@ export function buildServerImageGenerationJobPayload({
   const safeRoute = route || imageGenerationRouteForMode({ mode, referenceCount, hasMask });
   const safeCount = Number(count) || 1;
   return {
-    apiKey,
-    gatewayBaseUrl,
+    ...(!serverManaged ? { apiKey, gatewayBaseUrl } : {}),
     images,
     mask,
     request: {

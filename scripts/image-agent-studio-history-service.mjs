@@ -8,6 +8,7 @@ import { Agent, FormData as UndiciFormData, fetch as undiciFetch } from 'undici'
 import { createServiceConfig } from './studio-service/config.js';
 import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-service/communityPrompts.js';
 import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
+import { createLoginFailureLimiter, createStandaloneAuthStore } from './studio-service/standaloneAuth.js';
 import { text } from './studio-service/text.js';
 import { createUserBackupService } from './studio-service/userBackup.js';
 import { createUserStorage } from './studio-service/userStorage.js';
@@ -20,7 +21,20 @@ const {
   LIBRARY_DIR,
   LIBRARY_ASSET_DIRS,
   AUTH_MODE,
+  AUTH_REGISTRATION_MODE,
+  AUTH_DATABASE_PATH,
+  AUTH_SESSION_TTL_MS,
+  AUTH_PASSWORD_MIN_LENGTH,
+  AUTH_PASSWORD_ITERATIONS,
+  AUTH_LOGIN_MAX_FAILURES,
+  AUTH_LOGIN_FAILURE_WINDOW_MS,
+  AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS,
+  AUTH_LOGIN_MAX_CONCURRENCY,
+  AUTH_LOGIN_MAX_BODY_BYTES,
   AI_GATEWAY_BASE_URL,
+  PROVIDER_BASE_URL,
+  PROVIDER_API_KEY,
+  PROVIDER_CHAT_MODEL,
   HISTORY_LIMIT,
   SESSION_NODE_LIMIT,
   SESSION_URL_LIMIT,
@@ -38,6 +52,25 @@ const {
   MAX_IMAGE_BYTES,
   ALLOWED_ORIGINS
 } = createServiceConfig({ scriptsDir: __dirname });
+
+const standaloneAuthStore = AUTH_MODE === 'standalone'
+  ? createStandaloneAuthStore({
+    databasePath: AUTH_DATABASE_PATH,
+    sessionTtlMs: AUTH_SESSION_TTL_MS,
+    passwordIterations: AUTH_PASSWORD_ITERATIONS,
+    minimumPasswordLength: AUTH_PASSWORD_MIN_LENGTH,
+    loginMaxFailures: AUTH_LOGIN_MAX_FAILURES,
+    loginFailureWindowMs: AUTH_LOGIN_FAILURE_WINDOW_MS
+  })
+  : null;
+const standaloneLoginIpLimiter = AUTH_MODE === 'standalone'
+  ? createLoginFailureLimiter({ maxFailures: Math.max(10, AUTH_LOGIN_MAX_FAILURES * 2), windowMs: AUTH_LOGIN_FAILURE_WINDOW_MS })
+  : null;
+const standaloneLoginAccountLimiter = AUTH_MODE === 'standalone'
+  ? createLoginFailureLimiter({ maxFailures: AUTH_LOGIN_MAX_FAILURES, windowMs: AUTH_LOGIN_FAILURE_WINDOW_MS })
+  : null;
+const standaloneLoginAttempts = [];
+let standaloneLoginInFlight = 0;
 const LIBRARY_LICENSE = {
   name: '社区提示词模板 · CC BY 4.0',
   spdx: 'CC-BY-4.0',
@@ -268,7 +301,7 @@ function sendJson(res, status, payload) {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store'
   });
-  res.end(JSON.stringify(payload));
+  res.end(redactProviderSecret(JSON.stringify(payload)));
 }
 
 function sendDownloadJson(res, fileName, payload) {
@@ -277,7 +310,27 @@ function sendDownloadJson(res, fileName, payload) {
     'Content-Disposition': `attachment; filename="${fileName}"`,
     'Cache-Control': 'no-store'
   });
-  res.end(JSON.stringify(payload, null, 2));
+  res.end(redactProviderSecret(JSON.stringify(payload, null, 2)));
+}
+
+function redactProviderSecret(value) {
+  let result = String(value ?? '');
+  if (AUTH_MODE !== 'standalone' || !PROVIDER_API_KEY) return result;
+  const serializedSecret = JSON.stringify(PROVIDER_API_KEY).slice(1, -1);
+  for (const secret of new Set([PROVIDER_API_KEY, serializedSecret])) {
+    if (secret) result = result.split(secret).join('[REDACTED]');
+  }
+  return result;
+}
+
+function redactProviderValue(value, depth = 0) {
+  if (AUTH_MODE !== 'standalone' || !PROVIDER_API_KEY || depth > 20) return value;
+  if (typeof value === 'string') return redactProviderSecret(value);
+  if (Array.isArray(value)) return value.map((item) => redactProviderValue(item, depth + 1));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactProviderValue(item, depth + 1)]));
+  }
+  return value;
 }
 
 function sendCors(req, res) {
@@ -306,12 +359,85 @@ function bearerToken(req) {
   return match ? match[1].trim() : '';
 }
 
-async function readJsonBody(req) {
+function clientIp(req) {
+  const remoteAddress = String(req.socket?.remoteAddress || 'unknown').trim();
+  const proxyIsLoopback = /^(?:::ffff:)?127\.|^::1$/.test(remoteAddress);
+  const realIp = proxyIsLoopback ? String(req.headers['x-real-ip'] || '').trim() : '';
+  const forwarded = proxyIsLoopback
+    ? String(req.headers['x-forwarded-for'] || '').split(',').map((item) => item.trim()).filter(Boolean).at(-1) || ''
+    : '';
+  const address = realIp || forwarded || remoteAddress;
+  return address.slice(0, 120);
+}
+
+function loginRateLimitKey(req, identifier) {
+  const normalizedIdentifier = String(identifier || '').trim().toLowerCase().slice(0, 254);
+  return `${clientIp(req)}\n${normalizedIdentifier}`;
+}
+
+function requireLoginBucket(limiter, key) {
+  const result = limiter.check(key);
+  if (result.allowed) return;
+  const error = new Error('LOGIN_RATE_LIMITED');
+  error.status = 429;
+  error.retryAfterMs = result.retryAfterMs;
+  throw error;
+}
+
+function requireGlobalLoginCapacity() {
+  const now = Date.now();
+  const cutoff = now - AUTH_LOGIN_FAILURE_WINDOW_MS;
+  while (standaloneLoginAttempts.length && standaloneLoginAttempts[0] <= cutoff) {
+    standaloneLoginAttempts.shift();
+  }
+  const limit = Math.max(1, Number(AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS) || 120);
+  if (standaloneLoginAttempts.length >= limit) {
+    const error = new Error('LOGIN_RATE_LIMITED');
+    error.status = 429;
+    error.retryAfterMs = Math.max(1, standaloneLoginAttempts[0] + AUTH_LOGIN_FAILURE_WINDOW_MS - now);
+    throw error;
+  }
+  standaloneLoginAttempts.push(now);
+}
+
+function beginLoginWork() {
+  const limit = Math.max(1, Number(AUTH_LOGIN_MAX_CONCURRENCY) || 4);
+  if (standaloneLoginInFlight >= limit) {
+    const error = new Error('LOGIN_BUSY');
+    error.status = 429;
+    error.retryAfterMs = 1000;
+    throw error;
+  }
+  standaloneLoginInFlight += 1;
+  return () => {
+    standaloneLoginInFlight = Math.max(0, standaloneLoginInFlight - 1);
+  };
+}
+
+function standaloneUserDir(userId) {
+  const id = String(userId || '').toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)) {
+    const error = new Error('STUDIO_USER_ID_INVALID');
+    error.status = 401;
+    throw error;
+  }
+  return { userKey: id, userDir: path.join(DATA_DIR, 'users', id) };
+}
+
+function requireAdmin(auth) {
+  if (auth?.user?.role !== 'admin') {
+    const error = new Error('ADMIN_REQUIRED');
+    error.status = 403;
+    throw error;
+  }
+}
+
+async function readJsonBody(req, maxBytes = MAX_BODY_BYTES) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
+    if (size > maxBytes) {
       const error = new Error('BODY_TOO_LARGE');
       error.status = 413;
       throw error;
@@ -319,7 +445,13 @@ async function readJsonBody(req) {
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    const error = new Error('INVALID_JSON');
+    error.status = 400;
+    throw error;
+  }
 }
 
 const userStorage = createUserStorage({
@@ -328,6 +460,7 @@ const userStorage = createUserStorage({
   parseJsonText
 });
 const {
+  normalizeSessionId,
   ensureUserDirs,
   sessionPath,
   sessionPathForId,
@@ -381,6 +514,15 @@ async function authenticate(req) {
     const error = new Error('AUTH_REQUIRED');
     error.status = 401;
     throw error;
+  }
+
+  if (AUTH_MODE === 'standalone') {
+    const verified = standaloneAuthStore.verifySession(token);
+    return {
+      user: verified.user,
+      session: verified.session,
+      ...standaloneUserDir(verified.user.id)
+    };
   }
 
   if (AUTH_MODE === 'local') {
@@ -526,6 +668,8 @@ async function upsertJob(auth, job) {
 
 const userBackupService = createUserBackupService({
   serviceVersion: SERVICE_VERSION,
+  normalizeSessionId,
+  normalizeRecordId: requireRecordId,
   ensureUserDirs,
   backupsDir,
   sessionPath,
@@ -572,9 +716,22 @@ function cleanLibraryId(value) {
   return raw;
 }
 
-function cleanRecordId(value) {
+const RECORD_ID_PATTERN = /^[a-zA-Z0-9_-]{8,80}$/;
+
+function requireRecordId(value) {
   const raw = String(value || '');
-  return /^[a-zA-Z0-9_-]{8,80}$/.test(raw) ? raw : randomUUID();
+  if (RECORD_ID_PATTERN.test(raw)) return raw;
+  const error = new Error('RECORD_ID_INVALID');
+  error.status = 400;
+  throw error;
+}
+
+function cleanRecordId(value) {
+  try {
+    return requireRecordId(value);
+  } catch {
+    return randomUUID();
+  }
 }
 
 function assetExtension(mime) {
@@ -1072,6 +1229,29 @@ function normalizeGatewayBaseUrl(value) {
   return `${raw}/v1`;
 }
 
+function standaloneProviderRuntime() {
+  if (!PROVIDER_BASE_URL || !PROVIDER_API_KEY) {
+    const error = new Error('STUDIO_PROVIDER_NOT_CONFIGURED');
+    error.status = 503;
+    throw error;
+  }
+  const gatewayBaseUrl = normalizeGatewayBaseUrl(PROVIDER_BASE_URL);
+  let url;
+  try {
+    url = new URL(gatewayBaseUrl);
+  } catch {
+    const error = new Error('STUDIO_PROVIDER_CONFIGURATION_INVALID');
+    error.status = 503;
+    throw error;
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    const error = new Error('STUDIO_PROVIDER_CONFIGURATION_INVALID');
+    error.status = 503;
+    throw error;
+  }
+  return { apiKey: PROVIDER_API_KEY, gatewayBaseUrl: url.toString().replace(/\/+$/, '') };
+}
+
 function modelSyncEndpointUrl(gatewayBaseUrl) {
   const base = normalizeGatewayBaseUrl(gatewayBaseUrl);
   let url;
@@ -1102,6 +1282,90 @@ async function fetchGatewayModels(apiKey, gatewayBaseUrl, signal) {
   return readGatewayResponse(response);
 }
 
+function chatCompletionText(payload) {
+  const content = payload?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => typeof item === 'string' ? item : item?.text || '')
+      .join('')
+      .trim();
+  }
+  return '';
+}
+
+async function providerChatCompletion({ model, messages, signal }) {
+  const runtime = standaloneProviderRuntime();
+  const selectedModel = text(PROVIDER_CHAT_MODEL || model || 'gpt-4o-mini', 160);
+  const payload = await postJsonToGateway(`${runtime.gatewayBaseUrl}/chat/completions`, runtime.apiKey, {
+    model: selectedModel,
+    messages,
+    temperature: 0.7,
+    stream: false
+  }, `studio-prompt-${randomUUID()}`, signal);
+  const content = chatCompletionText(payload);
+  if (!content) {
+    const error = new Error('STUDIO_PROVIDER_EMPTY_RESPONSE');
+    error.status = 502;
+    throw error;
+  }
+  return { model: selectedModel, text: content };
+}
+
+function sanitizeChatMessages(messages) {
+  if (!Array.isArray(messages)) return [];
+  return messages.slice(-20).map((item) => ({
+    role: ['system', 'user', 'assistant'].includes(item?.role) ? item.role : 'user',
+    content: text(item?.content, 12_000)
+  })).filter((item) => item.content);
+}
+
+async function handleStandalonePromptRoute(req, res, parts) {
+  if (AUTH_MODE !== 'standalone' || req.method !== 'POST' || parts.length !== 3) {
+    return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+  }
+  const body = await readJsonBody(req);
+  if (parts[2] === 'optimize') {
+    const prompt = text(body.prompt, 12_000);
+    if (!prompt) return sendJson(res, 400, { ok: false, error: 'PROMPT_REQUIRED' });
+    const instruction = text(body.instruction, 4_000);
+    const result = await providerChatCompletion({
+      model: body.model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an image prompt editor. Return only the improved image generation prompt, with no preamble or quotation marks.'
+        },
+        {
+          role: 'user',
+          content: `${instruction ? `${instruction}\n\n` : ''}Original prompt:\n${prompt}`
+        }
+      ],
+      signal: req.signal
+    });
+    return sendJson(res, 200, { ok: true, prompt: result.text, text: result.text, model: result.model });
+  }
+  if (parts[2] === 'assistant') {
+    const messages = sanitizeChatMessages(body.messages);
+    const prompt = text(body.prompt, 12_000);
+    const instruction = text(body.userInstruction || body.instruction, 4_000);
+    const context = [
+      body.basePrompt ? `Canvas base prompt:\n${text(body.basePrompt, 12_000)}` : '',
+      body.selectedCanvasLabel ? `Selected canvas: ${text(body.selectedCanvasLabel, 500)}` : '',
+      body.aspectRatio || body.size || body.resolutionTier || body.quality
+        ? `Image parameters: ${[body.aspectRatio, body.size, body.resolutionTier, body.quality].map((item) => text(item, 100)).filter(Boolean).join(', ')}`
+        : ''
+    ].filter(Boolean).join('\n\n');
+    if (context) messages.unshift({ role: 'system', content: context });
+    if (!messages.length && prompt) messages.push({ role: 'user', content: `Current prompt:\n${prompt}` });
+    if (instruction) messages.push({ role: 'user', content: instruction });
+    if (!messages.length) return sendJson(res, 400, { ok: false, error: 'PROMPT_REQUIRED' });
+    const result = await providerChatCompletion({ model: body.model, messages, signal: req.signal });
+    return sendJson(res, 200, { ok: true, text: result.text, model: result.model });
+  }
+  return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+}
+
 function dataUrlToBuffer(value) {
   const raw = String(value || '');
   const match = raw.match(/^data:(image\/(?:png|jpeg|webp));base64,([a-zA-Z0-9+/=\s]+)$/);
@@ -1129,7 +1393,7 @@ function normalizeImageInput(value, index) {
 function gatewayErrorMessage(error) {
   const payload = error?.payload || {};
   const message = payload?.error?.message || payload?.message || error?.message || 'GENERATION_JOB_FAILED';
-  return String(message).slice(0, 1200);
+  return redactProviderSecret(String(message).slice(0, 1200));
 }
 
 function gatewayDispatchErrorMessage(error) {
@@ -1147,7 +1411,7 @@ function gatewayDispatchErrorMessage(error) {
 }
 
 function gatewayRequestId(payload, headers) {
-  return text(
+  return redactProviderSecret(text(
     payload?.request_id
     || payload?.id
     || payload?.error?.request_id
@@ -1156,7 +1420,7 @@ function gatewayRequestId(payload, headers) {
     || headers?.get?.('openai-request-id')
     || '',
     180
-  );
+  ));
 }
 
 async function readGatewayResponse(response) {
@@ -1167,16 +1431,17 @@ async function readGatewayResponse(response) {
   } catch {
     payload = { message: raw.slice(0, 1200) };
   }
+  const safePayload = redactProviderValue(payload);
   if (!response.ok) {
-    const error = new Error(payload?.error?.message || payload?.message || `GATEWAY_HTTP_${response.status}`);
+    const error = new Error(safePayload?.error?.message || safePayload?.message || `GATEWAY_HTTP_${response.status}`);
     error.status = response.status;
-    error.payload = payload;
-    error.requestId = gatewayRequestId(payload, response.headers);
+    error.payload = safePayload;
+    error.requestId = gatewayRequestId(safePayload, response.headers);
     throw error;
   }
-  const requestId = gatewayRequestId(payload, response.headers);
-  if (requestId && !payload.request_id) payload.request_id = requestId;
-  return payload;
+  const requestId = gatewayRequestId(safePayload, response.headers);
+  if (requestId && safePayload && typeof safePayload === 'object' && !safePayload.request_id) safePayload.request_id = requestId;
+  return safePayload;
 }
 
 async function persistRemoteImage(auth, recordId, rawUrl, index) {
@@ -1271,7 +1536,14 @@ function buildJobRecord(body) {
 
 function buildJobRuntime(body) {
   const request = body?.request && typeof body.request === 'object' ? body.request : body;
-  const apiKey = text(body.apiKey || request.apiKey, 4000);
+  let apiKey;
+  let gatewayBaseUrl;
+  if (AUTH_MODE === 'standalone') {
+    ({ apiKey, gatewayBaseUrl } = standaloneProviderRuntime());
+  } else {
+    apiKey = text(body.apiKey || request.apiKey, 4000);
+    gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL);
+  }
   if (!apiKey) {
     const error = new Error('GENERATION_JOB_API_KEY_REQUIRED');
     error.status = 400;
@@ -1279,7 +1551,7 @@ function buildJobRuntime(body) {
   }
   return {
     apiKey,
-    gatewayBaseUrl: normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL),
+    gatewayBaseUrl,
     images: (Array.isArray(body.images) ? body.images : []).slice(0, 4).map(normalizeImageInput).filter(Boolean),
     mask: body.mask ? normalizeImageInput(body.mask, 0) : null
   };
@@ -1595,13 +1867,31 @@ async function drainGenerationQueue(userKey) {
 }
 
 async function removeRecordAssets(auth, recordId) {
-  await fs.rm(path.join(auth.userDir, 'assets', recordId), { recursive: true, force: true });
+  const assetsRoot = path.resolve(auth.userDir, 'assets');
+  const assetDir = path.resolve(assetsRoot, requireRecordId(recordId));
+  const relative = path.relative(assetsRoot, assetDir);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    const error = new Error('RECORD_ID_INVALID');
+    error.status = 400;
+    throw error;
+  }
+  await fs.rm(assetDir, { recursive: true, force: true });
 }
 
 function parseRoute(req) {
   const url = new URL(req.url, 'http://localhost');
   const parts = url.pathname.split('/').filter(Boolean);
   return { url, parts };
+}
+
+function decodeRoutePart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    const error = new Error('INVALID_PATH');
+    error.status = 400;
+    throw error;
+  }
 }
 
 async function serveAsset(req, res, auth, parts) {
@@ -1692,6 +1982,115 @@ async function serveLibraryAsset(req, res, auth, parts) {
   createReadStream(filePath).pipe(res);
 }
 
+async function handleStandaloneAuthRoute(req, res, parts) {
+  if (!standaloneAuthStore) return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+
+  if (req.method === 'POST' && parts.length === 3 && parts[2] === 'register') {
+    if (AUTH_REGISTRATION_MODE !== 'open') {
+      return sendJson(res, 403, { ok: false, error: 'REGISTRATION_DISABLED' });
+    }
+
+    const body = await readJsonBody(req, Math.max(1024, Number(AUTH_LOGIN_MAX_BODY_BYTES) || 16 * 1024));
+    const identifier = body.email || body.username;
+    const ipKey = clientIp(req);
+    const accountKey = String(identifier || '').trim().toLowerCase().slice(0, 254) || '<invalid>';
+    requireGlobalLoginCapacity();
+    requireLoginBucket(standaloneLoginIpLimiter, ipKey);
+    requireLoginBucket(standaloneLoginAccountLimiter, accountKey);
+    const releaseLoginWork = beginLoginWork();
+    let result;
+    try {
+      const user = standaloneAuthStore.register({
+        email: body.email,
+        username: body.username,
+        password: body.password
+      });
+      result = await standaloneAuthStore.login({
+        identifier: user.email,
+        password: body.password,
+        rateLimitKey: loginRateLimitKey(req, user.email)
+      });
+    } finally {
+      releaseLoginWork();
+    }
+    standaloneAuthStore.secureDatabaseFiles();
+    return sendJson(res, 201, { ok: true, ...result });
+  }
+
+  if (req.method === 'POST' && parts.length === 3 && parts[2] === 'login') {
+    const body = await readJsonBody(req, Math.max(1024, Number(AUTH_LOGIN_MAX_BODY_BYTES) || 16 * 1024));
+    const identifier = body.identifier || body.email || body.username;
+    const ipKey = clientIp(req);
+    const accountKey = String(identifier || '').trim().toLowerCase().slice(0, 254) || '<invalid>';
+    requireGlobalLoginCapacity();
+    requireLoginBucket(standaloneLoginIpLimiter, ipKey);
+    requireLoginBucket(standaloneLoginAccountLimiter, accountKey);
+    const releaseLoginWork = beginLoginWork();
+    let result;
+    try {
+      result = await standaloneAuthStore.login({
+        identifier,
+        password: body.password,
+        rateLimitKey: loginRateLimitKey(req, identifier)
+      });
+    } catch (error) {
+      if (['INVALID_CREDENTIALS', 'ACCOUNT_DISABLED'].includes(error?.code)) {
+        standaloneLoginIpLimiter.recordFailure(ipKey);
+        standaloneLoginAccountLimiter.recordFailure(accountKey);
+      }
+      throw error;
+    } finally {
+      releaseLoginWork();
+    }
+    standaloneLoginAccountLimiter.reset(accountKey);
+    standaloneAuthStore.secureDatabaseFiles();
+    return sendJson(res, 200, { ok: true, ...result });
+  }
+
+  const auth = await authenticate(req);
+  if (req.method === 'POST' && parts.length === 3 && parts[2] === 'logout') {
+    const result = standaloneAuthStore.logout(bearerToken(req));
+    return sendJson(res, 200, { ok: true, ...result });
+  }
+  if (req.method === 'GET' && parts.length === 3 && parts[2] === 'me') {
+    return sendJson(res, 200, { ok: true, user: auth.user, session: auth.session });
+  }
+
+  if (parts[2] !== 'admin' || parts[3] !== 'users') {
+    return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+  }
+  requireAdmin(auth);
+
+  if (req.method === 'GET' && parts.length === 4) {
+    const users = standaloneAuthStore.listUsers();
+    return sendJson(res, 200, { ok: true, users });
+  }
+  if (req.method === 'POST' && parts.length === 4) {
+    const body = await readJsonBody(req);
+    const role = String(body.role || 'user').trim().toLowerCase();
+    if (!['admin', 'user'].includes(role)) {
+      const error = new Error('INVALID_ROLE');
+      error.status = 400;
+      throw error;
+    }
+    const user = standaloneAuthStore.createUser({
+      email: body.email,
+      username: body.username,
+      password: body.password,
+      role
+    });
+    standaloneAuthStore.secureDatabaseFiles();
+    return sendJson(res, 201, { ok: true, user });
+  }
+  if (req.method === 'POST' && parts.length === 6 && parts[5] === 'disable') {
+    const user = standaloneAuthStore.disableUser(decodeRoutePart(parts[4]));
+    return sendJson(res, 200, { ok: true, user });
+  }
+
+  res.setHeader('Allow', 'GET, POST, OPTIONS');
+  return sendJson(res, 405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
+}
+
 async function handler(req, res) {
   const corsAllowed = sendCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -1714,12 +2113,16 @@ async function handler(req, res) {
     });
   }
 
-  if (parts[0] !== 'studio-api' || !['history', 'session', 'generation-jobs', 'model-sync', 'library', 'library-assets', 'community-prompts', 'prompt-presets', 'video-inspirations', 'backup'].includes(parts[1])) {
+  if (parts[0] !== 'studio-api' || !['auth', 'history', 'session', 'generation-jobs', 'model-sync', 'prompt', 'library', 'library-assets', 'community-prompts', 'prompt-presets', 'video-inspirations', 'backup'].includes(parts[1])) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
 
   try {
     const hasAuthHeader = Boolean(String(req.headers.authorization || '').trim());
+
+    if (parts[1] === 'auth') {
+      return await handleStandaloneAuthRoute(req, res, parts);
+    }
 
     if (!hasAuthHeader && req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'library' && parts.length === 2) {
       const { payload } = await readLibrary(null);
@@ -1740,11 +2143,22 @@ async function handler(req, res) {
 
     const auth = await authenticate(req);
 
+    if (parts[1] === 'prompt') {
+      return await handleStandalonePromptRoute(req, res, parts);
+    }
+
     if (req.method === 'POST' && parts[0] === 'studio-api' && parts[1] === 'model-sync' && parts.length === 2) {
       const body = await readJsonBody(req);
-      const apiKey = text(body.apiKey, 4000);
+      let apiKey;
+      let gatewayBaseUrl;
+      if (AUTH_MODE === 'standalone') {
+        ({ apiKey, gatewayBaseUrl } = standaloneProviderRuntime());
+      } else {
+        apiKey = text(body.apiKey, 4000);
+        gatewayBaseUrl = body.gatewayBaseUrl || AI_GATEWAY_BASE_URL;
+      }
       if (!apiKey) return sendJson(res, 400, { ok: false, error: 'MODEL_SYNC_API_KEY_REQUIRED' });
-      const models = await fetchGatewayModels(apiKey, body.gatewayBaseUrl || AI_GATEWAY_BASE_URL, req.signal);
+      const models = await fetchGatewayModels(apiKey, gatewayBaseUrl, req.signal);
       return sendJson(res, 200, { ok: true, models });
     }
 
@@ -1978,10 +2392,15 @@ async function handler(req, res) {
     return sendJson(res, 405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
   } catch (error) {
     const status = error.status || 500;
-    const message = status >= 500 ? 'STUDIO_HISTORY_FAILED' : error.message;
+    if (error.retryAfterMs) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil(error.retryAfterMs / 1000))));
+    }
+    const message = status >= 500 && status !== 502 && status !== 503
+      ? 'STUDIO_HISTORY_FAILED'
+      : redactProviderSecret(error.code || error.message);
     if (status >= 500) {
       console.warn('Studio history service failed', {
-        message: String(error?.message || 'unknown').slice(0, 240)
+        message: redactProviderSecret(String(error?.code || error?.message || 'unknown').slice(0, 240))
       });
     }
     return sendJson(res, status, { ok: false, error: message });
@@ -1991,7 +2410,7 @@ async function handler(req, res) {
 const server = http.createServer((req, res) => {
   handler(req, res).catch((error) => {
     console.warn('Unhandled studio history error', {
-      message: String(error?.message || 'unknown').slice(0, 240)
+      message: redactProviderSecret(String(error?.message || 'unknown').slice(0, 240))
     });
     sendJson(res, 500, { ok: false, error: 'STUDIO_HISTORY_FAILED' });
   });
@@ -2000,5 +2419,11 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`image-agent-studio history service listening on http://${HOST}:${PORT}/studio-api`);
   console.log(`Data directory: ${DATA_DIR}`);
-  console.log(`AI gateway base URL: ${AI_GATEWAY_BASE_URL}`);
+  console.log(`Auth mode: ${AUTH_MODE}`);
+  if (AUTH_MODE === 'standalone') {
+    console.log(`Registration mode: ${AUTH_REGISTRATION_MODE}`);
+    console.log(`Server-managed provider configured: ${Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)}`);
+  } else {
+    console.log(`AI gateway base URL: ${AI_GATEWAY_BASE_URL}`);
+  }
 });

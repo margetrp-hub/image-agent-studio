@@ -68,6 +68,21 @@ assert.equal(payload.request.workflow.rootPrompt, 'original prompt');
 assert.ok(payload.request.fingerprint.includes('edits'));
 assert.ok(!payload.request.fingerprint.includes('session-secret'));
 
+const standalonePayload = buildServerImageGenerationJobPayload({
+  serverManaged: true,
+  apiKey: 'must-not-leave-browser',
+  gatewayBaseUrl: 'https://untrusted.example/v1',
+  generationMeta: { id: 'standalone-job-1' },
+  providerId: 'gateway-account',
+  apiKeySource: 'gateway',
+  mode: 'image',
+  model: 'gpt-image-2',
+  prompt: 'standalone prompt',
+  count: 1
+});
+assert.equal('apiKey' in standalonePayload, false);
+assert.equal('gatewayBaseUrl' in standalonePayload, false);
+
 const firstNode = {
   id: 'node-1',
   kind: 'image',
