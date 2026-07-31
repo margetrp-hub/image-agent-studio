@@ -176,6 +176,7 @@ echo "revision: $REVISION"
 
 info "Install and build frontend"
 cd "$REPO_DIR"
+STUDIO_VERSION="${STUDIO_VERSION:-$(node -e "const fs=require('fs'); console.log(JSON.parse(fs.readFileSync('package.json','utf8')).version)")}"
 read_env_file "$REPO_DIR/.env.production"
 read_env_file "$REPO_DIR/.env.production.local"
 npm ci
@@ -239,6 +240,7 @@ Environment="AI_GATEWAY_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="SUB2API_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="STUDIO_AUTH_MODE=$STUDIO_AUTH_MODE"
 Environment="STUDIO_AUTH_REGISTRATION_MODE=$STUDIO_AUTH_REGISTRATION_MODE"
+Environment="STUDIO_VERSION=$STUDIO_VERSION"
 EnvironmentFile=-/etc/image-agent-studio.env
 Environment="STUDIO_DATA_DIR=$DATA_DIR"
 Environment="STUDIO_LIBRARY_DIR=$DATA_DIR/library"
