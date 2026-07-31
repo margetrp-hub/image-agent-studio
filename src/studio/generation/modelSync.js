@@ -76,7 +76,8 @@ export async function syncGatewayModels({ session, providerSettings, apiKey, sig
   return {
     modelOptions: modelsResult.modelOptions,
     modelsStatus: modelsResult.modelsStatus,
-    usageSummary: usageResult
+    usageSummary: usageResult,
+    modelSyncError: modelsResult.modelSyncError || null
   };
 }
 
@@ -85,6 +86,11 @@ async function listModels(client, providerRequest, signal) {
     const models = await client.listGatewayModels({ ...providerRequest, signal });
     const image = models.filter(modelLooksLikeImage);
     const video = models.filter(modelMatchesVideo);
+    if (!models.length) {
+      return emptyModelSyncResult('empty', describeModelSyncError({ code: 'MODEL_LIST_EMPTY' }, {
+        endpoint: modelSyncEndpoint(providerRequest)
+      }));
+    }
     return {
       modelOptions: {
         image: image.length ? image : [],
@@ -95,7 +101,9 @@ async function listModels(client, providerRequest, signal) {
     };
   } catch (error) {
     if (error?.name === 'AbortError') throw error;
-    return emptyModelSyncResult('fallback');
+    return emptyModelSyncResult('fallback', describeModelSyncError(error, {
+      endpoint: modelSyncEndpoint(providerRequest)
+    }));
   }
 }
 
@@ -140,10 +148,65 @@ function modelMatchesVideo(item) {
   return [...values, ...capabilities].some((value) => value === 'video' || value === 'videos' || value.includes('video_generation') || value.includes('video-generation'));
 }
 
-function emptyModelSyncResult(modelsStatus) {
+function emptyModelSyncResult(modelsStatus, modelSyncError = null) {
   return {
     modelOptions: { image: [], responses: [], video: [] },
     modelsStatus,
-    usageSummary: ''
+    usageSummary: '',
+    modelSyncError
   };
+}
+
+function modelSyncEndpoint(providerRequest = {}) {
+  if (STUDIO_STANDALONE) return '/studio-api/model-sync';
+  const baseUrl = String(providerRequest.gatewayBaseUrl || '').replace(/\/+$/, '');
+  return baseUrl ? `${baseUrl}/models` : '/v1/models';
+}
+
+export function describeModelSyncError(error, { endpoint = '' } = {}) {
+  const status = Number(error?.status || error?.statusCode || 0) || 0;
+  const rawCode = String(error?.code || '').trim().toUpperCase();
+  const rawMessage = String(
+    error?.message
+      || error?.payload?.error?.message
+      || error?.payload?.message
+      || rawCode
+      || 'MODEL_SYNC_FAILED'
+  ).trim();
+  const message = sanitizeModelSyncMessage(rawMessage);
+  let code = rawCode === 'MODEL_LIST_EMPTY' ? 'empty_response' : 'unknown';
+  if (status === 401 || /unauthorized|invalid api key|api[_ -]?key required|authentication/i.test(message)) {
+    code = 'unauthorized';
+  } else if (status === 403 || /forbidden|permission|not enabled|access denied/i.test(message)) {
+    code = 'forbidden';
+  } else if (status === 404 || /not found|cannot find|no route|endpoint/i.test(message)) {
+    code = 'not_found';
+  } else if ([408, 425, 429, 500, 502, 503, 504].includes(status) || /timeout|temporar|upstream|gateway/i.test(message)) {
+    code = 'upstream_unavailable';
+  } else if (error?.name === 'TypeError' || /failed to fetch|network|cors|fetch/i.test(message)) {
+    code = 'network';
+  }
+
+  return {
+    code,
+    status,
+    message: message.slice(0, 320),
+    endpoint: String(endpoint || '').slice(0, 320),
+    retryable: ['network', 'upstream_unavailable', 'empty_response'].includes(code),
+    requestId: String(error?.requestId || error?.payload?.request_id || '').slice(0, 160)
+  };
+}
+
+function sanitizeModelSyncMessage(value) {
+  return String(value || 'MODEL_SYNC_FAILED')
+    .replace(/bearer\s+[a-z0-9._~+/=-]+/ig, 'Bearer [redacted]')
+    .replace(/(?:sk|key|token)[-_]?[a-z0-9]{12,}/ig, '[redacted]')
+    .replace(/https?:\/\/[^\s"']+/ig, (url) => {
+      try {
+        const parsed = new URL(url);
+        return `${parsed.origin}${parsed.pathname}`;
+      } catch {
+        return '[endpoint]';
+      }
+    });
 }

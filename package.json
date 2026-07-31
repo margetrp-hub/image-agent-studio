@@ -50,7 +50,7 @@
     "dev": "vite",
     "dev:studio": "vite --open /studio.html",
     "build": "vite build",
-    "build:studio": "vite build --base=/studio/",
+    "build:studio": "node scripts/build-studio.mjs",
     "preview": "vite preview",
     "smoke:studio": "node scripts/smoke-studio-page.mjs",
     "smoke:history": "npm exec --yes --package=playwright -- node scripts/smoke-history-session.mjs",

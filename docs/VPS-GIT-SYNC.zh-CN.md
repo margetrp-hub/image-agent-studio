@@ -54,6 +54,19 @@ sudo bash deploy/upgrade.sh
 
 `deploy/upgrade.sh` 默认会先备份 `/var/lib/image-agent-studio`，再同步代码、构建前端、更新服务、重启 systemd，并运行 `deploy/self-check.sh`。
 
+如果服务器曾经手工添加过 `20-staging.conf`、`90-public-runtime.conf` 等 systemd 覆盖文件，先用一次显式清理模式收敛运行配置。脚本会把旧覆盖文件移动到 `/var/backups/image-agent-studio/`，不会删除历史数据：
+
+```bash
+cd /opt/image-agent-studio-repo
+sudo CLEAN_STALE_DROPINS=1 \
+  INSTALL_SYSTEMD_UNIT=1 \
+  STUDIO_HISTORY_PORT=8787 \
+  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  bash deploy/sync-from-git.sh
+```
+
+同一台 VPS 上的多个域名可以只是同一套静态目录和 history service 的别名，不代表多套部署。应以 `systemctl`、Nginx 生效配置和 `/studio-api/health` 为准；旧静态目录或旧数据目录在确认无引用前只保留为回滚证据，不要直接删除。
+
 如果你已经有外部快照，可以跳过脚本备份：
 
 ```bash

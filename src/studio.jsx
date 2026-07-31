@@ -5059,6 +5059,7 @@ function StudioApp() {
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [modelOptions, setModelOptions] = useState({ image: [], responses: [], video: [] });
   const [modelsStatus, setModelsStatus] = useState('idle');
+  const [modelSyncError, setModelSyncError] = useState(null);
   const [usageSummary, setUsageSummary] = useState('');
   const [theme, setTheme] = useState(() => loadTheme());
   const [language, setLanguage] = useState(() => loadStudioLanguage());
@@ -5130,12 +5131,21 @@ function StudioApp() {
       .then((result) => {
         setModelOptions(result.modelOptions);
         setModelsStatus(result.modelsStatus);
+        setModelSyncError(result.modelSyncError || null);
         setUsageSummary(result.usageSummary);
       })
       .catch((error) => {
         if (error?.name === 'AbortError') return;
         setModelOptions({ image: [], responses: [], video: [] });
         setModelsStatus('fallback');
+        setModelSyncError({
+          code: 'unknown',
+          status: Number(error?.status || 0) || 0,
+          message: String(error?.message || 'MODEL_SYNC_FAILED').slice(0, 320),
+          endpoint: '',
+          retryable: true,
+          requestId: String(error?.requestId || '').slice(0, 160)
+        });
         setUsageSummary('后台未开放消费接口');
       });
   }
@@ -5895,6 +5905,7 @@ function StudioApp() {
             onProviderChange={handleProviderChange}
             modelOptions={modelOptions}
             modelsStatus={modelsStatus}
+            modelSyncError={modelSyncError}
             onSyncModels={syncProviderModels}
             isAuthenticated={Boolean(session?.accessToken)}
             onLogin={handleRequireLogin}

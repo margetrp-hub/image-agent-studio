@@ -26,6 +26,15 @@
   white-space: nowrap;
 }
 
+.settingsModelSyncError {
+  color: var(--studio-danger, #b42318) !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+  font-weight: 760;
+}
+
 .settingsModelSyncText span {
   color: var(--studio-text-strong);
   font-size: 12px;

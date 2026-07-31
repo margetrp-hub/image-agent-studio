@@ -1,4 +1,4 @@
-import { modelLooksLikeImage, syncGatewayModels } from '../src/studio/generation/modelSync.js';
+import { describeModelSyncError, modelLooksLikeImage, syncGatewayModels } from '../src/studio/generation/modelSync.js';
 import { readFileSync } from 'node:fs';
 
 class GoodGateway {
@@ -25,6 +25,16 @@ class BrokenGateway {
   }
 }
 
+class EmptyGateway {
+  async listGatewayModels() {
+    return [];
+  }
+
+  async getGatewayUsage() {
+    return {};
+  }
+}
+
 const idle = await syncGatewayModels({
   providerSettings: { apiKeySource: 'manual', manualApiKey: '', manualGatewayBaseUrl: '' },
   GatewayClient: GoodGateway
@@ -40,6 +50,11 @@ const fallback = await syncGatewayModels({
   GatewayClient: BrokenGateway
 });
 
+const empty = await syncGatewayModels({
+  providerSettings: { apiKeySource: 'manual', manualApiKey: 'sk-test', manualGatewayBaseUrl: 'https://example.com/v1' },
+  GatewayClient: EmptyGateway
+});
+
 const failures = [];
 
 if (idle.modelsStatus !== 'idle') failures.push(`empty manual key should return idle, got ${idle.modelsStatus}`);
@@ -51,6 +66,12 @@ if (!ready.usageSummary.includes('12') || !ready.usageSummary.includes('3')) fai
 if (!modelLooksLikeImage({ id: 'gpt-image-2' })) failures.push('gpt-image-2 should be classified as an image model');
 if (modelLooksLikeImage({ id: 'gpt-5.5' })) failures.push('gpt-5.5 should not be classified as an image model');
 if (fallback.modelsStatus !== 'fallback') failures.push(`failed model sync should return fallback, got ${fallback.modelsStatus}`);
+if (fallback.modelSyncError?.code !== 'unknown') failures.push(`failed model sync should expose a safe error classification, got ${fallback.modelSyncError?.code}`);
+if (empty.modelsStatus !== 'empty' || empty.modelSyncError?.code !== 'empty_response') failures.push(`empty model sync should be explicit, got ${empty.modelsStatus}/${empty.modelSyncError?.code}`);
+const unauthorized = describeModelSyncError({ status: 401, message: 'Invalid API key sk-12345678901234567890' }, { endpoint: 'https://example.com/v1/models' });
+if (unauthorized.code !== 'unauthorized') failures.push(`401 model sync should classify as unauthorized, got ${unauthorized.code}`);
+if (unauthorized.message.includes('12345678901234567890')) failures.push('model sync error must redact key-like values');
+if (!unauthorized.endpoint.endsWith('/v1/models')) failures.push(`model sync error should preserve a safe endpoint, got ${unauthorized.endpoint}`);
 
 const gatewayClientSource = readFileSync(new URL('../src/aiGatewayClient.js', import.meta.url), 'utf8');
 const historyServiceSource = readFileSync(new URL('./image-agent-studio-history-service.mjs', import.meta.url), 'utf8');

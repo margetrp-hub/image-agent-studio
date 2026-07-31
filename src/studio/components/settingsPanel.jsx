@@ -22,6 +22,7 @@ export function SettingsPanel({
   onProviderChange,
   modelOptions = { image: [], responses: [], video: [] },
   modelsStatus = 'idle',
+  modelSyncError = null,
   onSyncModels,
   isAuthenticated,
   onLogin,
@@ -47,6 +48,8 @@ export function SettingsPanel({
       ? t('settings.modelsSynced', '上游模型已同步')
       : modelsStatus === 'fallback'
         ? t('settings.modelsFallback', '未读取到上游模型，暂用默认列表')
+        : modelsStatus === 'empty'
+          ? t('settings.modelsEmpty', '上游返回了空模型列表')
         : t('settings.modelsIdle', '填写接口和密钥后自动同步模型');
   const modelSyncMeta = t(STUDIO_STANDALONE ? 'settings.studioModelsSyncMeta' : 'settings.modelsSyncMeta', STUDIO_STANDALONE
     ? '图片 {image} · 提示词 {responses}'
@@ -55,6 +58,16 @@ export function SettingsPanel({
     responses: modelOptions.responses?.length || 0,
     video: modelOptions.video?.length || 0
   });
+  const modelSyncErrorLabel = modelSyncError
+    ? t(`settings.modelSyncErrors.${modelSyncError.code || 'unknown'}`, t('settings.modelSyncErrors.unknown', '模型同步失败'))
+    : '';
+  const modelSyncErrorDetails = modelSyncError
+    ? [
+      modelSyncError.status ? `HTTP ${modelSyncError.status}` : '',
+      modelSyncError.endpoint || '',
+      modelSyncError.message || ''
+    ].filter(Boolean).join(' · ')
+    : '';
   const providerChoices = (STUDIO_STANDALONE ? [currentProvider] : orderedImageProviders())
     .filter(Boolean)
     .map((provider) => ({
@@ -178,6 +191,9 @@ export function SettingsPanel({
             <div className="settingsModelSyncText">
               <span>{modelSyncLabel}</span>
               <em>{modelSyncMeta}</em>
+              {modelSyncError ? <small className="settingsModelSyncError" title={modelSyncErrorDetails}>
+                {modelSyncErrorLabel} · {modelSyncErrorDetails}
+              </small> : null}
             </div>
             {onSyncModels ? (
               <button

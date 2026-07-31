@@ -16,7 +16,10 @@ VITE_STUDIO_STANDALONE="${VITE_STUDIO_STANDALONE:-true}"
 STUDIO_JOB_TIMEOUT_MS="${STUDIO_JOB_TIMEOUT_MS:-2700000}"
 STUDIO_GATEWAY_FETCH_TIMEOUT_MS="${STUDIO_GATEWAY_FETCH_TIMEOUT_MS:-2640000}"
 STUDIO_JOB_CONCURRENCY="${STUDIO_JOB_CONCURRENCY:-1}"
-HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8787/studio-api/health}"
+STUDIO_HISTORY_PORT="${STUDIO_HISTORY_PORT:-8787}"
+STUDIO_AUTH_REGISTRATION_MODE="${STUDIO_AUTH_REGISTRATION_MODE:-open}"
+CLEAN_STALE_DROPINS="${CLEAN_STALE_DROPINS:-0}"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:${STUDIO_HISTORY_PORT}/studio-api/health}"
 PUBLIC_STUDIO_URL="${PUBLIC_STUDIO_URL:-}"
 STUDIO_ALLOWED_ORIGINS="${STUDIO_ALLOWED_ORIGINS:-}"
 REQUIRE_LIBRARY="${REQUIRE_LIBRARY:-0}"
@@ -219,15 +222,31 @@ fi
 info "Write systemd runtime overrides"
 UNIT_DROPIN_DIR="/etc/systemd/system/${SERVICE_NAME}.service.d"
 mkdir -p "$UNIT_DROPIN_DIR"
+if [ "$CLEAN_STALE_DROPINS" = "1" ]; then
+  DROPIN_BACKUP_DIR="${DROPIN_BACKUP_DIR:-/var/backups/image-agent-studio/dropins-$(date -u +%Y%m%dT%H%M%SZ)}"
+  mkdir -p "$DROPIN_BACKUP_DIR"
+  for stale_dropin in 20-staging.conf 90-public-runtime.conf; do
+    if [ -f "$UNIT_DROPIN_DIR/$stale_dropin" ]; then
+      info "Archive stale systemd drop-in: $stale_dropin"
+      mv "$UNIT_DROPIN_DIR/$stale_dropin" "$DROPIN_BACKUP_DIR/$stale_dropin"
+    fi
+  done
+  echo "stale drop-ins archived: $DROPIN_BACKUP_DIR"
+fi
 cat > "$UNIT_DROPIN_DIR/10-sync-overrides.conf" <<EOF
 [Service]
 Environment="AI_GATEWAY_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="SUB2API_BASE_URL=$AI_GATEWAY_BASE_URL"
 Environment="STUDIO_AUTH_MODE=$STUDIO_AUTH_MODE"
+Environment="STUDIO_AUTH_REGISTRATION_MODE=$STUDIO_AUTH_REGISTRATION_MODE"
 EnvironmentFile=-/etc/image-agent-studio.env
 Environment="STUDIO_DATA_DIR=$DATA_DIR"
 Environment="STUDIO_LIBRARY_DIR=$DATA_DIR/library"
 Environment="STUDIO_LIBRARY_ASSET_DIR=$DATA_DIR/library/image-library"
+Environment="STUDIO_HISTORY_HOST=127.0.0.1"
+Environment="STUDIO_HISTORY_PORT=$STUDIO_HISTORY_PORT"
+Environment="HOST=127.0.0.1"
+Environment="PORT=$STUDIO_HISTORY_PORT"
 Environment="STUDIO_ALLOWED_ORIGINS=$(allowed_origins)"
 Environment="STUDIO_JOB_TIMEOUT_MS=$STUDIO_JOB_TIMEOUT_MS"
 Environment="STUDIO_GATEWAY_FETCH_TIMEOUT_MS=$STUDIO_GATEWAY_FETCH_TIMEOUT_MS"

@@ -64,6 +64,9 @@ mustInclude('deploy/sync-from-git.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-age
 mustInclude('deploy/sync-from-git.sh', 'SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"', 'Git sync should default to the standard systemd service name');
 mustInclude('deploy/sync-from-git.sh', 'rm -rf "$STATIC_DIR/studio-assets"', 'Git sync should replace hashed assets without deleting the persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_DATA_DIR=$DATA_DIR', 'Git sync must preserve and reuse the configured persistent data directory');
+mustInclude('deploy/sync-from-git.sh', 'CLEAN_STALE_DROPINS', 'Git sync must provide an explicit, backup-first cleanup path for stale systemd drop-ins');
+mustInclude('deploy/sync-from-git.sh', 'STUDIO_HISTORY_PORT', 'Git sync must make the history service port explicit');
+mustInclude('deploy/sync-from-git.sh', 'STUDIO_AUTH_REGISTRATION_MODE', 'Git sync must keep standalone registration mode explicit');
 mustInclude('deploy/sync-from-git.sh', 'curl -fsS "$HEALTH_URL"', 'Git sync must verify the local history service health endpoint');
 mustInclude('deploy/sync-from-git.sh', 'scripts/image-agent-studio-history-service.mjs', 'Git sync must deploy the standard service wrapper');
 mustInclude('deploy/sync-from-git.sh', 'deploy/image-agent-studio-history.service', 'Git sync must deploy the standard systemd unit');
@@ -91,6 +94,8 @@ mustInclude('README.md', 'image-agent-studio-core-update-*.zip', 'README must do
 mustInclude('README.zh-CN.md', 'image-agent-studio-core-update-*.zip', 'Chinese README must document the new package name');
 mustInclude('deploy/UPDATE-SERVER.zh-CN.md', 'image-agent-studio-core-update-YYYYMMDD-HHMMSS.zip', 'VPS update guide must prefer the new package name');
 mustInclude('package.json', '"package:windows": "node scripts/package-windows.mjs"', 'Windows desktop packaging must be reproducible from npm scripts');
+mustInclude('package.json', '"build:studio": "node scripts/build-studio.mjs"', 'Studio subpath builds must use a cross-platform build entrypoint');
+mustInclude('scripts/build-studio.mjs', "process.env.STUDIO_BASE_PATH = '/studio/'", 'Studio build helper must set the deployed base path explicitly');
 mustInclude('scripts/package-windows.mjs', '--prepackaged', 'Windows desktop packaging must retry from a prepackaged app when Windows locks the unpack rename step');
 mustInclude('electron-builder.config.cjs', "productName: 'Image Agent Studio'", 'Windows desktop package must use the Image Agent Studio product name');
 mustInclude('electron-builder.config.cjs', "output: 'release/desktop'", 'Windows desktop artifacts must stay out of source directories');

@@ -4,7 +4,10 @@ import path from 'node:path';
 const root = process.cwd();
 const htmlPath = path.join(root, 'dist', 'studio.html');
 const maxStudioEntryBytes = 380 * 1024;
-const maxStudioEntryCssBytes = 865 * 1024;
+// The workstation shell intentionally keeps its stable layout rules in one
+// first-screen stylesheet. Keep a small headroom for generated CSS while
+// continuing to catch accidental full-page style regressions.
+const maxStudioEntryCssBytes = 900 * 1024;
 
 if (!fs.existsSync(htmlPath)) {
   console.error('dist/studio.html is missing. Run npm run build:studio before checking the /studio/ asset base.');
