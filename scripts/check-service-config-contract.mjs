@@ -23,6 +23,11 @@ assert.equal(config.AUTH_LOGIN_MAX_BODY_BYTES, 16 * 1024);
 assert.equal(config.AI_GATEWAY_BASE_URL, 'https://legacy-gateway.example/v1');
 assert.equal(config.JOB_CONCURRENCY, 6);
 assert.equal(config.SERVICE_STARTED_AT, 12345);
+const deployedVersion = createServiceConfig({
+  scriptsDir,
+  env: { STUDIO_VERSION: '1.0.2', npm_package_version: '1.0.0' }
+});
+assert.equal(deployedVersion.SERVICE_VERSION, '1.0.2');
 assert.deepEqual(config.ALLOWED_ORIGINS, ['http://localhost:5205', 'https://studio.example.com']);
 assert.ok(config.JOB_ACTIVE_STATUSES.has('queued'));
 assert.ok(config.JOB_ACTIVE_STATUSES.has('saving'));

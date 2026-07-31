@@ -53,7 +53,7 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     JOB_CONCURRENCY: Math.max(1, Math.min(6, Number(env.STUDIO_JOB_CONCURRENCY || 1))),
     JOB_ACTIVE_STATUSES: new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'saving']),
     SERVICE_STARTED_AT: startedAt,
-    SERVICE_VERSION: env.npm_package_version || env.STUDIO_VERSION || '1.0.0',
+    SERVICE_VERSION: env.STUDIO_VERSION || env.npm_package_version || '1.0.0',
     MAX_BODY_BYTES: Number(env.STUDIO_MAX_BODY_BYTES || 96 * 1024 * 1024),
     MAX_IMAGE_BYTES: Number(env.STUDIO_MAX_IMAGE_BYTES || 32 * 1024 * 1024),
     ALLOWED_ORIGINS: String(env.STUDIO_ALLOWED_ORIGINS || 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5205,http://localhost:5205,http://127.0.0.1:5174,http://localhost:5174')
