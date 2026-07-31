@@ -65,6 +65,8 @@ mustInclude('deploy/sync-from-git.sh', 'SERVICE_NAME="${SERVICE_NAME:-image-agen
 mustInclude('deploy/sync-from-git.sh', 'rm -rf "$STATIC_DIR/studio-assets"', 'Git sync should replace hashed assets without deleting the persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_DATA_DIR=$DATA_DIR', 'Git sync must preserve and reuse the configured persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'CLEAN_STALE_DROPINS', 'Git sync must provide an explicit, backup-first cleanup path for stale systemd drop-ins');
+mustInclude('deploy/sync-from-git.sh', '10-runtime.conf', 'Git sync must archive the manual runtime drop-in during explicit consolidation');
+mustInclude('deploy/sync-from-git.sh', 'LEGACY_UNIT_DROPIN_DIR', 'Git sync must archive drop-ins belonging to the retired service name');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_HISTORY_PORT', 'Git sync must make the history service port explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_AUTH_REGISTRATION_MODE', 'Git sync must keep standalone registration mode explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_VERSION', 'Git sync must keep the service version visible in health responses');

@@ -54,7 +54,7 @@ sudo bash deploy/upgrade.sh
 
 `deploy/upgrade.sh` 默认会先备份 `/var/lib/image-agent-studio`，再同步代码、构建前端、更新服务、重启 systemd，并运行 `deploy/self-check.sh`。
 
-如果服务器曾经手工添加过 `20-staging.conf`、`90-public-runtime.conf` 等 systemd 覆盖文件，先用一次显式清理模式收敛运行配置。脚本会把旧覆盖文件移动到 `/var/backups/image-agent-studio/`，不会删除历史数据：
+如果服务器曾经手工添加过 `10-runtime.conf`、`20-staging.conf`、`90-public-runtime.conf`，或保留了旧 `image-sub2api-studio-history` 服务目录，先用一次显式清理模式收敛运行配置。脚本会把旧覆盖文件和旧服务 drop-in 移动到 `/var/backups/image-agent-studio/`，不会删除历史数据：
 
 ```bash
 cd /opt/image-agent-studio-repo

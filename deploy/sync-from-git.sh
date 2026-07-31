@@ -222,16 +222,21 @@ fi
 
 info "Write systemd runtime overrides"
 UNIT_DROPIN_DIR="/etc/systemd/system/${SERVICE_NAME}.service.d"
+LEGACY_UNIT_DROPIN_DIR="/etc/systemd/system/${LEGACY_SERVICE_NAME}.service.d"
 mkdir -p "$UNIT_DROPIN_DIR"
 if [ "$CLEAN_STALE_DROPINS" = "1" ]; then
   DROPIN_BACKUP_DIR="${DROPIN_BACKUP_DIR:-/var/backups/image-agent-studio/dropins-$(date -u +%Y%m%dT%H%M%SZ)}"
   mkdir -p "$DROPIN_BACKUP_DIR"
-  for stale_dropin in 20-staging.conf 90-public-runtime.conf; do
+  for stale_dropin in 10-runtime.conf 20-staging.conf 90-public-runtime.conf; do
     if [ -f "$UNIT_DROPIN_DIR/$stale_dropin" ]; then
       info "Archive stale systemd drop-in: $stale_dropin"
       mv "$UNIT_DROPIN_DIR/$stale_dropin" "$DROPIN_BACKUP_DIR/$stale_dropin"
     fi
   done
+  if [ "$LEGACY_SERVICE_NAME" != "$SERVICE_NAME" ] && [ -d "$LEGACY_UNIT_DROPIN_DIR" ]; then
+    info "Archive legacy service drop-in directory: $LEGACY_UNIT_DROPIN_DIR"
+    mv "$LEGACY_UNIT_DROPIN_DIR" "$DROPIN_BACKUP_DIR/${LEGACY_SERVICE_NAME}.service.d"
+  fi
   echo "stale drop-ins archived: $DROPIN_BACKUP_DIR"
 fi
 cat > "$UNIT_DROPIN_DIR/10-sync-overrides.conf" <<EOF
