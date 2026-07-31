@@ -8,6 +8,13 @@ import { Agent, FormData as UndiciFormData, fetch as undiciFetch } from 'undici'
 import { createServiceConfig } from './studio-service/config.js';
 import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-service/communityPrompts.js';
 import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
+import {
+  applyProviderEndpoint,
+  buildProviderImageGenerationBody,
+  buildProviderVideoGenerationBody,
+  normalizeProviderVideoTask,
+  providerProfile
+} from './studio-service/providerProfiles.js';
 import { createLoginFailureLimiter, createStandaloneAuthStore } from './studio-service/standaloneAuth.js';
 import { text } from './studio-service/text.js';
 import { createUserBackupService } from './studio-service/userBackup.js';
@@ -34,6 +41,7 @@ const {
   AI_GATEWAY_BASE_URL,
   PROVIDER_BASE_URL,
   PROVIDER_API_KEY,
+  PROVIDER_TYPE,
   PROVIDER_CHAT_MODEL,
   HISTORY_LIMIT,
   SESSION_NODE_LIMIT,
@@ -46,10 +54,12 @@ const {
   GATEWAY_FETCH_TIMEOUT_MS,
   JOB_CONCURRENCY,
   JOB_ACTIVE_STATUSES,
+  VIDEO_POLL_INTERVAL_MS,
   SERVICE_STARTED_AT,
   SERVICE_VERSION,
   MAX_BODY_BYTES,
   MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
   ALLOWED_ORIGINS
 } = createServiceConfig({ scriptsDir: __dirname });
 
@@ -737,11 +747,13 @@ function cleanRecordId(value) {
 function assetExtension(mime) {
   if (mime === 'image/jpeg') return 'jpg';
   if (mime === 'image/webp') return 'webp';
+  if (mime === 'video/mp4') return 'mp4';
   return 'png';
 }
 
 async function writeAssetBuffer(auth, recordId, buffer, mime, index) {
-  if (!buffer.length || buffer.length > MAX_IMAGE_BYTES) return '';
+  const maxBytes = mime === 'video/mp4' ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+  if (!buffer.length || buffer.length > maxBytes) return '';
   const ext = assetExtension(mime);
   const assetDir = path.join(auth.userDir, 'assets', recordId);
   await fs.mkdir(assetDir, { recursive: true });
@@ -756,7 +768,7 @@ async function storeResultUrl(auth, recordId, value, index) {
   if (raw.startsWith('/studio-api/history/')) return raw;
   if (raw.startsWith('/studio-api/generation-jobs/')) return raw;
 
-  const match = raw.match(/^data:(image\/(?:png|jpeg|webp));base64,([a-zA-Z0-9+/=\s]+)$/);
+  const match = raw.match(/^data:((?:image\/(?:png|jpeg|webp))|video\/mp4);base64,([a-zA-Z0-9+/=\s]+)$/);
   if (!match) return '';
 
   const buffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
@@ -1249,7 +1261,11 @@ function standaloneProviderRuntime() {
     error.status = 503;
     throw error;
   }
-  return { apiKey: PROVIDER_API_KEY, gatewayBaseUrl: url.toString().replace(/\/+$/, '') };
+  return {
+    apiKey: PROVIDER_API_KEY,
+    gatewayBaseUrl: url.toString().replace(/\/+$/, ''),
+    profile: providerProfile(PROVIDER_TYPE)
+  };
 }
 
 function modelSyncEndpointUrl(gatewayBaseUrl) {
@@ -1481,11 +1497,202 @@ async function persistGatewayImage(auth, recordId, item, index, outputFormat = '
   return '';
 }
 
+function providerEndpointUrl(gatewayBaseUrl, endpoint) {
+  const pathName = String(endpoint || '').trim();
+  if (/^https?:\/\//i.test(pathName)) return pathName;
+  return `${String(gatewayBaseUrl || '').replace(/\/+$/, '')}/${pathName.replace(/^\/+/, '')}`;
+}
+
+function providerAssetUrl(gatewayBaseUrl, value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = `${String(gatewayBaseUrl || '').replace(/\/+$/, '')}/`;
+  return new URL(raw, base).toString();
+}
+
+function imageInputDataUrl(image) {
+  if (!image?.buffer?.length || !image.mime) return '';
+  return `data:${image.mime};base64,${image.buffer.toString('base64')}`;
+}
+
+async function getJsonFromGateway(url, apiKey, signal) {
+  const response = await undiciFetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    dispatcher: gatewayFetchAgent,
+    signal
+  });
+  return readGatewayResponse(response);
+}
+
+async function readLimitedResponseBuffer(response, maxBytes) {
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > maxBytes) {
+    const error = new Error('VIDEO_ASSET_TOO_LARGE');
+    error.status = 413;
+    throw error;
+  }
+  if (!response.body?.getReader) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > maxBytes) {
+      const error = new Error('VIDEO_ASSET_TOO_LARGE');
+      error.status = 413;
+      throw error;
+    }
+    return buffer;
+  }
+  const chunks = [];
+  let total = 0;
+  const reader = response.body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel('VIDEO_ASSET_TOO_LARGE');
+      const error = new Error('VIDEO_ASSET_TOO_LARGE');
+      error.status = 413;
+      throw error;
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total);
+}
+
+async function persistGatewayVideo(auth, recordId, rawUrl, index, runtime, signal) {
+  const url = providerAssetUrl(runtime.gatewayBaseUrl, rawUrl);
+  if (!url) return '';
+  const gatewayOrigin = new URL(runtime.gatewayBaseUrl).origin;
+  const assetOrigin = new URL(url).origin;
+  const response = await undiciFetch(url, {
+    headers: assetOrigin === gatewayOrigin ? { Authorization: `Bearer ${runtime.apiKey}` } : {},
+    dispatcher: gatewayFetchAgent,
+    signal
+  });
+  if (!response.ok) await readGatewayResponse(response);
+  const contentType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (contentType && !['video/mp4', 'application/octet-stream'].includes(contentType)) {
+    const error = new Error('VIDEO_ASSET_FORMAT_UNSUPPORTED');
+    error.status = 502;
+    throw error;
+  }
+  const buffer = await readLimitedResponseBuffer(response, MAX_VIDEO_BYTES);
+  return writeAssetBuffer(auth, recordId, buffer, 'video/mp4', index);
+}
+
+function waitForProviderPoll(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason || new Error('JOB_CANCELED'));
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(signal.reason || new Error('JOB_CANCELED'));
+    }, { once: true });
+  });
+}
+
+async function runVideoGenerationRequest(auth, job, runtime, signal) {
+  const profile = runtime.profile || providerProfile(PROVIDER_TYPE);
+  if (!profile.videoCreate || !profile.videoRetrieve) {
+    const error = new Error('STUDIO_PROVIDER_VIDEO_NOT_CONFIGURED');
+    error.status = 503;
+    throw error;
+  }
+  const createEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, profile.videoCreate);
+  let currentJob = await updateJob(auth, job.id, {
+    status: 'gateway',
+    stage: 'gateway',
+    endpoint: `/v1${profile.videoCreate}`,
+    completed: 0,
+    total: 1,
+    timing: {
+      ...(job.timing || {}),
+      gatewayAt: Date.now()
+    }
+  }) || job;
+  const createPayload = await postJsonToGateway(
+    createEndpoint,
+    runtime.apiKey,
+    buildProviderVideoGenerationBody(profile, job, imageInputDataUrl(runtime.images[0])),
+    job.clientRequestId,
+    signal
+  );
+  let task = normalizeProviderVideoTask(createPayload);
+  if (!task.id) {
+    const error = new Error('VIDEO_TASK_ID_MISSING');
+    error.payload = createPayload;
+    throw error;
+  }
+  const requestIds = [task.id];
+  currentJob = await updateJob(auth, job.id, {
+    status: task.status === 'completed' ? 'saving' : 'upstream',
+    stage: task.status === 'completed' ? 'saving' : 'upstream',
+    requestIds,
+    upstreamTaskId: task.id,
+    progress: task.progress,
+    timing: {
+      ...(currentJob.timing || {}),
+      responseAt: Date.now()
+    }
+  }) || currentJob;
+
+  while (!['completed', 'failed'].includes(task.status)) {
+    await waitForProviderPoll(VIDEO_POLL_INTERVAL_MS, signal);
+    const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(profile.videoRetrieve, { id: task.id }));
+    task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, signal));
+    if (!task.id) task.id = requestIds[0];
+    currentJob = await updateJob(auth, job.id, {
+      status: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
+      stage: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
+      progress: task.progress,
+      requestIds,
+      timing: {
+        ...(currentJob.timing || {}),
+        polledAt: Date.now()
+      }
+    }) || currentJob;
+  }
+  if (task.status === 'failed') {
+    const error = new Error(task.error?.message || 'VIDEO_GENERATION_FAILED');
+    error.payload = task.raw;
+    throw error;
+  }
+
+  const contentPath = task.url || providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(profile.videoContent, { id: task.id }));
+  if (!contentPath) {
+    const error = new Error('VIDEO_GENERATION_RETURNED_NO_VIDEO');
+    error.payload = task.raw;
+    throw error;
+  }
+  const stored = await persistGatewayVideo(auth, job.id, contentPath, 0, runtime, signal);
+  if (!stored) throw new Error('VIDEO_ASSET_SAVE_FAILED');
+  currentJob = await updateJob(auth, job.id, {
+    status: 'video',
+    stage: 'video',
+    completed: 1,
+    total: 1,
+    resultUrls: [stored],
+    requestIds,
+    timing: {
+      ...(currentJob.timing || {}),
+      savedAt: Date.now()
+    }
+  }) || currentJob;
+  return { resultUrls: [stored], requestIds, usage: task.raw?.usage || null, timing: currentJob.timing || null };
+}
+
 function buildJobRecord(body) {
   const request = body?.request && typeof body.request === 'object' ? body.request : body;
-  const mode = ['edit', 'mask'].includes(request.mode) ? request.mode : 'image';
-  const route = mode === 'image' && request.route !== 'edits' ? 'generations' : 'edits';
-  const count = Math.max(1, Math.min(4, Number(request.n || request.count || 1)));
+  const mode = request.mode === 'video' ? 'video' : ['edit', 'mask'].includes(request.mode) ? request.mode : 'image';
+  const route = mode === 'video' ? 'video' : mode === 'image' && request.route !== 'edits' ? 'generations' : 'edits';
+  const count = mode === 'video' ? 1 : Math.max(1, Math.min(4, Number(request.n || request.count || 1)));
+  const runtimeProfile = providerProfile(AUTH_MODE === 'standalone' ? PROVIDER_TYPE : request.providerFamily || request.providerId);
   const now = new Date().toISOString();
   return {
     id: cleanJobId(request.id || body.id),
@@ -1501,7 +1708,9 @@ function buildJobRecord(body) {
     completedAt: '',
     mode,
     route,
-    endpoint: route === 'edits' ? '/v1/images/edits' : '/v1/images/generations',
+    endpoint: route === 'video'
+      ? runtimeProfile.videoCreate ? `/v1${runtimeProfile.videoCreate}` : ''
+      : route === 'edits' ? '/v1/images/edits' : '/v1/images/generations',
     providerId: text(request.providerId || request.provider || '', 160),
     providerFamily: text(request.providerFamily || request.providerId || request.provider || '', 160),
     apiKeySource: text(request.apiKeySource || '', 60),
@@ -1514,6 +1723,15 @@ function buildJobRecord(body) {
     quality: text(request.quality || 'auto', 40),
     outputFormat: text(request.outputFormat || request.output_format || 'png', 20),
     moderation: text(request.moderation || 'auto', 40),
+    aspectRatio: text(request.aspectRatio || request.videoAspect || '', 40),
+    duration: Math.max(1, Math.min(30, Number(request.duration || request.videoDuration || 5))),
+    width: Math.max(0, Number(request.width || 0)),
+    height: Math.max(0, Number(request.height || 0)),
+    fps: Math.max(0, Number(request.fps || request.videoFps || 0)),
+    motion: text(request.motion || request.videoMotion || '', 80),
+    videoStyle: text(request.style || request.videoStyle || '', 80),
+    videoQuality: text(request.videoQuality || request.quality || '', 40),
+    negativePrompt: text(request.negativePrompt || '', 4000),
     count,
     completed: 0,
     total: count,
@@ -1538,11 +1756,13 @@ function buildJobRuntime(body) {
   const request = body?.request && typeof body.request === 'object' ? body.request : body;
   let apiKey;
   let gatewayBaseUrl;
+  let profile;
   if (AUTH_MODE === 'standalone') {
-    ({ apiKey, gatewayBaseUrl } = standaloneProviderRuntime());
+    ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime());
   } else {
     apiKey = text(body.apiKey || request.apiKey, 4000);
     gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL);
+    profile = providerProfile(request.providerFamily || request.providerId);
   }
   if (!apiKey) {
     const error = new Error('GENERATION_JOB_API_KEY_REQUIRED');
@@ -1552,6 +1772,7 @@ function buildJobRuntime(body) {
   return {
     apiKey,
     gatewayBaseUrl,
+    profile,
     images: (Array.isArray(body.images) ? body.images : []).slice(0, 4).map(normalizeImageInput).filter(Boolean),
     mask: body.mask ? normalizeImageInput(body.mask, 0) : null
   };
@@ -1577,6 +1798,20 @@ async function writeHistoryRecordForJob(auth, job) {
     quality: job.quality,
     outputFormat: job.outputFormat,
     moderation: job.moderation,
+    aspect: job.aspectRatio,
+    aspectRatio: job.aspectRatio,
+    videoAspect: job.aspectRatio,
+    videoAspectRatio: job.aspectRatio,
+    duration: job.duration,
+    videoDuration: job.duration,
+    width: job.width,
+    height: job.height,
+    fps: job.fps,
+    videoFps: job.fps,
+    videoMotion: job.motion,
+    videoStyle: job.videoStyle,
+    videoQuality: job.videoQuality,
+    negativePrompt: job.negativePrompt,
     count: job.count,
     resultUrls: job.resultUrls,
     requestIds: Array.isArray(job.requestIds) ? job.requestIds : [],
@@ -1619,6 +1854,9 @@ async function postMultipartToGateway(url, apiKey, form, clientRequestId, signal
 }
 
 async function runGenerationRequest(auth, job, runtime, signal) {
+  if (job.mode === 'video') {
+    return runVideoGenerationRequest(auth, job, runtime, signal);
+  }
   const resultUrls = [];
   const requestIds = [];
   const usages = [];
@@ -1706,13 +1944,13 @@ async function runGenerationRequest(auth, job, runtime, signal) {
         gatewayAt: Date.now()
       }
     }) || currentJob;
-    const payload = await postJsonToGateway(`${runtime.gatewayBaseUrl}/images/generations`, runtime.apiKey, {
-      model: job.model,
-      prompt: job.generationPrompt || job.prompt,
-      size: job.size,
-      quality: job.quality,
-      n: 1
-    }, clientRequestId, signal);
+    const payload = await postJsonToGateway(
+      `${runtime.gatewayBaseUrl}/images/generations`,
+      runtime.apiKey,
+      buildProviderImageGenerationBody(runtime.profile, job),
+      clientRequestId,
+      signal
+    );
     const items = Array.isArray(payload?.data) ? payload.data : [];
     if (!items.length) {
       const error = new Error('IMAGES_GENERATIONS_RETURNED_NO_IMAGES');
@@ -1897,7 +2135,7 @@ function decodeRoutePart(value) {
 async function serveAsset(req, res, auth, parts) {
   const recordId = cleanRecordId(parts[2]);
   const fileName = parts[4] || '';
-  if (!/^[0-9]{1,3}\.(png|jpg|webp)$/.test(fileName)) {
+  if (!/^[0-9]{1,3}\.(png|jpg|webp|mp4)$/.test(fileName)) {
     return sendJson(res, 404, { ok: false, error: 'ASSET_NOT_FOUND' });
   }
 
@@ -1911,10 +2149,31 @@ async function serveAsset(req, res, auth, parts) {
   if (!stat?.isFile()) return sendJson(res, 404, { ok: false, error: 'ASSET_NOT_FOUND' });
 
   const ext = path.extname(fileName).slice(1);
-  const mime = ext === 'jpg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png';
+  const mime = ext === 'jpg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : ext === 'mp4' ? 'video/mp4' : 'image/png';
+  const range = ext === 'mp4' ? String(req.headers.range || '') : '';
+  if (range) {
+    const match = range.match(/^bytes=(\d*)-(\d*)$/);
+    const start = match?.[1] ? Number(match[1]) : 0;
+    const end = match?.[2] ? Math.min(Number(match[2]), stat.size - 1) : stat.size - 1;
+    if (!match || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= stat.size) {
+      res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, {
+      'Content-Type': mime,
+      'Content-Length': end - start + 1,
+      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'private, max-age=3600'
+    });
+    createReadStream(filePath, { start, end }).pipe(res);
+    return;
+  }
   res.writeHead(200, {
     'Content-Type': mime,
     'Content-Length': stat.size,
+    ...(ext === 'mp4' ? { 'Accept-Ranges': 'bytes' } : {}),
     'Cache-Control': 'private, max-age=3600'
   });
   createReadStream(filePath).pipe(res);
@@ -2109,6 +2368,8 @@ async function handler(req, res) {
       service: 'image-agent-studio-history',
       legacyService: 'ai-image-workbench-history',
       version: SERVICE_VERSION,
+      providerType: AUTH_MODE === 'standalone' ? providerProfile(PROVIDER_TYPE).type : '',
+      videoConfigured: AUTH_MODE === 'standalone' ? Boolean(providerProfile(PROVIDER_TYPE).videoCreate && PROVIDER_BASE_URL && PROVIDER_API_KEY) : false,
       startedAt: new Date(SERVICE_STARTED_AT).toISOString()
     });
   }
@@ -2423,6 +2684,7 @@ server.listen(PORT, HOST, () => {
   if (AUTH_MODE === 'standalone') {
     console.log(`Registration mode: ${AUTH_REGISTRATION_MODE}`);
     console.log(`Server-managed provider configured: ${Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)}`);
+    console.log(`Server-managed provider type: ${providerProfile(PROVIDER_TYPE).type}`);
   } else {
     console.log(`AI gateway base URL: ${AI_GATEWAY_BASE_URL}`);
   }

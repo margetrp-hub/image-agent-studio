@@ -69,6 +69,8 @@ mustInclude('deploy/sync-from-git.sh', '10-runtime.conf', 'Git sync must archive
 mustInclude('deploy/sync-from-git.sh', 'LEGACY_UNIT_DROPIN_DIR', 'Git sync must archive drop-ins belonging to the retired service name');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_HISTORY_PORT', 'Git sync must make the history service port explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_AUTH_REGISTRATION_MODE', 'Git sync must keep standalone registration mode explicit');
+mustInclude('deploy/sync-from-git.sh', 'STUDIO_PROVIDER_TYPE', 'Git sync must keep the server provider family explicit');
+mustInclude('deploy/sync-from-git.sh', 'STUDIO_PROVIDER_BASE_URL', 'Git sync must keep the server provider endpoint explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_VERSION', 'Git sync must keep the service version visible in health responses');
 mustInclude('deploy/sync-from-git.sh', 'curl -fsS "$HEALTH_URL"', 'Git sync must verify the local history service health endpoint');
 mustInclude('deploy/sync-from-git.sh', 'scripts/image-agent-studio-history-service.mjs', 'Git sync must deploy the standard service wrapper');
@@ -128,6 +130,7 @@ mustInclude('.dockerignore', 'release/desktop', 'Docker context must not include
 mustInclude('.env.example', 'STUDIO_AUTH_MODE=standalone', 'Example config must default to Studio-owned user authentication');
 mustInclude('.env.example', 'STUDIO_AUTH_REGISTRATION_MODE=open', 'Example config must default to user self-registration');
 mustInclude('.env.example', 'STUDIO_PROVIDER_BASE_URL=', 'Example config must document the server-owned provider URL');
+mustInclude('.env.example', 'STUDIO_PROVIDER_TYPE=', 'Example config must document the server-owned provider family');
 mustInclude('.env.example', 'STUDIO_ALLOWED_ORIGINS=https://studio.example.com', 'Example config must document production origin allow-listing');
 
 mustInclude('package.json', '"check:docker": "node scripts/check-docker-compose.mjs"', 'Docker Compose config must have a dedicated parsed-config check');
@@ -147,6 +150,7 @@ mustInclude('package.json', '"smoke:history:idb": "npm exec --yes --package=play
 mustInclude('package.json', '"smoke:projects": "npm exec --yes --package=playwright -- node scripts/smoke-project-session-grouping.mjs"', 'Sidebar projects must stay grouped by conversation/session');
 mustInclude('package.json', '"smoke:image:route": "npm exec --yes --package=playwright -- node scripts/smoke-image-generation-route.mjs"', 'Text-to-image must keep using /v1/images/generations by default');
 mustInclude('package.json', '"smoke:newapi:route": "npm exec --yes --package=playwright -- node scripts/smoke-newapi-route.mjs"', 'NewAPI Playground provider must keep using OpenAI-compatible image routes and model sync');
+mustInclude('package.json', '"smoke:xai:route": "npm exec --yes --package=playwright -- node scripts/smoke-xai-provider-route.mjs"', 'xAI image and video provider routes must keep a browser contract test');
 mustInclude('package.json', '"smoke:image:edit-route": "npm exec --yes --package=playwright -- node scripts/smoke-image-edit-route.mjs"', 'Reference image editing must keep using /v1/images/edits');
 mustInclude('package.json', '"smoke:references": "npm exec --yes --package=playwright -- node scripts/smoke-reference-upload-preview.mjs"', 'Reference upload previews must stay visible and inspectable');
 mustInclude('package.json', '"smoke:provider:security": "npm exec --yes --package=playwright -- node scripts/smoke-provider-settings-security.mjs"', 'Manual provider API keys must never persist in localStorage');
@@ -181,6 +185,7 @@ mustInclude('package.json', '"smoke:docker": "node scripts/smoke-docker-runtime.
   'npm run smoke:history:queue',
   'npm run smoke:image:route',
   'npm run smoke:newapi:route',
+  'npm run smoke:xai:route',
   'npm run smoke:image:edit-route',
   'npm run smoke:session:modes',
   'npm run smoke:references',

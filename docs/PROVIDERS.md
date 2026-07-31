@@ -87,6 +87,28 @@ npm run smoke:newapi:route
 
 That smoke test verifies that the NewAPI provider syncs `/v1/models`, submits text-to-image through `/v1/images/generations`, preserves the provider id in the server job payload, and does not leak the manual API key into durable browser storage.
 
+`xai-compatible`
+
+Use this for a Grok Imagine-compatible endpoint such as
+`https://provider.example/v1`. The tested contract is intentionally separate
+from the generic task-style video adapter:
+
+```text
+GET  /v1/models
+POST /v1/images/generations
+POST /v1/videos/generations
+GET  /v1/videos/{request_id}
+GET  /v1/videos/{request_id}/content
+```
+
+Image requests send only `model`, `prompt`, and `n: 1`. Video creation sends
+`model`, `prompt`, and `duration`; the response may use `request_id`,
+`status: done`, and `video.url`. The client polls the request endpoint and
+downloads protected content before exposing it to the browser. Set
+`STUDIO_PROVIDER_TYPE=xai-compatible` for server-managed standalone jobs.
+See the [xAI adapter profile](./adapters/xai-compatible.md) for the full
+request/response boundary.
+
 `gateway-account`
 
 Use this when the workbench is attached to an existing account system. The browser can use gateway login state, account keys, and optional profile/key APIs, while the workbench owns the creation UI, queue display, canvas state, and persistence service.

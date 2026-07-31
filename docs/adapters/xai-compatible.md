@@ -1,0 +1,48 @@
+# xAI / Grok-compatible
+
+Use the `xai-compatible` provider when the upstream exposes the Grok Imagine
+image and video routes through an OpenAI-style `/v1` base URL.
+
+## Routes
+
+```text
+GET  /v1/models
+POST /v1/images/generations
+POST /v1/videos/generations
+GET  /v1/videos/{request_id}
+GET  /v1/videos/{request_id}/content
+```
+
+Image generation uses a deliberately small JSON body:
+
+```json
+{
+  "model": "grok-imagine-image",
+  "prompt": "...",
+  "n": 1
+}
+```
+
+The adapter does not send `size` or `quality` because the tested Grok image
+route does not advertise those OpenAI image parameters. The workstation may
+still keep those controls for other providers.
+
+Video generation is asynchronous. The create response may contain
+`request_id` and `status: queued`; a completed response can return
+`status: done` with a nested `video.url`. The adapter normalizes those values,
+polls the request endpoint, and downloads same-origin content with the API
+authorization header when the content URL is protected.
+
+## Server deployment
+
+For standalone deployments, keep the key on the server and set:
+
+```env
+STUDIO_PROVIDER_TYPE=xai-compatible
+STUDIO_PROVIDER_BASE_URL=https://provider.example/v1
+STUDIO_PROVIDER_API_KEY=replace-on-server-only
+```
+
+Do not put the real key in the repository, Docker image, frontend build, or
+release notes. `npm run check:xai` validates the request contract without a
+real provider call.

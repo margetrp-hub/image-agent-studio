@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.3 - 2026-08-01
+
+- Added an `xai-compatible` provider adapter for Grok Imagine-style image and asynchronous video routes.
+- Normalized `request_id`, `status: done`, nested `video.url`, protected video content downloads, and HTTP-relative media URLs.
+- Kept xAI image request bodies minimal by omitting unsupported `size` and `quality` fields.
+- Enabled standalone video jobs through the persistent service queue and added model selection from saved provider settings.
+- Added Git-sync configuration for `STUDIO_PROVIDER_TYPE` and `STUDIO_PROVIDER_BASE_URL`, plus Go dispatch coverage and browser/service smoke tests.
+
 ## 1.0.2 - 2026-07-28
 
 - Added standalone self-registration so users can create Image Agent Studio accounts without admin-created credentials.

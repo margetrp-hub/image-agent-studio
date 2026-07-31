@@ -69,3 +69,36 @@ func TestBuildImageGenerationPlanRejectsUnsupportedRoute(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestBuildImageGenerationPlanForXAIOmitsUnsupportedParameters(t *testing.T) {
+	plan, err := BuildImageGenerationPlan(store.ProviderLink{
+		ID:           "xai-shared",
+		ProviderType: "xai-compatible",
+		BaseURL:      "https://fast.example/v1",
+	}, store.GenerationJob{
+		Mode:   "image",
+		Route:  "generations",
+		Model:  "grok-imagine-image",
+		Prompt: "A clean product shot",
+		Request: map[string]any{
+			"size":    "1536x1024",
+			"quality": "high",
+			"n":       float64(4),
+		},
+	}, true)
+	if err != nil {
+		t.Fatalf("BuildImageGenerationPlan failed: %v", err)
+	}
+	if plan.Endpoint != "https://fast.example/v1/images/generations" {
+		t.Fatalf("unexpected endpoint: %#v", plan)
+	}
+	if plan.Body["model"] != "grok-imagine-image" || plan.Body["prompt"] != "A clean product shot" || plan.Body["n"] != 4 {
+		t.Fatalf("unexpected xAI plan body: %#v", plan.Body)
+	}
+	if _, ok := plan.Body["size"]; ok {
+		t.Fatalf("xAI plan must omit size: %#v", plan.Body)
+	}
+	if _, ok := plan.Body["quality"]; ok {
+		t.Fatalf("xAI plan must omit quality: %#v", plan.Body)
+	}
+}

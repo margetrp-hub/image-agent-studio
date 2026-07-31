@@ -1,4 +1,4 @@
-const ACTIVE_SERVER_JOB_STATUSES = new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'saving']);
+const ACTIVE_SERVER_JOB_STATUSES = new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'video', 'saving']);
 const FINAL_SERVER_JOB_STATUSES = new Set(['succeeded', 'failed', 'unknown', 'canceled']);
 const QUEUE_STATUSES = new Set(['queued', 'running', 'failed', 'canceled', 'unknown', 'done']);
 
@@ -349,6 +349,7 @@ export function serverJobProgress(job, fallbackTotal = 1) {
     gateway: 38,
     upstream: 52,
     image: 76,
+    video: 84,
     saving: 88,
     succeeded: 100,
     failed: 0,

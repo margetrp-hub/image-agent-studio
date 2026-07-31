@@ -72,7 +72,10 @@ export function selectImageEditModel({ requestedModel, providerSettings, provide
   ).trim();
 }
 
-export function createImagesGenerationBody({ model, prompt, size, quality }) {
+export function createImagesGenerationBody({ model, prompt, size, quality, payloadFormat = 'images-json' }) {
+  if (payloadFormat === 'xai-images-json') {
+    return compactGatewayObject({ model, prompt, n: 1 });
+  }
   return {
     model,
     prompt,

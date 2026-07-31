@@ -791,7 +791,7 @@ func normalizeProviderLink(link ProviderLink) ProviderLink {
 
 func providerTypeAllowed(value string) bool {
 	switch value {
-	case "newapi-compatible", "sub2api-compatible", "openai-compatible":
+	case "newapi-compatible", "sub2api-compatible", "openai-compatible", "xai-compatible":
 		return true
 	default:
 		return false

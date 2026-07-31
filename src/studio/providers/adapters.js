@@ -77,7 +77,9 @@ export function resolveProviderAdapter({ providerId, authMode } = {}) {
         routeMode: dispatch.routeMode,
         endpoint: dispatch.endpoint,
         allowImagesFallback: dispatch.allowImagesFallback,
-        payloadFormat: dispatch.transport === PROVIDER_ROUTE_MODES.RESPONSES ? 'responses-json' : 'images-json'
+        payloadFormat: dispatch.transport === PROVIDER_ROUTE_MODES.RESPONSES
+          ? 'responses-json'
+          : provider?.parameters?.imageGenerationPayload || 'images-json'
       };
     },
     buildEditPlan() {

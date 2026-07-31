@@ -23,6 +23,7 @@ Two adjacent boundaries protect the adapter layer:
 - [OpenAI-compatible](./openai-compatible.md)
 - [NewAPI-compatible](./newapi.md)
 - [Sub2API-compatible](./sub2api.md)
+- [xAI / Grok-compatible](./xai-compatible.md)
 
 ## Rules
 

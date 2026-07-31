@@ -179,6 +179,7 @@ import {
 } from './studio/generation/modelSync.js';
 import {
   buildServerImageGenerationJobPayload,
+  buildServerVideoGenerationJobPayload,
   endpointForGenerationTask,
   imageGenerationRouteForMode
 } from './studio/generation/executor.js';
@@ -374,7 +375,7 @@ const WORKSPACES = [
   { value: 'inspiration', label: '灵感库' },
   { value: 'video', label: '视频创作' },
   { value: 'history', label: '历史图库' }
-].filter((item) => !STUDIO_STANDALONE || item.value !== 'video');
+];
 const DESK_MODES = [
   { value: 'image', label: '文生图', icon: ImageIcon },
   { value: 'edit', label: '参考图', icon: Images },
@@ -629,7 +630,7 @@ function WorkbenchModeSwitch({ activeWorkspace, onChange, t }) {
   const items = [
     { value: 'image', label: t('workspace.image', '图片创作'), icon: ImageIcon },
     { value: 'video', label: t('workspace.video', '视频创作'), icon: Video }
-  ].filter((item) => !STUDIO_STANDALONE || item.value !== 'video');
+  ];
 
   return (
     <div className="workbenchModeSwitch" role="group" aria-label={t('workspace.creationType', '创作类型')}>
@@ -735,7 +736,12 @@ function CreationDesk({
   const lastSessionSnapshotPayloadRef = useRef('');
   const [mode, setMode] = useState(restoredMode);
   const [prompt, setPrompt] = useState(() => restoredSession?.prompt || draftRef.current?.prompt || '');
-  const [model, setModel] = useState(() => restoredSession?.model || initialParameters.model || IMAGE_MODELS[0]);
+  const [model, setModel] = useState(() => (
+    restoredSession?.model
+      || initialParameters.model
+      || providerSettings.imageGenerationModel
+      || IMAGE_MODELS[0]
+  ));
   const initialSize = normalizeSize(initialParameters.size || initialParameters.customSize || '1024x1024');
   const [aspect, setAspect] = useState(() => normalizeAspect(initialParameters.aspect || initialParameters.aspectRatio, initialSize));
   const [customSize, setCustomSize] = useState(() => normalizeSize(initialParameters.customSize || initialSize));
@@ -744,7 +750,12 @@ function CreationDesk({
   const [outputFormat, setOutputFormat] = useState(() => normalizeOutputFormat(initialParameters.outputFormat));
   const [moderation, setModeration] = useState(() => normalizeModeration(initialParameters.moderation));
   const [count, setCount] = useState(() => initialParameters.count || 1);
-  const [videoModel, setVideoModel] = useState(() => initialParameters.videoModel || (restoredMode === 'video' ? restoredSession?.model : '') || VIDEO_MODELS[0]);
+  const [videoModel, setVideoModel] = useState(() => (
+    initialParameters.videoModel
+      || (restoredMode === 'video' ? restoredSession?.model : '')
+      || providerSettings.videoModel
+      || VIDEO_MODELS[0]
+  ));
   const [videoAspect, setVideoAspect] = useState(() => normalizeVideoAspect(initialParameters.videoAspect || initialParameters.videoAspectRatio));
   const [videoDuration, setVideoDuration] = useState(() => normalizeVideoDuration(initialParameters.videoDuration || initialParameters.duration));
   const [videoFps, setVideoFps] = useState(() => normalizeVideoFps(initialParameters.videoFps || initialParameters.fps));
@@ -2835,11 +2846,6 @@ function CreationDesk({
         : t('statusMessages.promptRequired', '请先填写提示词，或先选中一个画布节点继续。'));
       return false;
     }
-    if (STUDIO_STANDALONE && activeMode === 'video') {
-      setStatus('error');
-      setMessage(t('statusMessages.standaloneVideoUnavailable', 'Video generation is not configured for this Studio deployment.'));
-      return false;
-    }
     const willUseCanvasReference = Boolean(activeSelectedNode && activeSelectedNode.kind !== 'video' && activeSelectedNode.url && (activeMode === 'edit' || activeMode === 'mask'));
     if (activeIsImageEditMode && !activeReferenceFiles.length && !willUseCanvasReference) {
       setStatus('error');
@@ -2961,52 +2967,115 @@ function CreationDesk({
             : t('statusMessages.videoModelsUnavailable', '当前 Key 没有开放视频模型。'));
           return false;
         }
-        const referenceImage = activeVideoReferenceFiles[0]
-          ? await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result || ''));
-            reader.onerror = () => reject(new Error('REFERENCE_IMAGE_READ_FAILED'));
-            reader.readAsDataURL(activeVideoReferenceFiles[0]);
-          })
-          : '';
-        if (!isCurrentRequest()) return false;
-        const payload = await client.generateVideo({
-          ...providerRequest,
-          gatewayBaseUrl: activeVideoGatewayBaseUrl,
-          transport: videoPlan.transport,
-          createEndpoint: videoPlan.createEndpoint,
-          retrieveEndpoint: videoPlan.retrieveEndpoint,
-          contentEndpoint: videoPlan.contentEndpoint,
-          model: activeVideoModel,
-          prompt: basePrompt,
-          image: referenceImage,
-          duration: activeVideoDuration,
-          width: activeVideoSize.width,
-          height: activeVideoSize.height,
-          fps: activeVideoFps,
-          n: 1,
-          metadata: {
-            aspect_ratio: activeVideoAspect,
-            camera_motion: activeVideoMotion,
+        let payload = null;
+        let urls = [];
+        let persistedResultUrls = [];
+        if (STUDIO_STANDALONE) {
+          const historyClient = createHistoryClient({ session: loadSession() });
+          const jobImages = await generationFilesForJob(activeVideoReferenceFiles, 1);
+          const job = await historyClient.createGenerationJob(buildServerVideoGenerationJobPayload({
+            serverManaged: true,
+            generationMeta,
+            sessionId,
+            parentCanvasNodeId: lineageParentId,
+            providerId: providerSettings.providerId,
+            apiKeySource: providerSettings.apiKeySource,
+            providerLabel: providerLabel(providerSettings, apiKey),
+            images: jobImages,
+            model: activeVideoModel,
+            prompt: basePrompt,
+            generationPrompt: basePrompt,
+            aspectRatio: activeVideoAspect,
+            duration: activeVideoDuration,
+            width: activeVideoSize.width,
+            height: activeVideoSize.height,
+            fps: activeVideoFps,
+            motion: activeVideoMotion,
             style: activeVideoStyle,
-            quality_level: activeVideoQuality,
-            negative_prompt: activeNegativePrompt.trim(),
-            source: 'ai-image-workbench'
-          },
-          signal: controller.signal,
-          onProgress: (nextProgress) => {
-            if (!isCurrentRequest()) return;
-            if (!firstByteAt && nextProgress.stage && nextProgress.stage !== 'request') {
-              firstByteAt = Date.now();
-              setTiming((current) => current ? { ...current, firstByteAt } : current);
-            }
-            setVideoTask(nextProgress.task || null);
-            setProgress((current) => ({ ...current, ...nextProgress }));
-            setMessage(progressText(nextProgress, t('progress.videoGenerating', '视频生成中')));
+            quality: activeVideoQuality,
+            negativePrompt: activeNegativePrompt.trim(),
+            workflow: activeWorkflow
+          }));
+          if (!job?.id) throw new Error('GENERATION_JOB_CREATE_FAILED');
+          generationRef.current = { ...generationRef.current, remoteJobId: job.id };
+          if (options.queueTaskId) {
+            markGenerationTask(options.queueTaskId, {
+              serverJobId: job.id,
+              remote: true,
+              restorable: false,
+              summary: job.prompt || basePrompt || '服务端视频任务'
+            });
+          } else {
+            syncRemoteGenerationJob(job);
           }
-        });
+          setProgress(serverJobProgress(job, 1));
+          setMessage(serverJobMessage(job, t));
+          const finalJob = await waitForServerJob(historyClient, job.id, { signal: controller.signal, total: 1 });
+          if (!isCurrentRequest()) return false;
+          if (!finalJob || finalJob.status !== 'succeeded') {
+            if (finalJob?.id) syncRemoteGenerationJob(finalJob);
+            const error = new Error(finalJob?.error?.message || 'GENERATION_JOB_FAILED');
+            error.status = finalJob?.error?.status;
+            error.code = finalJob?.status === 'unknown' ? 'GENERATION_JOB_UNKNOWN' : finalJob?.error?.code;
+            error.requestId = finalJob?.error?.requestId || finalJob?.requestIds?.[0] || '';
+            throw error;
+          }
+          persistedResultUrls = Array.isArray(finalJob.resultUrls) ? finalJob.resultUrls : [];
+          urls = await Promise.all(persistedResultUrls.map((url) => historyClient.resolveAssetUrl(url).catch(() => url)));
+          payload = {
+            task_id: finalJob.requestIds?.[0] || finalJob.id,
+            id: finalJob.requestIds?.[0] || finalJob.id,
+            status: 'completed',
+            video_url: urls[0] || '',
+            raw: finalJob
+          };
+          if (!firstByteAt) {
+            firstByteAt = Date.now();
+            setTiming((current) => current ? { ...current, firstByteAt } : current);
+          }
+        } else {
+          const referenceImage = activeVideoReferenceFiles[0]
+            ? await fileToDataUrl(activeVideoReferenceFiles[0])
+            : '';
+          if (!isCurrentRequest()) return false;
+          payload = await client.generateVideo({
+            ...providerRequest,
+            gatewayBaseUrl: activeVideoGatewayBaseUrl,
+            transport: videoPlan.transport,
+            createEndpoint: videoPlan.createEndpoint,
+            retrieveEndpoint: videoPlan.retrieveEndpoint,
+            contentEndpoint: videoPlan.contentEndpoint,
+            model: activeVideoModel,
+            prompt: basePrompt,
+            image: referenceImage,
+            duration: activeVideoDuration,
+            width: activeVideoSize.width,
+            height: activeVideoSize.height,
+            fps: activeVideoFps,
+            n: 1,
+            metadata: {
+              aspect_ratio: activeVideoAspect,
+              camera_motion: activeVideoMotion,
+              style: activeVideoStyle,
+              quality_level: activeVideoQuality,
+              negative_prompt: activeNegativePrompt.trim(),
+              source: 'image-agent-studio'
+            },
+            signal: controller.signal,
+            onProgress: (nextProgress) => {
+              if (!isCurrentRequest()) return;
+              if (!firstByteAt && nextProgress.stage && nextProgress.stage !== 'request') {
+                firstByteAt = Date.now();
+                setTiming((current) => current ? { ...current, firstByteAt } : current);
+              }
+              setVideoTask(nextProgress.task || null);
+              setProgress((current) => ({ ...current, ...nextProgress }));
+              setMessage(progressText(nextProgress, t('progress.videoGenerating', '视频生成中')));
+            }
+          });
+          urls = getVideoUrls(payload);
+        }
         if (!isCurrentRequest()) return false;
-        const urls = getVideoUrls(payload);
         if (!urls.length) {
           throw new Error('视频任务已完成，但没有返回视频地址。');
         }
@@ -3062,7 +3131,7 @@ function CreationDesk({
             firstByteMs: (firstByteAt || completedAt) - startedAt,
             totalMs: completedAt - startedAt
           },
-          resultUrls: storedResultUrls(urls),
+          resultUrls: persistedResultUrls.length ? persistedResultUrls : storedResultUrls(urls),
           case: selectedCase ? {
             id: selectedCase.id,
             title: selectedCase.title,
@@ -5064,7 +5133,7 @@ function StudioApp() {
   const [theme, setTheme] = useState(() => loadTheme());
   const [language, setLanguage] = useState(() => loadStudioLanguage());
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const [activeWorkspace, setActiveWorkspace] = useState(() => !STUDIO_STANDALONE && initialCurrentSession?.mode === 'video' ? 'video' : 'image');
+  const [activeWorkspace, setActiveWorkspace] = useState(() => initialCurrentSession?.mode === 'video' ? 'video' : 'image');
   const [appendTemplateRequest, setAppendTemplateRequest] = useState(null);
   const [remoteSession, setRemoteSession] = useState(null);
   const [remoteSessionReady, setRemoteSessionReady] = useState(() => !initialSession?.accessToken);
@@ -5436,7 +5505,6 @@ function StudioApp() {
   );
 
   function handleWorkspaceChange(nextWorkspace, options = {}) {
-    if (STUDIO_STANDALONE && nextWorkspace === 'video') return;
     setSettingsOpen(false);
     setActiveWorkspace(nextWorkspace);
     setQuery('');

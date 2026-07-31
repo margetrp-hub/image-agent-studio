@@ -42,6 +42,7 @@ assert(webPort?.target === 80 && String(webPort.published) === '8080', 'studio-w
 assert(web.build?.args?.VITE_STUDIO_STANDALONE === 'true', 'studio-web must default to the standalone login path.', web.build?.args);
 assert(history.environment?.STUDIO_AUTH_MODE === 'standalone', 'studio-history must default to Studio-owned authentication.', history.environment);
 assert(history.environment?.STUDIO_AUTH_REGISTRATION_MODE === 'open', 'studio-history must default to user self-registration.', history.environment);
+assert(history.environment?.STUDIO_PROVIDER_TYPE === 'openai-compatible', 'studio-history must expose the provider family setting.', history.environment);
 assert(history.environment?.STUDIO_DATA_DIR === '/data', 'studio-history must write persisted data to /data.', history.environment);
 assert(history.environment?.STUDIO_VERSION === '1.0.0', 'studio-history must expose the documented service version.', history.environment);
 assert(history.environment?.STUDIO_GATEWAY_FETCH_TIMEOUT_MS === '2640000', 'studio-history must allow slow native image jobs to outlast the default fetch timeout.', history.environment);

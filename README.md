@@ -19,6 +19,7 @@ If you are exploring AI image workflows, OpenAI-compatible image endpoints, gate
 - Text-to-image uses `POST /v1/images/generations` by default.
 - Reference image and mask editing use `POST /v1/images/edits`.
 - Prompt helper requests use `POST /v1/chat/completions`.
+- The `xai-compatible` adapter supports Grok Imagine image generation and asynchronous video generation without changing the core workstation flow.
 - `/v1/responses` is treated as an explicit compatibility path, not the default image route.
 - Provider-neutral settings prefer `VITE_AI_*` and `AI_GATEWAY_*`.
 - Older `VITE_SUB2API_*` and `SUB2API_*` names remain as compatibility aliases for existing deployments.

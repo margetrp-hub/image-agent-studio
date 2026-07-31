@@ -43,6 +43,7 @@ const explicit = createServiceConfig({
     STUDIO_AUTH_REGISTRATION_MODE: 'disabled',
     STUDIO_AUTH_LOGIN_MAX_CONCURRENCY: '2',
     STUDIO_PROVIDER_BASE_URL: 'https://provider.example/v1/',
+    STUDIO_PROVIDER_TYPE: 'xai-compatible',
     STUDIO_PROVIDER_API_KEY: 'server-secret',
     STUDIO_PROVIDER_CHAT_MODEL: 'chat-model',
     STUDIO_JOB_CONCURRENCY: '0'
@@ -55,7 +56,8 @@ assert.equal(explicit.LIBRARY_DIR, path.resolve('D:/studio-library'));
 assert.equal(explicit.AUTH_DATABASE_PATH, path.resolve('D:/studio-auth/auth.sqlite'));
 assert.equal(explicit.AUTH_REGISTRATION_MODE, 'disabled');
 assert.equal(explicit.AUTH_LOGIN_MAX_CONCURRENCY, 2);
-assert.equal(explicit.PROVIDER_BASE_URL, 'https://provider.example/v1');
+  assert.equal(explicit.PROVIDER_BASE_URL, 'https://provider.example/v1');
+  assert.equal(explicit.PROVIDER_TYPE, 'xai-compatible');
 assert.equal(explicit.PROVIDER_API_KEY, 'server-secret');
 assert.equal(explicit.PROVIDER_CHAT_MODEL, 'chat-model');
 assert.equal(explicit.JOB_CONCURRENCY, 1);

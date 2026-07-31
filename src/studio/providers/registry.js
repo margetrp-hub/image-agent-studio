@@ -11,7 +11,8 @@ export const PROVIDER_ROUTE_MODES = Object.freeze({
 
 export const PROVIDER_VIDEO_TRANSPORTS = Object.freeze({
   TASK_JSON: 'task-json',
-  OPENAI_VIDEOS: 'openai-videos'
+  OPENAI_VIDEOS: 'openai-videos',
+  XAI_VIDEOS: 'xai-videos'
 });
 
 export const PROVIDER_ADAPTER_TYPES = Object.freeze({
@@ -48,6 +49,13 @@ const VIDEO_TASK_ROUTES = Object.freeze({
   videoCreate: '/v1/video/generations',
   videoRetrieve: '/v1/video/generations/{id}',
   videoContent: ''
+});
+
+const XAI_COMPATIBLE_ROUTES = Object.freeze({
+  ...OPENAI_COMPATIBLE_ROUTES,
+  videoCreate: '/v1/videos/generations',
+  videoRetrieve: '/v1/videos/{id}',
+  videoContent: '/v1/videos/{id}/content'
 });
 
 const OPENAI_IMAGE_CAPABILITIES = Object.freeze({
@@ -171,6 +179,39 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
       workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
       modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, OPENAI_VIDEO_MODEL_SLOT]),
       notes: ['Custom OpenAI-compatible endpoint with /v1/images, /v1/videos, and /v1/models support.']
+    })
+  }),
+  Object.freeze({
+    id: 'xai-compatible',
+    label: 'xAI / Grok-compatible API',
+    authMode: PROVIDER_AUTH_MODES.MANUAL,
+    adapterType: PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP,
+    routes: XAI_COMPATIBLE_ROUTES,
+    capabilities: Object.freeze({
+      ...OPENAI_IMAGE_CAPABILITIES,
+      modelSync: true,
+      videoGeneration: true
+    }),
+    parameters: Object.freeze({
+      ...OPENAI_IMAGE_PARAMETERS,
+      defaultImageModel: 'grok-imagine-image',
+      defaultVideoModel: 'grok-imagine-video-1.5',
+      videoTransport: PROVIDER_VIDEO_TRANSPORTS.XAI_VIDEOS,
+      imageGenerationPayload: 'xai-images-json'
+    }),
+    descriptor: providerDescriptor({
+      authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://api.example.com/v1',
+      modelSync: true,
+      workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
+      modelSlots: freezeModelSlots([
+        { key: 'imageGenerationModel', label: 'Image generation', defaultModel: 'grok-imagine-image', route: 'generations' },
+        { key: 'imageEditModel', label: 'Image edit / mask', defaultModel: 'grok-imagine-image', route: 'edits' },
+        { key: 'responsesModel', label: 'Prompt assistant', defaultModel: 'grok-4', route: 'assistant' },
+        { key: 'videoModel', label: 'Video generation', defaultModel: 'grok-imagine-video-1.5', route: 'video' }
+      ]),
+      setupHint: 'Use a Grok-compatible /v1 endpoint. Images use /v1/images/generations; videos use /v1/videos/generations and are polled through /v1/videos/{id}.',
+      notes: ['Grok-compatible image and asynchronous video routes with request_id and nested video.url responses.']
     })
   }),
   Object.freeze({
@@ -299,6 +340,7 @@ export const DEFAULT_IMAGE_PROVIDER_ID = 'gateway-account';
 const PROVIDER_DISPLAY_ORDER = Object.freeze([
   'official-openai',
   'openai-compatible',
+  'xai-compatible',
   'newapi-compatible',
   'gateway-account',
   'nano-banana-compatible',

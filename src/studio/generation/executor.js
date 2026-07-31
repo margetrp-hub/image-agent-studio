@@ -89,3 +89,76 @@ export function buildServerImageGenerationJobPayload({
     }
   };
 }
+
+export function buildServerVideoGenerationJobPayload({
+  serverManaged = false,
+  apiKey,
+  gatewayBaseUrl,
+  images = [],
+  generationMeta,
+  sessionId,
+  parentCanvasNodeId = '',
+  providerId,
+  providerFamily,
+  apiKeySource,
+  providerLabel,
+  model,
+  prompt,
+  generationPrompt,
+  aspectRatio,
+  duration,
+  width,
+  height,
+  fps,
+  motion,
+  style,
+  quality,
+  negativePrompt,
+  workflow = null
+} = {}) {
+  return {
+    ...(!serverManaged ? { apiKey, gatewayBaseUrl } : {}),
+    images: images.slice(0, 1),
+    request: {
+      id: generationMeta?.id || '',
+      clientRequestId: `studio-${generationMeta?.id || Date.now()}`,
+      sessionId,
+      parentCanvasNodeId,
+      providerId,
+      providerFamily: providerFamily || providerId,
+      apiKeySource,
+      providerLabel,
+      mode: 'video',
+      route: 'video',
+      fingerprint: generationTaskFingerprint({
+        sessionId,
+        mode: 'video',
+        route: 'video',
+        providerId,
+        apiKeySource,
+        model,
+        prompt: generationPrompt || prompt,
+        size: aspectRatio,
+        quality,
+        count: 1,
+        parentCanvasNodeId,
+        referenceCount: images.length
+      }),
+      model,
+      prompt,
+      generationPrompt: generationPrompt || prompt,
+      aspectRatio,
+      duration,
+      width,
+      height,
+      fps,
+      motion,
+      style,
+      quality,
+      negativePrompt,
+      n: 1,
+      count: 1,
+      ...(workflow ? { workflow } : {})
+    }
+  };
+}

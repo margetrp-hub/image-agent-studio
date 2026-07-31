@@ -1,5 +1,44 @@
 ﻿# Release Notes
 
+## 1.0.3
+
+This release adds a provider-specific xAI/Grok compatibility path while keeping
+the workstation core independent from any gateway brand. It covers both direct
+image generation and asynchronous video jobs, including the response shapes
+used by the tested Grok Imagine endpoint.
+
+### What Changed
+
+- Added the `xai-compatible` provider preset and model detection for
+  `grok-imagine-image` and `grok-imagine-video-*`.
+- Image requests use `POST /v1/images/generations` with only `model`, `prompt`,
+  and `n`; unsupported generic `size` and `quality` fields are omitted.
+- Video requests use `POST /v1/videos/generations`, poll
+  `GET /v1/videos/{request_id}`, and download protected content from
+  `GET /v1/videos/{request_id}/content`.
+- Standalone deployments can persist and execute video jobs through the same
+  service queue as image jobs.
+- Git-sync and Docker contracts now expose `STUDIO_PROVIDER_TYPE` alongside
+  `STUDIO_PROVIDER_BASE_URL`; provider secrets remain server-side.
+- Added route, service, model-sync, and Go dispatch regression coverage.
+
+### Verification
+
+- `npm run check:xai`
+- `npm run smoke:xai:route`
+- `npm run smoke:standalone:service`
+- `npm run check:env`
+- `npm run check:service-config`
+- `npm run build`
+- `npm run build:studio`
+
+### Deployment Note
+
+The release does not contain a provider key. For a standalone server, set
+`STUDIO_PROVIDER_TYPE=xai-compatible`, `STUDIO_PROVIDER_BASE_URL` to the
+provider's `/v1` endpoint, and `STUDIO_PROVIDER_API_KEY` in a protected server
+environment file before restarting the service.
+
 ## 1.0.2
 
 This release turns standalone deployment into a real multi-user setup: users can create their own Image Agent Studio accounts, while the deployment owner keeps provider credentials on the server.

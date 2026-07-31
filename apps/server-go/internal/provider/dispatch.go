@@ -47,11 +47,13 @@ func BuildImageGenerationPlan(link store.ProviderLink, job store.GenerationJob, 
 		"model":  model,
 		"prompt": prompt,
 	}
-	if size := valueFromJob(job, "size"); size != "" {
-		body["size"] = size
-	}
-	if quality := valueFromJob(job, "quality"); quality != "" {
-		body["quality"] = quality
+	if link.ProviderType != "xai-compatible" {
+		if size := valueFromJob(job, "size"); size != "" {
+			body["size"] = size
+		}
+		if quality := valueFromJob(job, "quality"); quality != "" {
+			body["quality"] = quality
+		}
 	}
 	if count := intFromJob(job, "n"); count > 0 {
 		body["n"] = count

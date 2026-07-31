@@ -16,6 +16,7 @@ const adminPassword = 'Admin Password 123!';
 const memberPassword = 'Member Password 123!';
 const creatorPassword = 'Creator Password 123!';
 const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
 
 const bootstrapStore = createStandaloneAuthStore({ databasePath, passwordIterations: 100_000 });
 const admin = bootstrapStore.createUser({
@@ -41,6 +42,19 @@ const provider = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ data: [{ b64_json: tinyPng }], usage: { total_tokens: 1 } }));
     return;
   }
+  if (req.method === 'POST' && req.url === '/v1/videos/generations') {
+    res.end(JSON.stringify({ request_id: 'grok-video-smoke-1', status: 'queued' }));
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/v1/videos/grok-video-smoke-1') {
+    res.end(JSON.stringify({ request_id: 'grok-video-smoke-1', status: 'done', video: { url: '/v1/videos/grok-video-smoke-1/content' } }));
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/v1/videos/grok-video-smoke-1/content') {
+    res.setHeader('Content-Type', 'video/mp4');
+    res.end(tinyMp4);
+    return;
+  }
   if (req.method === 'POST' && req.url === '/v1/chat/completions') {
     res.end(JSON.stringify({ choices: [{ message: { content: 'Improved studio prompt' } }] }));
     return;
@@ -64,6 +78,7 @@ const servicePort = await freePort();
 const service = startService(servicePort, {
   STUDIO_PROVIDER_BASE_URL: `http://127.0.0.1:${providerPort}`,
   STUDIO_PROVIDER_API_KEY: serverProviderKey,
+  STUDIO_PROVIDER_TYPE: 'xai-compatible',
   STUDIO_PROVIDER_CHAT_MODEL: 'studio-chat-model'
 });
 
@@ -282,6 +297,54 @@ try {
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && JSON.parse(hit.rawBody).stream === false));
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && JSON.parse(hit.rawBody).model === 'studio-chat-model'));
   assert(providerHits.every((hit) => hit.authorization !== `Bearer ${clientProviderKey}`));
+
+  const videoJobId = 'job-grok-video-123';
+  const videoGeneration = await request(servicePort, '/studio-api/generation-jobs', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      request: {
+        id: videoJobId,
+        clientRequestId: 'client-video-request-123',
+        sessionId: 'shared_session',
+        mode: 'video',
+        route: 'video',
+        providerId: 'gateway-account',
+        providerFamily: 'gateway-account',
+        model: 'grok-imagine-video-1.5',
+        prompt: 'A five second cinematic product shot.',
+        duration: 5,
+        width: 1280,
+        height: 720,
+        fps: 24,
+        n: 1
+      }
+    }
+  });
+  assert.equal(videoGeneration.status, 202);
+  const completedVideoJob = await waitForJob(servicePort, adminToken, videoJobId);
+  assert.equal(completedVideoJob.status, 'succeeded');
+  assert.equal(completedVideoJob.resultUrls.length, 1);
+  assert.match(completedVideoJob.resultUrls[0], /0\.mp4$/);
+  const videoAsset = await fetch(`http://127.0.0.1:${servicePort}${completedVideoJob.resultUrls[0]}`, {
+    headers: { Authorization: `Bearer ${adminToken}` }
+  });
+  assert.equal(videoAsset.status, 200);
+  assert.equal(videoAsset.headers.get('content-type'), 'video/mp4');
+  const rangedVideoAsset = await fetch(`http://127.0.0.1:${servicePort}${completedVideoJob.resultUrls[0]}`, {
+    headers: { Authorization: `Bearer ${adminToken}`, Range: 'bytes=0-3' }
+  });
+  assert.equal(rangedVideoAsset.status, 206);
+  assert.equal(rangedVideoAsset.headers.get('content-range'), `bytes 0-3/${tinyMp4.length}`);
+  const videoCreateHit = providerHits.find((hit) => hit.url === '/v1/videos/generations');
+  assert(videoCreateHit, 'xAI video create route was not called.');
+  const videoBody = JSON.parse(videoCreateHit.rawBody);
+  assert.equal(videoBody.model, 'grok-imagine-video-1.5');
+  assert.equal(videoBody.duration, 5);
+  assert.equal('width' in videoBody, false);
+  assert.equal('fps' in videoBody, false);
+  assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1'));
+  assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1/content'));
 
   const jobsRaw = await fs.readFile(path.join(dataDir, 'users', admin.id, 'jobs.json'), 'utf8');
   assert.equal(jobsRaw.includes(serverProviderKey), false);

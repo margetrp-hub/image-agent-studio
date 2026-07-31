@@ -24,6 +24,15 @@ These profiles describe how common gateway families should be attached without c
 - Implementation rule: copy the interaction pattern, not code, screenshots, or data.
 - If CPA introduces a unique request shape, add it as a new provider adapter and smoke test.
 
+## xAI / Grok-compatible
+
+- Preferred provider id: `xai-compatible`.
+- Image route: `/v1/images/generations` with the minimal `model`, `prompt`, and `n` body.
+- Video route: `/v1/videos/generations`, followed by `/v1/videos/{id}` and `/v1/videos/{id}/content`.
+- Normalize `request_id`, `done`, and nested `video.url` before the UI consumes the result.
+- Do not send generic OpenAI `size` or `quality` fields to the tested image route.
+- Keep `STUDIO_PROVIDER_API_KEY` server-side for standalone deployments.
+
 ## Codex2API / ChatGPT-to-API Gateways
 
 - Preferred provider id: `openai-compatible` only when the gateway exposes stable `/v1/images/generations` and `/v1/images/edits`.

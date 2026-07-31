@@ -1,4 +1,4 @@
-import { describeModelSyncError, modelLooksLikeImage, syncGatewayModels } from '../src/studio/generation/modelSync.js';
+import { describeModelSyncError, modelLooksLikeImage, modelLooksLikeVideo, syncGatewayModels } from '../src/studio/generation/modelSync.js';
 import { readFileSync } from 'node:fs';
 
 class GoodGateway {
@@ -64,6 +64,8 @@ if (ready.modelOptions.responses.length !== 3) failures.push(`expected all model
 if (ready.modelOptions.video.length !== 1) failures.push(`expected 1 video model, got ${ready.modelOptions.video.length}`);
 if (!ready.usageSummary.includes('12') || !ready.usageSummary.includes('3')) failures.push(`usage summary did not include total/request counts: ${ready.usageSummary}`);
 if (!modelLooksLikeImage({ id: 'gpt-image-2' })) failures.push('gpt-image-2 should be classified as an image model');
+if (!modelLooksLikeImage({ id: 'grok-imagine-image' })) failures.push('grok-imagine-image should be classified as an image model');
+if (!modelLooksLikeVideo({ id: 'grok-imagine-video-1.5' })) failures.push('grok-imagine-video-1.5 should be classified as a video model');
 if (modelLooksLikeImage({ id: 'gpt-5.5' })) failures.push('gpt-5.5 should not be classified as an image model');
 if (fallback.modelsStatus !== 'fallback') failures.push(`failed model sync should return fallback, got ${fallback.modelsStatus}`);
 if (fallback.modelSyncError?.code !== 'unknown') failures.push(`failed model sync should expose a safe error classification, got ${fallback.modelSyncError?.code}`);

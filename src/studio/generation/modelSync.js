@@ -6,7 +6,8 @@ import { AiGatewayClient, STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 import { formatUsageValue } from '../util/billing.js';
 import { defaultProviderGatewayBaseUrl } from '../util/providerSettings.js';
 
-const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d/i;
+const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d|grok[-_.]imagine[-_.]image/i;
+const VIDEO_MODEL_PATTERN = /grok[-_.]imagine[-_.]video|(?:^|[-_.])(video|sora|veo|kling|runway|luma|hailuo)(?:[-_.0-9]|$)/i;
 
 export function modelLooksLikeImage(item) {
   const raw = item?.raw || {};
@@ -85,7 +86,7 @@ async function listModels(client, providerRequest, signal) {
   try {
     const models = await client.listGatewayModels({ ...providerRequest, signal });
     const image = models.filter(modelLooksLikeImage);
-    const video = models.filter(modelMatchesVideo);
+    const video = models.filter(modelLooksLikeVideo);
     if (!models.length) {
       return emptyModelSyncResult('empty', describeModelSyncError({ code: 'MODEL_LIST_EMPTY' }, {
         endpoint: modelSyncEndpoint(providerRequest)
@@ -122,14 +123,19 @@ async function getUsageSummary(client, providerRequest, signal) {
   }
 }
 
-function modelMatchesVideo(item) {
+export function modelLooksLikeVideo(item) {
   const raw = item?.raw || {};
   const values = [
+    item?.id,
+    item?.label,
     item?.type,
     item?.category,
     item?.mode,
     item?.modality,
     item?.endpoint,
+    raw.id,
+    raw.model,
+    raw.name,
     raw.type,
     raw.category,
     raw.mode,
@@ -145,7 +151,13 @@ function modelMatchesVideo(item) {
     raw.supported_generation_types,
     raw.supportedGenerationTypes
   ].flatMap((value) => Array.isArray(value) ? value : value ? [value] : []).map((value) => String(value || '').toLowerCase());
-  return [...values, ...capabilities].some((value) => value === 'video' || value === 'videos' || value.includes('video_generation') || value.includes('video-generation'));
+  return [...values, ...capabilities].some((value) => (
+    value === 'video'
+    || value === 'videos'
+    || value.includes('video_generation')
+    || value.includes('video-generation')
+    || VIDEO_MODEL_PATTERN.test(value)
+  ));
 }
 
 function emptyModelSyncResult(modelsStatus, modelSyncError = null) {
