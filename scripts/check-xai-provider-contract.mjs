@@ -6,6 +6,7 @@ import {
 } from '../src/studio/providers/index.js';
 import { createImagesGenerationBody } from '../src/gateway/imageAdapters.js';
 import {
+  buildProviderImageGenerationBody,
   buildProviderVideoGenerationBody,
   normalizeProviderVideoTask,
   providerProfile
@@ -33,10 +34,24 @@ const imageBody = createImagesGenerationBody({
 assert.deepEqual(imageBody, {
   model: 'grok-imagine-image',
   prompt: 'a clean studio product photo',
-  n: 1
+  n: 1,
+  response_format: 'b64_json'
 });
 
 const profile = providerProfile('xai-compatible');
+const serverImageBody = buildProviderImageGenerationBody(profile, {
+  model: 'grok-imagine-image',
+  prompt: 'a server-side studio product photo',
+  size: '1024x1024',
+  quality: 'high'
+});
+assert.deepEqual(serverImageBody, {
+  model: 'grok-imagine-image',
+  prompt: 'a server-side studio product photo',
+  n: 1,
+  response_format: 'b64_json'
+});
+
 const videoBody = buildProviderVideoGenerationBody(profile, {
   model: 'grok-imagine-video-1.5',
   prompt: 'A cinematic five second product shot.',

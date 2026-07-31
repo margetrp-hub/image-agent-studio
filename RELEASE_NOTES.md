@@ -1,5 +1,34 @@
 ﻿# Release Notes
 
+## 1.0.4
+
+This hotfix makes xAI/Grok image results durable on standalone servers.
+
+### What Changed
+
+- `xai-compatible` image requests now include
+  `response_format: b64_json`.
+- The standalone service persists returned image bytes directly instead of
+  depending on a temporary `imgen.x.ai` URL.
+- The generic OpenAI-compatible, NewAPI, and Sub2API request bodies are
+  unchanged.
+- Browser and service contract tests now require the durable base64 response
+  path.
+
+### Why
+
+Real VPS verification showed that image generation completed successfully,
+but the provider CDN rejected data-center downloads with HTTP 403. Requesting
+base64 output removes that external download from the persistence path.
+
+### Verification
+
+- `npm run check:xai`
+- `npm run smoke:xai:route`
+- `npm run smoke:standalone:service`
+- Real `grok-imagine-image` request returning base64 image bytes
+- `npm run build:studio`
+
 ## 1.0.3
 
 This release adds a provider-specific xAI/Grok compatibility path while keeping

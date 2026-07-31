@@ -48,7 +48,9 @@ export function buildProviderImageGenerationBody(profile, job) {
     prompt: job.generationPrompt || job.prompt,
     n: 1
   };
-  if (profile?.imagePayload !== 'xai-images-json') {
+  if (profile?.imagePayload === 'xai-images-json') {
+    body.response_format = 'b64_json';
+  } else {
     body.size = job.size;
     body.quality = job.quality;
   }

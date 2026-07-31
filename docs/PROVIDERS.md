@@ -101,8 +101,10 @@ GET  /v1/videos/{request_id}
 GET  /v1/videos/{request_id}/content
 ```
 
-Image requests send only `model`, `prompt`, and `n: 1`. Video creation sends
-`model`, `prompt`, and `duration`; the response may use `request_id`,
+Image requests send `model`, `prompt`, `n: 1`, and
+`response_format: b64_json` so standalone history does not depend on a
+temporary provider CDN URL. Video creation sends `model`, `prompt`, and
+`duration`; the response may use `request_id`,
 `status: done`, and `video.url`. The client polls the request endpoint and
 downloads protected content before exposing it to the browser. Set
 `STUDIO_PROVIDER_TYPE=xai-compatible` for server-managed standalone jobs.

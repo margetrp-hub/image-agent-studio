@@ -74,7 +74,7 @@ export function selectImageEditModel({ requestedModel, providerSettings, provide
 
 export function createImagesGenerationBody({ model, prompt, size, quality, payloadFormat = 'images-json' }) {
   if (payloadFormat === 'xai-images-json') {
-    return compactGatewayObject({ model, prompt, n: 1 });
+    return compactGatewayObject({ model, prompt, n: 1, response_format: 'b64_json' });
   }
   return {
     model,

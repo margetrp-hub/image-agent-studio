@@ -75,9 +75,8 @@ try {
   }));
   await page.route(`${fakeBaseUrl}/images/generations`, async (route) => {
     requests.images.push(route.request().postDataJSON());
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ url: 'https://xai-route-smoke.example/image.png' }] }) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ b64_json: tinyPng }] }) });
   });
-  await page.route('https://xai-route-smoke.example/image.png', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from(tinyPng, 'base64') }));
   await page.route(`${fakeBaseUrl}/videos/generations`, (route) => {
     requests.videos.push(route.request().postDataJSON());
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ request_id: 'xai-smoke-video-1', status: 'queued' }) });
@@ -135,6 +134,7 @@ try {
   assert(requests.images.length === 1, 'xAI image route should be called once.', requests);
   assert(requests.images[0].model === 'grok-imagine-image', 'xAI image route used the wrong model.', requests);
   assert(requests.images[0].n === 1, 'xAI image route must request one image.', requests);
+  assert(requests.images[0].response_format === 'b64_json', 'xAI image route must request durable base64 output.', requests);
   assert(requests.images[0].prompt.startsWith('A clean Grok image route smoke test.'), 'xAI image route did not preserve the prompt.', requests);
   assert(!Object.hasOwn(requests.images[0], 'size') && !Object.hasOwn(requests.images[0], 'quality'), 'xAI image route sent unsupported image parameters.', requests);
   assert(requests.videos.length === 1, 'xAI video route should be called once.', requests);

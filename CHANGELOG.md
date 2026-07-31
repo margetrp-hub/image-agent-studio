@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.0.4 - 2026-08-01
+
+- Requested `b64_json` output for xAI-compatible image generation so standalone history can persist image bytes without fetching temporary provider CDN URLs.
+- Added browser and service regression checks for the durable xAI image response path.
+
 ## 1.0.3 - 2026-08-01
 
 - Added an `xai-compatible` provider adapter for Grok Imagine-style image and asynchronous video routes.

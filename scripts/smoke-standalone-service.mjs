@@ -292,7 +292,9 @@ try {
   assert.equal(completedJob.resultUrls.length, 1);
   assert.equal(maliciousHits, 0);
   assert(providerHits.some((hit) => hit.url === '/v1/models' && hit.authorization === `Bearer ${serverProviderKey}`));
-  assert(providerHits.some((hit) => hit.url === '/v1/images/generations' && hit.authorization === `Bearer ${serverProviderKey}`));
+  const imageCreateHit = providerHits.find((hit) => hit.url === '/v1/images/generations');
+  assert(imageCreateHit && imageCreateHit.authorization === `Bearer ${serverProviderKey}`);
+  assert.equal(JSON.parse(imageCreateHit.rawBody).response_format, 'b64_json');
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && hit.authorization === `Bearer ${serverProviderKey}`));
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && JSON.parse(hit.rawBody).stream === false));
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && JSON.parse(hit.rawBody).model === 'studio-chat-model'));
