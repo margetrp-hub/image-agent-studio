@@ -55,6 +55,7 @@ const {
   JOB_CONCURRENCY,
   JOB_ACTIVE_STATUSES,
   VIDEO_POLL_INTERVAL_MS,
+  VIDEO_POLL_MAX_TRANSIENT_FAILURES,
   SERVICE_STARTED_AT,
   SERVICE_VERSION,
   MAX_BODY_BYTES,
@@ -1673,7 +1674,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
       transientPollFailures = 0;
     } catch (error) {
       transientPollFailures += 1;
-      if (!isTransientVideoPollError(error) || transientPollFailures > 12) throw error;
+      if (!isTransientVideoPollError(error) || transientPollFailures > VIDEO_POLL_MAX_TRANSIENT_FAILURES) throw error;
       currentJob = await updateJob(auth, job.id, {
         status: 'upstream',
         stage: 'upstream',

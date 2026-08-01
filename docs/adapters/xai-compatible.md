@@ -39,7 +39,10 @@ polls the request endpoint, retries bounded `404`, rate-limit, and temporary
 upstream failures, and downloads same-origin content with the API authorization
 header when the content URL is protected. The original `X-Client-Request-ID`
 is preserved across creation, polling, and same-origin content download so
-provider pools can keep the asynchronous task on the same upstream worker.
+provider pools can keep the asynchronous task on the same upstream worker. The
+service allows 45 transient poll failures by default (about three minutes at a
+four-second interval); configure `STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES`
+when an upstream has a different scheduling window.
 
 ## Server deployment
 

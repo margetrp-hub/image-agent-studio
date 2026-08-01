@@ -57,12 +57,12 @@ const provider = http.createServer(async (req, res) => {
       return;
     }
     videoPollAttempts += 1;
-    if (videoPollAttempts === 1) {
+    if (videoPollAttempts <= 13) {
       res.statusCode = 404;
       res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
       return;
     }
-    if (videoPollAttempts === 2) {
+    if (videoPollAttempts === 14) {
       res.statusCode = 503;
       res.end(JSON.stringify({ error: { message: 'Service temporarily unavailable' } }));
       return;
@@ -105,7 +105,8 @@ const servicePort = await freePort();
     STUDIO_PROVIDER_API_KEY: serverProviderKey,
     STUDIO_PROVIDER_TYPE: 'xai-compatible',
     STUDIO_PROVIDER_CHAT_MODEL: 'studio-chat-model',
-    STUDIO_VIDEO_POLL_INTERVAL_MS: '100'
+    STUDIO_VIDEO_POLL_INTERVAL_MS: '100',
+    STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES: '45'
 });
 
 try {
@@ -378,7 +379,7 @@ try {
   assert.equal(videoBody.duration, 5);
   assert.equal('width' in videoBody, false);
   assert.equal('fps' in videoBody, false);
-  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 3);
+  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 15);
   assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1/content'));
   assert(providerHits
     .filter((hit) => hit.url.startsWith('/v1/videos/'))
