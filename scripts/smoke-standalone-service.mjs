@@ -18,6 +18,7 @@ const creatorPassword = 'Creator Password 123!';
 const tinyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
 const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
 let videoPollAttempts = 0;
+let videoAffinityId = '';
 
 const bootstrapStore = createStandaloneAuthStore({ databasePath, passwordIterations: 100_000 });
 const admin = bootstrapStore.createUser({
@@ -33,7 +34,8 @@ const provider = http.createServer(async (req, res) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const rawBody = Buffer.concat(chunks).toString('utf8');
-  providerHits.push({ method: req.method, url: req.url, authorization: req.headers.authorization, rawBody });
+  const clientRequestId = req.headers['x-client-request-id'];
+  providerHits.push({ method: req.method, url: req.url, authorization: req.headers.authorization, clientRequestId, rawBody });
   res.setHeader('Content-Type', 'application/json');
   if (req.method === 'GET' && req.url === '/v1/models') {
     res.end(JSON.stringify({ object: 'list', data: [{ id: 'studio-image-model' }], debug: serverProviderKey }));
@@ -44,10 +46,16 @@ const provider = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'POST' && req.url === '/v1/videos/generations') {
+    videoAffinityId = clientRequestId || '';
     res.end(JSON.stringify({ request_id: 'grok-video-smoke-1', status: 'queued' }));
     return;
   }
   if (req.method === 'GET' && req.url === '/v1/videos/grok-video-smoke-1') {
+    if (!videoAffinityId || clientRequestId !== videoAffinityId) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
+      return;
+    }
     videoPollAttempts += 1;
     if (videoPollAttempts === 1) {
       res.statusCode = 404;
@@ -63,6 +71,11 @@ const provider = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'GET' && req.url === '/v1/videos/grok-video-smoke-1/content') {
+    if (!videoAffinityId || clientRequestId !== videoAffinityId) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
+      return;
+    }
     res.setHeader('Content-Type', 'video/mp4');
     res.end(tinyMp4);
     return;
@@ -367,6 +380,9 @@ try {
   assert.equal('fps' in videoBody, false);
   assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 3);
   assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1/content'));
+  assert(providerHits
+    .filter((hit) => hit.url.startsWith('/v1/videos/'))
+    .every((hit) => hit.clientRequestId === 'client-video-request-123'));
 
   const jobsRaw = await fs.readFile(path.join(dataDir, 'users', admin.id, 'jobs.json'), 'utf8');
   assert.equal(jobsRaw.includes(serverProviderKey), false);

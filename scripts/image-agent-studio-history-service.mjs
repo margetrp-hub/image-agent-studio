@@ -1530,11 +1530,12 @@ function imageInputDataUrl(image) {
   return `data:${image.mime};base64,${image.buffer.toString('base64')}`;
 }
 
-async function getJsonFromGateway(url, apiKey, signal) {
+async function getJsonFromGateway(url, apiKey, clientRequestId, signal) {
   const response = await undiciFetch(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...(clientRequestId ? { 'X-Client-Request-ID': clientRequestId } : {})
     },
     dispatcher: gatewayFetchAgent,
     signal
@@ -1576,13 +1577,16 @@ async function readLimitedResponseBuffer(response, maxBytes) {
   return Buffer.concat(chunks, total);
 }
 
-async function persistGatewayVideo(auth, recordId, rawUrl, index, runtime, signal) {
+async function persistGatewayVideo(auth, recordId, rawUrl, index, runtime, clientRequestId, signal) {
   const url = providerAssetUrl(runtime.gatewayBaseUrl, rawUrl);
   if (!url) return '';
   const gatewayOrigin = new URL(runtime.gatewayBaseUrl).origin;
   const assetOrigin = new URL(url).origin;
   const response = await undiciFetch(url, {
-    headers: assetOrigin === gatewayOrigin ? { Authorization: `Bearer ${runtime.apiKey}` } : {},
+    headers: assetOrigin === gatewayOrigin ? {
+      Authorization: `Bearer ${runtime.apiKey}`,
+      ...(clientRequestId ? { 'X-Client-Request-ID': clientRequestId } : {})
+    } : {},
     dispatcher: gatewayFetchAgent,
     signal
   });
@@ -1665,7 +1669,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
     await waitForProviderPoll(VIDEO_POLL_INTERVAL_MS, signal);
     const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(profile.videoRetrieve, { id: task.id }));
     try {
-      task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, signal));
+      task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, job.clientRequestId, signal));
       transientPollFailures = 0;
     } catch (error) {
       transientPollFailures += 1;
@@ -1706,7 +1710,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
     error.payload = task.raw;
     throw error;
   }
-  const stored = await persistGatewayVideo(auth, job.id, contentPath, 0, runtime, signal);
+  const stored = await persistGatewayVideo(auth, job.id, contentPath, 0, runtime, job.clientRequestId, signal);
   if (!stored) throw new Error('VIDEO_ASSET_SAVE_FAILED');
   currentJob = await updateJob(auth, job.id, {
     status: 'video',

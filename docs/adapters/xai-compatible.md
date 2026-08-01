@@ -37,7 +37,9 @@ Video generation is asynchronous. The create response may contain
 `status: done` with a nested `video.url`. The adapter normalizes those values,
 polls the request endpoint, retries bounded `404`, rate-limit, and temporary
 upstream failures, and downloads same-origin content with the API authorization
-header when the content URL is protected.
+header when the content URL is protected. The original `X-Client-Request-ID`
+is preserved across creation, polling, and same-origin content download so
+provider pools can keep the asynchronous task on the same upstream worker.
 
 ## Server deployment
 

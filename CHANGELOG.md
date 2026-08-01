@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.0.7 - 2026-08-01
+
+- Forwarded the original `X-Client-Request-ID` through xAI-compatible video creation, polling, and protected content download requests.
+- Added an affinity-sensitive regression test that rejects polling or content requests when the client request ID changes or is missing.
+
 ## 1.0.6 - 2026-08-01
 
 - Added bounded retries for transient `404`, rate-limit, and upstream `5xx` responses while polling asynchronous xAI-compatible video tasks.

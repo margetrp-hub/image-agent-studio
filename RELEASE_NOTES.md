@@ -1,5 +1,28 @@
 ﻿# Release Notes
 
+## 1.0.7
+
+This hotfix keeps asynchronous xAI/Grok video requests on the same upstream
+worker from creation through persistence.
+
+### What Changed
+
+- Video creation, polling, and protected content downloads now carry the same
+  `X-Client-Request-ID`.
+- Provider pools that use this header for task affinity no longer lose the
+  request between create and poll calls.
+- The standalone service smoke test rejects a changed or missing affinity ID
+  while retaining the existing `404 -> 503 -> done` retry sequence.
+
+### Verification
+
+- `npm run check:xai`
+- `npm run smoke:standalone:service`
+- `node --check scripts/image-agent-studio-history-service.mjs`
+- `npm run build:studio`
+- Real Studio video creation, polling, protected MP4 download, and persisted
+  asset playback on the standalone VPS
+
 ## 1.0.6
 
 This hotfix prevents transient provider-pool misses from failing asynchronous
