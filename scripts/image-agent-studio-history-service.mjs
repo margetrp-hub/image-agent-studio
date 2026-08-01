@@ -1611,6 +1611,10 @@ function waitForProviderPoll(ms, signal) {
   });
 }
 
+function isTransientVideoPollError(error) {
+  return [404, 408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error?.status || 0));
+}
+
 async function runVideoGenerationRequest(auth, job, runtime, signal) {
   const profile = runtime.profile || providerProfile(PROVIDER_TYPE);
   if (!profile.videoCreate || !profile.videoRetrieve) {
@@ -1656,10 +1660,28 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
     }
   }) || currentJob;
 
+  let transientPollFailures = 0;
   while (!['completed', 'failed'].includes(task.status)) {
     await waitForProviderPoll(VIDEO_POLL_INTERVAL_MS, signal);
     const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(profile.videoRetrieve, { id: task.id }));
-    task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, signal));
+    try {
+      task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, signal));
+      transientPollFailures = 0;
+    } catch (error) {
+      transientPollFailures += 1;
+      if (!isTransientVideoPollError(error) || transientPollFailures > 12) throw error;
+      currentJob = await updateJob(auth, job.id, {
+        status: 'upstream',
+        stage: 'upstream',
+        requestIds,
+        timing: {
+          ...(currentJob.timing || {}),
+          pollRetryAt: Date.now(),
+          pollRetryCount: transientPollFailures
+        }
+      }) || currentJob;
+      continue;
+    }
     if (!task.id) task.id = requestIds[0];
     currentJob = await updateJob(auth, job.id, {
       status: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',

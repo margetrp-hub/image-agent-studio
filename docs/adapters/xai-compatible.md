@@ -35,8 +35,9 @@ output format.
 Video generation is asynchronous. The create response may contain
 `request_id` and `status: queued`; a completed response can return
 `status: done` with a nested `video.url`. The adapter normalizes those values,
-polls the request endpoint, and downloads same-origin content with the API
-authorization header when the content URL is protected.
+polls the request endpoint, retries bounded `404`, rate-limit, and temporary
+upstream failures, and downloads same-origin content with the API authorization
+header when the content URL is protected.
 
 ## Server deployment
 

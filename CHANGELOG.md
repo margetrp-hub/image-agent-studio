@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.0.6 - 2026-08-01
+
+- Added bounded retries for transient `404`, rate-limit, and upstream `5xx` responses while polling asynchronous xAI-compatible video tasks.
+- Added a regression test covering an account-pool miss followed by temporary unavailability and successful completion.
+
 ## 1.0.5 - 2026-08-01
 
 - Detected PNG, JPEG, and WebP from returned image bytes before persisting xAI-compatible base64 results.

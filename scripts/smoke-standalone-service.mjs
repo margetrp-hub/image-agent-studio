@@ -17,6 +17,7 @@ const memberPassword = 'Member Password 123!';
 const creatorPassword = 'Creator Password 123!';
 const tinyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
 const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
+let videoPollAttempts = 0;
 
 const bootstrapStore = createStandaloneAuthStore({ databasePath, passwordIterations: 100_000 });
 const admin = bootstrapStore.createUser({
@@ -47,6 +48,17 @@ const provider = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'GET' && req.url === '/v1/videos/grok-video-smoke-1') {
+    videoPollAttempts += 1;
+    if (videoPollAttempts === 1) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
+      return;
+    }
+    if (videoPollAttempts === 2) {
+      res.statusCode = 503;
+      res.end(JSON.stringify({ error: { message: 'Service temporarily unavailable' } }));
+      return;
+    }
     res.end(JSON.stringify({ request_id: 'grok-video-smoke-1', status: 'done', video: { url: '/v1/videos/grok-video-smoke-1/content' } }));
     return;
   }
@@ -75,11 +87,12 @@ await listen(malicious);
 const maliciousPort = malicious.address().port;
 
 const servicePort = await freePort();
-const service = startService(servicePort, {
-  STUDIO_PROVIDER_BASE_URL: `http://127.0.0.1:${providerPort}`,
-  STUDIO_PROVIDER_API_KEY: serverProviderKey,
-  STUDIO_PROVIDER_TYPE: 'xai-compatible',
-  STUDIO_PROVIDER_CHAT_MODEL: 'studio-chat-model'
+  const service = startService(servicePort, {
+    STUDIO_PROVIDER_BASE_URL: `http://127.0.0.1:${providerPort}`,
+    STUDIO_PROVIDER_API_KEY: serverProviderKey,
+    STUDIO_PROVIDER_TYPE: 'xai-compatible',
+    STUDIO_PROVIDER_CHAT_MODEL: 'studio-chat-model',
+    STUDIO_VIDEO_POLL_INTERVAL_MS: '100'
 });
 
 try {
@@ -352,7 +365,7 @@ try {
   assert.equal(videoBody.duration, 5);
   assert.equal('width' in videoBody, false);
   assert.equal('fps' in videoBody, false);
-  assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1'));
+  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 3);
   assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1/content'));
 
   const jobsRaw = await fs.readFile(path.join(dataDir, 'users', admin.id, 'jobs.json'), 'utf8');

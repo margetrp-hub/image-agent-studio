@@ -1,5 +1,25 @@
 ﻿# Release Notes
 
+## 1.0.6
+
+This hotfix prevents transient provider-pool misses from failing asynchronous
+video jobs immediately.
+
+### What Changed
+
+- Video polling retries bounded HTTP `404`, `429`, and temporary `5xx`
+  responses before marking a job failed.
+- Permanent authorization and request errors still fail immediately.
+- The standalone service smoke test now covers `404 -> 503 -> done` polling.
+
+### Verification
+
+- Real video creation returned a `request_id`.
+- Polling reached `status: done`.
+- The protected content route returned HTTP `206`, `video/mp4`, and an MP4
+  `ftyp` signature.
+- `npm run smoke:standalone:service`
+
 ## 1.0.5
 
 This hotfix preserves the real image format returned by xAI/Grok providers.
