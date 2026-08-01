@@ -6,7 +6,7 @@
 
 - Forwarded the original `X-Client-Request-ID` through xAI-compatible video creation, polling, and protected content download requests.
 - Added an affinity-sensitive regression test that rejects polling or content requests when the client request ID changes or is missing.
-- Extended the bounded transient video-poll window to 45 failures by default (about three minutes at the default interval), covering providers that return temporary `404` responses while a task is still being scheduled.
+- Extended the bounded transient video-poll window to 150 failures by default (about ten minutes at the default interval), covering provider-pool long tails that return temporary `404` responses while a task is still being scheduled.
 
 ## 1.0.6 - 2026-08-01
 

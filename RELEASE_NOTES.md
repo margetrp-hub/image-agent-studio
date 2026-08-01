@@ -9,10 +9,10 @@ worker from creation through persistence.
 
 - Video creation, polling, and protected content downloads now carry the same
   `X-Client-Request-ID`.
-- Provider pools that use this header for task affinity no longer lose the
-  request between create and poll calls.
-- The transient poll budget is now configurable and defaults to 45 failures,
-  approximately three minutes at the default interval, so delayed provider
+- Provider pools that use this header for task affinity now receive consistent
+  affinity metadata across the full asynchronous lifecycle.
+- The transient poll budget is now configurable and defaults to 150 failures,
+  approximately ten minutes at the default interval, so delayed provider
   scheduling is not reported as an early failure.
 - The standalone service smoke test rejects a changed or missing affinity ID
   and covers more than twelve temporary misses while retaining the
