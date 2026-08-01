@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.0.5 - 2026-08-01
+
+- Detected PNG, JPEG, and WebP from returned image bytes before persisting xAI-compatible base64 results.
+- Added a standalone regression test for JPEG bytes returned while the requested output format is PNG.
+
 ## 1.0.4 - 2026-08-01
 
 - Requested `b64_json` output for xAI-compatible image generation so standalone history can persist image bytes without fetching temporary provider CDN URLs.

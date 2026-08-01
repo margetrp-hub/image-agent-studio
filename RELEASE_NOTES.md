@@ -1,5 +1,23 @@
 ﻿# Release Notes
 
+## 1.0.5
+
+This hotfix preserves the real image format returned by xAI/Grok providers.
+
+### What Changed
+
+- The standalone service now detects PNG, JPEG, and WebP from image bytes
+  before selecting the persisted file extension and response MIME type.
+- A provider can return JPEG bytes even when the generic workstation setting
+  says PNG without creating a mislabeled asset.
+- The standalone service smoke test now covers this exact mismatch.
+
+### Verification
+
+- `npm run smoke:standalone:service`
+- Real VPS job returning JPEG bytes through a base64 image response
+- Persisted asset MIME and file signature comparison
+
 ## 1.0.4
 
 This hotfix makes xAI/Grok image results durable on standalone servers.

@@ -15,7 +15,7 @@ const clientProviderKey = 'client-provider-secret-must-be-ignored';
 const adminPassword = 'Admin Password 123!';
 const memberPassword = 'Member Password 123!';
 const creatorPassword = 'Creator Password 123!';
-const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+const tinyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
 const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
 
 const bootstrapStore = createStandaloneAuthStore({ databasePath, passwordIterations: 100_000 });
@@ -39,7 +39,7 @@ const provider = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'POST' && req.url === '/v1/images/generations') {
-    res.end(JSON.stringify({ data: [{ b64_json: tinyPng }], usage: { total_tokens: 1 } }));
+    res.end(JSON.stringify({ data: [{ b64_json: tinyJpeg.toString('base64') }], usage: { total_tokens: 1 } }));
     return;
   }
   if (req.method === 'POST' && req.url === '/v1/videos/generations') {
@@ -290,6 +290,13 @@ try {
   const completedJob = await waitForJob(servicePort, adminToken, jobId);
   assert.equal(completedJob.status, 'succeeded');
   assert.equal(completedJob.resultUrls.length, 1);
+  assert.match(completedJob.resultUrls[0], /0\.jpg$/);
+  const imageAsset = await fetch(`http://127.0.0.1:${servicePort}${completedJob.resultUrls[0]}`, {
+    headers: { Authorization: `Bearer ${adminToken}` }
+  });
+  assert.equal(imageAsset.status, 200);
+  assert.equal(imageAsset.headers.get('content-type'), 'image/jpeg');
+  assert.deepEqual(Buffer.from(await imageAsset.arrayBuffer()), tinyJpeg);
   assert.equal(maliciousHits, 0);
   assert(providerHits.some((hit) => hit.url === '/v1/models' && hit.authorization === `Bearer ${serverProviderKey}`));
   const imageCreateHit = providerHits.find((hit) => hit.url === '/v1/images/generations');
