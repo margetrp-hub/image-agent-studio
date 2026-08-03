@@ -75,7 +75,13 @@ try {
 
   const loginUrl = new URL('login.html?redirect=https%3A%2F%2Fevil.example%2Fsteal', baseUrl).toString();
   await page.goto(loginUrl, { waitUntil: 'networkidle' });
+  assert.equal(await page.locator('#studio-login-identifier-field').isVisible(), true, 'Login mode should show the account field.');
+  assert.equal(await page.locator('#studio-login-email-field').isVisible(), false, 'Login mode should hide the registration email field.');
+  assert.equal(await page.locator('#studio-login-username-field').isVisible(), false, 'Login mode should hide the registration username field.');
   await page.locator('#studio-login-mode-register').click();
+  assert.equal(await page.locator('#studio-login-identifier-field').isVisible(), false, 'Registration mode should hide the login account field.');
+  assert.equal(await page.locator('#studio-login-email-field').isVisible(), true, 'Registration mode should show the email field.');
+  assert.equal(await page.locator('#studio-login-username-field').isVisible(), true, 'Registration mode should show the username field.');
   await page.locator('#studio-login-email').fill('creator@example.test');
   await page.locator('#studio-login-username').fill('studio-creator');
   await page.locator('#studio-login-password').fill('register-password');

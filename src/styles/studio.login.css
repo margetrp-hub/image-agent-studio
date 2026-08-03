@@ -111,6 +111,10 @@ input {
   gap: 8px;
 }
 
+.studioLoginField[hidden] {
+  display: none;
+}
+
 .studioLoginField span {
   color: #35414d;
   font-size: 13px;
