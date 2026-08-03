@@ -83,3 +83,34 @@ VOLUME ["/data"]
 EXPOSE 8787
 
 CMD ["node", "scripts/image-agent-studio-history-service.mjs"]
+
+FROM golang:1.22-alpine AS server-go-builder
+
+WORKDIR /src/apps/server-go
+
+COPY apps/server-go/go.mod ./
+RUN go mod download
+
+COPY apps/server-go ./
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/studio-server ./cmd/studio-server
+
+FROM alpine:3.21 AS server-go
+
+RUN apk add --no-cache ca-certificates \
+  && addgroup -S -g 1000 studio \
+  && adduser -S -D -H -u 1000 -G studio studio \
+  && mkdir -p /data/server-go \
+  && chown -R studio:studio /data
+
+COPY --from=server-go-builder /out/studio-server /usr/local/bin/studio-server
+
+ENV STUDIO_GO_HOST=0.0.0.0
+ENV STUDIO_GO_PORT=8788
+ENV STUDIO_DATA_DIR=/data/server-go
+
+USER studio
+
+VOLUME ["/data"]
+EXPOSE 8788
+
+CMD ["/usr/local/bin/studio-server"]

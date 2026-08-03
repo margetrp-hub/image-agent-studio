@@ -9,6 +9,9 @@ GET  /v1/models
 POST /v1/images/generations
 POST /v1/images/edits
 POST /v1/chat/completions
+POST /v1/videos
+GET  /v1/videos/{id}
+GET  /v1/videos/{id}/content
 ```
 
 ## Recommended Browser Settings
@@ -31,4 +34,5 @@ The browser calls your Studio domain, and Nginx forwards `/v1/*` to the upstream
 
 - Manual API keys are session-only browser secrets.
 - Model sync should read from `/v1/models`.
+- Sora creation uses multipart `/v1/videos`; reference images use the `input_reference` form field.
 - Text-to-image should not call `/v1/responses` unless explicitly configured.

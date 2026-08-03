@@ -14,7 +14,7 @@ export function maskApiKey(value) {
 
 export function apiKeyDisplay(apiKey) {
   const display = apiKey?.displayKey || apiKey?.key || apiKey?.plain || apiKey?.mask;
-  return display ? maskApiKey(display) : apiKey?.name || '选择密钥';
+  return display ? maskApiKey(display) : apiKey?.name || '';
 }
 
 export function apiKeyMeta(apiKey) {

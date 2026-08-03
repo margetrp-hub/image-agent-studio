@@ -1,214 +1,136 @@
-﻿# Image Agent Studio v1 Migration Plan
+# Image Agent Studio Migration Plan
 
-This migration plan moves the project from the current mixed `src/` plus history-service layout toward the v1 `apps/web` and `apps/server` architecture without breaking existing deployments.
+This plan moves Image Agent Studio from the established root Web plus Node Studio service into the project-oriented `apps/web` and Go service core without losing existing data or tying the product to one provider.
 
-## Migration Principles
+Architecture definitions belong in [`architecture-v1.md`](./architecture-v1.md). This document only records migration order, current status, verification, and rollback.
 
-- Preserve data before renaming code.
-- Move boundaries in small steps that can be verified independently.
-- Keep route, volume, and environment compatibility until a later major release explicitly removes it.
-- Do not migrate raw secrets into durable storage.
-- Prefer compatibility shims over one-time destructive data transforms.
+## Rules
 
-## Current Starting Point
+- Preserve data and public routes before renaming or moving implementations.
+- Migrate one ownership area at a time and keep a verified rollback path.
+- Keep provider adapters replaceable; never move provider-specific account-pool or billing rules into Studio domain code.
+- Keep raw provider secrets out of browser durable storage and portable project/job/asset contracts.
+- Do not remove legacy paths or JSON readers until imported records and assets reconcile.
+- A build or unit test is not evidence of a production cutover.
 
-The current repository is a working 0.9 beta shape:
+## Current Baseline
 
-- Browser app under `src/` and Vite entrypoints.
-- Provider registry and adapter preparation under `src/studio/providers/`.
-- Node persistence, queue, library, asset, backup, and restore service in `scripts/image-sub2api-studio-history-service.mjs`.
-- Docker multi-stage image with `web` and `history` targets.
-- Docker Compose services `studio-web` and `studio-history`.
-- Persistent state in a data directory containing records, sessions, jobs, and assets.
+The production-compatible line remains:
 
-v1 should not require users to delete or recreate this state.
+- root `src/` workstation;
+- Node Studio service under `scripts/`;
+- current Docker, Nginx, systemd, and VPS wrappers;
+- existing session, history, job, library, and generated-asset data.
 
-## Target Directory Skeleton
+The migration line now includes:
 
-```text
-apps/
-  README.md
-  web/
-    README.md
-    package boundary for the browser workstation
-  server/
-    README.md
-    package boundary for the Studio API and queue runner
-docs/
-  architecture-v1.md
-  migration-v1.md
+- active project-oriented entry under `apps/web`;
+- provider-neutral schemas under `packages/contracts`;
+- Go auth, projects, job records, SSE, content-addressed assets, provider links, encrypted per-user provider connections, and model sync;
+- atomic JSON repositories that can be reopened and inspected.
+
+## Phase Status
+
+### 1. Contract and boundary definition: implemented
+
+- Product, provider-adapter, plugin, and legacy naming lines are separated.
+- Project, scene, shot, asset, job, event, lineage, prompt-revision, and provider-connection schemas exist.
+- Image Agent Canvas remains a separate plugin repository.
+
+Verification:
+
+```bash
+npm run check:contracts
+npm run check:boundaries
+npm run check:naming
 ```
 
-Only README files are introduced at the first skeleton step. Code movement should happen after imports, builds, and deployment scripts have explicit tests.
+### 2. Go domain foundations: implemented, not cut over
 
-## Phase 0: Document and Freeze Contracts
+- Project aggregate and lifecycle rules exist.
+- Per-user project persistence and isolation tests exist.
+- Job event broker, replay, and SSE endpoint exist.
+- Content-addressed asset store and authenticated routes exist.
+- AES-256-GCM secret envelopes and per-user provider connections exist.
 
-Purpose: define the v1 architecture without changing runtime behavior.
+Remaining before cutover:
 
-Tasks:
+- repository interfaces backed by SQLite and PostgreSQL;
+- existing-data import and reconciliation;
+- backup/restore parity.
 
-- Add v1 architecture and migration docs.
-- Add `apps/` README skeletons.
-- Record the public route contract:
-  - `/studio/`
-  - `/studio-api/health`
-  - `/studio-api/session`
-  - `/studio-api/history`
-  - `/studio-api/generation-jobs`
-  - `/studio-api/library`
-  - `/studio-api/library-assets`
-- Record provider defaults:
-  - `/v1/images/generations` for text-to-image.
-  - `/v1/images/edits` for reference and mask edits.
-  - `/v1/chat/completions` for prompt assistance.
+### 3. Web workstation: integration in progress
 
-Verification:
+- `apps/web` mounts the new project workstation.
+- Studio auth/project and SSE client code exists.
+- Single, canvas, and storyboard layouts exist.
 
-- Documentation exists and references only stable contracts.
-- `git status --short` shows only the intended files.
+Remaining:
 
-## Phase 1: Introduce Package Boundaries
+- remove fixture dependence from the main creative path;
+- persist full project/canvas state through Studio API;
+- connect references and content-addressed assets;
+- connect generation execution and result lineage;
+- verify loading, unauthenticated, failure, reconnect, and recovery states in a real browser.
 
-Purpose: make ownership visible before moving implementation.
+### 4. Go generation execution: opt-in image slice
 
-Tasks:
+The Go API can explicitly execute an OpenAI-compatible image job when `STUDIO_GO_EXECUTION_ENABLED=true`. It uses server-held credentials, durable state transitions, SSE events, cancellation, and private persistence for base64 results. The default remains disabled, and this is not production image/video parity.
 
-- Create `apps/web` package metadata when code migration starts.
-- Create `apps/server` package metadata when server migration starts.
-- Keep root scripts as wrappers so existing commands still work.
-- Keep Vite and Docker builds passing from the root.
-- Add import aliases only when they reduce path churn during code movement.
+Required:
 
-Verification:
+- bounded per-user workers and dedupe;
+- adapter dispatch for image, edit, and video contracts;
+- retry and timeout ownership;
+- uncertain-outcome handling after disconnect or restart;
+- durable result assets and history writes;
+- end-to-end provider smoke tests without credential leakage.
 
-- Existing `npm run build` still builds the studio.
-- Provider dispatch checks still pass.
-- Docker build still produces the same public routes.
+The repository now includes `go run ./cmd/studio-migrate` for the binary-asset slice. It defaults to dry-run, imports only with `--apply`, deduplicates by SHA-256, rejects symlink escapes, and emits path-to-digest mappings. It does not claim ownership migration: linking a digest to a current Studio user still requires an explicit reconciliation step with verified user mapping.
 
-## Phase 2: Move Web Runtime
+### 5. Database repositories: not started
 
-Purpose: move browser-owned code into `apps/web`.
+Keep domain and HTTP behavior stable while adding:
 
-Move candidates:
+- SQLite for desktop and single-node use;
+- PostgreSQL for multi-user deployments and concurrent workers;
+- migrations and transactional indexes;
+- content-addressed filesystem/object storage for large assets;
+- JSON importers with counts, ownership, and digest reconciliation.
 
-- `src/studio.jsx`
-- `src/studio.css`
-- `src/styles/`
-- `src/studio/components/`
-- `src/studio/state/`
-- `src/studio/storage/`
-- `src/studio/util/`
-- `src/studio/errors/`
-- browser-facing provider registry and UI helpers
+### 6. Production cutover: not started
 
-Keep or shim:
+The Node service remains authoritative until the Go service passes API parity, real generation, restart recovery, data import, backup/restore, reverse-proxy, and rollback tests on a test deployment.
 
-- Existing entrypoints such as `studio.html` until Vite config is updated.
-- Compatibility re-exports for old import paths when needed.
+## Compatibility to Preserve
 
-Verification:
+- `/studio/` and existing `/studio-api/*` public routes;
+- current data roots and Docker volumes;
+- legacy environment aliases needed by existing installs;
+- old history, session, job, library, and protected asset reads;
+- previous systemd and script wrappers until operators complete migration.
 
-- Studio route opens at the configured base path.
-- Session restore works after refresh.
-- History gallery and large canvas performance checks still pass.
-- Provider settings do not persist raw manual API keys in durable browser storage.
+Compatibility names are not allowed to become new product identities. See [`NAMING-LINES.md`](./NAMING-LINES.md).
 
-## Phase 3: Move Server Runtime
+## Data Migration Order
 
-Purpose: move Studio API and queue execution into `apps/server`.
+1. Snapshot the complete current data root and record its size and file counts.
+2. Import users and identity mappings.
+3. Import projects, sessions, history, and jobs with stable ownership.
+4. Import provider connection metadata and re-encrypt credentials through an explicit key migration where required.
+5. Hash and import assets, then reconcile every referenced digest.
+6. Compare per-user counts and sample complete creative lineages.
+7. Run read-only API checks before enabling writes.
+8. Enable test traffic, then generation traffic, with the old runtime still available for rollback.
 
-Move candidates:
+## Rollback
 
-- History/session route handlers.
-- Generation job queue and runner.
-- Asset persistence helpers.
-- Backup and restore operations.
-- Library and protected asset serving.
-- Health and diagnostics endpoints.
+- Stop new writes before switching services.
+- Keep the pre-migration data snapshot immutable.
+- Keep the previous container/image and service definition available.
+- If reconciliation or smoke tests fail, route traffic back to Node and restore only from a verified snapshot.
+- Do not attempt an in-place downgrade after a database schema change without a tested reverse migration.
 
-Keep or shim:
+## Explicit Non-Commitments
 
-- Script name `image-sub2api-studio-history-service.mjs` as a wrapper for systemd, Docker, and VPS installs.
-- Data layout under existing `STUDIO_DATA_DIR`.
-- Docker service name `studio-history` until operators have a clean rename path.
-
-Verification:
-
-- `/studio-api/health` returns healthy.
-- Existing sessions and history records load without migration.
-- A queued generation survives browser refresh.
-- Restarting the server marks abandoned active jobs as `unknown` rather than losing them.
-- Backup and restore include records, sessions, jobs, and assets.
-
-## Phase 4: Provider Adapter Hardening
-
-Purpose: make provider-specific behavior local to adapters.
-
-Tasks:
-
-- Keep registry descriptors as the capability source.
-- Normalize request parameters before dispatch.
-- Keep route selection out of React components.
-- Add adapter-level tests for generations, edits, reference uploads, and unsupported parameter handling.
-- Ensure result normalization always returns durable image inputs, request ids, and sanitized metadata.
-
-Verification:
-
-- `auto` image routing still sends text-to-image to `/v1/images/generations`.
-- Reference and mask edits still send multipart requests to `/v1/images/edits`.
-- Manual provider keys are never written to sessions, history, jobs, assets, or backups.
-
-## Phase 5: Docker Rename Without Data Loss
-
-Purpose: align deployment names with v1 while keeping old compose files usable.
-
-Recommended end state:
-
-```text
-studio-web       web static server and reverse proxy
-studio-server    Studio API, queue runner, provider dispatch
-studio-data      persistent volume
-```
-
-Compatibility strategy:
-
-- Continue accepting the `history` Docker target while introducing a `server` target.
-- Continue accepting `studio-history` as a Compose service name while documenting it as the Studio API service.
-- Keep `/data` as the mounted data root.
-- Keep `AI_GATEWAY_*` as primary env names and `SUB2API_*` as aliases.
-
-Verification:
-
-- Existing `docker compose up -d` continues to work.
-- A renamed compose file can mount the same `studio-data` volume.
-- Generated assets remain reachable after container recreation.
-
-## Data Migration Rules
-
-No mandatory bulk migration is required for v1. Runtime read paths should normalize old records:
-
-- `apiKeySource: "sub2api"` becomes `apiKeySource: "gateway"` in memory.
-- Old `VITE_SUB2API_*` and `SUB2API_*` env values map to the matching AI gateway names.
-- Legacy session files remain readable from `session.json` and `sessions/{sessionId}.json`.
-- Existing protected asset URLs remain valid.
-- Existing history records may keep older provider labels, but new records should write provider-neutral fields.
-
-If a future schema version is needed, add a `schemaVersion` field and migrate on write after a successful read. Avoid destructive one-way migrations unless backup and restore have been verified first.
-
-## Rollback Strategy
-
-Rollback must be boring:
-
-- Keep old route handlers until replacement handlers are proven by smoke tests.
-- Keep wrapper scripts for old process managers.
-- Keep data path compatibility.
-- Before any schema-changing release, take a backup through the Studio backup flow or copy `STUDIO_DATA_DIR`.
-- If deployment fails, restart the previous image against the same data volume.
-
-## Acceptance Checklist
-
-- v1 docs describe web/server ownership, data model, provider architecture, asset storage, queue states, and Docker shape.
-- `apps/` skeleton documents intended ownership without moving runtime code prematurely.
-- Existing route and data compatibility promises are explicit.
-- Migration phases are independently verifiable.
-- No files outside the approved documentation skeleton are changed in the initial step.
+This migration does not claim a complete Mini Program or Android client. It also does not claim full Go generation parity, multi-instance PostgreSQL readiness, or a production cutover in the current revision.

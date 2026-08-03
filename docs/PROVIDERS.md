@@ -1,6 +1,6 @@
 ﻿# Provider and Gateway Notes
 
-Image Agent Studio is moving toward a provider-neutral image workstation. The current runtime still uses OpenAI-compatible HTTP routes directly, while `src/studio/providers/registry.js` records the provider shapes the project is preparing to support.
+Image Agent Studio is a provider-neutral creation workstation. The production-compatible root runtime submits jobs to the Node service, which resolves the upstream invocation protocol server-side. `src/studio/providers/registry.js` records UI capabilities and compatibility defaults; it is not authoritative for execution. Provider family names describe adapters, not product identities.
 
 Adapter-level notes now live under [`docs/adapters/`](./adapters/README.md):
 
@@ -10,23 +10,20 @@ Adapter-level notes now live under [`docs/adapters/`](./adapters/README.md):
 
 ## Current Runtime Contract
 
-Text-to-image:
+`GET /v1/models` is discovery only. A discovered model becomes selectable for a mode only when the server has a verified invocation adapter for that provider/model combination.
 
-```text
-POST /v1/images/generations
-```
+| Adapter | Typical models | Create endpoint | Transport |
+| --- | --- | --- | --- |
+| `openai-images` | GPT Image, DALL-E, Seedream, JiMeng image | `/v1/images/generations` | JSON |
+| `openai-chat-images` | Nano Banana, Gemini image through NewAPI | `/v1/chat/completions` | multimodal JSON |
+| `xai-images` | Grok Imagine Image | `/v1/images/generations` | xAI image JSON |
+| `openai-videos` | Sora | `/v1/videos` | multipart form |
+| `xai-videos` | Grok Imagine Video | `/v1/videos/generations` | JSON plus polling |
+| `newapi-task-video` | Veo, JiMeng video, Kling and verified task families | `/v1/video/generations` | JSON plus polling |
 
-Reference image and mask editing:
+Reference inputs follow the selected model protocol. OpenAI Images-compatible edit models use multipart `/v1/images/edits`; Nano Banana/Gemini references are embedded in a multimodal Chat Completions message; Sora uses multipart `input_reference`. Unsupported edit/model combinations are rejected before queueing.
 
-```text
-POST /v1/images/edits
-```
-
-Prompt assistant:
-
-```text
-POST /v1/chat/completions
-```
+Prompt assistant requests remain separate and use `/v1/chat/completions`.
 
 `/v1/responses` is not the default image generation route in this release. It should only be enabled for explicit compatibility testing when an upstream gateway really supports image generation through that route.
 
@@ -34,11 +31,33 @@ You can verify the provider dispatch contract locally:
 
 ```bash
 npm run check:providers
+npm run check:provider-protocols
+npm run smoke:provider-protocols
 ```
 
-The check fails if automatic text-to-image generation routes to `/v1/responses` instead of `/v1/images/generations`, or if reference/mask editing stops using `/v1/images/edits`.
+The protocol checks fail when a verified family uses the wrong endpoint, transport, request shape, polling route, or response parser. Unknown model/provider combinations remain visible as discovered metadata but return `MODEL_INVOCATION_NOT_VERIFIED` if submitted.
+
+## Go Provider Ownership
+
+The Go core has two server-side provider records. They are intentionally separate:
+
+- **Shared admin provider links** are deployment-managed connections. Admins store endpoint metadata, allowed Studio roles, and the name of a server environment variable containing the credential. Authenticated users see only enabled links allowed for their role.
+- **Personal provider connections** belong to one Studio user. API keys or access tokens are stored as AES-256-GCM envelopes bound to that user and connection ID. Public responses return only configuration and credential-present flags.
+
+Both paths support server-side `/models` synchronization without returning the raw credential to the browser. The Go generation-job `dispatch-plan` can use an allowed shared link or the current user's enabled personal connection. It remains a dry-run endpoint. The separate `POST .../execute` route can send that plan only when `STUDIO_GO_EXECUTION_ENABLED=true`.
+
+Personal model sync and execution block localhost and private-network targets by default, including names that resolve to private, loopback, link-local, multicast-link-local, or unspecified addresses. `STUDIO_ALLOW_PRIVATE_PROVIDER_URLS=true` is an explicit operator override for controlled private Provider endpoints.
+
+This Go boundary does not replace the browser-direct and Node compatibility behavior described below. Production generation remains on the compatibility runtime until the Go queue worker, dispatch, result saving, migration, and rollback checks are complete.
 
 ## Provider Families
+
+The Go migration core has two server-side ownership models in addition to the established browser-compatible path:
+
+- shared admin Provider Links refer to server environment secrets and are filtered by Studio role;
+- per-user Provider Connections encrypt API keys or access tokens with `STUDIO_MASTER_KEY` and support server-side model synchronization, sanitized dispatch planning, and opt-in image execution.
+
+The Go `dispatch-plan` can use either ownership model and never calls an upstream. The separate opt-in executor can use either model for OpenAI-compatible image generation, while production queue execution remains on the compatibility runtime. See [`architecture-v1.md`](./architecture-v1.md) for the canonical status.
 
 `openai-compatible`
 
@@ -50,13 +69,15 @@ Use this for NewAPI Playground, NewAPI-style deployments, or similar gateways th
 
 ## NewAPI Standalone Setup
 
-NewAPI should be treated as its own provider family in the studio, not just as a generic custom URL. It still uses OpenAI-compatible HTTP routes, so the runtime path stays simple:
+NewAPI should be treated as its own provider family in the studio, not just as a generic custom URL. Different NewAPI channels can expose different downstream protocols through one model list:
 
 ```text
 GET  /v1/models
 POST /v1/images/generations
 POST /v1/images/edits
 POST /v1/chat/completions
+POST /v1/videos
+POST /v1/video/generations
 ```
 
 In the browser settings panel:
@@ -66,7 +87,7 @@ In the browser settings panel:
    A root domain such as `https://newapi.example.com` also works because the client normalizes it to `/v1`.
 3. Fill the API key. The raw key is kept in `sessionStorage` only for the current browser session.
 4. Wait for model sync. A healthy NewAPI connection should return model metadata from `/v1/models`.
-5. Use `gpt-image-2`, `nano-banana`, or any image model id that your NewAPI channel actually exposes.
+5. Select a model whose Image or Video invocation status is verified. Merely appearing in `/v1/models` is not enough.
 
 For a production VPS, prefer same-origin proxying so the front end can call your studio domain while Nginx forwards `/v1/*` to NewAPI:
 
@@ -77,7 +98,7 @@ VITE_AI_IMAGE_ROUTE=auto
 AI_GATEWAY_UPSTREAM=https://newapi.example.com
 ```
 
-With that shape, the browser calls `https://studio.example.com/v1/models` and `https://studio.example.com/v1/images/generations`; Nginx forwards those requests to the NewAPI upstream. The API key still belongs to the selected NewAPI channel/account. If NewAPI returns `403` or an empty model list, check the NewAPI token group, channel permission, model mapping, and whether image generation is enabled for that group.
+With that shape, the Studio service performs model discovery and provider calls without exposing the server-managed credential to the browser. If NewAPI returns `403` or an empty model list, check the token group, channel permission, model mapping, and whether the required image/video endpoint is enabled for that group.
 
 For quick local route verification without paid generation:
 
@@ -85,7 +106,7 @@ For quick local route verification without paid generation:
 npm run smoke:newapi:route
 ```
 
-That smoke test verifies that the NewAPI provider syncs `/v1/models`, submits text-to-image through `/v1/images/generations`, preserves the provider id in the server job payload, and does not leak the manual API key into durable browser storage.
+That browser smoke verifies the compatibility UI path. `npm run smoke:provider-protocols` additionally starts the production Node service and proves Nano Banana, JiMeng image, Sora, and Veo requests reach their distinct server-side endpoints and complete through their matching response paths.
 
 `xai-compatible`
 

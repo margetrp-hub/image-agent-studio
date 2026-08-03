@@ -1,0 +1,15 @@
+{
+  "name": "@image-agent-studio/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./schemas/*": "./schemas/*.schema.json"
+  },
+  "scripts": {
+    "check": "node scripts/check.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

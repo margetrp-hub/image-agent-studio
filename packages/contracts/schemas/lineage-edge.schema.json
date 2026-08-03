@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/lineage-edge.schema.json",
+  "title": "LineageEdge",
+  "type": "object",
+  "required": ["schemaVersion", "id", "projectId", "fromAssetId", "toAssetId", "relation", "createdAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "projectId": { "$ref": "common.schema.json#/$defs/id" },
+    "fromAssetId": { "$ref": "common.schema.json#/$defs/id" },
+    "toAssetId": { "$ref": "common.schema.json#/$defs/id" },
+    "relation": { "enum": ["reference", "input", "variation", "edit", "upscale", "frame-extract", "transcode"] },
+    "generationJobId": { "$ref": "common.schema.json#/$defs/id" },
+    "metadata": { "$ref": "common.schema.json#/$defs/metadata" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

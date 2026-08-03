@@ -1,0 +1,24 @@
+.pw-generation-status { background: #f3f6f4; border-bottom: 1px solid #d4ddd8; color: #26332d; padding: 9px 13px; }
+.pw-composer > .pw-generation-status { margin: -10px -14px 3px; }
+.pw-generation-status.is-failed, .pw-generation-status.is-error { background: #fff4f1; border-color: #e4c2b9; color: #73372b; }
+.pw-generation-status.is-completed { background: #eef6f1; border-color: #c7dbd0; }
+.pw-generation-status-line { align-items: center; display: grid; gap: 9px; grid-template-columns: 28px minmax(0, 1fr) 30px; }
+.pw-generation-status-line > div { display: grid; gap: 1px; }
+.pw-generation-status-line strong { font-size: 12px; }
+.pw-generation-status-line span { color: #68766f; font-size: 10px; }
+.pw-generation-state-icon { align-items: center; background: #dfe8e3; border-radius: 6px; color: #35624f !important; display: inline-flex; height: 28px; justify-content: center; width: 28px; }
+.pw-generation-status.is-failed .pw-generation-state-icon, .pw-generation-status.is-error .pw-generation-state-icon { background: #f3dcd6; color: #913f2d !important; }
+.pw-generation-status-line > button { align-items: center; background: transparent; border: 0; border-radius: 5px; color: inherit; cursor: pointer; display: inline-flex; height: 30px; justify-content: center; width: 30px; }
+.pw-generation-status-line > button:hover { background: rgba(38, 51, 45, .08); }
+
+.pw-generation-results { display: flex; gap: 8px; margin: 9px 0 0 37px; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+.pw-generation-results article { flex: 0 0 58px; height: 58px; position: relative; }
+.pw-generation-results article > button { background: #dce5e0; border: 1px solid #c4d0ca; border-radius: 6px; cursor: zoom-in; height: 58px; overflow: hidden; padding: 0; width: 58px; }
+.pw-generation-results img, .pw-generation-results video { display: block; height: 100%; object-fit: cover; width: 100%; }
+.pw-generation-results a { align-items: center; background: rgba(24, 43, 35, .82); border-radius: 4px; bottom: 3px; color: #fff; display: inline-flex; height: 21px; justify-content: center; position: absolute; right: 3px; width: 21px; }
+
+@media (max-width: 560px) {
+  .pw-generation-status { padding-inline: 10px; }
+  .pw-generation-status-line { grid-template-columns: 28px minmax(0, 1fr) 30px; }
+  .pw-generation-results { margin-left: 37px; }
+}

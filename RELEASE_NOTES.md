@@ -11,11 +11,11 @@ worker from creation through persistence.
   `X-Client-Request-ID`.
 - Provider pools that use this header for task affinity now receive consistent
   affinity metadata across the full asynchronous lifecycle.
-- The transient poll budget is now configurable and defaults to 150 failures,
-  approximately ten minutes at the default interval, so delayed provider
+- The transient poll budget is now configurable and defaults to 450 failures,
+  approximately thirty minutes at the default interval, so delayed provider
   scheduling is not reported as an early failure.
 - The standalone service smoke test rejects a changed or missing affinity ID
-  and covers more than twelve temporary misses while retaining the
+  and covers more than 150 temporary misses while retaining the
   `404 -> 503 -> done` retry sequence.
 
 ### Verification

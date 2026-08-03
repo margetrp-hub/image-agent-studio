@@ -9,9 +9,12 @@ import { createServiceConfig } from './studio-service/config.js';
 import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-service/communityPrompts.js';
 import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
 import {
+  annotateProviderModels,
   applyProviderEndpoint,
-  buildProviderImageGenerationBody,
-  buildProviderVideoGenerationBody,
+  buildProviderImageEditPlan,
+  buildProviderImageGenerationPlan,
+  buildProviderVideoGenerationPlan,
+  normalizeProviderImageItems,
   normalizeProviderVideoTask,
   providerProfile
 } from './studio-service/providerProfiles.js';
@@ -1621,17 +1624,17 @@ function isTransientVideoPollError(error) {
 }
 
 async function runVideoGenerationRequest(auth, job, runtime, signal) {
-  const profile = runtime.profile || providerProfile(PROVIDER_TYPE);
-  if (!profile.videoCreate || !profile.videoRetrieve) {
-    const error = new Error('STUDIO_PROVIDER_VIDEO_NOT_CONFIGURED');
-    error.status = 503;
-    throw error;
-  }
-  const createEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, profile.videoCreate);
+  const plan = runtime.plan || buildProviderVideoGenerationPlan(
+    runtime.profile || providerProfile(PROVIDER_TYPE),
+    job,
+    imageInputDataUrl(runtime.images[0])
+  );
+  const createEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, plan.endpoint);
   let currentJob = await updateJob(auth, job.id, {
     status: 'gateway',
     stage: 'gateway',
-    endpoint: `/v1${profile.videoCreate}`,
+    endpoint: providerPublicEndpoint(plan.endpoint),
+    invocationAdapter: plan.adapter,
     completed: 0,
     total: 1,
     timing: {
@@ -1639,13 +1642,15 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
       gatewayAt: Date.now()
     }
   }) || job;
-  const createPayload = await postJsonToGateway(
-    createEndpoint,
-    runtime.apiKey,
-    buildProviderVideoGenerationBody(profile, job, imageInputDataUrl(runtime.images[0])),
-    job.clientRequestId,
-    signal
-  );
+  const createPayload = plan.payloadFormat === 'multipart'
+    ? await postMultipartToGateway(
+        createEndpoint,
+        runtime.apiKey,
+        buildProviderMultipartForm(plan, runtime, { includeVideoReference: true }),
+        job.clientRequestId,
+        signal
+      )
+    : await postJsonToGateway(createEndpoint, runtime.apiKey, plan.body, job.clientRequestId, signal);
   let task = normalizeProviderVideoTask(createPayload);
   if (!task.id) {
     const error = new Error('VIDEO_TASK_ID_MISSING');
@@ -1668,7 +1673,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
   let transientPollFailures = 0;
   while (!['completed', 'failed'].includes(task.status)) {
     await waitForProviderPoll(VIDEO_POLL_INTERVAL_MS, signal);
-    const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(profile.videoRetrieve, { id: task.id }));
+    const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(plan.retrieveEndpoint, { id: task.id }));
     try {
       task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, job.clientRequestId, signal));
       transientPollFailures = 0;
@@ -1705,7 +1710,9 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
     throw error;
   }
 
-  const contentPath = task.url || providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(profile.videoContent, { id: task.id }));
+  const contentPath = task.url || (plan.contentEndpoint
+    ? providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(plan.contentEndpoint, { id: task.id }))
+    : '');
   if (!contentPath) {
     const error = new Error('VIDEO_GENERATION_RETURNED_NO_VIDEO');
     error.payload = task.raw;
@@ -1733,7 +1740,6 @@ function buildJobRecord(body) {
   const mode = request.mode === 'video' ? 'video' : ['edit', 'mask'].includes(request.mode) ? request.mode : 'image';
   const route = mode === 'video' ? 'video' : mode === 'image' && request.route !== 'edits' ? 'generations' : 'edits';
   const count = mode === 'video' ? 1 : Math.max(1, Math.min(4, Number(request.n || request.count || 1)));
-  const runtimeProfile = providerProfile(AUTH_MODE === 'standalone' ? PROVIDER_TYPE : request.providerFamily || request.providerId);
   const now = new Date().toISOString();
   return {
     id: cleanJobId(request.id || body.id),
@@ -1749,9 +1755,8 @@ function buildJobRecord(body) {
     completedAt: '',
     mode,
     route,
-    endpoint: route === 'video'
-      ? runtimeProfile.videoCreate ? `/v1${runtimeProfile.videoCreate}` : ''
-      : route === 'edits' ? '/v1/images/edits' : '/v1/images/generations',
+    endpoint: '',
+    invocationAdapter: '',
     providerId: text(request.providerId || request.provider || '', 160),
     providerFamily: text(request.providerFamily || request.providerId || request.provider || '', 160),
     apiKeySource: text(request.apiKeySource || '', 60),
@@ -1817,6 +1822,41 @@ function buildJobRuntime(body) {
     images: (Array.isArray(body.images) ? body.images : []).slice(0, 4).map(normalizeImageInput).filter(Boolean),
     mask: body.mask ? normalizeImageInput(body.mask, 0) : null
   };
+}
+
+function buildJobInvocationPlan(job, runtime) {
+  const imageDataUrls = runtime.images.map(imageInputDataUrl).filter(Boolean);
+  if (job.mode === 'video') {
+    return buildProviderVideoGenerationPlan(runtime.profile, job, imageDataUrls[0] || '');
+  }
+  if (job.route === 'edits') {
+    return buildProviderImageEditPlan(runtime.profile, job, imageDataUrls);
+  }
+  return buildProviderImageGenerationPlan(runtime.profile, job, imageDataUrls);
+}
+
+function providerPublicEndpoint(endpoint) {
+  const value = String(endpoint || '');
+  return value.startsWith('/v1/') ? value : `/v1/${value.replace(/^\/+/, '')}`;
+}
+
+function buildProviderMultipartForm(plan, runtime, { includeVideoReference = false } = {}) {
+  const form = new UndiciFormData();
+  for (const [key, value] of Object.entries(plan.body || {})) {
+    form.set(key, String(value));
+  }
+  if (includeVideoReference && runtime.images[0]) {
+    const image = runtime.images[0];
+    form.set('input_reference', new Blob([image.buffer], { type: image.mime }), image.name || `reference.${image.ext}`);
+  } else {
+    runtime.images.forEach((image, index) => {
+      form.append('image', new Blob([image.buffer], { type: image.mime }), image.name || `reference-${index + 1}.${image.ext}`);
+    });
+    if (runtime.mask) {
+      form.set('mask', new Blob([runtime.mask.buffer], { type: runtime.mask.mime }), runtime.mask.name || `mask.${runtime.mask.ext}`);
+    }
+  }
+  return form;
 }
 
 async function writeHistoryRecordForJob(auth, job) {
@@ -1903,35 +1943,29 @@ async function runGenerationRequest(auth, job, runtime, signal) {
   const usages = [];
   const total = Math.max(1, Number(job.count || 1));
   let currentJob = job;
-  if (job.route === 'edits') {
-    const form = new UndiciFormData();
-    form.set('model', job.model);
-    form.set('prompt', job.generationPrompt || job.prompt);
-    form.set('size', job.size);
-    form.set('quality', job.quality);
-    form.set('output_format', job.outputFormat || 'png');
-    form.set('moderation', job.moderation || 'auto');
-    form.set('n', String(total));
-    runtime.images.forEach((image, index) => {
-      form.append('image', new Blob([image.buffer], { type: image.mime }), image.name || `reference-${index + 1}.${image.ext}`);
-    });
-    if (runtime.mask) {
-      form.set('mask', new Blob([runtime.mask.buffer], { type: runtime.mask.mime }), runtime.mask.name || `mask.${runtime.mask.ext}`);
-    }
+  const plan = runtime.plan || buildJobInvocationPlan(job, runtime);
+  if (job.route === 'edits' && plan.payloadFormat === 'multipart') {
     currentJob = await updateJob(auth, job.id, {
       status: 'gateway',
       stage: 'gateway',
       completed: 0,
       total,
       lastClientRequestId: job.clientRequestId,
-      endpoint: '/v1/images/edits',
+      endpoint: providerPublicEndpoint(plan.endpoint),
+      invocationAdapter: plan.adapter,
       timing: {
         ...(currentJob.timing || {}),
         gatewayAt: Date.now()
       }
     }) || currentJob;
-    const payload = await postMultipartToGateway(`${runtime.gatewayBaseUrl}/images/edits`, runtime.apiKey, form, job.clientRequestId, signal);
-    const items = Array.isArray(payload?.data) ? payload.data : [];
+    const payload = await postMultipartToGateway(
+      providerEndpointUrl(runtime.gatewayBaseUrl, plan.endpoint),
+      runtime.apiKey,
+      buildProviderMultipartForm(plan, runtime),
+      job.clientRequestId,
+      signal
+    );
+    const items = normalizeProviderImageItems(plan.adapter, payload);
     if (!items.length) {
       const error = new Error('IMAGES_EDITS_RETURNED_NO_IMAGES');
       error.payload = payload;
@@ -1978,7 +2012,8 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       completed: resultUrls.length,
       total,
       lastClientRequestId: clientRequestId,
-      endpoint: '/v1/images/generations',
+      endpoint: providerPublicEndpoint(plan.endpoint),
+      invocationAdapter: plan.adapter,
       requestIds: requestIds.filter(Boolean),
       timing: {
         ...(currentJob.timing || {}),
@@ -1986,13 +2021,13 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       }
     }) || currentJob;
     const payload = await postJsonToGateway(
-      `${runtime.gatewayBaseUrl}/images/generations`,
+      providerEndpointUrl(runtime.gatewayBaseUrl, plan.endpoint),
       runtime.apiKey,
-      buildProviderImageGenerationBody(runtime.profile, job),
+      plan.body,
       clientRequestId,
       signal
     );
-    const items = Array.isArray(payload?.data) ? payload.data : [];
+    const items = normalizeProviderImageItems(plan.adapter, payload);
     if (!items.length) {
       const error = new Error('IMAGES_GENERATIONS_RETURNED_NO_IMAGES');
       error.payload = payload;
@@ -2410,7 +2445,8 @@ async function handler(req, res) {
       legacyService: 'ai-image-workbench-history',
       version: SERVICE_VERSION,
       providerType: AUTH_MODE === 'standalone' ? providerProfile(PROVIDER_TYPE).type : '',
-      videoConfigured: AUTH_MODE === 'standalone' ? Boolean(providerProfile(PROVIDER_TYPE).videoCreate && PROVIDER_BASE_URL && PROVIDER_API_KEY) : false,
+      providerConfigured: AUTH_MODE === 'standalone' ? Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY) : false,
+      videoConfigured: AUTH_MODE === 'standalone' ? Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY) : false,
       startedAt: new Date(SERVICE_STARTED_AT).toISOString()
     });
   }
@@ -2453,15 +2489,17 @@ async function handler(req, res) {
       const body = await readJsonBody(req);
       let apiKey;
       let gatewayBaseUrl;
+      let profile;
       if (AUTH_MODE === 'standalone') {
-        ({ apiKey, gatewayBaseUrl } = standaloneProviderRuntime());
+        ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime());
       } else {
         apiKey = text(body.apiKey, 4000);
         gatewayBaseUrl = body.gatewayBaseUrl || AI_GATEWAY_BASE_URL;
+        profile = providerProfile(body.providerType || body.providerId);
       }
       if (!apiKey) return sendJson(res, 400, { ok: false, error: 'MODEL_SYNC_API_KEY_REQUIRED' });
       const models = await fetchGatewayModels(apiKey, gatewayBaseUrl, req.signal);
-      return sendJson(res, 200, { ok: true, models });
+      return sendJson(res, 200, { ok: true, models: annotateProviderModels(models, profile.type) });
     }
 
     if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'backup' && parts.length === 2) {
@@ -2517,6 +2555,9 @@ async function handler(req, res) {
       if (job.route === 'edits' && !runtime.images.length) {
         return sendJson(res, 400, { ok: false, error: 'REFERENCE_IMAGE_REQUIRED' });
       }
+      runtime.plan = buildJobInvocationPlan(job, runtime);
+      job.endpoint = providerPublicEndpoint(runtime.plan.endpoint);
+      job.invocationAdapter = runtime.plan.adapter;
       if (job.fingerprint) {
         const jobs = await readJobs(auth);
         const existing = jobs.find((item) => (

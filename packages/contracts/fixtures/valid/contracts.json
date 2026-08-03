@@ -1,0 +1,248 @@
+[
+  {
+    "schema": "Project",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "project_demo",
+      "ownerId": "user_42",
+      "name": "Night train sequence",
+      "description": "A short visual sequence developed across image and video shots.",
+      "status": "active",
+      "sceneIds": ["scene_platform"],
+      "activeSceneId": "scene_platform",
+      "promptConstraints": {
+        "style": "cinematic realism",
+        "continuity": ["red wool coat", "rain after midnight"]
+      },
+      "metadata": { "locale": "en-US" },
+      "createdAt": "2026-08-02T12:00:00Z",
+      "updatedAt": "2026-08-02T12:10:00Z"
+    }
+  },
+  {
+    "schema": "Scene",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "scene_platform",
+      "projectId": "project_demo",
+      "order": 1,
+      "title": "Empty platform",
+      "summary": "The traveler waits as the last train approaches.",
+      "shotIds": ["shot_arrival"],
+      "createdAt": "2026-08-02T12:01:00Z",
+      "updatedAt": "2026-08-02T12:01:00Z"
+    }
+  },
+  {
+    "schema": "Shot",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "shot_arrival",
+      "projectId": "project_demo",
+      "sceneId": "scene_platform",
+      "order": 1,
+      "title": "Train arrival",
+      "intent": "Establish the traveler and the approaching train.",
+      "mediaType": "video",
+      "status": "ready",
+      "durationSeconds": 6,
+      "promptRevisionId": "prompt_arrival_v2",
+      "referenceAssetIds": ["asset_coat_reference"],
+      "createdAt": "2026-08-02T12:02:00Z",
+      "updatedAt": "2026-08-02T12:05:00Z"
+    }
+  },
+  {
+    "schema": "Asset",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "asset_coat_reference",
+      "projectId": "project_demo",
+      "kind": "source",
+      "mediaType": "image",
+      "mimeType": "image/png",
+      "storageUri": "asset://sha256/2bb80d537b1da3e38bd30361aa855686bde0ba13f7f21b33b5d59a92b4f7e92b",
+      "sha256": "2bb80d537b1da3e38bd30361aa855686bde0ba13f7f21b33b5d59a92b4f7e92b",
+      "byteSize": 842113,
+      "width": 1024,
+      "height": 1024,
+      "filename": "coat-reference.png",
+      "createdAt": "2026-08-02T12:02:30Z"
+    }
+  },
+  {
+    "schema": "PromptRevision",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "prompt_arrival_v2",
+      "projectId": "project_demo",
+      "shotId": "shot_arrival",
+      "parentRevisionId": "prompt_arrival_v1",
+      "revision": 2,
+      "prompt": "Wide tracking shot of a night train entering a rain-soaked platform.",
+      "negativePrompt": "logos, subtitles",
+      "referenceAssetIds": ["asset_coat_reference"],
+      "parameters": { "aspectRatio": "16:9" },
+      "authorId": "user_42",
+      "createdAt": "2026-08-02T12:04:00Z"
+    }
+  },
+  {
+    "schema": "GenerationJob",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "job_arrival_01",
+      "projectId": "project_demo",
+      "shotId": "shot_arrival",
+      "promptRevisionId": "prompt_arrival_v2",
+      "providerConnectionId": "provider_primary",
+      "operation": "video.generate",
+      "status": "running",
+      "inputAssetIds": ["asset_coat_reference"],
+      "outputAssetIds": [],
+      "providerJobRef": "remote-task-7731",
+      "progress": 35,
+      "attempt": 1,
+      "parameters": { "durationSeconds": 6 },
+      "createdAt": "2026-08-02T12:06:00Z",
+      "updatedAt": "2026-08-02T12:07:00Z",
+      "startedAt": "2026-08-02T12:06:02Z"
+    }
+  },
+  {
+    "schema": "LineageEdge",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "edge_reference_to_output",
+      "projectId": "project_demo",
+      "fromAssetId": "asset_coat_reference",
+      "toAssetId": "asset_arrival_video",
+      "relation": "reference",
+      "generationJobId": "job_arrival_01",
+      "createdAt": "2026-08-02T12:12:00Z"
+    }
+  },
+  {
+    "schema": "ProviderConnection",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "provider_primary",
+      "ownerId": "user_42",
+      "label": "Primary media endpoint",
+      "adapter": "openai-compatible",
+      "endpoint": "https://media.example.test/v1",
+      "status": "active",
+      "capabilities": ["image.generate", "image.edit", "video.generate"],
+      "auth": {
+        "type": "bearer",
+        "credentialRef": "secret_provider_primary"
+      },
+      "settings": { "requestTimeoutMs": 120000 },
+      "createdAt": "2026-08-02T11:00:00Z",
+      "updatedAt": "2026-08-02T11:30:00Z",
+      "lastVerifiedAt": "2026-08-02T11:30:00Z"
+    }
+  },
+  {
+    "schema": "ProviderConnection",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "provider_local",
+      "ownerId": "user_42",
+      "label": "Local endpoint",
+      "adapter": "local-runtime",
+      "endpoint": "http://127.0.0.1:9000/v1",
+      "status": "disabled",
+      "capabilities": ["image.generate"],
+      "auth": { "type": "none" },
+      "createdAt": "2026-08-02T11:00:00Z",
+      "updatedAt": "2026-08-02T11:00:00Z"
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_001",
+      "jobId": "job_arrival_01",
+      "type": "job.queued",
+      "sequence": 1,
+      "occurredAt": "2026-08-02T12:06:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_002",
+      "jobId": "job_arrival_01",
+      "type": "job.started",
+      "sequence": 2,
+      "occurredAt": "2026-08-02T12:06:02Z",
+      "payload": { "attempt": 1, "providerConnectionId": "provider_primary" }
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_003",
+      "jobId": "job_arrival_01",
+      "type": "job.progress",
+      "sequence": 3,
+      "occurredAt": "2026-08-02T12:07:00Z",
+      "payload": { "progress": 35, "message": "Rendering frames" }
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_004",
+      "jobId": "job_arrival_01",
+      "type": "job.retry_scheduled",
+      "sequence": 4,
+      "occurredAt": "2026-08-02T12:08:00Z",
+      "payload": { "attempt": 2, "availableAt": "2026-08-02T12:08:30Z", "reason": "Upstream temporarily unavailable" }
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_005",
+      "jobId": "job_arrival_01",
+      "type": "job.succeeded",
+      "sequence": 5,
+      "occurredAt": "2026-08-02T12:12:00Z",
+      "payload": { "outputAssetIds": ["asset_arrival_video"] }
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_006",
+      "jobId": "job_failed_01",
+      "type": "job.failed",
+      "sequence": 3,
+      "occurredAt": "2026-08-02T12:13:00Z",
+      "payload": {
+        "error": { "code": "UPSTREAM_TIMEOUT", "message": "The provider did not respond in time.", "retryable": true }
+      }
+    }
+  },
+  {
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_007",
+      "jobId": "job_canceled_01",
+      "type": "job.canceled",
+      "sequence": 2,
+      "occurredAt": "2026-08-02T12:14:00Z",
+      "payload": { "reason": "Canceled by user" }
+    }
+  }
+]

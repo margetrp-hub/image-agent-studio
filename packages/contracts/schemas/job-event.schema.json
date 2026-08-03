@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/job-event.schema.json",
+  "title": "JobEvent",
+  "type": "object",
+  "required": ["schemaVersion", "id", "jobId", "type", "sequence", "occurredAt", "payload"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "jobId": { "$ref": "common.schema.json#/$defs/id" },
+    "type": {
+      "enum": ["job.queued", "job.started", "job.progress", "job.succeeded", "job.failed", "job.canceled", "job.retry_scheduled"]
+    },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "job.queued" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/queuedPayload" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "job.started" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/startedPayload" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "job.progress" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/progressPayload" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "job.succeeded" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/succeededPayload" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "job.failed" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/failedPayload" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "job.canceled" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/canceledPayload" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "job.retry_scheduled" } }, "required": ["type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/retryScheduledPayload" } } }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "queuedPayload": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "startedPayload": {
+      "type": "object",
+      "required": ["attempt"],
+      "properties": {
+        "attempt": { "type": "integer", "minimum": 1 },
+        "providerConnectionId": { "$ref": "common.schema.json#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "progressPayload": {
+      "type": "object",
+      "required": ["progress"],
+      "properties": {
+        "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+        "message": { "type": "string", "maxLength": 1000 }
+      },
+      "additionalProperties": false
+    },
+    "succeededPayload": {
+      "type": "object",
+      "required": ["outputAssetIds"],
+      "properties": {
+        "outputAssetIds": { "$ref": "common.schema.json#/$defs/idList" }
+      },
+      "additionalProperties": false
+    },
+    "failedPayload": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "$ref": "common.schema.json#/$defs/jobError" }
+      },
+      "additionalProperties": false
+    },
+    "canceledPayload": {
+      "type": "object",
+      "properties": {
+        "reason": { "type": "string", "maxLength": 1000 }
+      },
+      "additionalProperties": false
+    },
+    "retryScheduledPayload": {
+      "type": "object",
+      "required": ["attempt", "availableAt", "reason"],
+      "properties": {
+        "attempt": { "type": "integer", "minimum": 2 },
+        "availableAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

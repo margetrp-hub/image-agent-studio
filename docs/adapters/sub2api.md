@@ -14,6 +14,8 @@ deploy/image-sub2api-studio-history.service
 
 They remain to protect existing VPS deployments, browser localStorage keys, systemd services, and persisted data paths.
 
+Model discovery remains separate from invocation support. A Sub2API model is selectable only when its upstream model family maps to a verified Studio protocol; the adapter does not assume every discovered model accepts `/images/generations` or `/video/generations`.
+
 ## New Deployments
 
 Prefer provider-neutral names:

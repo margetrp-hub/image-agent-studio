@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/project.schema.json",
+  "title": "Project",
+  "type": "object",
+  "required": ["schemaVersion", "id", "ownerId", "name", "status", "sceneIds", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "ownerId": { "$ref": "common.schema.json#/$defs/id" },
+    "workspaceId": { "$ref": "common.schema.json#/$defs/id" },
+    "name": { "$ref": "common.schema.json#/$defs/shortText" },
+    "description": { "type": "string", "maxLength": 4000 },
+    "status": { "enum": ["draft", "active", "archived"] },
+    "sceneIds": { "$ref": "common.schema.json#/$defs/idList" },
+    "activeSceneId": { "$ref": "common.schema.json#/$defs/id" },
+    "promptConstraints": { "$ref": "common.schema.json#/$defs/promptConstraints" },
+    "metadata": { "$ref": "common.schema.json#/$defs/metadata" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "archivedAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

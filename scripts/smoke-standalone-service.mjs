@@ -38,7 +38,7 @@ const provider = http.createServer(async (req, res) => {
   providerHits.push({ method: req.method, url: req.url, authorization: req.headers.authorization, clientRequestId, rawBody });
   res.setHeader('Content-Type', 'application/json');
   if (req.method === 'GET' && req.url === '/v1/models') {
-    res.end(JSON.stringify({ object: 'list', data: [{ id: 'studio-image-model' }], debug: serverProviderKey }));
+    res.end(JSON.stringify({ object: 'list', data: [{ id: 'grok-imagine-image' }, { id: 'unknown-image-model' }], debug: serverProviderKey }));
     return;
   }
   if (req.method === 'POST' && req.url === '/v1/images/generations') {
@@ -57,12 +57,12 @@ const provider = http.createServer(async (req, res) => {
       return;
     }
     videoPollAttempts += 1;
-    if (videoPollAttempts <= 46) {
+    if (videoPollAttempts <= 151) {
       res.statusCode = 404;
       res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
       return;
     }
-    if (videoPollAttempts === 47) {
+    if (videoPollAttempts === 152) {
       res.statusCode = 503;
       res.end(JSON.stringify({ error: { message: 'Service temporarily unavailable' } }));
       return;
@@ -106,7 +106,7 @@ const servicePort = await freePort();
     STUDIO_PROVIDER_TYPE: 'xai-compatible',
     STUDIO_PROVIDER_CHAT_MODEL: 'studio-chat-model',
     STUDIO_VIDEO_POLL_INTERVAL_MS: '100',
-    STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES: '150'
+    STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES: '450'
 });
 
 try {
@@ -285,6 +285,8 @@ try {
   assert.equal(modelSync.status, 200);
   assert.equal(modelSync.raw.includes(serverProviderKey), false);
   assert(modelSync.raw.includes('[REDACTED]'));
+  assert.equal(modelSync.payload.models.data[0].invocations.image.adapter, 'xai-images');
+  assert.equal(modelSync.payload.models.data[1].invocations.image.status, 'unsupported');
 
   const promptResult = await request(servicePort, '/studio-api/prompt/optimize', {
     method: 'POST',
@@ -305,7 +307,7 @@ try {
         id: jobId,
         clientRequestId: 'client-request-123',
         sessionId: 'shared_session',
-        model: 'studio-image-model',
+        model: 'grok-imagine-image',
         prompt: 'server provider smoke',
         size: '1024x1024',
         n: 1
@@ -379,7 +381,7 @@ try {
   assert.equal(videoBody.duration, 5);
   assert.equal('width' in videoBody, false);
   assert.equal('fps' in videoBody, false);
-  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 48);
+  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 153);
   assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1/content'));
   assert(providerHits
     .filter((hit) => hit.url.startsWith('/v1/videos/'))
@@ -526,7 +528,7 @@ async function waitForHealth(port) {
 }
 
 async function waitForJob(port, token, jobId) {
-  const deadline = Date.now() + 10_000;
+  const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     const response = await request(port, `/studio-api/generation-jobs/${jobId}`, { token });
     assert.equal(response.status, 200, response.raw);

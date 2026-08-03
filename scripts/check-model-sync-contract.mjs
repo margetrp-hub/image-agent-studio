@@ -35,6 +35,20 @@ class EmptyGateway {
   }
 }
 
+class ContractGateway {
+  async listGatewayModels() {
+    return [
+      { id: 'gpt-image-2', invocations: { image: { status: 'verified', adapter: 'openai-images' }, video: { status: 'unsupported' } } },
+      { id: 'looks-like-image-9', invocations: { image: { status: 'unsupported' }, video: { status: 'unsupported' } } },
+      { id: 'sora-2', invocations: { image: { status: 'unsupported' }, video: { status: 'verified', adapter: 'openai-videos' } } }
+    ];
+  }
+
+  async getGatewayUsage() {
+    return {};
+  }
+}
+
 const idle = await syncGatewayModels({
   providerSettings: { apiKeySource: 'manual', manualApiKey: '', manualGatewayBaseUrl: '' },
   GatewayClient: GoodGateway
@@ -55,6 +69,11 @@ const empty = await syncGatewayModels({
   GatewayClient: EmptyGateway
 });
 
+const contracted = await syncGatewayModels({
+  providerSettings: { apiKeySource: 'manual', manualApiKey: 'sk-test', manualGatewayBaseUrl: 'https://example.com/v1' },
+  GatewayClient: ContractGateway
+});
+
 const failures = [];
 
 if (idle.modelsStatus !== 'idle') failures.push(`empty manual key should return idle, got ${idle.modelsStatus}`);
@@ -70,9 +89,11 @@ if (modelLooksLikeImage({ id: 'gpt-5.5' })) failures.push('gpt-5.5 should not be
 if (fallback.modelsStatus !== 'fallback') failures.push(`failed model sync should return fallback, got ${fallback.modelsStatus}`);
 if (fallback.modelSyncError?.code !== 'unknown') failures.push(`failed model sync should expose a safe error classification, got ${fallback.modelSyncError?.code}`);
 if (empty.modelsStatus !== 'empty' || empty.modelSyncError?.code !== 'empty_response') failures.push(`empty model sync should be explicit, got ${empty.modelsStatus}/${empty.modelSyncError?.code}`);
-const unauthorized = describeModelSyncError({ status: 401, message: 'Invalid API key sk-12345678901234567890' }, { endpoint: 'https://example.com/v1/models' });
+if (contracted.modelOptions.image.map((model) => model.id).join(',') !== 'gpt-image-2') failures.push('invocation contracts must exclude discovered but unsupported image models');
+if (contracted.modelOptions.video.map((model) => model.id).join(',') !== 'sora-2') failures.push('invocation contracts must select only verified video models');
+const unauthorized = describeModelSyncError({ status: 401, message: 'Invalid API key key-REDACTIONFIXTURE12345' }, { endpoint: 'https://example.com/v1/models' });
 if (unauthorized.code !== 'unauthorized') failures.push(`401 model sync should classify as unauthorized, got ${unauthorized.code}`);
-if (unauthorized.message.includes('12345678901234567890')) failures.push('model sync error must redact key-like values');
+if (unauthorized.message.includes('REDACTIONFIXTURE12345')) failures.push('model sync error must redact key-like values');
 if (!unauthorized.endpoint.endsWith('/v1/models')) failures.push(`model sync error should preserve a safe endpoint, got ${unauthorized.endpoint}`);
 
 const gatewayClientSource = readFileSync(new URL('../src/aiGatewayClient.js', import.meta.url), 'utf8');

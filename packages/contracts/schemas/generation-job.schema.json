@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/generation-job.schema.json",
+  "title": "GenerationJob",
+  "type": "object",
+  "required": ["schemaVersion", "id", "projectId", "shotId", "promptRevisionId", "operation", "status", "inputAssetIds", "outputAssetIds", "attempt", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "projectId": { "$ref": "common.schema.json#/$defs/id" },
+    "shotId": { "$ref": "common.schema.json#/$defs/id" },
+    "promptRevisionId": { "$ref": "common.schema.json#/$defs/id" },
+    "providerConnectionId": { "$ref": "common.schema.json#/$defs/id" },
+    "operation": { "enum": ["image.generate", "image.edit", "video.generate"] },
+    "status": { "enum": ["queued", "running", "succeeded", "failed", "canceled"] },
+    "inputAssetIds": { "$ref": "common.schema.json#/$defs/idList" },
+    "outputAssetIds": { "$ref": "common.schema.json#/$defs/idList" },
+    "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "parameters": { "$ref": "common.schema.json#/$defs/metadata" },
+    "error": { "$ref": "common.schema.json#/$defs/jobError" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "startedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "finishedAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

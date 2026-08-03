@@ -15,6 +15,10 @@ func main() {
 	cfg := config.Load()
 	studioStore := store.New(cfg.DataDir)
 	server := httpapi.NewServer(cfg, studioStore)
+	if err := server.StartupError(); err != nil {
+		slog.Error("go server initialization failed", "error", err)
+		os.Exit(1)
+	}
 
 	httpServer := &http.Server{
 		Addr:              cfg.Address(),

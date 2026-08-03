@@ -108,6 +108,17 @@ try {
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.waitForSelector('.creationDesk', { timeout: 8000 });
   await page.waitForTimeout(800);
+
+  const singleModeText = await page.locator('.singleGenerationWorkspace').innerText();
+  const singleModeCjkMatches = [...singleModeText.matchAll(/[\u4e00-\u9fff]+/g)].map((match) => match[0]);
+  assert(singleModeCjkMatches.length === 0, 'English single-generation mode still shows CJK text.', {
+    singleModeCjkMatches,
+    singleModeText
+  });
+
+  await page.getByRole('button', { name: /^Canvas$/ }).click();
+  await page.waitForSelector('.canvasGenerationPreview', { timeout: 8000 });
+  await page.waitForTimeout(400);
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const result = await page.evaluate(() => {

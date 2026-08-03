@@ -84,6 +84,7 @@ try {
   });
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /无限画布/ }).click();
   await page.waitForSelector('[data-node-id="blob-node-1"]', { timeout: 8000 });
 
   await page.evaluate(() => {

@@ -6,6 +6,8 @@ This project is my attempt to keep that loop in one durable workspace: write the
 
 The core project does **not** depend on Sub2API, NewAPI, or any single gateway. It can connect to official OpenAI-style APIs, custom OpenAI-compatible endpoints, NewAPI-compatible deployments, Sub2API-compatible deployments, and future image/video adapters. Those integrations are provider adapters around the workstation, not the identity of the project.
 
+Image Agent Studio is a standalone workstation. It is not the Image Agent Canvas Codex plugin, and it does not embed that plugin.
+
 Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
 
 Chinese README: [README.zh-CN.md](./README.zh-CN.md)
@@ -14,23 +16,37 @@ Chinese README: [README.zh-CN.md](./README.zh-CN.md)
 
 If you are exploring AI image workflows, OpenAI-compatible image endpoints, gateway deployment, model routing, prompt workflows, or future workstation improvements, you are welcome to join the QQ group: `260789529`.
 
-## What It Provides
+## Current Runtime
+
+The root web application and Node Studio service remain the production-compatible runtime during the Go migration.
 
 - Text-to-image uses `POST /v1/images/generations` by default.
 - Reference image and mask editing use `POST /v1/images/edits`.
 - Prompt helper requests use `POST /v1/chat/completions`.
-- The `xai-compatible` adapter supports durable base64 Grok Imagine images and asynchronous video generation without changing the core workstation flow.
-- `/v1/responses` is treated as an explicit compatibility path, not the default image route.
-- Provider-neutral settings prefer `VITE_AI_*` and `AI_GATEWAY_*`.
-- Older `VITE_SUB2API_*` and `SUB2API_*` names remain as compatibility aliases for existing deployments.
-- Docker defaults to `STUDIO_AUTH_MODE=standalone`, so the workstation owns users, sessions, history, queues, and generated assets without an upstream account system. Self-registration is open by default through `STUDIO_AUTH_REGISTRATION_MODE=open`; set it to `disabled` for invite-only deployments. `local` remains an explicit isolated-development mode only.
-- Gateway-authenticated deployments can use `STUDIO_AUTH_MODE=gateway` for per-user isolation through an existing account service.
-- Server-side generation jobs are persisted through `/studio-api/generation-jobs`.
-- Current canvas sessions are persisted through `/studio-api/session`.
-- History gallery, current session, queued tasks, and generated assets can survive browser refreshes and service restarts.
+- The `xai-compatible` adapter supports durable base64 image results and asynchronous video polling without changing the workstation contract.
+- `/v1/responses` is an explicit compatibility path, not the default image route.
+- Docker defaults to first-party standalone authentication; gateway authentication remains available for existing account systems.
+- Sessions, generation jobs, history records, and generated assets use Studio API persistence so established deployments can recover after refresh or service restart.
 - Large history, template, and inspiration views render in batches to reduce browser pressure.
-- Manual provider API keys are session-only browser secrets and are not written to durable local storage.
-- Chinese/English UI switching and light/dark mode are available from the account area.
+- Legacy `VITE_SUB2API_*`, `SUB2API_*`, process names, and data paths remain only where existing deployments need them.
+
+## Architecture In Progress
+
+The next workstation is organized around projects, scenes, shots, and workflow continuity rather than isolated provider requests.
+
+- `apps/web` contains the new project-oriented workstation and Studio API client. It is still being integrated and is not yet the production replacement for the root application.
+- `apps/server-go` now has first-party auth, per-user project aggregates, durable job records, SSE job events, SHA-256 content-addressed assets with per-user access checks, shared provider links, and encrypted per-user provider connections.
+- `packages/contracts` defines provider-neutral schemas for projects, scenes, shots, assets, prompt revisions, jobs, events, lineage, and provider connections.
+- The Go core currently uses per-user atomic JSON repositories for compatibility. SQLite is planned for desktop and single-node installs; PostgreSQL is planned for multi-user server deployments.
+- Shared admin provider links reference server environment secrets and are filtered by Studio role. Personal connections use AES-256-GCM envelopes bound to the owning user and connection, and currently support server-side model sync.
+- Go now has an explicit, opt-in OpenAI-compatible image executor. `dispatch-plan` remains a sanitized dry run; `POST .../execute` is disabled by default, uses server-held credentials, enforces durable job transitions, and saves base64 results into the private content-addressed asset store. Video, edits, retries, and production worker parity remain on the Node compatibility runtime.
+- Personal provider model sync blocks localhost and private-network URLs by default. Operators must set `STUDIO_ALLOW_PRIVATE_PROVIDER_URLS=true` to allow an intentional private endpoint.
+- Asset uploads accept only the image/video MIME allowlist enforced by Go, and asset responses set `X-Content-Type-Options: nosniff`.
+- SSE replay is bounded process memory, not durable event storage.
+- The existing Electron package wraps the compatibility web/Node runtime. The v1 desktop/Go integration is not complete.
+- Mini Program and Android directories are client boundaries, not finished mobile applications.
+
+The canonical status and ownership rules are in [docs/architecture-v1.md](./docs/architecture-v1.md). **Image Agent Canvas** is a separate Codex plugin repository; its MCP and canvas runtime are not bundled into this workstation.
 
 ## Boundary
 
@@ -39,19 +55,18 @@ This repository is deliberately narrow. It is not a model provider, gateway back
 Image Agent Studio owns:
 
 - Creation UI.
-- Prompt and reference workflow.
+- Projects, scenes, shots, and prompt/reference continuity.
 - Provider selection and route planning.
 - Infinite canvas and visual lineage.
-- Current-session persistence.
-- History gallery and generated asset storage.
+- Session, task, history, and generated asset persistence.
 - Docker, Nginx, and VPS deployment examples.
 
-Your provider or gateway owns:
+Each connected provider or gateway owns:
 
 - Accounts and API keys.
 - Model availability.
 - Quota and billing.
-- Upstream routing and retries.
+- Upstream routing and provider-side retries.
 - Provider-specific policy and moderation behavior.
 
 See [SECURITY.md](./SECURITY.md) and [docs/PROVIDERS.md](./docs/PROVIDERS.md) for the full security and integration boundary.
@@ -228,9 +243,11 @@ AI_GATEWAY_UPSTREAM=https://your-gateway-domain
 
 See [docs/DOCKER.zh-CN.md](./docs/DOCKER.zh-CN.md) for the full Docker path.
 
-## Windows Desktop EXE
+## Existing Windows Desktop Packaging
 
 The repository now includes a reproducible Windows desktop packaging path. It builds the web app, starts the local history/session service inside Electron, serves the built files from a local loopback server, and opens the workstation as a desktop window.
+
+This packages the existing web and Node compatibility runtime. It is not the unfinished v1 desktop client or a Go-backed desktop deployment.
 
 ```bash
 npm run package:windows
@@ -287,29 +304,31 @@ npm run check:gateway
 ## Project Structure
 
 ```text
+apps/
+  web/                               project-oriented workstation in integration
+  server-go/                         gradual Go control and data core
+  desktop/                           Electron packaging/runtime boundary
+  miniapp/ and android/              client boundaries; not complete products
+packages/
+  contracts/                         provider-neutral JSON Schemas
+  theme/                             shared semantic theme tokens
 src/
-  aiGatewayClient.js                 # OpenAI-compatible gateway client
-  sub2apiClient.js                   # Legacy compatibility re-export
-  studio.jsx                         # Main workstation UI
-  studio/                            # Provider, storage, error, and workflow helpers
+  studio.jsx                         production-compatible workstation UI
+  studio/                            provider, storage, error, and workflow helpers
 scripts/
-  image-agent-studio-history-service.mjs     # Product-neutral service entry
-  image-sub2api-studio-history-service.mjs   # Legacy compatibility wrapper
-  package-release.mjs
+  image-agent-studio-history-service.mjs     Node Studio service entry
+  image-sub2api-studio-history-service.mjs   legacy compatibility wrapper
 deploy/
   image-agent-studio-history.service
   nginx-image-agent-studio.conf
   sync-from-git.sh
-  install.sh / upgrade.sh / backup.sh / restore.sh / self-check.sh
 docs/
-  PROVIDERS.md
-  DEPLOY.zh-CN.md
-  DOCKER.zh-CN.md
-  VPS-GIT-SYNC.zh-CN.md
+  architecture-v1.md                 canonical architecture and status
+  migration-v1.md                    staged cutover and rollback plan
+  adapters/                          provider-specific contracts
 public/
   cases.json
   inspirations.json
-  inspiration-sources.json
   style-library.json
 ```
 

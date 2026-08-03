@@ -6,8 +6,10 @@ import { AiGatewayClient, STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 import { formatUsageValue } from '../util/billing.js';
 import { defaultProviderGatewayBaseUrl } from '../util/providerSettings.js';
 
-const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d|grok[-_.]imagine[-_.]image/i;
-const VIDEO_MODEL_PATTERN = /grok[-_.]imagine[-_.]video|(?:^|[-_.])(video|sora|veo|kling|runway|luma|hailuo)(?:[-_.0-9]|$)/i;
+const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d|grok[-_.]imagine[-_.]image|(?:^|[-_.])(seedream|nano[-_.]?banana|flux|ideogram|recraft|stable[-_.]?diffusion|sdxl|sd3|jimeng|doubao[-_.]?image|gemini[-_.a-z0-9]*image|imagen|midjourney|mj|firefly|leonardo|playground|kolors|qwen[-_.]?image|hunyuan[-_.]?image|hidream|photon|cogview)(?:[-_.0-9]|$)/i;
+const VIDEO_MODEL_PATTERN = /grok[-_.]imagine[-_.]video|(?:^|[-_.])(video|sora|veo|kling|runway|luma|hailuo|jimeng|seedance|wan|vidu|minimax|hunyuan|pixverse|pika|dreamina)(?:[-_.0-9]|$)/i;
+const IMAGE_MODEL_NAMES = ['即梦', '豆包图片', '豆包图像', '通义万相', '混元图片', '混元图像'];
+const VIDEO_MODEL_NAMES = ['即梦', '可灵', '海螺', '豆包视频', '通义万相视频'];
 
 export function modelLooksLikeImage(item) {
   const raw = item?.raw || {};
@@ -32,7 +34,7 @@ export function modelLooksLikeImage(item) {
     ...(Array.isArray(item?.capabilities) ? item.capabilities : []),
     ...(Array.isArray(raw.capabilities) ? raw.capabilities : [])
   ].filter(Boolean).join(' ');
-  return IMAGE_MODEL_PATTERN.test(source) || String(source).toLowerCase().includes('images/edits');
+  return IMAGE_MODEL_PATTERN.test(source) || String(source).toLowerCase().includes('images/edits') || IMAGE_MODEL_NAMES.some((name) => source.includes(name));
 }
 
 export function resolveProviderRequest(settings, apiKey) {
@@ -85,8 +87,13 @@ export async function syncGatewayModels({ session, providerSettings, apiKey, sig
 async function listModels(client, providerRequest, signal) {
   try {
     const models = await client.listGatewayModels({ ...providerRequest, signal });
-    const image = models.filter(modelLooksLikeImage);
-    const video = models.filter(modelLooksLikeVideo);
+    const hasInvocationContracts = models.some((model) => modelInvocation(model, 'image') || modelInvocation(model, 'video'));
+    const image = hasInvocationContracts
+      ? models.filter((model) => modelInvocation(model, 'image')?.status === 'verified')
+      : models.filter(modelLooksLikeImage);
+    const video = hasInvocationContracts
+      ? models.filter((model) => modelInvocation(model, 'video')?.status === 'verified')
+      : models.filter(modelLooksLikeVideo);
     if (!models.length) {
       return emptyModelSyncResult('empty', describeModelSyncError({ code: 'MODEL_LIST_EMPTY' }, {
         endpoint: modelSyncEndpoint(providerRequest)
@@ -106,6 +113,10 @@ async function listModels(client, providerRequest, signal) {
       endpoint: modelSyncEndpoint(providerRequest)
     }));
   }
+}
+
+function modelInvocation(model, mode) {
+  return model?.invocations?.[mode] || model?.raw?.invocations?.[mode] || null;
 }
 
 async function getUsageSummary(client, providerRequest, signal) {
@@ -157,6 +168,7 @@ export function modelLooksLikeVideo(item) {
     || value.includes('video_generation')
     || value.includes('video-generation')
     || VIDEO_MODEL_PATTERN.test(value)
+    || VIDEO_MODEL_NAMES.some((name) => value.includes(name.toLowerCase()))
   ));
 }
 

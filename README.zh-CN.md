@@ -6,6 +6,8 @@
 
 核心项目 **不依赖 Sub2API 或 NewAPI**。它们只是可选的适配器/网关形态。工作站本身可以连接官方 OpenAI 风格接口、自定义 OpenAI 兼容接口、NewAPI 兼容部署、Sub2API 兼容部署，以及未来的图片、视频模型适配器。
 
+Image Agent Studio 是独立的创作工作站。它不是 Image Agent Canvas Codex 插件，也不内置该插件。
+
 演示入口：[studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
 
 English README: [README.md](./README.md)
@@ -18,22 +20,37 @@ English README: [README.md](./README.md)
 
 AI 图像工作站、AI 生图工作台、图片生成工作流、提示词工作流、参考图生图、Mask 局部重绘、OpenAI 兼容接口、NewAPI 适配、Sub2API 适配、自托管生图平台、AI 创作画布、图片历史图库、图像生成队列、视频创作工作站。
 
-## 当前能力
+## 当前运行线
+
+Go 迁移期间，根目录 Web 应用和 Node Studio 服务仍是兼容现有部署的运行线。
 
 - 文生图默认使用 `POST /v1/images/generations`。
 - 参考图编辑和 Mask 局部重绘使用 `POST /v1/images/edits`。
 - 提示词助手使用 `POST /v1/chat/completions`。
-- `/v1/responses` 只作为显式兼容路径，不再作为默认生图路径。
-- 新配置优先使用 `VITE_AI_*` 和 `AI_GATEWAY_*`。
-- 旧的 `VITE_SUB2API_*` 和 `SUB2API_*` 仍作为兼容别名，方便旧部署平滑升级。
-- Docker 可以使用 `STUDIO_AUTH_MODE=local` 独立运行，不需要上游账号系统也能保存历史、会话、队列和生成图片。
-- 已有账号系统的部署可以使用 `STUDIO_AUTH_MODE=gateway`，通过上游网关做用户隔离。
-- 服务端生成任务通过 `/studio-api/generation-jobs` 持久化。
-- 当前画布会话通过 `/studio-api/session` 持久化。
-- 浏览器刷新或服务重启后，可以恢复历史图库、当前会话、队列状态和已保存图片。
-- 历史图库、模板库、灵感库采用分批渲染，减少图片多时的浏览器压力。
-- 手动输入的 Provider API Key 只保存在当前浏览器会话，不写入长期 localStorage。
-- 左下角支持中英文切换和明暗主题切换。
+- `xai-compatible` 适配器支持持久化的 base64 图片结果和异步视频轮询，但不改变工作站本身的接口边界。
+- `/v1/responses` 只作为显式兼容路径，不是默认生图路线。
+- Docker 默认使用工作站自有账号体系；已有账号系统的部署仍可使用网关鉴权。
+- 会话、生成任务、历史记录和生成资产通过 Studio API 保存，现有部署可在刷新或服务重启后恢复工作状态。
+- 历史图库、模板库和灵感库采用分批渲染，降低大量图片同时进入浏览器的压力。
+- 旧的 `VITE_SUB2API_*`、`SUB2API_*`、进程名和数据目录只在兼容旧部署时保留。
+
+## 正在迁移的架构
+
+新的工作站以项目、场景、镜头和工作流连续性组织创作，不再把一次 Provider 请求当作顶层结构。
+
+- `apps/web` 已有新的项目型工作台和 Studio API 客户端，但还在联调阶段，尚未替代根目录生产应用。
+- `apps/server-go` 已有自有账号、每用户项目聚合、持久化任务记录、SSE 任务事件、SHA-256 内容寻址资产及每用户访问校验、共享 Provider Link，以及加密的每用户 Provider Connection。
+- `packages/contracts` 提供项目、场景、镜头、资产、提示词修订、任务、事件、分支关系和 Provider Connection 的中立协议。
+- 共享管理员 Provider Link 引用服务端环境变量中的凭据，并按 Studio 角色开放；每用户 Provider Connection 使用 AES-256-GCM 保存 API Key 或 Access Token，密文绑定用户与连接 ID，目前支持服务端模型同步。
+- Go 核心当前仍使用每用户原子 JSON 作为兼容存储，SQLite 和 PostgreSQL 存储层尚未实现。
+- Go 已增加显式启用的 OpenAI-compatible 文生图执行器。`dispatch-plan` 仍只生成脱敏计划；`POST .../execute` 默认关闭，启用后使用服务端凭据、按持久化状态机推进任务，并把 base64 结果写入用户私有的内容寻址资产库。视频、编辑、重试和生产 worker 仍由 Node 兼容运行时承担。
+- 个人 Provider 模型同步默认阻断 localhost 和私网 URL；只有运维方显式设置 `STUDIO_ALLOW_PRIVATE_PROVIDER_URLS=true` 才允许有意使用的私网端点。
+- 资产上传只接受 Go 白名单内的图片/视频 MIME，资产响应设置 `X-Content-Type-Options: nosniff`。
+- SSE 回放只保存在当前进程的有界内存中，不是持久化事件日志。
+- 现有 Electron 打包仍包裹兼容 Web/Node 运行时；v1 桌面端与 Go 集成尚未完成。
+- 小程序和 Android 目前只是客户端边界，不是已经完成的移动端产品。
+
+架构事实源见 [docs/architecture-v1.md](./docs/architecture-v1.md) 和 [docs/GO-SERVER-CORE.md](./docs/GO-SERVER-CORE.md)。**Image Agent Canvas** 是独立的 Codex 插件仓库；它的 MCP 和画布运行时不打包进本工作站。
 
 ## 边界说明
 
@@ -42,19 +59,18 @@ AI 图像工作站、AI 生图工作台、图片生成工作流、提示词工�
 Image Agent Studio 负责：
 
 - 创作工作台界面。
-- 提示词、参考图和 Mask 工作流。
+- 项目、场景、镜头，以及提示词/参考图连续性。
 - Provider 选择与路由规划。
 - 无限画布和图片分支关系。
-- 当前会话持久化。
-- 历史图库和生成图片资产保存。
+- 会话、任务、历史和生成资产持久化。
 - Docker、Nginx、VPS 部署示例。
 
-你的官方 API、NewAPI、Sub2API 或自定义网关负责：
+接入的官方 API、NewAPI、Sub2API 或自定义网关负责：
 
 - 账号和 API Key。
 - 模型可用性。
 - 额度与计费。
-- 上游路由、重试和失败处理。
+- 上游路由、Provider 侧重试和失败处理。
 - Provider 自己的内容策略和审核行为。
 
 更多边界见 [SECURITY.md](./SECURITY.md) 和 [docs/PROVIDERS.md](./docs/PROVIDERS.md)。
@@ -230,9 +246,11 @@ AI_GATEWAY_UPSTREAM=https://your-gateway-domain
 
 完整说明见 [docs/DOCKER.zh-CN.md](./docs/DOCKER.zh-CN.md)。
 
-## Windows 桌面 EXE
+## 现有 Windows 桌面打包
 
 仓库现在提供可复现的 Windows 桌面打包路径。它会先构建前端，再用 Electron 启动本地历史/会话服务和本地静态服务器，最后以桌面窗口打开工作站。
+
+这条路径打包的是现有 Web 与 Node 兼容运行时，不代表尚未完成的 v1 桌面客户端或 Go 桌面部署。
 
 ```bash
 npm run package:windows
@@ -288,29 +306,31 @@ npm run check:gateway
 ## 项目结构
 
 ```text
+apps/
+  web/                               联调中的项目型工作台
+  server-go/                         逐步迁移的 Go 控制与数据核心
+  desktop/                           Electron 打包与运行边界
+  miniapp/ 和 android/               客户端边界，尚非完整产品
+packages/
+  contracts/                         Provider 中立 JSON Schema
+  theme/                             多端语义主题 token
 src/
-  aiGatewayClient.js                 # OpenAI 兼容网关客户端
-  sub2apiClient.js                   # 旧导入路径兼容转发
-  studio.jsx                         # 主工作台 UI
-  studio/                            # Provider、存储、错误和工作流工具
+  studio.jsx                         兼容现有生产的工作台 UI
+  studio/                            Provider、存储、错误和工作流工具
 scripts/
-  image-agent-studio-history-service.mjs
-  image-sub2api-studio-history-service.mjs
-  package-release.mjs
+  image-agent-studio-history-service.mjs     Node Studio 服务入口
+  image-sub2api-studio-history-service.mjs   旧部署兼容包装
 deploy/
   image-agent-studio-history.service
   nginx-image-agent-studio.conf
   sync-from-git.sh
-  install.sh / upgrade.sh / backup.sh / restore.sh / self-check.sh
 docs/
-  PROVIDERS.md
-  DEPLOY.zh-CN.md
-  DOCKER.zh-CN.md
-  VPS-GIT-SYNC.zh-CN.md
+  architecture-v1.md                 架构与进度事实源
+  migration-v1.md                    分阶段迁移和回滚计划
+  adapters/                          Provider 适配契约
 public/
   cases.json
   inspirations.json
-  inspiration-sources.json
   style-library.json
 ```
 

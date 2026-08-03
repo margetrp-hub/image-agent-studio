@@ -1,103 +1,65 @@
-# Multi-client Architecture
+# Client Boundaries
 
-Image Agent Studio is becoming a creation workstation with multiple clients around one Studio API.
+Image Agent Studio is an independent creation workstation. The current delivery is Web-first, with desktop packaging around the same workstation. Other client directories reserve ownership boundaries; they are not a promise that every client is complete.
 
-## Client Lines
+The canonical service and domain architecture is [`architecture-v1.md`](./architecture-v1.md).
 
-```text
-apps/
-  web/       Full browser workstation.
-  desktop/   Electron shell around the web workstation and local service.
-  miniapp/   Mini Program companion for prompt, inspiration, reference, and history workflows.
-  android/   Native mobile client for capture, review, sharing, and lightweight continuation.
-  server/    Studio API, queue runner, provider dispatch, and durable asset storage.
-  server-go/ Gradual Go core for Studio users, admin provider links, queue, dispatch, and assets.
-```
-
-The Chinese product descriptor can be `创作工作台`. It is a user-facing translation, not a package name.
-
-## Ownership
+## Current Clients
 
 ### Web
 
-Owns the full creation workspace:
+The full workstation direction lives in `apps/web`:
 
-- prompt composer
-- reference panel
-- generation confirmation
-- infinite canvas
-- gallery, templates, and inspiration browsing
-- desktop-class history and branch operations
+- projects, scenes, and shots;
+- single-generation, canvas, and storyboard views;
+- prompt and reference continuity;
+- task status and result lineage;
+- desktop, tablet, and responsive mobile layouts.
+
+The new workstation remains in integration and has not replaced the root production-compatible Web app.
 
 ### Desktop
 
-Owns local packaging and desktop runtime:
+The root Electron packaging path wraps the production-compatible Web app and Node service. `apps/desktop` does not yet contain a complete v1 client, Go-service integration, or SQLite-backed desktop repository.
 
-- local static serving
-- local history/session service startup
-- app window behavior
-- release executable packaging
+The eventual v1 desktop client should share domain contracts and UI behavior with Web rather than fork a second workstation implementation.
 
-It should not fork business logic from Web.
+## Reserved Client Boundaries
 
 ### Mini Program
 
-Owns lightweight mobile entry:
-
-- prompt drafting
-- inspiration and template browsing
-- reference capture
-- simple job submit and status review
-- send-to-workstation continuation
-
-It should not own full canvas editing or provider credentials.
+The Mini Program boundary is intended for prompt drafting, reference capture, inspiration browsing, job submission, and result review. Full canvas editing, provider credential custody, and durable queue execution do not belong there.
 
 ### Android
 
-Owns native mobile creation support:
+The Android boundary is intended for media selection, sharing, result review, session links, and lightweight continuation. Provider routing and durable generation stay on the Studio API.
 
-- local media picker and share intents
-- result gallery review
-- push or background job status when available
-- session deep links
-- lightweight branch continuation
+Neither mobile client is complete in this revision. Directory presence, shared theme tokens, or responsive Web behavior must not be presented as finished mobile delivery.
 
-It should not own provider routing or durable job execution.
+## Service Ownership
 
-### Server
+All clients should eventually use the same provider-neutral Studio API for:
 
-Owns the truth:
+- identity and authorization;
+- projects, scenes, and shots;
+- sessions, jobs, history, and lineage;
+- content-addressed assets;
+- normalized provider/model capabilities.
 
-- auth scope
-- sessions
-- history
-- generation jobs
-- assets
-- provider dispatch
-- backup and restore
+Clients do not store server-managed provider keys or reimplement provider-specific route logic.
 
-All clients should treat the Studio API as authoritative.
+`apps/server-go` already provides project, job, SSE, provider-connection, model-sync, and content-addressed asset contracts. It does not yet execute generation jobs: its current dispatch endpoint is a sanitized dry run, and production execution remains on the Node compatibility runtime.
 
-### Go Server Core
+## Separate Codex Plugin
 
-`apps/server-go` is the service-core migration path. It should make Studio users first-party and treat NewAPI, Sub2API, CPA, Codex2API, and OpenAI-compatible deployments as backend provider links.
+Image Agent Canvas is a separate Codex plugin repository. Its MCP server, tldraw canvas, Codex skills, and project-level plugin persistence are outside this repository.
 
-Clients authenticate to Studio. Studio dispatches through the configured provider links.
+Future interoperability should use stable prompt, asset, and lineage contracts. It should not copy the plugin runtime into Image Agent Studio or make the plugin depend on Studio internals.
 
-## Shared Contracts
+## Shared Sources
 
-- API contracts: `docs/architecture-v1.md`
-- provider contracts: `docs/adapters/`
-- naming contracts: `docs/NAMING-LINES.md`
-- theme contracts: `docs/THEME-ARCHITECTURE.md`
-- tokens: `packages/theme/tokens.json`
-
-## First Split
-
-The first split should be structural:
-
-1. Keep current Web and Desktop behavior stable.
-2. Add Mini Program and Android app boundaries as empty clients with README contracts.
-3. Add shared theme tokens before implementing mobile screens.
-4. Move common product wording, state names, and API shapes into docs or shared contracts before duplicating code.
-5. Add client-specific implementations only after the shared API and theme contracts are stable.
+- Architecture and status: [`architecture-v1.md`](./architecture-v1.md)
+- Provider adapters: [`adapters/`](./adapters/README.md)
+- Naming: [`NAMING-LINES.md`](./NAMING-LINES.md)
+- Theme: [`THEME-ARCHITECTURE.md`](./THEME-ARCHITECTURE.md)
+- Wire contracts: [`packages/contracts`](../packages/contracts/README.md)

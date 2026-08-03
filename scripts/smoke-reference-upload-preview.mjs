@@ -148,6 +148,8 @@ try {
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.waitForSelector('.creationDesk', { timeout: 8000 });
+  await page.getByRole('button', { name: /无限画布/ }).click();
+  await page.waitForTimeout(400);
   await page.locator('.referenceSidePanel input[type="file"]').first().setInputFiles(files);
   await page.waitForSelector('.referenceSideBody.hasReferenceItems .sideReferenceThumbs figure', { timeout: 8000 });
   await page.waitForFunction(() => (

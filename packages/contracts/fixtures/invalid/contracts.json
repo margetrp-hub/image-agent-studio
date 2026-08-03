@@ -1,0 +1,109 @@
+[
+  {
+    "name": "project missing owner",
+    "schema": "Project",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "project_invalid",
+      "name": "Missing owner",
+      "status": "draft",
+      "sceneIds": [],
+      "createdAt": "2026-08-02T12:00:00Z",
+      "updatedAt": "2026-08-02T12:00:00Z"
+    }
+  },
+  {
+    "name": "shot repeats reference asset",
+    "schema": "Shot",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "shot_invalid",
+      "projectId": "project_demo",
+      "sceneId": "scene_platform",
+      "order": 1,
+      "title": "Duplicate references",
+      "mediaType": "image",
+      "status": "draft",
+      "referenceAssetIds": ["asset_one", "asset_one"],
+      "createdAt": "2026-08-02T12:00:00Z",
+      "updatedAt": "2026-08-02T12:00:00Z"
+    }
+  },
+  {
+    "name": "asset has invalid digest",
+    "schema": "Asset",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "asset_invalid",
+      "projectId": "project_demo",
+      "kind": "source",
+      "mediaType": "image",
+      "mimeType": "image/png",
+      "storageUri": "asset://invalid",
+      "sha256": "NOT-A-DIGEST",
+      "byteSize": 1,
+      "createdAt": "2026-08-02T12:00:00Z"
+    }
+  },
+  {
+    "name": "provider exposes raw secret",
+    "schema": "ProviderConnection",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "provider_invalid",
+      "ownerId": "user_42",
+      "label": "Unsafe connection",
+      "adapter": "custom",
+      "endpoint": "https://provider.example.test/v1",
+      "status": "active",
+      "capabilities": ["image.generate"],
+      "auth": { "type": "api-key", "credentialRef": "secret_1", "apiKey": "raw-secret" },
+      "createdAt": "2026-08-02T12:00:00Z",
+      "updatedAt": "2026-08-02T12:00:00Z"
+    }
+  },
+  {
+    "name": "job uses unsupported status",
+    "schema": "GenerationJob",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "job_invalid",
+      "projectId": "project_demo",
+      "shotId": "shot_arrival",
+      "promptRevisionId": "prompt_arrival_v2",
+      "operation": "video.generate",
+      "status": "complete",
+      "inputAssetIds": [],
+      "outputAssetIds": [],
+      "attempt": 1,
+      "createdAt": "2026-08-02T12:00:00Z",
+      "updatedAt": "2026-08-02T12:00:00Z"
+    }
+  },
+  {
+    "name": "progress event exceeds one hundred",
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_invalid_progress",
+      "jobId": "job_arrival_01",
+      "type": "job.progress",
+      "sequence": 2,
+      "occurredAt": "2026-08-02T12:00:00Z",
+      "payload": { "progress": 101 }
+    }
+  },
+  {
+    "name": "success event omits outputs",
+    "schema": "JobEvent",
+    "data": {
+      "schemaVersion": "1.0",
+      "id": "event_invalid_success",
+      "jobId": "job_arrival_01",
+      "type": "job.succeeded",
+      "sequence": 3,
+      "occurredAt": "not-a-date",
+      "payload": {}
+    }
+  }
+]

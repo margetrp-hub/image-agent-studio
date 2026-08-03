@@ -52,6 +52,10 @@ async function runScenario(browser, baseUrl, scenario) {
     throw new Error(`${scenario.name}: creation desk did not mount. ${error.message}\n${JSON.stringify({ body, consoleMessages }, null, 2)}`);
   });
   await page.waitForTimeout(500);
+  if (scenario.session.canvasNodes?.length || scenario.session.mode === 'mask') {
+    await page.getByRole('button', { name: /无限画布/ }).click();
+    await page.waitForTimeout(400);
+  }
   await page.locator('.composerParamSummary').click().catch(() => {});
   await page.waitForTimeout(200);
   const screenshotPath = `${screenshotDir}/current-session-mode-${scenario.name}.png`;
@@ -65,7 +69,7 @@ async function runScenario(browser, baseUrl, scenario) {
       active: button.classList.contains('active')
     })),
     composerSummary: document.querySelector('.composerParamSummary')?.innerText || '',
-    parameterSelects: [...document.querySelectorAll('.composerParamField select, .controlField select, .paramDrawer select')].map((select) => ({
+    parameterSelects: [...document.querySelectorAll('.composerParamField select, .controlField select, .paramDrawer select, .singleField select')].map((select) => ({
       value: select.value,
       text: select.selectedOptions?.[0]?.innerText || ''
     })),

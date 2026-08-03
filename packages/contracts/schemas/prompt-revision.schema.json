@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/prompt-revision.schema.json",
+  "title": "PromptRevision",
+  "type": "object",
+  "required": ["schemaVersion", "id", "projectId", "shotId", "revision", "prompt", "referenceAssetIds", "createdAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "projectId": { "$ref": "common.schema.json#/$defs/id" },
+    "shotId": { "$ref": "common.schema.json#/$defs/id" },
+    "parentRevisionId": { "$ref": "common.schema.json#/$defs/id" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "prompt": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "negativePrompt": { "type": "string", "maxLength": 20000 },
+    "referenceAssetIds": { "$ref": "common.schema.json#/$defs/idList" },
+    "parameters": { "$ref": "common.schema.json#/$defs/metadata" },
+    "authorId": { "$ref": "common.schema.json#/$defs/id" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

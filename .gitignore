@@ -18,6 +18,9 @@ dist/
 .github/
 agents/
 api/
+!apps/web/src/api/
+!apps/web/src/api/*.js
+!apps/web/src/api/*.mjs
 supabase/
 data/
 gallery.html

@@ -301,7 +301,6 @@ import {
   ASPECT_OPTIONS,
   CUSTOM_SIZE_OPTIONS,
   MODERATION,
-  MODERATION_LABELS,
   OUTPUT_FORMATS,
   QUALITY,
   RESOLUTION_TIERS,
@@ -995,6 +994,7 @@ function CreationDesk({
   const customSizeLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
   const videoMotionLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
   const videoStyleLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
+  const moderationLabel = (value) => (value === 'auto' ? t('params.auto', '自动') : qualityLabel(value));
   const resolutionTierLabel = (item) => RESOLUTION_TIER_LABELS[item.value] || item.label;
   const imageCountSuffix = t('params.imageCountSuffix', '张');
   useEffect(() => {
@@ -3563,12 +3563,14 @@ function CreationDesk({
         )
     : 0;
   const confirmTaskReferenceLimit = generationConfirmTask?.mode === 'video' || generationConfirmTask?.mode === 'mask' ? 1 : IMAGE_REFERENCE_LIMIT;
-  const confirmTaskRouteLabel = endpointForGenerationTask({
-    mode: generationConfirmTask?.mode,
-    referenceCount: confirmTaskReferenceCount,
-    hasMask: Boolean(generationConfirmTask?.maskFile),
-    endpoints: routeEndpoints
-  });
+  const confirmTaskRouteLabel = generationConfirmTask
+    ? endpointForGenerationTask({
+        mode: generationConfirmTask.mode,
+        referenceCount: confirmTaskReferenceCount,
+        hasMask: Boolean(generationConfirmTask.maskFile),
+        endpoints: routeEndpoints
+      })
+    : '';
   const confirmTaskOutputLabel = generationConfirmTask?.mode === 'video'
     ? `${generationConfirmTask.videoAspect} · ${generationConfirmTask.videoDuration}s · ${generationConfirmTask.videoFps}fps`
     : generationConfirmTask
@@ -4057,7 +4059,7 @@ function CreationDesk({
                             if (matched?.size) setCustomSize(matched.size);
                           }}
                         >
-                          {imageAspectOptions.map((item) => <option key={item.value} value={item.value}>{resolutionTierLabel(item)}</option>)}
+                          {imageAspectOptions.map((item) => <option key={item.value} value={item.value}>{aspectLabel(item)}</option>)}
                         </select>
                       </label>
                       {aspect === 'custom' ? (
@@ -4089,7 +4091,7 @@ function CreationDesk({
                       <label className="singleField">
                         <span>{t('params.moderation', '审核')}</span>
                         <select value={moderation} onChange={(event) => setModeration(event.target.value)}>
-                          {MODERATION.map((item) => <option key={item} value={item}>{MODERATION_LABELS[item] || item}</option>)}
+                          {MODERATION.map((item) => <option key={item} value={item}>{moderationLabel(item)}</option>)}
                         </select>
                       </label>
                       <label className="singleField">
@@ -4796,7 +4798,7 @@ function CreationDesk({
                         if (item.value !== 'custom') setCustomSize(item.size);
                       }}
                     >
-                      {resolutionTierLabel(item)}
+                      {aspectLabel(item)}
                     </button>
                   ))}
                 </div>
@@ -4844,7 +4846,7 @@ function CreationDesk({
                 <div className="optionSegment moderationSegment">
                   {MODERATION.map((item) => (
                     <button type="button" className={moderation === item ? 'active' : ''} key={item} onClick={() => setModeration(item)}>
-                      {MODERATION_LABELS[item] || item}
+                      {moderationLabel(item)}
                     </button>
                   ))}
                 </div>

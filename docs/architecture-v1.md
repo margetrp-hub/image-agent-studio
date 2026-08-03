@@ -1,346 +1,292 @@
-﻿# Image Agent Studio v1 Architecture
+# Image Agent Studio Architecture
 
-This document describes the target v1 architecture. The current repository still contains compatibility names from the original image-sub2api-studio runtime; v1 keeps those upgrade paths while making the product boundary provider-neutral.
+This is the canonical architecture document for Image Agent Studio. Other READMEs should link here instead of defining a second product or service boundary.
 
-## Goals
+## Product Boundary
 
-- Keep the creation workstation focused on prompt composition, references, canvas work, history, and recovery.
-- Split browser UI, server API, provider adapters, queue execution, and asset storage into explicit ownership areas.
-- Support OpenAI-compatible gateways first, while leaving a small adapter boundary for non-compatible providers.
-- Preserve existing local and Docker data paths during migration.
-- Avoid storing raw provider secrets in browser durable storage, history records, job records, or asset metadata.
+Image Agent Studio is an independent creation workstation for image and video workflows. It keeps briefs, prompts, references, projects, visual branches, task state, history, and durable assets in one workspace.
 
-## Application Layers
+The workstation is not a model provider, gateway, account pool, quota system, or billing service. OpenAI-compatible APIs, NewAPI, Sub2API, xAI-compatible services, and future integrations connect through provider adapters. Adapter names describe transport and capability differences; they do not define the product.
 
-```text
-apps/
-  web/       Browser workstation: React UI, canvas, composer, provider settings, local cache.
-  desktop/   Electron wrapper around the web workstation and local runtime.
-  miniapp/   Mini Program companion for prompt, inspiration, reference, and history workflows.
-  android/   Android companion for capture, review, sharing, and lightweight continuation.
-  server/    Studio API: auth scope, sessions, history, jobs, assets, provider dispatch.
-  server-go/ Gradual Go core: Studio users, admin provider links, queue, dispatch, assets.
-packages/
-  theme/     Shared semantic theme tokens mapped into each client.
-docs/        Architecture, migration, deployment, and provider contracts.
-```
+Image Agent Canvas is a separate Codex plugin and a separate repository. This repository does not own its MCP server, tldraw runtime, Codex plugin manifest, or project-level plugin storage. The two products may exchange stable assets and prompt/workflow contracts later, but neither is packaged inside the other.
 
-The v1 split is conceptual first, then physical. Existing code may still live under `src/` and `scripts/` until migration is complete.
+## Current Delivery Status
 
-The Chinese product descriptor can be `创作工作台`. It is user-facing wording only; package, repository, release, and deployment names stay under the `Image Agent Studio` / `image-agent-studio` line.
+The repository is in a staged migration. The following distinctions are intentional.
 
-### Web Layer
+### Working compatibility runtime
 
-The web app owns user interaction only:
+The root web application and Node Studio service remain the production-compatible path. They currently own the established generation flow, session/history compatibility, queue execution, generated asset handling, deployment scripts, and existing data layouts.
 
-- Prompt composer, assistant conversation, reference upload preview, mask/edit controls.
-- Provider/model selection based on server or bundled capability metadata.
-- Infinite canvas, lineage between generated results, and current-session recovery.
-- Local browser cache for fast reloads: IndexedDB first, localStorage fallback for non-secret preferences.
-- Queue presentation by polling or subscribing to `/studio-api/generation-jobs`.
+### Implemented Go foundations
 
-The web layer does not own upstream keys, durable job execution, durable assets, or provider-specific request signing.
+`apps/server-go` currently provides:
 
-### Mobile Client Layers
+- Studio-owned authentication and user isolation;
+- per-user project aggregates and lifecycle validation;
+- session, history, and queued job compatibility APIs;
+- project-aware prompt continuation plans;
+- authenticated SSE job snapshots, replay, and heartbeats;
+- authenticated SHA-256 content-addressed asset storage;
+- shared admin provider links;
+- encrypted per-user provider connections and server-side model synchronization;
+- provider-neutral JSON contracts under `packages/contracts`.
 
-Mini Program and Android clients are companion surfaces around the same Studio API:
+### Integration-stage web workstation
 
-- prompt drafting, reference capture, inspiration browsing, history review, and lightweight job submission.
-- no provider key ownership, no full provider dispatch logic, and no separate durable queue.
-- local data is a cache; server sessions, jobs, history, and assets remain authoritative.
+`apps/web` is the new project-oriented workstation entry. It contains single-generation, canvas, and storyboard surfaces and an authenticated Studio API client. Registration, project persistence, Provider connection management, model synchronization, generation confirmation, durable image jobs, authenticated SSE updates, cancellation, private result previews, and project-scoped job restoration are connected. Canvas state, reference upload, image editing, video execution, and some displayed workspace data still use fixtures or remain incomplete.
 
-### Theme Layer
+### Not complete in this revision
 
-Shared visual decisions live in `packages/theme/tokens.json`:
+- Go has an explicit opt-in OpenAI-compatible image execution path, but not production image/video parity. It is disabled by default and does not replace the Node worker.
+- `dispatch-plan` remains a sanitized dry run. The separate `execute` endpoint can persist base64 image results, but video, image edits, retries, in-flight recovery after a Go service restart, and remote-result ingestion are not complete.
+- Go has not replaced the Node runtime in production.
+- SQLite and PostgreSQL repositories are not implemented for the Go domain layer.
+- Existing Node data has not been fully imported into the Go stores.
+- The existing Electron package wraps the compatibility web/Node runtime; the v1 desktop/Go integration is not complete.
+- Mini Program and Android directories are architectural boundaries, not complete clients.
+- Responsive web layouts are not a claim of native mobile completion.
 
-- Web/Desktop map tokens into CSS custom properties.
-- Mini Program maps tokens into WXSS variables or build-time constants.
-- Android maps tokens into Material/Compose theme values.
-
-Client density can differ, but token names should remain semantic and provider-neutral.
-
-### Server Layer
-
-The server app owns durable state and protected IO:
-
-- User scope resolution from local mode or gateway-authenticated mode.
-- Session snapshots and history records.
-- Generation job creation, dedupe, execution, cancellation, and recovery after refresh.
-- Asset ingestion from base64, blob uploads, upstream image URLs, and library assets.
-- Provider dispatch through adapters.
-- Backup, restore, health checks, and deployment diagnostics.
-
-The server layer may keep compatibility route names such as `/studio-api/history` and `/studio-api/generation-jobs`, but v1 code should treat them as Studio API routes rather than history-service internals.
-
-### Go Core Layer
-
-`apps/server-go` is the migration target for durable service logic. It should replace the Node service in phases:
-
-- first-party Studio users and session tokens.
-- admin-managed provider links for shared NewAPI, Sub2API, and OpenAI-compatible backend accounts.
-- generation queue state and cancellation.
-- provider dispatch and asset persistence.
-- backup, restore, and operational checks.
-
-The Studio user system is independent from upstream gateway accounts. Upstreams are provider links configured by admins, not the product identity.
-
-## Request Flow
+## Runtime Shape
 
 ```text
-Browser composer
-  -> POST /studio-api/generation-jobs
-  -> server validates scope, provider, parameters, references
-  -> server stores input assets when needed
-  -> queue runner dispatches through provider adapter
-  -> provider returns images or recoverable failure
-  -> server persists result assets and history record
-  -> browser reads job status and restores canvas/history
+Web or desktop client
+  -> Studio API (/studio-api/*)
+     -> auth and per-user scope
+     -> projects, sessions, history, jobs
+     -> content-addressed assets
+     -> provider adapter registry
+        -> official or compatible provider endpoint
+
+Image Agent Canvas (separate repository)
+  -> its own Codex plugin and MCP lifecycle
+  -> optional future exchange through stable Studio contracts
 ```
 
-Browser-direct provider calls remain useful for development, but production v1 should prefer server-submitted jobs so refresh, timeout, and network interruption do not lose the final result.
+The target is one Studio API contract across web and desktop. Mobile clients may use the same contract later, but they are not part of the current delivery promise.
 
-## Data Model
+## Ownership
 
-### User Scope
+### Web
 
-```json
-{
-  "userKey": "local:default or gateway:user-id",
-  "authMode": "local | gateway",
-  "displayName": "optional",
-  "dataRoot": "per-user data directory"
-}
+The browser owns interaction and presentation:
+
+- project, scene, and shot navigation;
+- prompt composition and continuity controls;
+- reference and canvas presentation;
+- provider/model selection from normalized capability data;
+- task progress, recovery, and error presentation;
+- local caching of non-secret preferences and reload state.
+
+The browser does not own raw server-managed credentials, durable job execution, account pools, billing, or upstream retry policy.
+
+### Studio API and Go migration core
+
+The service boundary owns protected and durable operations:
+
+- user identity and authorization scope;
+- project, session, history, and job persistence;
+- provider credential custody;
+- server-side model synchronization and dispatch planning;
+- content-addressed asset ingestion and access checks;
+- job events, cancellation, and eventual queue execution;
+- backup, restore, migrations, and operational diagnostics.
+
+The Node service currently supplies parts of this production behavior. Go is replacing it in verified slices rather than through a one-time rewrite.
+
+### Provider adapters
+
+Adapters translate Studio-neutral requests into provider-specific routes, parameters, authentication, and result normalization. Provider-specific rules belong in adapter code and tests, not in the project model or main UI shell.
+
+The Studio user account remains independent from any linked NewAPI, Sub2API, xAI-compatible, or OpenAI-compatible account.
+
+## Creative Domain
+
+### Project
+
+A project is the ownership and persistence boundary for a body of creative work. It contains:
+
+- name, description, lifecycle, and timestamps;
+- optional story document and story beats;
+- ordered scenes;
+- ordered image or video shots;
+- project-level prompt constraints.
+
+Projects move through `draft`, `active`, and `archived`. The current delete endpoint archives a project. Full updates use `PUT`; partial `PATCH` is rejected so omitted story, scene, or shot fields cannot silently erase the aggregate.
+
+### Scene and shot
+
+A scene groups related shots and carries its own creative constraints. A shot records intent, immediate prompt, media type, status, duration for video, and reference asset ids.
+
+Constraint inheritance is additive and explicit:
+
+```text
+project constraints
+  -> scene constraints
+     -> shot constraints
+        + immediate change request
+        -> generation prompt or continuation plan
 ```
 
-All durable records are partitioned by user scope. `local` mode may use one default user. `gateway` mode must derive a stable user key from the upstream account service and must not trust a browser-provided user id.
-
-### Session
-
-```json
-{
-  "sessionId": "stable workspace id",
-  "updatedAt": "ISO timestamp",
-  "results": ["protected or public result URLs"],
-  "canvasNodes": [],
-  "canvasEdges": [],
-  "messages": [],
-  "queue": [],
-  "providerSettings": {
-    "providerId": "gateway-account",
-    "apiKeySource": "gateway"
-  }
-}
-```
-
-Sessions are the current working state. They should be small enough to reload quickly; large binary content is stored as assets and referenced by URL.
-
-### History Record
-
-```json
-{
-  "id": "record or job id",
-  "sessionId": "source session",
-  "createdAt": "ISO timestamp",
-  "mode": "image | edit",
-  "providerId": "openai-compatible",
-  "model": "gpt-image-2",
-  "prompt": "final submitted prompt",
-  "size": "1024x1024",
-  "quality": "auto",
-  "count": 1,
-  "resultUrls": [],
-  "requestIds": [],
-  "timing": {}
-}
-```
-
-History records are append-oriented creation evidence. They should contain sanitized provider metadata, not raw credentials or full upstream secrets.
-
-### Generation Job
-
-```json
-{
-  "id": "job id",
-  "sessionId": "source session",
-  "status": "queued",
-  "stage": "queued",
-  "mode": "image | edit",
-  "route": "generations | edits",
-  "providerId": "gateway-account",
-  "apiKeySource": "gateway | manual",
-  "model": "gpt-image-2",
-  "prompt": "user visible prompt",
-  "generationPrompt": "submitted prompt",
-  "inputAssets": [],
-  "resultUrls": [],
-  "fingerprint": "dedupe key",
-  "requestIds": [],
-  "error": null
-}
-```
-
-Jobs are the source of truth while work is active. A succeeded job writes a history record. A failed, canceled, or unknown job remains visible long enough for the user to understand whether retry is safe.
+Stable constraints such as subject identity, setting, composition, style, lighting, camera, continuity rules, negative requirements, and technical requirements should not be flattened into an opaque prompt string too early.
 
 ### Workflow Continuation
 
-Canvas links are not only visual. A lineage edge means the child job inherits the parent creative context.
+Visual lineage is a data relationship, not only a canvas line. A continuation keeps:
 
-For image and video branches, continuation uses the same contract:
+- the original direction;
+- the parent result and submitted prompt;
+- the new change request;
+- inherited project/scene/shot constraints;
+- a lineage edge between source and result.
 
-```json
-{
-  "parentJobId": "job-1",
-  "mode": "image | video",
-  "rootPrompt": "prompt used for #1",
-  "previousPrompt": "submitted prompt used for the parent node",
-  "changePrompt": "what the user wants to change next",
-  "generationPrompt": "server-built prompt for the next job",
-  "workflow": {
-    "rootPrompt": "prompt used for #1",
-    "lineage": [
-      { "index": 1, "jobId": "job-1", "mode": "image", "prompt": "..." },
-      { "index": 2, "mode": "image", "prompt": "..." }
-    ]
-  }
-}
-```
+The portable request metadata stores that ordered branch history in `workflow.lineage`. Each new image or video continuation appends its parent/child step without replacing the project, scene, or shot constraints described above.
 
-The next job should persist `workflow` under its request payload, especially `workflow.lineage`. This lets `#3` inherit from `#2` while still remembering the original `#1` direction. Prompt composition should preserve subject identity, style, composition logic, and important props from the parent, then apply the new change request as the next branch step. Video uses the same lineage structure, with motion/story-beat continuity rules instead of still-image composition rules.
+This supports `#1 -> #2 -> #3` image branches and the same pattern for video scenes. The current Go continuation endpoint builds a sanitized next-step plan; it does not yet execute the next generation.
 
-### Asset
+## Provider and Secret Boundary
 
-```json
-{
-  "url": "/studio-api/history/{recordId}/assets/0.png",
-  "ownerType": "session | history | job | library",
-  "ownerId": "record id",
-  "mime": "image/png",
-  "bytes": 12345,
-  "createdAt": "ISO timestamp"
-}
-```
+Image Agent Studio supports two server-side provider ownership models.
 
-The file system can remain the v1 default asset index. A later database index is allowed, but the URL contract should stay stable.
+### Shared admin links
 
-## Provider Architecture
+An administrator can expose a shared provider link to allowed Studio roles. The link stores a reference to a server environment secret rather than returning that secret to clients.
 
-Provider support is split into four small concepts:
+Shared links can be used by the Go generation-job `dispatch-plan` when the current Studio role is allowed. The endpoint builds and returns a sanitized request plan; it does not dispatch it.
 
-- Registry: static capability descriptors for display names, routes, file types, model defaults, size/quality/count limits, and auth fields.
-- Parameter normalizer: converts UI settings into provider-safe request parameters.
-- Adapter: builds and executes the provider request, including multipart edit requests and OpenAI-compatible generation requests.
-- Result normalizer: returns generated images, revised prompts, cost information, request ids, and sanitized raw metadata.
+### Per-user connections
 
-The first-class provider families are:
+A Studio user can own a provider connection. Its API key or access token is encrypted with AES-256-GCM using `STUDIO_MASTER_KEY`, and the encrypted payload is bound to both the user id and connection id. Public API responses include configuration and `APIKeyConfigured` / `AccessTokenConfigured` flags only.
 
-- `gateway-account`: browser is logged into an existing gateway account; server obtains scoped credentials or selected account keys.
-- `openai-compatible`: manual base URL and API key for standard `/v1/images/generations` and `/v1/images/edits`.
-- `newapi-compatible`: OpenAI-compatible behavior with optional model/account metadata differences.
+Personal connections support server-side model synchronization, sanitized generation dispatch planning, and the same opt-in Go image executor when execution is enabled.
 
-Default image routing remains:
+Operational requirements:
+
+- `STUDIO_MASTER_KEY` must decode to exactly 32 bytes;
+- `STUDIO_MASTER_KEY_VERSION` identifies the active key version;
+- the key must be backed up separately from application data;
+- losing the key makes encrypted provider credentials unreadable;
+- rotating keys requires an explicit decrypt-and-re-encrypt migration;
+- raw secrets must not appear in browser durable storage, project JSON, job payloads, asset metadata, logs, or backups.
+
+Personal Provider outbound requests, including model synchronization and image execution, treat Provider URLs as a network security boundary. The service resolves and pins the target address, rejects DNS changes while dialing, rejects mixed public/private answers, ignores environment proxies, and does not follow redirects. By default it rejects `localhost`, `.localhost`, `metadata.google.internal`, and hostnames that resolve to private, loopback, link-local, multicast-link-local, or unspecified addresses. A deployment may set `STUDIO_ALLOW_PRIVATE_PROVIDER_URLS=true` to allow an intentional private Provider endpoint; this is an operator-controlled exception, not the default.
+
+Encryption at rest does not make an arbitrary provider URL trustworthy. Server-side URL validation, outbound network policy, audit logging, and provider allowlists remain separate operational concerns.
+
+## Assets
+
+The Go asset store addresses original content by SHA-256 digest:
 
 ```text
-text-to-image        -> POST /v1/images/generations
-reference/mask edit  -> POST /v1/images/edits
-prompt assistant     -> POST /v1/chat/completions
+upload bytes
+  -> validate size and metadata
+  -> compute digest
+  -> deduplicate identical content
+  -> persist blob and metadata
+  -> attach per-user access reference
 ```
 
-`/v1/responses` is an opt-in compatibility path only when a provider explicitly supports image generation there.
+Authenticated reads verify that the current user owns a reference to the digest. Stable digest URLs allow long-lived private caching without coupling a project to a physical filesystem path.
 
-## Queue State Machine
+The upload API accepts only `image/png`, `image/jpeg`, `image/webp`, `image/gif`, `image/avif`, `video/mp4`, `video/webm`, and `video/quicktime`. Missing or generic `application/octet-stream` values are detected from the first 512 bytes; other MIME values are rejected. Asset responses set `X-Content-Type-Options: nosniff` as well as private immutable cache headers.
 
-Server job status is durable and provider-facing:
+Variants and thumbnails are related to the original digest. The storage package supports those relationships, but the repository does not yet claim a complete thumbnail generation or media transformation service.
+
+Large image and video bytes remain in filesystem or future object storage. Project and database records store ids, digests, ownership, dimensions, media types, and relationships rather than embedding large base64 payloads.
+
+## Job State and SSE
+
+Generation jobs are durable user-scoped records. The Go API currently supports creation, listing, lookup, cancellation, dispatch-plan inspection, workflow continuation planning, and explicit opt-in OpenAI-compatible image execution. Production queue execution, retries, image edits, and video remain on the compatibility runtime.
+
+The event stream is:
 
 ```text
-queued
-  -> dispatching
-  -> gateway
-  -> upstream
-  -> image
-  -> saving
-  -> succeeded
+GET /studio-api/generation-jobs/{jobId}/events
 ```
 
-Failure and interruption exits:
+Behavior:
 
-```text
-queued/running -> canceled
-any active     -> failed
-any active     -> unknown
-```
+- sends the current job as a `snapshot` event;
+- replays buffered sequenced events after `Last-Event-ID` or `?after=`;
+- publishes Studio job events such as `queued`;
+- sends a heartbeat every 15 seconds;
+- partitions subscriptions by user and job.
 
-Meanings:
+SSE reports what Studio knows. When a provider exposes no numeric progress, the UI must present stage and elapsed time without inventing a percentage. A heartbeat means the connection is alive, not that the upstream model has advanced.
 
-- `queued`: accepted by Studio API, waiting for a per-user runner slot.
-- `dispatching`: server is validating runtime credentials and building the provider request.
-- `gateway`: request has been delivered to the gateway/provider transport.
-- `upstream`: provider is generating or the gateway is waiting on the model.
-- `image`: server has received image payloads and is converting them into durable assets.
-- `saving`: server is writing result assets, job updates, and history records.
-- `succeeded`: durable result URLs exist.
-- `failed`: provider or server returned a known terminal error.
-- `canceled`: local queue wait or server runner was canceled; upstream may still bill if already reached.
-- `unknown`: server lost certainty, usually from timeout, restart, or network interruption after dispatch.
+The replay buffer is bounded process memory. It does not survive a Go service restart; the JSON job record is durable, but the event history is not.
 
-The browser may map server states into compact UI states: `queued`, `running`, `done`, `failed`, `canceled`, and `unknown`.
+On browser reload or project change, the workstation requests jobs for that project only and restores its latest saved job. Completed jobs reload their protected result assets through authenticated requests and render local Blob URLs; results from another project are not reused.
 
-## Asset Storage
+## Persistence
 
-v1 keeps file-system storage as the default deployment unit:
+### Current compatibility storage
+
+The Go core currently uses atomic JSON files because they are inspectable and compatible with the existing migration path:
 
 ```text
 {STUDIO_DATA_DIR}/
-  users/{userKey}/
-    records.json
+  studio-go/auth/
+  studio-go/config/
+  studio-go/assets/                  content-addressed objects and manifests
+  users/{sha256("studio:" + userId)}/
     session.json
-    sessions/{sessionId}.json
+    sessions/
+    records.json
     jobs.json
-    assets/{ownerId}/{index}.{ext}
+    projects/{projectId}.json
+    provider-connections.json
+    assets.json
 ```
 
-Storage rules:
+This layout is suitable for development, compatibility testing, and controlled single-node migration. It is not the intended multi-instance database.
 
-- Store generated images and uploaded session images as files, not JSON blobs.
-- Keep protected URLs under `/studio-api/...` when auth is required.
-- Keep public demo/library assets under the static web root or `/studio-api/library-assets`.
-- Prune session assets that are no longer referenced by the saved session.
-- Backup and restore must include records, sessions, jobs, and assets together.
-- Do not include provider API keys in asset filenames, metadata, or backup snapshots.
+### Repository target
 
-## Docker Deployment Shape
-
-The current Docker shape already matches the v1 boundary:
+Domain and HTTP contracts must stay independent from the storage engine:
 
 ```text
-studio-web      nginx + built web assets
-studio-server   Node Studio API, queue runner, asset storage
-studio-data     persistent volume mounted at /data
-gateway         external OpenAI-compatible upstream
+HTTP/domain services
+  -> repository interfaces
+     -> JSON compatibility repository
+     -> SQLite repository
+     -> PostgreSQL repository
+
+asset metadata repository
+  -> filesystem blob store
+  -> optional object store
 ```
 
-Current service names may remain `studio-web` and `studio-history` for compatibility. v1 documentation should refer to the second service as the Studio API/server even if the container image or script still uses the legacy history name.
+- SQLite is the target for desktop and small single-node installations.
+- PostgreSQL is the target for multi-user server deployments, transactions, indexes, and concurrent workers.
+- Binary assets remain content-addressed outside ordinary relational rows.
+- JSON import remains available until existing projects, jobs, history, provider connections, and asset references have been migrated and verified.
 
-Recommended production flow:
+No production cutover should happen without backup, import counts, ownership checks, digest checks, API smoke tests, and a rollback path to the prior runtime.
 
-```text
-client -> nginx studio-web
-       -> /studio/ static app
-       -> /studio-api/* proxy to studio-server
-studio-server -> /v1/* upstream gateway
-studio-server -> /data durable records and assets
-```
+## Shared Contracts
 
-Key environment groups:
+`packages/contracts` contains provider-neutral JSON Schemas for:
 
-- Web build: `STUDIO_BASE_PATH`, `VITE_AI_GATEWAY_*`, `VITE_STUDIO_*`.
-- Server runtime: `STUDIO_AUTH_MODE`, `STUDIO_DATA_DIR`, `STUDIO_ALLOWED_ORIGINS`, `STUDIO_JOB_*`, `AI_GATEWAY_BASE_URL`.
-- Compatibility aliases: `SUB2API_*` and `VITE_SUB2API_*` remain accepted for existing installs.
+- Project, Scene, and Shot;
+- Asset;
+- PromptRevision;
+- GenerationJob and JobEvent;
+- LineageEdge;
+- ProviderConnection.
+
+These schemas define portable wire shapes. Lifecycle ordering, user authorization, referential integrity, secret custody, and storage transactions remain service responsibilities.
 
 ## Compatibility Policy
 
-v1 may rename internal packages and docs, but external data must remain readable:
+Legacy `image-sub2api-studio`, `SUB2API_*`, old VPS paths, route names, and browser storage keys may remain where they protect upgrades and existing data. They are compatibility contracts, not naming guidance for new features.
 
-- Existing `.image-sub2api-studio-data`, `/var/lib/image-sub2api-studio`, and Docker `studio-data` volumes remain valid.
-- Existing `/studio-api/session`, `/studio-api/history`, `/studio-api/generation-jobs`, and `/studio-api/library-assets` routes remain valid.
-- Existing provider settings using `sub2api` naming are normalized to gateway/OpenAI-compatible naming on read.
-- New code should use `AI_GATEWAY_*`, `VITE_AI_*`, and Image Agent Studio terminology.
+New product copy, packages, logs, and deployment defaults use `Image Agent Studio` / `image-agent-studio`. See [`NAMING-LINES.md`](./NAMING-LINES.md).
+
+## Related Documents
+
+- [`GO-SERVER-CORE.md`](./GO-SERVER-CORE.md): Go runbook and migration checkpoints.
+- [`migration-v1.md`](./migration-v1.md): phased cutover and rollback plan.
+- [`PROVIDERS.md`](./PROVIDERS.md): provider route and adapter behavior.
+- [`MULTI-CLIENT-ARCHITECTURE.md`](./MULTI-CLIENT-ARCHITECTURE.md): client boundaries and explicit mobile limits.
+- [`packages/contracts/README.md`](../packages/contracts/README.md): schema set and validation.

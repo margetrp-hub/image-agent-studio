@@ -6,8 +6,8 @@ import {
 } from '../src/studio/providers/index.js';
 import { createImagesGenerationBody } from '../src/gateway/imageAdapters.js';
 import {
-  buildProviderImageGenerationBody,
-  buildProviderVideoGenerationBody,
+  buildProviderImageGenerationPlan,
+  buildProviderVideoGenerationPlan,
   normalizeProviderVideoTask,
   providerProfile
 } from './studio-service/providerProfiles.js';
@@ -39,20 +39,23 @@ assert.deepEqual(imageBody, {
 });
 
 const profile = providerProfile('xai-compatible');
-const serverImageBody = buildProviderImageGenerationBody(profile, {
+const serverImagePlan = buildProviderImageGenerationPlan(profile, {
   model: 'grok-imagine-image',
   prompt: 'a server-side studio product photo',
   size: '1024x1024',
   quality: 'high'
 });
-assert.deepEqual(serverImageBody, {
+assert.equal(serverImagePlan.endpoint, '/images/generations');
+assert.equal(serverImagePlan.adapter, 'xai-images');
+assert.deepEqual(serverImagePlan.body, {
   model: 'grok-imagine-image',
   prompt: 'a server-side studio product photo',
   n: 1,
-  response_format: 'b64_json'
+  response_format: 'b64_json',
+  aspect_ratio: '1:1'
 });
 
-const videoBody = buildProviderVideoGenerationBody(profile, {
+const serverVideoPlan = buildProviderVideoGenerationPlan(profile, {
   model: 'grok-imagine-video-1.5',
   prompt: 'A cinematic five second product shot.',
   duration: 5,
@@ -61,10 +64,14 @@ const videoBody = buildProviderVideoGenerationBody(profile, {
   fps: 24,
   quality: 'high'
 });
-assert.deepEqual(videoBody, {
+assert.equal(serverVideoPlan.endpoint, '/videos/generations');
+assert.equal(serverVideoPlan.retrieveEndpoint, '/videos/{id}');
+assert.deepEqual(serverVideoPlan.body, {
   model: 'grok-imagine-video-1.5',
   prompt: 'A cinematic five second product shot.',
-  duration: 5
+  duration: 5,
+  aspect_ratio: '16:9',
+  resolution: '720p'
 });
 
 const normalized = normalizeProviderVideoTask({

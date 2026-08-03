@@ -1376,7 +1376,8 @@ export class AiGatewayClient {
       ? {}
       : {
         apiKey,
-        gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl)
+        gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl),
+        providerType: this.providerSettings.providerId
       };
     const response = await fetch(`${historyBaseUrl}/studio-api/model-sync`, {
       method: 'POST',

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/provider-connection.schema.json",
+  "title": "ProviderConnection",
+  "type": "object",
+  "required": ["schemaVersion", "id", "ownerId", "label", "adapter", "endpoint", "status", "capabilities", "auth", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "ownerId": { "$ref": "common.schema.json#/$defs/id" },
+    "label": { "$ref": "common.schema.json#/$defs/shortText" },
+    "adapter": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "endpoint": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "status": { "enum": ["active", "disabled", "error"] },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["image.generate", "image.edit", "video.generate"] }
+    },
+    "auth": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "none" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "credentialRef"],
+          "properties": {
+            "type": { "enum": ["api-key", "bearer", "oauth2"] },
+            "credentialRef": { "$ref": "common.schema.json#/$defs/id" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "settings": { "$ref": "common.schema.json#/$defs/metadata" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "lastVerifiedAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

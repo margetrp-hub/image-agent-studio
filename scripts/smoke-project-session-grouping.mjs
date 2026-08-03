@@ -76,6 +76,8 @@ try {
 
   await page.locator('.sideProjectOpen').first().click();
   await page.waitForTimeout(600);
+  await page.getByRole('button', { name: /无限画布/ }).click();
+  await page.waitForTimeout(400);
 
   const canvasResult = await page.evaluate(() => {
     const nodes = [...document.querySelectorAll('.canvasNode')].map((node) => node.innerText);
@@ -121,6 +123,8 @@ try {
   });
   await queuePage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await queuePage.waitForSelector('.sideProjectList', { timeout: 8000 });
+  await queuePage.getByRole('button', { name: /无限画布/ }).click();
+  await queuePage.waitForTimeout(400);
   const queueProjectResult = await queuePage.evaluate(() => ({
     projectItems: document.querySelectorAll('.sideProjectItem').length,
     projectTexts: [...document.querySelectorAll('.sideProjectItem')].map((node) => node.innerText),

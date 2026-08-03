@@ -1,6 +1,6 @@
-import { WorkbenchShell } from './app/WorkbenchShell.jsx';
-import { workspaceMock } from './data/workspaceMock.js';
+import { ProjectWorkstation } from './workstation/ProjectWorkstation.jsx';
+import { WorkstationI18nProvider } from './workstation/i18n.jsx';
 
 export function App() {
-  return <WorkbenchShell workspace={workspaceMock} />;
+  return <WorkstationI18nProvider><ProjectWorkstation /></WorkstationI18nProvider>;
 }

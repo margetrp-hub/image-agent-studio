@@ -80,6 +80,7 @@ async function runCanvasPerformanceScenario({ baseUrl, protectedAssets = false }
     }, { nodes: canvasNodes({ protectedAssets }), protectedAssets, currentSessionKey });
 
     await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /无限画布/ }).click();
     await page.waitForSelector('.workPreview.performanceMode', { timeout: 8000 });
     await page.waitForTimeout(800);
     if (!protectedAssets) {

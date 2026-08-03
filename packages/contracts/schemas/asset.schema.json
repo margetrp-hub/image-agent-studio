@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/asset.schema.json",
+  "title": "Asset",
+  "type": "object",
+  "required": ["schemaVersion", "id", "projectId", "kind", "mediaType", "mimeType", "storageUri", "byteSize", "createdAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "projectId": { "$ref": "common.schema.json#/$defs/id" },
+    "kind": { "enum": ["source", "generated", "derived"] },
+    "mediaType": { "enum": ["image", "video", "audio", "document", "other"] },
+    "mimeType": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^\\s/]+/[^\\s/]+$" },
+    "storageUri": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "byteSize": { "type": "integer", "minimum": 0 },
+    "width": { "type": "integer", "minimum": 1 },
+    "height": { "type": "integer", "minimum": 1 },
+    "durationSeconds": { "type": "number", "minimum": 0 },
+    "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "metadata": { "$ref": "common.schema.json#/$defs/metadata" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

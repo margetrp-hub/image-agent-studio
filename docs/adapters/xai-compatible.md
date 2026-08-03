@@ -40,7 +40,7 @@ upstream failures, and downloads same-origin content with the API authorization
 header when the content URL is protected. The original `X-Client-Request-ID`
 is preserved across creation, polling, and same-origin content download so
 provider pools can keep the asynchronous task on the same upstream worker. The
-service allows 150 transient poll failures by default (about ten minutes at a
+service allows 450 transient poll failures by default (about thirty minutes at a
 four-second interval); configure `STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES`
 when an upstream has a different scheduling window. The overall job timeout
 still bounds the task, so this does not create an unbounded worker.

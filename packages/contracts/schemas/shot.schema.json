@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-agent-studio.dev/contracts/v1/shot.schema.json",
+  "title": "Shot",
+  "type": "object",
+  "required": ["schemaVersion", "id", "projectId", "sceneId", "order", "title", "mediaType", "status", "referenceAssetIds", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": { "$ref": "common.schema.json#/$defs/id" },
+    "projectId": { "$ref": "common.schema.json#/$defs/id" },
+    "sceneId": { "$ref": "common.schema.json#/$defs/id" },
+    "order": { "type": "integer", "minimum": 1 },
+    "title": { "$ref": "common.schema.json#/$defs/shortText" },
+    "intent": { "type": "string", "maxLength": 4000 },
+    "mediaType": { "enum": ["image", "video"] },
+    "status": { "enum": ["draft", "ready", "approved"] },
+    "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
+    "promptRevisionId": { "$ref": "common.schema.json#/$defs/id" },
+    "referenceAssetIds": { "$ref": "common.schema.json#/$defs/idList" },
+    "promptConstraints": { "$ref": "common.schema.json#/$defs/promptConstraints" },
+    "metadata": { "$ref": "common.schema.json#/$defs/metadata" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

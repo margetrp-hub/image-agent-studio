@@ -198,3 +198,36 @@ func TestProviderLinksForUser(t *testing.T) {
 		t.Fatalf("creator should not read admin-only provider: found=%v err=%v", found, err)
 	}
 }
+
+func TestGenerationJobTransitionsAreDurableAndOrdered(t *testing.T) {
+	root := t.TempDir()
+	studioStore := New(root)
+	user, err := studioStore.CreateUser("jobs@example.com", "change-me-now", "Jobs", RoleCreator)
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	publicUser := Public(user)
+	job, _, err := studioStore.CreateJob(publicUser, map[string]any{"request": map[string]any{"id": "job-state", "mode": "image"}}, 10)
+	if err != nil {
+		t.Fatalf("CreateJob failed: %v", err)
+	}
+	for _, status := range []string{JobStatusDispatching, JobStatusUpstream, JobStatusSaving, JobStatusCompleted} {
+		urls := []string(nil)
+		if status == JobStatusCompleted {
+			urls = []string{"/studio-api/assets/digest"}
+		}
+		updated, found, err := studioStore.TransitionJob(publicUser, job.ID, status, urls, nil)
+		if err != nil || !found || updated.Status != status {
+			t.Fatalf("transition to %s failed: found=%v job=%#v err=%v", status, found, updated, err)
+		}
+	}
+
+	reopened := New(root)
+	persisted, found, err := reopened.GetJob(publicUser, job.ID)
+	if err != nil || !found || persisted.Status != JobStatusCompleted || persisted.CompletedAt == nil || len(persisted.ResultURLs) != 1 {
+		t.Fatalf("completed job was not durable: found=%v job=%#v err=%v", found, persisted, err)
+	}
+	if _, _, err := reopened.TransitionJob(publicUser, job.ID, JobStatusUpstream, nil, nil); err == nil || err.Error() != "JOB_STATUS_TRANSITION_NOT_ALLOWED" {
+		t.Fatalf("terminal job accepted regression: %v", err)
+	}
+}

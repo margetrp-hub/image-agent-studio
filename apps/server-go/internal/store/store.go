@@ -11,18 +11,27 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	creativeproject "github.com/margetrp-hub/image-agent-studio/apps/server-go/internal/project"
+	"github.com/margetrp-hub/image-agent-studio/apps/server-go/internal/providerconnections"
 )
 
 const (
-	RoleAdmin         = "admin"
-	RoleCreator       = "creator"
-	StatusActive      = "active"
-	StatusPaused      = "paused"
-	JobStatusQueued   = "queued"
-	JobStatusCanceled = "canceled"
+	RoleAdmin            = "admin"
+	RoleCreator          = "creator"
+	StatusActive         = "active"
+	StatusPaused         = "paused"
+	JobStatusQueued      = "queued"
+	JobStatusDispatching = "dispatching"
+	JobStatusUpstream    = "upstream"
+	JobStatusSaving      = "saving"
+	JobStatusCompleted   = "completed"
+	JobStatusFailed      = "failed"
+	JobStatusCanceled    = "canceled"
 )
 
 type Store struct {
@@ -88,6 +97,14 @@ type PublicProviderLink struct {
 	AllowedRoles          []string  `json:"allowedRoles"`
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
+}
+
+type UserAsset struct {
+	Digest    string    `json:"digest"`
+	Filename  string    `json:"filename,omitempty"`
+	MediaType string    `json:"mediaType,omitempty"`
+	Size      int64     `json:"size"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type HistoryPage struct {
@@ -378,6 +395,336 @@ func (s *Store) UpsertProviderLink(link ProviderLink) (ProviderLink, error) {
 	return link, writeJSON(s.providerLinksPath(), links)
 }
 
+func (s *Store) ListProviderConnections(user PublicUser) ([]providerconnections.Connection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	connections, err := s.readProviderConnections(user)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(connections, func(left, right int) bool {
+		return connections[left].UpdatedAt.After(connections[right].UpdatedAt)
+	})
+	return connections, nil
+}
+
+func (s *Store) GetProviderConnection(user PublicUser, connectionID string) (providerconnections.Connection, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	connections, err := s.readProviderConnections(user)
+	if err != nil {
+		return providerconnections.Connection{}, false, err
+	}
+	connectionID = providerconnections.CleanID(connectionID)
+	for _, connection := range connections {
+		if connection.ID == connectionID {
+			return connection, true, nil
+		}
+	}
+	return providerconnections.Connection{}, false, nil
+}
+
+func (s *Store) CreateProviderConnection(user PublicUser, connection providerconnections.Connection) (providerconnections.Connection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	connection = providerconnections.Normalize(connection)
+	connection.OwnerID = user.ID
+	if err := providerconnections.Validate(connection); err != nil {
+		return providerconnections.Connection{}, err
+	}
+	connections, err := s.readProviderConnections(user)
+	if err != nil {
+		return providerconnections.Connection{}, err
+	}
+	for _, existing := range connections {
+		if existing.ID == connection.ID {
+			return providerconnections.Connection{}, errors.New("PROVIDER_CONNECTION_ALREADY_EXISTS")
+		}
+	}
+	now := time.Now().UTC()
+	connection.CreatedAt = now
+	connection.UpdatedAt = now
+	connections = append(connections, connection)
+	return connection, writeJSON(s.providerConnectionsPath(user.ID), connections)
+}
+
+func (s *Store) UpdateProviderConnection(user PublicUser, connectionID string, connection providerconnections.Connection) (providerconnections.Connection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	connections, err := s.readProviderConnections(user)
+	if err != nil {
+		return providerconnections.Connection{}, err
+	}
+	connectionID = providerconnections.CleanID(connectionID)
+	for index, existing := range connections {
+		if existing.ID != connectionID {
+			continue
+		}
+		connection = providerconnections.Normalize(connection)
+		connection.ID = existing.ID
+		connection.OwnerID = user.ID
+		connection.CreatedAt = existing.CreatedAt
+		connection.UpdatedAt = time.Now().UTC()
+		if err := providerconnections.Validate(connection); err != nil {
+			return providerconnections.Connection{}, err
+		}
+		connections[index] = connection
+		return connection, writeJSON(s.providerConnectionsPath(user.ID), connections)
+	}
+	return providerconnections.Connection{}, errors.New("PROVIDER_CONNECTION_NOT_FOUND")
+}
+
+func (s *Store) DeleteProviderConnection(user PublicUser, connectionID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	connections, err := s.readProviderConnections(user)
+	if err != nil {
+		return err
+	}
+	connectionID = providerconnections.CleanID(connectionID)
+	next := make([]providerconnections.Connection, 0, len(connections))
+	found := false
+	for _, connection := range connections {
+		if connection.ID == connectionID {
+			found = true
+			continue
+		}
+		next = append(next, connection)
+	}
+	if !found {
+		return errors.New("PROVIDER_CONNECTION_NOT_FOUND")
+	}
+	return writeJSON(s.providerConnectionsPath(user.ID), next)
+}
+
+func (s *Store) readProviderConnections(user PublicUser) ([]providerconnections.Connection, error) {
+	var connections []providerconnections.Connection
+	if err := readJSON(s.providerConnectionsPath(user.ID), &connections); err != nil {
+		return nil, err
+	}
+	for index := range connections {
+		connections[index] = providerconnections.Normalize(connections[index])
+		if connections[index].OwnerID != user.ID {
+			return nil, errors.New("PROVIDER_CONNECTION_OWNER_MISMATCH")
+		}
+		if err := providerconnections.Validate(connections[index]); err != nil {
+			return nil, err
+		}
+	}
+	return connections, nil
+}
+
+func (s *Store) ListUserAssets(user PublicUser) ([]UserAsset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var items []UserAsset
+	if err := readJSON(s.userAssetsPath(user.ID), &items); err != nil {
+		return nil, err
+	}
+	sort.Slice(items, func(left, right int) bool {
+		return items[left].CreatedAt.After(items[right].CreatedAt)
+	})
+	return items, nil
+}
+
+func (s *Store) AttachUserAsset(user PublicUser, item UserAsset) (UserAsset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	item.Digest = strings.ToLower(strings.TrimSpace(item.Digest))
+	if len(item.Digest) != sha256.Size*2 {
+		return UserAsset{}, errors.New("ASSET_DIGEST_INVALID")
+	}
+	if _, err := hex.DecodeString(item.Digest); err != nil {
+		return UserAsset{}, errors.New("ASSET_DIGEST_INVALID")
+	}
+	item.Filename = strings.TrimSpace(item.Filename)
+	item.MediaType = strings.TrimSpace(item.MediaType)
+	if item.Size < 0 {
+		return UserAsset{}, errors.New("ASSET_SIZE_INVALID")
+	}
+	if item.CreatedAt.IsZero() {
+		item.CreatedAt = time.Now().UTC()
+	}
+
+	var items []UserAsset
+	if err := readJSON(s.userAssetsPath(user.ID), &items); err != nil {
+		return UserAsset{}, err
+	}
+	for _, existing := range items {
+		if existing.Digest == item.Digest {
+			return existing, nil
+		}
+	}
+	items = append(items, item)
+	return item, writeJSON(s.userAssetsPath(user.ID), items)
+}
+
+func (s *Store) UserCanAccessAsset(user PublicUser, digest string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	digest = strings.ToLower(strings.TrimSpace(digest))
+	var items []UserAsset
+	if err := readJSON(s.userAssetsPath(user.ID), &items); err != nil {
+		return false, err
+	}
+	for _, item := range items {
+		if item.Digest == digest {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *Store) ListProjects(user PublicUser) ([]creativeproject.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries, err := os.ReadDir(s.projectsDir(user.ID))
+	if errors.Is(err, os.ErrNotExist) {
+		return []creativeproject.Project{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	projects := make([]creativeproject.Project, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		var item creativeproject.Project
+		if err := readJSON(filepath.Join(s.projectsDir(user.ID), entry.Name()), &item); err != nil {
+			return nil, err
+		}
+		if item.OwnerID != user.ID {
+			return nil, errors.New("PROJECT_OWNER_MISMATCH")
+		}
+		if err := item.Validate(); err != nil {
+			return nil, err
+		}
+		projects = append(projects, item)
+	}
+	sort.Slice(projects, func(left, right int) bool {
+		return projects[left].UpdatedAt.After(projects[right].UpdatedAt)
+	})
+	return projects, nil
+}
+
+func (s *Store) GetProject(user PublicUser, projectID string) (creativeproject.Project, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.readProject(user, projectID)
+}
+
+func (s *Store) CreateProject(user PublicUser, item creativeproject.Project) (creativeproject.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	item.ID = cleanID(item.ID)
+	if item.ID == "" {
+		item.ID = newID("prj")
+	}
+	if _, found, err := s.readProject(user, item.ID); err != nil {
+		return creativeproject.Project{}, err
+	} else if found {
+		return creativeproject.Project{}, errors.New("PROJECT_ALREADY_EXISTS")
+	}
+
+	now := time.Now().UTC()
+	item.OwnerID = user.ID
+	item.Status = creativeproject.ProjectStatusDraft
+	item.CreatedAt = now
+	item.UpdatedAt = now
+	item.ArchivedAt = nil
+	if err := item.Validate(); err != nil {
+		return creativeproject.Project{}, err
+	}
+	return item, writeJSON(s.projectPath(user.ID, item.ID), item)
+}
+
+func (s *Store) UpdateProject(user PublicUser, projectID string, item creativeproject.Project) (creativeproject.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, found, err := s.readProject(user, projectID)
+	if err != nil {
+		return creativeproject.Project{}, err
+	}
+	if !found {
+		return creativeproject.Project{}, errors.New("PROJECT_NOT_FOUND")
+	}
+	item.ID = existing.ID
+	item.OwnerID = existing.OwnerID
+	item.CreatedAt = existing.CreatedAt
+	item.UpdatedAt = time.Now().UTC()
+	if item.Status == "" {
+		item.Status = existing.Status
+	}
+	if !creativeproject.CanTransitionProject(existing.Status, item.Status) {
+		return creativeproject.Project{}, errors.New("PROJECT_STATUS_TRANSITION_NOT_ALLOWED")
+	}
+	if item.Status == creativeproject.ProjectStatusArchived && item.ArchivedAt == nil {
+		archivedAt := item.UpdatedAt
+		item.ArchivedAt = &archivedAt
+	}
+	if item.Status != creativeproject.ProjectStatusArchived {
+		item.ArchivedAt = nil
+	}
+	if err := item.Validate(); err != nil {
+		return creativeproject.Project{}, err
+	}
+	return item, writeJSON(s.projectPath(user.ID, item.ID), item)
+}
+
+func (s *Store) ArchiveProject(user PublicUser, projectID string) (creativeproject.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	item, found, err := s.readProject(user, projectID)
+	if err != nil {
+		return creativeproject.Project{}, err
+	}
+	if !found {
+		return creativeproject.Project{}, errors.New("PROJECT_NOT_FOUND")
+	}
+	if err := item.Transition(creativeproject.ProjectStatusArchived, time.Now().UTC()); err != nil {
+		return creativeproject.Project{}, err
+	}
+	return item, writeJSON(s.projectPath(user.ID, item.ID), item)
+}
+
+func (s *Store) readProject(user PublicUser, projectID string) (creativeproject.Project, bool, error) {
+	projectID = cleanID(projectID)
+	if projectID == "" {
+		return creativeproject.Project{}, false, nil
+	}
+	path := s.projectPath(user.ID, projectID)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return creativeproject.Project{}, false, nil
+	} else if err != nil {
+		return creativeproject.Project{}, false, err
+	}
+	var item creativeproject.Project
+	if err := readJSON(path, &item); err != nil {
+		return creativeproject.Project{}, false, err
+	}
+	if item.OwnerID != user.ID {
+		return creativeproject.Project{}, false, errors.New("PROJECT_OWNER_MISMATCH")
+	}
+	if err := item.Validate(); err != nil {
+		return creativeproject.Project{}, false, err
+	}
+	return item, true, nil
+}
+
 func (s *Store) ReadStudioSession(user PublicUser, sessionID string) (map[string]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -634,8 +981,44 @@ func (s *Store) CancelJob(user PublicUser, jobID string) (GenerationJob, bool, e
 			jobs[index].CompletedAt = &now
 			jobs[index].Error = map[string]any{
 				"code":    "JOB_CANCELED",
-				"message": "The job was canceled locally before Go dispatch was enabled.",
+				"message": "The job was canceled by the user.",
 			}
+		}
+		return jobs[index], true, writeJSON(s.jobsPath(user.ID), jobs)
+	}
+	return GenerationJob{}, false, nil
+}
+
+func (s *Store) TransitionJob(user PublicUser, jobID, nextStatus string, resultURLs []string, jobError map[string]any) (GenerationJob, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	jobID = cleanID(jobID)
+	var jobs []GenerationJob
+	if err := readJSON(s.jobsPath(user.ID), &jobs); err != nil {
+		return GenerationJob{}, false, err
+	}
+	now := time.Now().UTC()
+	for index := range jobs {
+		if jobs[index].ID != jobID {
+			continue
+		}
+		if !canTransitionJob(jobs[index].Status, nextStatus) {
+			return GenerationJob{}, true, errors.New("JOB_STATUS_TRANSITION_NOT_ALLOWED")
+		}
+		jobs[index].Status = nextStatus
+		jobs[index].Stage = nextStatus
+		jobs[index].UpdatedAt = now
+		jobs[index].ResultURLs = append([]string(nil), resultURLs...)
+		if jobError != nil {
+			jobs[index].Error = stripSecrets(jobError)
+		} else {
+			jobs[index].Error = nil
+		}
+		if nextStatus == JobStatusCompleted || nextStatus == JobStatusFailed || nextStatus == JobStatusCanceled {
+			jobs[index].CompletedAt = &now
+		} else {
+			jobs[index].CompletedAt = nil
 		}
 		return jobs[index], true, writeJSON(s.jobsPath(user.ID), jobs)
 	}
@@ -857,6 +1240,30 @@ func jobIsActive(status string) bool {
 	}
 }
 
+func canTransitionJob(current, next string) bool {
+	if current == next {
+		return true
+	}
+	if next == JobStatusCanceled {
+		return jobIsActive(current)
+	}
+	if next == JobStatusFailed {
+		return current == JobStatusDispatching || current == JobStatusUpstream || current == JobStatusSaving
+	}
+	switch current {
+	case JobStatusQueued:
+		return next == JobStatusDispatching
+	case JobStatusDispatching:
+		return next == JobStatusUpstream
+	case JobStatusUpstream:
+		return next == JobStatusSaving || next == JobStatusCompleted
+	case JobStatusSaving:
+		return next == JobStatusCompleted
+	default:
+		return false
+	}
+}
+
 func cleanID(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -942,6 +1349,14 @@ func (s *Store) providerLinksPath() string {
 	return filepath.Join(s.root, "studio-go", "config", "provider-links.json")
 }
 
+func (s *Store) providerConnectionsPath(userID string) string {
+	return filepath.Join(s.userDataDir(userID), "provider-connections.json")
+}
+
+func (s *Store) userAssetsPath(userID string) string {
+	return filepath.Join(s.userDataDir(userID), "assets.json")
+}
+
 func (s *Store) userKey(userID string) string {
 	sum := sha256.Sum256([]byte("studio:" + userID))
 	return hex.EncodeToString(sum[:])
@@ -965,4 +1380,12 @@ func (s *Store) recordsPath(userID string) string {
 
 func (s *Store) jobsPath(userID string) string {
 	return filepath.Join(s.userDataDir(userID), "jobs.json")
+}
+
+func (s *Store) projectsDir(userID string) string {
+	return filepath.Join(s.userDataDir(userID), "projects")
+}
+
+func (s *Store) projectPath(userID, projectID string) string {
+	return filepath.Join(s.projectsDir(userID), cleanID(projectID)+".json")
 }
