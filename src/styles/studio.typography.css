@@ -1,0 +1,33 @@
+/* Desktop-first typography: keep Latin text crisp while preserving CJK fallback. */
+:root {
+  --studio-font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+  --studio-font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+  font-family: var(--studio-font-sans);
+  font-kerning: normal;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body,
+body button,
+body input,
+body select,
+body textarea,
+.studioLayout {
+  font-family: var(--studio-font-sans);
+  font-kerning: normal;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+.studioLayout :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--studio-font-display);
+  font-kerning: normal;
+  letter-spacing: 0;
+}
+
+.studioLayout :is(button, input, select, textarea) {
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}

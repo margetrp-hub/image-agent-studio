@@ -79,6 +79,7 @@ import './styles/studio.playground-polish.css';
 import './styles/studio.flow-modes.css';
 import './styles/studio.composer-state-polish.css';
 import './styles/studio.canvas-composer-refinement.css';
+import './styles/studio.typography.css';
 import {
   clearSession,
   getImageUrls,

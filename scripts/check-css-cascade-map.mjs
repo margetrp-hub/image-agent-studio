@@ -42,7 +42,8 @@ const expectedCssImports = [
   './styles/studio.playground-polish.css',
   './styles/studio.flow-modes.css',
   './styles/studio.composer-state-polish.css',
-  './styles/studio.canvas-composer-refinement.css'
+  './styles/studio.canvas-composer-refinement.css',
+  './styles/studio.typography.css'
 ];
 const lazyCssImports = [
   './styles/studio.provider-settings.css',
@@ -232,6 +233,10 @@ const cssBudgets = {
   'src/styles/studio.canvas-composer-refinement.css': {
     lines: 220,
     important: 90
+  },
+  'src/styles/studio.typography.css': {
+    lines: 80,
+    important: 0
   }
 };
 const selectorOwnership = [
@@ -293,8 +298,8 @@ if (cssImports.length !== expectedCssImports.length) {
   failures.push(`src/studio.jsx should have ${expectedCssImports.length} CSS imports, found ${cssImports.length}.`);
 }
 
-if (cssImports.at(-1) !== './styles/studio.canvas-composer-refinement.css') {
-  failures.push('src/studio.jsx must import ./styles/studio.canvas-composer-refinement.css last so canvas composer rules remain authoritative.');
+if (cssImports.at(-1) !== './styles/studio.typography.css') {
+  failures.push('src/studio.jsx must import ./styles/studio.typography.css last so typography remains consistent across the workstation.');
 }
 
 lazyCssImports.forEach((lazyImport) => {

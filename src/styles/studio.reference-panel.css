@@ -1200,7 +1200,7 @@
   font-size: 15px;
   font-weight: 900;
   line-height: 0.62;
-  letter-spacing: -5px;
+  letter-spacing: 0;
   pointer-events: none;
 }
 
