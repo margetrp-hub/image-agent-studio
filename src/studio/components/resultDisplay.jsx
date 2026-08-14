@@ -120,7 +120,7 @@ export function VideoLightbox({ url, index = 0, downloadMeta, onClose, t = (key,
   );
 }
 
-export function ResultGrid({ urls, outputFormat = 'png', downloadMeta, onPreview, t = (key, fallback) => fallback || key }) {
+export function ResultGrid({ urls, featured = false, outputFormat = 'png', downloadMeta, onPreview, t = (key, fallback) => fallback || key }) {
   if (!urls.length) {
     return (
       <div className="emptyResult">
@@ -130,7 +130,7 @@ export function ResultGrid({ urls, outputFormat = 'png', downloadMeta, onPreview
     );
   }
   return (
-    <div className="resultGrid">
+    <div className={`resultGrid${featured && urls.length === 1 ? ' resultGridFeatured' : ''}`}>
       {urls.map((url, index) => (
         <figure key={`${url}-${index}`}>
           <button type="button" className="resultPreviewButton" onClick={() => onPreview(url, index)}>

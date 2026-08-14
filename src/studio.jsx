@@ -2105,10 +2105,12 @@ function CreationDesk({
 
   function removeReferenceImage(index) {
     setReferenceItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    if (referenceItems.length <= 1 && mode === 'edit') setMode('image');
   }
 
   function clearReferenceImages() {
     setReferenceItems([]);
+    if (mode === 'edit') setMode('image');
     if (maskExportUrl) {
       URL.revokeObjectURL(maskExportUrl);
       setMaskExportUrl('');
@@ -2557,10 +2559,15 @@ function CreationDesk({
 
   function buildGenerationTask(overrides = {}) {
     const taskMode = overrides.mode || mode;
-    const taskNode = overrides.selectedCanvasNodeSnapshot || selectedCanvasNode;
+    const taskNode = overrides.selectedCanvasNodeSnapshot
+      || (workspaceFlowMode === 'canvas' ? selectedCanvasNode : null);
     const rawPrompt = typeof overrides.rawPrompt === 'string' ? overrides.rawPrompt : prompt.trim();
+    const canContinueCanvas = workspaceFlowMode === 'canvas'
+      && taskNode
+      && (taskMode === 'image' || taskMode === 'video')
+      && rawPrompt;
     let taskOverrides = { ...overrides };
-    if (taskNode && (taskMode === 'image' || taskMode === 'video') && rawPrompt) {
+    if (canContinueCanvas) {
       const continuationPlan = buildCanvasContinuationPlan(taskNode, rawPrompt, { mode: taskMode });
       taskOverrides = {
         ...taskOverrides,
@@ -2571,9 +2578,11 @@ function CreationDesk({
     } else if (rawPrompt && typeof taskOverrides.rawPrompt !== 'string') {
       taskOverrides.rawPrompt = rawPrompt;
     }
-    const fallbackPrompt = taskOverrides.prompt || composedGenerationPrompt();
+    const fallbackPrompt = taskOverrides.prompt || (workspaceFlowMode === 'canvas'
+      ? composedGenerationPrompt()
+      : rawPrompt);
     return buildGenerationTaskPure({
-      mode,
+      mode: taskMode,
       model,
       aspect,
       customSize,
@@ -2593,8 +2602,8 @@ function CreationDesk({
       negativePrompt,
       referenceItems,
       videoReferenceFiles,
-      selectedCanvasNode,
-      selectedCanvasNodeId,
+      selectedCanvasNode: taskNode,
+      selectedCanvasNodeId: workspaceFlowMode === 'canvas' ? selectedCanvasNodeId : '',
       sessionId,
       providerSettings,
       layoutSectionsReferences: layoutSections.references,
@@ -2819,14 +2828,19 @@ function CreationDesk({
     const activeModel = task?.model
       || ((activeMode === 'edit' || activeMode === 'mask') ? configuredEditModel : configuredImageModel)
       || model;
-    const activePrompt = task?.prompt || composedGenerationPrompt();
-    const activeSelectedNode = task?.selectedCanvasNodeSnapshot || selectedCanvasNode;
+    const activePrompt = task?.prompt || (workspaceFlowMode === 'canvas'
+      ? composedGenerationPrompt()
+      : prompt.trim());
+    const activeSelectedNode = task?.selectedCanvasNodeSnapshot
+      || (workspaceFlowMode === 'canvas' ? selectedCanvasNode : null);
     const activeWorkflow = task?.workflow || (
-      activeSelectedNode && (activeMode === 'image' || activeMode === 'video')
+      workspaceFlowMode === 'canvas'
+      && activeSelectedNode
+      && (activeMode === 'image' || activeMode === 'video')
         ? buildCanvasContinuationPlan(activeSelectedNode, task?.rawPrompt || prompt.trim(), { mode: activeMode }).workflow
         : null
     );
-    const activeLineageParentId = activeSelectedNode?.id || '';
+    const activeLineageParentId = workspaceFlowMode === 'canvas' ? activeSelectedNode?.id || '' : '';
     const activeReferenceItems = Array.isArray(task?.referenceItems) ? task.referenceItems : referenceItems;
     const activeReferenceFiles = task?.referenceItems?.map((item) => item.file).filter(Boolean) || referenceFiles;
     const activeVideoReferenceFiles = task?.videoReferenceFiles || videoReferenceFiles;
@@ -4087,6 +4101,14 @@ function CreationDesk({
                           >
                             <LazyImage src={url} alt={singleReferenceFiles[index]?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })} />
                           </button>
+                          <button
+                            type="button"
+                            className="singleReferenceRemove"
+                            onClick={() => isVideoSingleMode ? removeVideoReferenceImage() : removeReferenceImage(index)}
+                            aria-label={t('references.remove', '移除参考图')}
+                          >
+                            <X size={13} />
+                          </button>
                           <figcaption>{singleReferenceFiles[index]?.name || t('references.referenceIndex', '参考 {index}', { index: index + 1 })}</figcaption>
                         </figure>
                       ))}
@@ -4216,7 +4238,7 @@ function CreationDesk({
                   {isVideoSingleMode ? (
                     <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} t={t} />
                   ) : (
-                    <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
+                    <ResultGrid urls={results} featured={results.length === 1} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
                   )}
                 </section>
                 <section className="singleGenerationPanel singleStatusPanel">
