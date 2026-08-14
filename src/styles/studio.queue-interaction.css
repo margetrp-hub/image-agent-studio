@@ -1,0 +1,64 @@
+/* Queue drawer interaction and single-flow baseline alignment. */
+@media (min-width: 761px) {
+  .studioLayout .creationDesk .canvasQueueDock {
+    left: auto !important;
+    right: calc(var(--workbench-side-reserved, 0px) + 18px) !important;
+  }
+}
+
+.canvasQueueDock.isPositioned {
+  left: var(--canvas-queue-left) !important;
+  right: auto !important;
+  top: var(--canvas-queue-top) !important;
+}
+
+.studioLayout .creationDesk .canvasQueueDock {
+  z-index: 60 !important;
+  pointer-events: auto !important;
+}
+
+.studioLayout .creationDesk .canvasQueueHead {
+  min-height: 28px !important;
+  grid-template-columns: auto auto minmax(0, 1fr) auto !important;
+  cursor: grab !important;
+  user-select: none;
+}
+
+.studioLayout .creationDesk .canvasQueueDock.isDragging .canvasQueueHead {
+  cursor: grabbing !important;
+}
+
+.studioLayout .creationDesk .canvasQueueHead > svg {
+  color: var(--studio-muted) !important;
+  opacity: 0.72;
+}
+
+.studioLayout .creationDesk .canvasQueueCollapse {
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+}
+
+.studioLayout .creationDesk .canvasQueueDock.isDragging {
+  opacity: 0.96;
+  cursor: grabbing;
+}
+
+.singleGenerationWorkspace > .singleGenerationShell {
+  align-content: start;
+  min-height: 0;
+}
+
+.singleGenerationWorkspace .singleGenerationFormPanel {
+  align-self: stretch;
+  min-height: 100%;
+}
+
+.singleGenerationWorkspace .singleActionBar {
+  margin-top: auto;
+}

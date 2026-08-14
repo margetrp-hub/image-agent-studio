@@ -13,6 +13,8 @@ export function useGenerationQueue(restoredSession) {
   const [generationQueue, setGenerationQueue] = useState(() => initialQueue);
   const generationQueueRef = useRef(initialQueue);
   const generationQueueRunnerRef = useRef(false);
+  const generationQueueActiveCountRef = useRef(0);
+  const generationContextsRef = useRef(new Map());
   const restoredQueueStartedRef = useRef(false);
   const recoveredJobIdsRef = useRef(new Set());
 
@@ -21,6 +23,8 @@ export function useGenerationQueue(restoredSession) {
     setGenerationQueue,
     generationQueueRef,
     generationQueueRunnerRef,
+    generationQueueActiveCountRef,
+    generationContextsRef,
     restoredQueueStartedRef,
     recoveredJobIdsRef
   };

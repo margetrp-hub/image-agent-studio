@@ -50,7 +50,7 @@ assert(history.environment?.STUDIO_PROVIDER_TYPE === 'openai-compatible', 'studi
 assert(history.environment?.STUDIO_DATA_DIR === '/data', 'studio-history must write persisted data to /data.', history.environment);
 assert(history.environment?.STUDIO_VERSION === '1.0.0', 'studio-history must expose the documented service version.', history.environment);
 assert(history.environment?.STUDIO_GATEWAY_FETCH_TIMEOUT_MS === '2640000', 'studio-history must allow slow native image jobs to outlast the default fetch timeout.', history.environment);
-assert(history.environment?.STUDIO_JOB_CONCURRENCY === '1', 'studio-history must default to conservative job concurrency.', history.environment);
+assert(history.environment?.STUDIO_JOB_CONCURRENCY === '2', 'studio-history must default to two in-flight jobs with an explicit environment override.', history.environment);
 assert(history.environment?.STUDIO_ALLOWED_ORIGINS === 'https://studio.example.com', 'studio-history must read allowed origins from .env.example.', history.environment);
 assert(history.healthcheck?.test?.join(' ').includes('/studio-api/health'), 'studio-history healthcheck must verify /studio-api/health.', history.healthcheck);
 assert(history.healthcheck?.interval === '30s' && history.healthcheck?.timeout === '5s' && history.healthcheck?.retries === 5, 'studio-history healthcheck must keep production timing.', history.healthcheck);

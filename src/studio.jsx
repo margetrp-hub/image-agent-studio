@@ -241,6 +241,7 @@ import {
 } from './studio/util/historyInspiration.js';
 import {
   CURRENT_PROJECT_QUEUE_STATUSES,
+  GENERATION_CONCURRENCY,
   GENERATION_QUEUE_LIMIT,
   GENERATION_STALL_NOTICE_MS,
   GENERATION_TIMEOUT_MS,
@@ -862,6 +863,8 @@ function CreationDesk({
     setGenerationQueue,
     generationQueueRef,
     generationQueueRunnerRef,
+    generationQueueActiveCountRef,
+    generationContextsRef,
     restoredQueueStartedRef,
     recoveredJobIdsRef
   } = useGenerationQueue(restoredSession);
@@ -2229,6 +2232,11 @@ function CreationDesk({
 
   useEffect(() => () => {
     generationRef.current.controller?.abort();
+    for (const context of generationContextsRef.current.values()) {
+      context.active = false;
+      context.controller?.abort();
+    }
+    generationContextsRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -2602,9 +2610,14 @@ function CreationDesk({
     if (!target) return;
     if (target.remote && target.serverJobId) {
       const historyClient = createHistoryClient({ session: loadSession() });
-      if (generationRef.current.remoteJobId === target.serverJobId) {
-        generationRef.current.controller?.abort(new Error('JOB_CANCELED'));
-        generationRef.current = { id: generationRef.current.id + 1, controller: null };
+      const targetContext = generationContextsRef.current.get(target.id);
+      if (targetContext?.remoteJobId === target.serverJobId) {
+        targetContext.active = false;
+        targetContext.controller?.abort(new Error('JOB_CANCELED'));
+        generationContextsRef.current.delete(target.id);
+        if (generationRef.current.taskKey === target.id) {
+          generationRef.current = { id: generationRef.current.id + 1, controller: null };
+        }
       }
       markGenerationTask(id, { status: 'canceled', completedAt: Date.now() });
       setStatus('error');
@@ -2624,7 +2637,7 @@ function CreationDesk({
       return;
     }
     if (target.status === 'running') {
-      stopGeneration();
+      stopGeneration(id);
       return;
     }
     commitGenerationQueue(replaceGenerationQueueItem(generationQueueRef.current, id, { status: 'canceled', completedAt: Date.now() }));
@@ -2708,11 +2721,17 @@ function CreationDesk({
   function enqueueGenerationTask(task) {
     if (!validateGenerationTask(task)) return false;
     const activeCount = activeGenerationQueueCount(generationQueueRef.current);
+    const availableSlots = Math.max(0, GENERATION_CONCURRENCY - activeCount);
     showComposerForGeneration();
     commitGenerationQueue(appendGenerationQueueTask(generationQueueRef.current, task));
-    setMessage(activeCount
-      ? t('statusMessages.queueAddedBehind', '已加入队列，前面还有 {count} 个任务。', { count: activeCount })
-      : t('statusMessages.queueAdded', '已加入队列。'));
+    setMessage(activeCount && availableSlots > 0
+      ? t('statusMessages.parallelStarted', '已加入并行生成，当前将同时运行 {count}/{limit} 个任务。', {
+        count: Math.min(GENERATION_CONCURRENCY, activeCount + 1),
+        limit: GENERATION_CONCURRENCY
+      })
+      : activeCount
+        ? t('statusMessages.queueAddedBehind', '当前并发已满，已进入等待队列，前面还有 {count} 个任务。', { count: activeCount })
+        : t('statusMessages.queueAdded', '已开始生成。'));
     runGenerationQueue();
     return true;
   }
@@ -2721,11 +2740,10 @@ function CreationDesk({
     return enqueueGenerationTask(buildGenerationTask(overrides));
   }
 
-  async function runGenerationQueue() {
+  function runGenerationQueue() {
     if (generationQueueRunnerRef.current) return;
     generationQueueRunnerRef.current = true;
-    try {
-      while (true) {
+    while (generationQueueActiveCountRef.current < GENERATION_CONCURRENCY) {
         const nextTask = firstQueuedGenerationTask(generationQueueRef.current);
         if (!nextTask) break;
         if (nextTask.remote || nextTask.restorable === false) {
@@ -2738,17 +2756,28 @@ function CreationDesk({
         }
         markGenerationTask(nextTask.id, { status: 'running', startedAt: Date.now() });
         applyGenerationTaskSnapshot(nextTask);
-        await new Promise((resolve) => window.setTimeout(resolve, 0));
-        const succeeded = await generate({ fromQueue: true, queueTaskId: nextTask.id, task: nextTask, maskFile: nextTask.maskFile || null });
-        markGenerationTask(nextTask.id, {
-          status: succeeded ? 'done' : 'failed',
-          completedAt: Date.now()
-        });
-        if (!succeeded) break;
-      }
-    } finally {
-      generationQueueRunnerRef.current = false;
+        generationQueueActiveCountRef.current += 1;
+        Promise.resolve()
+          .then(() => generate({ fromQueue: true, queueTaskId: nextTask.id, task: nextTask, maskFile: nextTask.maskFile || null }))
+          .then((succeeded) => {
+            const currentTask = generationQueueRef.current.find((item) => item.id === nextTask.id);
+            if (currentTask?.status === 'running') {
+              markGenerationTask(nextTask.id, {
+                status: succeeded ? 'done' : 'failed',
+                completedAt: Date.now()
+              });
+            }
+          })
+          .catch(() => {
+            markGenerationTask(nextTask.id, { status: 'failed', completedAt: Date.now() });
+          })
+          .finally(() => {
+            generationQueueActiveCountRef.current = Math.max(0, generationQueueActiveCountRef.current - 1);
+            generationQueueRunnerRef.current = false;
+            runGenerationQueue();
+          });
     }
+    generationQueueRunnerRef.current = false;
   }
 
   async function generationFilesForJob(files) {
@@ -2832,7 +2861,7 @@ function CreationDesk({
       setMessage(t('statusMessages.templateLoading', '模板提示词正在读取，请稍后。'));
       return false;
     }
-    if (status === 'loading' && !generationRef.current.controller) {
+    if (!options.fromQueue && status === 'loading' && !generationRef.current.controller) {
       setStatus('error');
       setProgress((current) => ({ ...current, stage: 'pending_review', percent: current.percent || 0 }));
       setMessage(t('statusMessages.disconnectedReview', '上一轮生成状态已经断开，请先确认历史图库/当前画布没有新结果，再点“确认重试”。'));
@@ -2900,7 +2929,14 @@ function CreationDesk({
       return false;
     }
 
-    generationRef.current.controller?.abort();
+    if (!options.fromQueue) {
+      generationRef.current.controller?.abort();
+      for (const context of generationContextsRef.current.values()) {
+        context.active = false;
+        context.controller?.abort();
+      }
+      generationContextsRef.current.clear();
+    }
     const requestId = generationRef.current.id + 1;
     const controller = new AbortController();
     const startedAt = Date.now();
@@ -2921,8 +2957,18 @@ function CreationDesk({
     };
     let firstByteAt = null;
     let timeoutReached = false;
-    generationRef.current = { id: requestId, controller };
-    const isCurrentRequest = () => generationRef.current.id === requestId;
+    const requestKey = options.queueTaskId || generationId;
+    const requestContext = {
+      id: requestId,
+      taskKey: requestKey,
+      controller,
+      remoteJobId: '',
+      active: true
+    };
+    generationContextsRef.current.set(requestKey, requestContext);
+    generationRef.current = requestContext;
+    const isCurrentRequest = () => requestContext.active
+      && generationContextsRef.current.get(requestKey) === requestContext;
     const stallTimer = window.setTimeout(() => {
       if (!isCurrentRequest() || firstByteAt) return;
       setMessage(t('statusMessages.upstreamStall', '上游还没有返回数据，可能正在排队或生成较慢，请继续等待。'));
@@ -2931,7 +2977,11 @@ function CreationDesk({
     const timeoutTimer = window.setTimeout(() => {
       if (!isCurrentRequest()) return;
       timeoutReached = true;
-      generationRef.current = { id: requestId + 1, controller: null };
+      requestContext.active = false;
+      generationContextsRef.current.delete(requestKey);
+      if (generationRef.current.taskKey === requestKey) {
+        generationRef.current = { id: requestId + 1, controller: null };
+      }
       setStatus('error');
       setProgress((current) => ({
         ...current,
@@ -3002,7 +3052,10 @@ function CreationDesk({
             workflow: activeWorkflow
           }));
           if (!job?.id) throw new Error('GENERATION_JOB_CREATE_FAILED');
-          generationRef.current = { ...generationRef.current, remoteJobId: job.id };
+          requestContext.remoteJobId = job.id;
+          if (generationRef.current.taskKey === requestKey) {
+            generationRef.current = { ...generationRef.current, remoteJobId: job.id };
+          }
           if (options.queueTaskId) {
             markGenerationTask(options.queueTaskId, {
               serverJobId: job.id,
@@ -3208,7 +3261,10 @@ function CreationDesk({
             workflow: activeWorkflow
           }));
           if (!job?.id) throw new Error('GENERATION_JOB_CREATE_FAILED');
-          generationRef.current = { ...generationRef.current, remoteJobId: job.id };
+          requestContext.remoteJobId = job.id;
+          if (generationRef.current.taskKey === requestKey) {
+            generationRef.current = { ...generationRef.current, remoteJobId: job.id };
+          }
           if (options.queueTaskId) {
             markGenerationTask(options.queueTaskId, {
               serverJobId: job.id,
@@ -3247,7 +3303,7 @@ function CreationDesk({
             setTiming((current) => current ? { ...current, firstByteAt } : current);
           }
         } catch (error) {
-          if (generationRef.current.remoteJobId) throw error;
+          if (requestContext.remoteJobId) throw error;
           if (!canUseClientGenerationFallback()) {
             const queueError = new Error('SERVICE_QUEUE_UNAVAILABLE');
             queueError.code = 'SERVICE_QUEUE_UNAVAILABLE';
@@ -3383,7 +3439,10 @@ function CreationDesk({
       setMessage(generationErrorMessage(displayError, t));
       return false;
     } finally {
-      if (isCurrentRequest()) {
+      const wasForeground = generationRef.current.taskKey === requestKey;
+      requestContext.active = false;
+      generationContextsRef.current.delete(requestKey);
+      if (wasForeground) {
         generationRef.current = { id: requestId, controller: null };
       }
       window.clearTimeout(stallTimer);
@@ -3391,15 +3450,24 @@ function CreationDesk({
     }
   }
 
-  function stopGeneration() {
-    const activeGeneration = generationRef.current;
+  function stopGeneration(taskId = '') {
+    const activeGeneration = taskId
+      ? generationContextsRef.current.get(taskId)
+        || (generationRef.current.taskKey === taskId ? generationRef.current : null)
+      : generationRef.current;
     if (!activeGeneration?.controller) return;
-    const currentRunningTask = generationQueueRef.current.find((item) => item.status === 'running');
+    const currentRunningTask = generationQueueRef.current.find((item) => (
+      item.status === 'running' && (!taskId || item.id === taskId)
+    ));
     const remoteJobId = activeGeneration.remoteJobId || currentRunningTask?.serverJobId || '';
     const stoppedError = new Error('GENERATION_STOPPED');
     stoppedError.code = 'GENERATION_STOPPED';
     activeGeneration.controller.abort(stoppedError);
-    generationRef.current = { id: activeGeneration.id + 1, controller: null };
+    activeGeneration.active = false;
+    if (activeGeneration.taskKey) generationContextsRef.current.delete(activeGeneration.taskKey);
+    if (!taskId || generationRef.current.taskKey === activeGeneration.taskKey) {
+      generationRef.current = { id: activeGeneration.id + 1, controller: null };
+    }
     const stoppedAt = Date.now();
     setStatus('error');
     setProgress((current) => ({
@@ -3441,12 +3509,18 @@ function CreationDesk({
     : isImageEditMode && referenceFiles[0]
     ? referenceFiles[0].name
     : selectedCase?.imageAlt || selectedCase?.title || 'Preview';
-  const isGenerating = status === 'loading' && Boolean(generationRef.current.controller);
+  const activeGenerationCount = generationQueue.filter((item) => item?.status === 'running').length;
+  const activeQueuedGenerationCount = activeGenerationQueueCount(generationQueue);
+  const availableGenerationSlots = Math.max(0, GENERATION_CONCURRENCY - activeQueuedGenerationCount);
+  const isGenerating = activeGenerationCount > 0
+    || (status === 'loading' && Boolean(generationRef.current.controller));
   const generationActionDisabled = false;
   const generationActionClass = status === 'error' ? 'isRetryAction' : '';
   const needsReviewBeforeRetry = status === 'error' && progress.stage === 'pending_review';
   const generationActionLabel = isGenerating
-    ? t('composer.queueMore', '加入队列')
+    ? availableGenerationSlots > 0
+      ? t('composer.parallelGenerate', '并行生成')
+      : t('composer.queueMore', '加入队列')
     : needsReviewBeforeRetry
       ? t('composer.confirmRegenerate', '确认重新生成')
       : status === 'error'
@@ -3554,7 +3628,6 @@ function CreationDesk({
   const composerGenerationVisible = status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review' || (status === 'error' && Boolean(message));
   const composerThreadHasContent = Boolean(assistantMessages.length);
   const activeGenerationQueueItems = generationQueue.filter((item) => CURRENT_PROJECT_QUEUE_STATUSES.has(item.status));
-  const activeQueuedGenerationCount = activeGenerationQueueCount(generationQueue);
   const confirmTaskModelInfo = generationConfirmTask?.mode === 'video'
     ? videoModelOptions.find((item) => item.id === generationConfirmTask.videoModel)
     : imageModelOptions.find((item) => item.id === generationConfirmTask?.model);
@@ -3589,15 +3662,19 @@ function CreationDesk({
   const confirmTaskReferenceLabel = generationConfirmTask
     ? `${confirmTaskReferenceCount}/${confirmTaskReferenceLimit}${generationConfirmTask.mode === 'mask' && generationConfirmTask.maskFile ? ' · Mask' : ''}`
     : '';
-  const confirmTaskQueueLabel = activeQueuedGenerationCount
-    ? t('composer.confirmQueueBehind', '前面还有 {count} 个任务', { count: activeQueuedGenerationCount })
-    : t('composer.confirmQueueNow', '确认后立即排队');
+  const confirmTaskQueueLabel = activeQueuedGenerationCount && availableGenerationSlots > 0
+    ? t('composer.confirmQueueParallel', '确认后并行执行，还可使用 {count} 个并发位', { count: availableGenerationSlots })
+    : activeQueuedGenerationCount
+      ? t('composer.confirmQueueBehind', '当前并发已满，确认后进入等待队列')
+      : t('composer.confirmQueueNow', '确认后立即开始');
   const confirmTaskPrimaryLabel = needsReviewBeforeRetry
-    ? t('composer.confirmRegenerate', '确认重新生成')
-    : status === 'error'
-      ? t('composer.regenerate', '重新生成')
+      ? t('composer.confirmRegenerate', '确认重新生成')
+      : status === 'error'
+        ? t('composer.regenerate', '重新生成')
       : isGenerating || activeQueuedGenerationCount
-        ? t('composer.queueMore', '加入队列')
+        ? availableGenerationSlots > 0
+          ? t('composer.parallelGenerate', '并行生成')
+          : t('composer.queueMore', '加入队列')
         : t('composer.confirmGeneratePrimary', '确认生成');
   const composerFolded = layoutSections.bottomComposer && layoutSections.composerFolded === true;
   const toggleComposerFold = () => updateLayoutSections({
@@ -3698,6 +3775,15 @@ function CreationDesk({
 
   return (
     <section className={`creationDesk ${workspaceFlowMode === 'single' ? 'singleFlowMode' : 'canvasFlowMode'} ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
+      <GenerationQueueDock
+        items={activeGenerationQueueItems}
+        t={t}
+        formatError={generationErrorMessage}
+        onAcknowledge={acknowledgeGenerationTask}
+        onCancel={cancelGenerationTask}
+        onRetry={retryGenerationTask}
+        concurrency={GENERATION_CONCURRENCY}
+      />
       <div
         ref={workPreviewRef}
         className={`workPreview infiniteCanvas ${workspaceFlowMode === 'single' ? 'singleGenerationPreview' : 'canvasGenerationPreview'} ${hasPrimaryResult ? 'hasResult' : ''} ${canvasPerformanceMode ? 'performanceMode' : ''}`}
@@ -3706,21 +3792,6 @@ function CreationDesk({
         onPointerUp={workspaceFlowMode === 'canvas' ? endCanvasPan : undefined}
         onPointerCancel={workspaceFlowMode === 'canvas' ? endCanvasPan : undefined}
       >
-        <GenerationQueueDock
-          items={activeGenerationQueueItems}
-          progress={progress}
-          status={status}
-          message={message}
-          timing={timing}
-          isGenerating={isGenerating}
-          t={t}
-          formatError={generationErrorMessage}
-          onAcknowledge={acknowledgeGenerationTask}
-          onCancel={cancelGenerationTask}
-          onRetry={retryGenerationTask}
-          onRegenerate={openRegenerateDialog}
-          onStop={stopGeneration}
-        />
         <div className="workbenchTopControls">
           <WorkflowModeSwitch
             activeMode={workspaceFlowMode}

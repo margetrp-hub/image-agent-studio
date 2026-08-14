@@ -55,7 +55,7 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     JOB_LIMIT: Number(env.STUDIO_JOB_LIMIT || 120),
     JOB_TIMEOUT_MS: jobTimeoutMs,
     GATEWAY_FETCH_TIMEOUT_MS: Number(env.STUDIO_GATEWAY_FETCH_TIMEOUT_MS || Math.max(10 * 60 * 1000, jobTimeoutMs - 30 * 1000)),
-    JOB_CONCURRENCY: Math.max(1, Math.min(6, Number(env.STUDIO_JOB_CONCURRENCY || 1))),
+    JOB_CONCURRENCY: Math.max(1, Math.min(6, Number(env.STUDIO_JOB_CONCURRENCY || 2))),
     JOB_ACTIVE_STATUSES: new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'video', 'saving']),
     VIDEO_POLL_INTERVAL_MS: Math.max(100, Number(env.STUDIO_VIDEO_POLL_INTERVAL_MS || 4000)),
     VIDEO_POLL_MAX_TRANSIENT_FAILURES: Math.max(1, Number(env.STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES || 450)),

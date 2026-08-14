@@ -181,6 +181,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
   await page.addInitScript(({ layoutKey, sessionKey, session, referencesOpen }) => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('image-agent-studio:generation-queue-dock:v1');
     localStorage.setItem(layoutKey, JSON.stringify({
       prompt: false,
       references: referencesOpen,
@@ -200,6 +201,21 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     await page.waitForSelector('.referenceSideBody.hasReferenceItems .sideReferenceThumbs figure', { timeout: 8000 });
   }
   await page.waitForTimeout(500);
+  if (liveStatus) {
+    const collapseButton = page.locator('.canvasQueueCollapse');
+    await collapseButton.click();
+    await page.waitForSelector('.canvasQueueDock:not(:has(.canvasQueueList))', { timeout: 3000 });
+    await collapseButton.click();
+    await page.waitForSelector('.canvasQueueList', { timeout: 3000 });
+    const headBox = await page.locator('.canvasQueueHead').boundingBox();
+    assert(headBox, `${name}: queue drawer head was not measurable for drag test.`);
+    await page.mouse.move(headBox.x + 12, headBox.y + 12);
+    await page.mouse.down();
+    await page.waitForTimeout(80);
+    await page.mouse.move(headBox.x + 28, headBox.y + 24);
+    await page.mouse.up();
+    await page.waitForFunction(() => document.querySelector('.canvasQueueDock')?.classList.contains('isPositioned'), null, { timeout: 3000 });
+  }
   const screenshotPath = `${screenshotDir}/composer-layout-${name}.png`;
   await page.screenshot({ path: screenshotPath, fullPage: true });
 

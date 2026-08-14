@@ -75,8 +75,7 @@
 .studioLayout .creationDesk .canvasToolbar {
   top: 136px !important;
   z-index: 18 !important;
-  left: auto !important;
-  right: 18px !important;
+  left: 18px !important;
   bottom: auto !important;
   transform: none !important;
 }
@@ -135,7 +134,8 @@
 .studioLayout .creationDesk .canvasQueueDock {
   z-index: 22 !important;
   top: 14px !important;
-  left: 18px !important;
+  left: auto !important;
+  right: 18px !important;
   max-width: min(330px, calc(100% - var(--workbench-side-reserved) - 32px)) !important;
 }
 

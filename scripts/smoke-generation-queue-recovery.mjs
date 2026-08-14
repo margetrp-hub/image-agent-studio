@@ -126,6 +126,17 @@ function localQueuedSession() {
 }
 
 async function installCommonRoutes(page) {
+  await page.addInitScript(({ providerSettingsKey, manualSecretKey }) => {
+    localStorage.setItem(providerSettingsKey, JSON.stringify({
+      providerId: 'openai-compatible',
+      apiKeySource: 'manual',
+      manualGatewayBaseUrl: 'https://queue-smoke.example/v1',
+      route: 'auto',
+      responsesModel: 'gpt-5.5',
+      partialImages: 2
+    }));
+    sessionStorage.setItem(manualSecretKey, 'queue-smoke-secret');
+  }, { providerSettingsKey, manualSecretKey });
   await page.route('**/auth/me', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',

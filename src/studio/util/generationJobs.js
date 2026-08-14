@@ -5,6 +5,9 @@ const QUEUE_STATUSES = new Set(['queued', 'running', 'failed', 'canceled', 'unkn
 export const GENERATION_STALL_NOTICE_MS = 90 * 1000;
 export const GENERATION_TIMEOUT_MS = 45 * 60 * 1000;
 export const GENERATION_QUEUE_LIMIT = 12;
+// Two in-flight tasks keeps the workstation responsive while the server and
+// provider still retain an explicit environment-level concurrency guard.
+export const GENERATION_CONCURRENCY = 2;
 export const VISIBLE_GENERATION_QUEUE_STATUSES = ['queued', 'running', 'failed', 'canceled', 'unknown', 'done'];
 export const CURRENT_PROJECT_QUEUE_STATUSES = new Set(VISIBLE_GENERATION_QUEUE_STATUSES);
 

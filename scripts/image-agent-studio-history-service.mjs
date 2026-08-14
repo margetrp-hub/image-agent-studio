@@ -2687,6 +2687,7 @@ async function handler(req, res) {
       providerMode: AUTH_MODE === 'standalone' && USER_PROVIDER_ONLY ? 'per-user' : 'server',
       userProviderOnly: USER_PROVIDER_ONLY,
       creditsEnabled: standaloneAuthStore ? standaloneAuthStore.getBillingSettings().creditsEnabled : false,
+      jobConcurrency: JOB_CONCURRENCY,
       startedAt: new Date(SERVICE_STARTED_AT).toISOString()
     });
   }
