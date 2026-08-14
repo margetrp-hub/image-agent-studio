@@ -69,6 +69,19 @@ if (!studioCssMatch) {
 }
 
 const studioAssetsDir = path.join(root, 'dist', 'studio-assets');
+const studioJavaScript = fs.readdirSync(studioAssetsDir)
+  .filter((file) => file.endsWith('.js'))
+  .map((file) => fs.readFileSync(path.join(studioAssetsDir, file), 'utf8'))
+  .join('\n');
+if (!studioJavaScript.includes('studio-api/model-sync')) {
+  console.error('Standalone studio build must include the same-origin model sync route.');
+  process.exit(1);
+}
+if (studioJavaScript.includes('resolvedGatewayBaseUrl') && studioJavaScript.includes('Failed to fetch')) {
+  console.error('Standalone studio build must not ship the browser-direct upstream model fallback.');
+  process.exit(1);
+}
+
 const studioEntryCssPath = path.join(studioAssetsDir, studioCssMatch[1]);
 if (!fs.existsSync(studioEntryCssPath)) {
   console.error(`Studio entry CSS is missing: ${studioEntryCssPath}`);

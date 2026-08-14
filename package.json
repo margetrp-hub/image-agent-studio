@@ -13,6 +13,7 @@
     "check:boundaries": "node scripts/check-architecture-boundaries.mjs",
     "check:naming": "node scripts/check-naming-boundaries.mjs",
     "check:theme": "node scripts/check-theme-contract.mjs",
+    "check:ui": "node scripts/check-ui-foundation.mjs",
     "check:contracts": "npm --prefix packages/contracts run check",
     "check:server-go": "node scripts/check-server-go-contract.mjs",
     "check:generation-executor": "node scripts/check-generation-executor-contract.mjs",
@@ -41,7 +42,7 @@
     "check:gateway": "node scripts/check-ai-gateway-contract.mjs",
     "check:sub2api": "node scripts/check-sub2api-contract.mjs",
     "check:server": "node --check apps/server/src/index.js && node --check apps/server/src/server.js && node --check apps/server/src/domain/schema.js && node --check apps/server/src/domain/types.js && node --check apps/server/src/repositories/historyRepository.js && node --check apps/server/src/storage/memoryAdapter.js && node --check apps/server/src/queue/stateMachine.js",
-    "check:local": "npm run build && npm run check:studio-build && npm run check:providers && npm run check:provider-protocols && npm run check:xai && npm run check:model-sync && npm run check:generation-executor && npm run check:service-config && npm run check:deploy && npm run check:docker && npm run check:desktop && npm run check:boundaries && npm run check:naming && npm run check:theme && npm run check:contracts && npm run check:server-go && npm run check:docs && npm run check:html && npm run check:source && npm run check:i18n && npm run check:env && npm run check:public-data && npm run check:repo && npm run smoke:persistence && npm run smoke:gateway:auth && npm run smoke:history && npm run smoke:history:idb && npm run smoke:projects && npm run smoke:history:queue && npm run smoke:generation:dedupe && npm run smoke:image:route && npm run smoke:newapi:route && npm run smoke:image:edit-route && npm run smoke:video:route && npm run smoke:xai:route && npm run smoke:session:modes && npm run smoke:references && npm run smoke:provider:security && npm run smoke:composer:layout && npm run smoke:canvas:performance && npm run smoke:canvas:blob-cleanup && npm run smoke:canvas:link && npm run smoke:history:windowing && npm run smoke:inspiration:windowing && npm run smoke:inspiration:reference-flow && npm run smoke:template:windowing && npm run smoke:language:en",
+    "check:local": "npm run build && npm run check:studio-build && npm run check:providers && npm run check:provider-protocols && npm run check:xai && npm run check:model-sync && npm run check:generation-executor && npm run check:service-config && npm run check:deploy && npm run check:docker && npm run check:desktop && npm run check:boundaries && npm run check:naming && npm run check:theme && npm run check:ui && npm run check:contracts && npm run check:server-go && npm run check:docs && npm run check:html && npm run check:source && npm run check:i18n && npm run check:env && npm run check:public-data && npm run check:repo && npm run smoke:persistence && npm run smoke:gateway:auth && npm run smoke:history && npm run smoke:history:idb && npm run smoke:projects && npm run smoke:history:queue && npm run smoke:generation:dedupe && npm run smoke:image:route && npm run smoke:newapi:route && npm run smoke:image:edit-route && npm run smoke:video:route && npm run smoke:xai:route && npm run smoke:session:modes && npm run smoke:references && npm run smoke:provider:security && npm run smoke:composer:layout && npm run smoke:canvas:performance && npm run smoke:canvas:blob-cleanup && npm run smoke:canvas:link && npm run smoke:history:windowing && npm run smoke:inspiration:windowing && npm run smoke:inspiration:reference-flow && npm run smoke:template:windowing && npm run smoke:language:en",
     "history:service": "node scripts/image-agent-studio-history-service.mjs",
     "auth:create-admin": "node scripts/create-standalone-admin.mjs",
     "ops:backup": "node scripts/ops-backup.mjs",
@@ -97,6 +98,8 @@
     "smoke:docker": "node scripts/smoke-docker-runtime.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-switch": "^1.3.7",
     "@vitejs/plugin-react": "^5.1.1",
     "lucide-react": "^0.561.0",
     "react": "^19.2.7",

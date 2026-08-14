@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { KeyRound, RefreshCw } from 'lucide-react';
 import '../../styles/studio.provider-settings.css';
+import '../../styles/studio.provider-settings-responsive.css';
 import '../../styles/studio.provider-settings-sync.css';
 
 import { getConfiguredBaseUrls, STUDIO_STANDALONE } from '../../aiGatewayClient';
@@ -11,6 +12,52 @@ import {
   defaultProviderGatewayBaseUrl,
   usesGatewayAccount
 } from '../util/providerSettings.js';
+
+const MANUAL_MODEL_OPTION = '__manual_model__';
+
+function normalizedModelOptions(items) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => {
+      if (typeof item === 'string') return { id: item, label: item };
+      const id = String(item?.id || item?.name || item?.model || '').trim();
+      return id ? { id, label: String(item?.label || id).trim() || id } : null;
+    })
+    .filter(Boolean)
+    .filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index);
+}
+
+function ModelSettingControl({ value, options, placeholder, onChange, t }) {
+  const current = String(value || '');
+  const choices = normalizedModelOptions(options);
+  const hasChoices = choices.length > 0;
+  const currentIsSynced = choices.some((item) => item.id === current);
+
+  if (!hasChoices) {
+    return <input value={current} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />;
+  }
+
+  return (
+    <>
+      <select
+        value={currentIsSynced ? current : MANUAL_MODEL_OPTION}
+        onChange={(event) => onChange(event.target.value === MANUAL_MODEL_OPTION ? '' : event.target.value)}
+        aria-label="Model selection"
+      >
+        {current && !currentIsSynced ? <option value={MANUAL_MODEL_OPTION}>{current}</option> : null}
+        {choices.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        <option value={MANUAL_MODEL_OPTION}>{t('settings.modelManualChoice', 'Manual model ID')}</option>
+      </select>
+      {!currentIsSynced ? (
+        <input
+          value={current}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          aria-label="Custom model ID"
+        />
+      ) : null}
+    </>
+  );
+}
 
 export function SettingsPanel({
   open,
@@ -68,7 +115,8 @@ export function SettingsPanel({
       modelSyncError.message || ''
     ].filter(Boolean).join(' · ')
     : '';
-  const providerChoices = (STUDIO_STANDALONE ? [currentProvider] : orderedImageProviders())
+  const providerChoices = orderedImageProviders()
+    .filter((provider) => !STUDIO_STANDALONE || provider.authMode === 'manual')
     .filter(Boolean)
     .map((provider) => ({
       ...provider,
@@ -92,7 +140,6 @@ export function SettingsPanel({
             <small>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : t('settings.providerFamily', '接口类型')}</small>
             <select
               value={currentProvider?.id || providerSettings.providerId}
-              disabled={STUDIO_STANDALONE}
               onChange={(event) => {
                 const nextProvider = providerChoices.find((provider) => provider.id === event.target.value) || providerChoices[0];
                 onProviderChange({
@@ -104,7 +151,9 @@ export function SettingsPanel({
             >
               {providerChoices.map((provider) => (
                 <option key={provider.id} value={provider.id}>
-                  {STUDIO_STANDALONE ? t('settings.studioManagedProvider', '服务端托管') : provider.label}
+                  {provider.id === 'gateway-account'
+                    ? t('settings.studioManagedProvider', '服务端托管')
+                    : provider.label}
                 </option>
               ))}
             </select>
@@ -113,15 +162,15 @@ export function SettingsPanel({
 
         <div className="providerSummary">
           <span>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : t('settings.provider', 'Provider')}</span>
-          <strong>{STUDIO_STANDALONE ? t('settings.studioManagedProvider', '服务端托管') : (currentProvider?.label || providerSettings.providerId || 'Gateway Account')}</strong>
-          <em>{STUDIO_STANDALONE
+          <strong>{providerSettings.apiKeySource !== 'manual'
+            ? t('settings.studioManagedProvider', '服务端托管')
+            : (currentProvider?.label || providerSettings.providerId || 'Custom API')}</strong>
+          <em>{providerSettings.apiKeySource !== 'manual'
             ? t('settings.serverManagedCredentials', 'Credentials are managed by the server')
-            : currentProvider?.authMode === 'manual'
-              ? t('settings.providerManual', '手动密钥')
-              : t('settings.providerGateway', '网关账号')}</em>
+            : t('settings.providerManual', '手动密钥')}</em>
         </div>
 
-        {STUDIO_STANDALONE ? (
+        {providerSettings.apiKeySource !== 'manual' && STUDIO_STANDALONE ? (
           <div className="settingsEmpty">{t('settings.noBrowserSecrets', 'No provider key or gateway URL is stored in this browser.')}</div>
         ) : usesGatewayAccount(providerSettings) ? (
           <div className="keyList">
@@ -164,27 +213,27 @@ export function SettingsPanel({
         )}
 
         <div className="manualFields">
-          {!STUDIO_STANDALONE ? <div className="settingsCallConfig">
+          {(!STUDIO_STANDALONE || providerSettings.apiKeySource === 'manual') ? <div className="settingsCallConfig">
             <div className="settingsCallConfigHead">
               <strong>{t('settings.modelCallSettings', '模型')}</strong>
             </div>
             <div className="settingsCallGrid">
               <label>
                 <span>{t('settings.imageGenerationModel', '生图模型')}</span>
-                <input value={providerSettings.imageGenerationModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, imageGenerationModel: event.target.value })} placeholder="gpt-image-2 / nano-banana" />
+                <ModelSettingControl value={providerSettings.imageGenerationModel} options={modelOptions.image} onChange={(value) => onProviderChange({ ...providerSettings, imageGenerationModel: value })} placeholder="gpt-image-2 / nano-banana" t={t} />
               </label>
               <label>
                 <span>{t('settings.imageEditModel', '编辑 / Mask 模型')}</span>
-                <input value={providerSettings.imageEditModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, imageEditModel: event.target.value })} placeholder={providerSettings.imageGenerationModel || 'gpt-image-2'} />
+                <ModelSettingControl value={providerSettings.imageEditModel} options={modelOptions.image} onChange={(value) => onProviderChange({ ...providerSettings, imageEditModel: value })} placeholder={providerSettings.imageGenerationModel || 'gpt-image-2'} t={t} />
               </label>
-              {!STUDIO_STANDALONE ? <label>
+              <label>
                 <span>{t('settings.videoModel', '视频模型')}</span>
-                <input value={providerSettings.videoModel || ''} onChange={(event) => onProviderChange({ ...providerSettings, videoModel: event.target.value })} placeholder="veo3 / kling / runway" />
-              </label> : null}
-              {!STUDIO_STANDALONE ? <label>
+                <ModelSettingControl value={providerSettings.videoModel} options={modelOptions.video} onChange={(value) => onProviderChange({ ...providerSettings, videoModel: value })} placeholder="veo3 / grok-imagine-video / runway" t={t} />
+              </label>
+              <label>
                 <span>{t('settings.videoGateway', '视频接口 URL')}</span>
                 <input value={providerSettings.videoGatewayBaseUrl || ''} onChange={(event) => onProviderChange({ ...providerSettings, videoGatewayBaseUrl: event.target.value })} placeholder={providerSettings.manualGatewayBaseUrl || getConfiguredBaseUrls().gatewayBaseUrl} />
-              </label> : null}
+              </label>
             </div>
           </div> : null}
           <div className={`settingsModelSync ${modelsStatus}`}>
@@ -208,14 +257,11 @@ export function SettingsPanel({
               </button>
             ) : null}
           </div>
-          {!STUDIO_STANDALONE ? <label>
+          {(!STUDIO_STANDALONE || providerSettings.apiKeySource === 'manual') ? <label>
             <span>{t('settings.assistantModel', '助手模型')}</span>
-            <input
-              value={providerSettings.responsesModel}
-              onChange={(event) => onProviderChange({ ...providerSettings, responsesModel: event.target.value })}
-            />
+            <ModelSettingControl value={providerSettings.responsesModel} options={modelOptions.responses} onChange={(value) => onProviderChange({ ...providerSettings, responsesModel: value })} placeholder="gpt-5.5" t={t} />
           </label> : null}
-          {!STUDIO_STANDALONE ? <label>
+          {(!STUDIO_STANDALONE || providerSettings.apiKeySource === 'manual') ? <label>
             <span>{t('settings.previewFrames', '预览帧')}</span>
             <input
               type="number"

@@ -1,0 +1,203 @@
+@import url('../../packages/theme/web.css');
+
+.iasButton {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--ias-radius-control);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  isolation: isolate;
+  justify-content: center;
+  min-height: 40px;
+  overflow: hidden;
+  padding: 0 14px;
+  position: relative;
+  transition: background 160ms var(--ias-ease), border-color 160ms var(--ias-ease), color 160ms var(--ias-ease), transform 160ms var(--ias-ease), box-shadow 160ms var(--ias-ease);
+}
+
+.iasButton > * {
+  position: relative;
+  z-index: 1;
+}
+
+.iasButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.iasButton:focus-visible,
+.iasIconButton:focus-visible,
+.iasInput:focus-visible,
+.iasSelect:focus-visible,
+.iasTextarea:focus-visible {
+  outline: none;
+  box-shadow: var(--ias-focus);
+}
+
+.iasButton:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.iasButtonPrimary {
+  background: var(--ias-accent);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.18);
+}
+
+.iasButtonPrimary::after {
+  background: linear-gradient(112deg, transparent 24%, rgba(255, 255, 255, 0.28) 50%, transparent 76%);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-130%);
+  transition: transform 500ms var(--ias-ease);
+}
+
+.iasButtonPrimary:hover:not(:disabled) {
+  background: var(--ias-accent-strong);
+}
+
+.iasButtonPrimary:hover:not(:disabled)::after {
+  transform: translateX(130%);
+}
+
+.iasButtonSecondary {
+  background: var(--ias-surface);
+  border-color: var(--ias-line);
+  color: var(--ias-ink);
+}
+
+.iasButtonSecondary:hover:not(:disabled) {
+  border-color: var(--ias-line-strong);
+  background: var(--ias-surface-raised);
+}
+
+.iasButtonQuiet {
+  background: transparent;
+  color: var(--ias-copy);
+}
+
+.iasButtonQuiet:hover:not(:disabled) {
+  background: var(--ias-surface-muted);
+  color: var(--ias-ink);
+}
+
+.iasButtonDanger {
+  background: var(--ias-danger);
+  color: #fff;
+}
+
+.iasButtonDanger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ias-danger) 84%, #000);
+}
+
+.iasIconButton {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ias-radius-control);
+  color: var(--ias-copy);
+  cursor: pointer;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  transition: background 160ms var(--ias-ease), border-color 160ms var(--ias-ease), color 160ms var(--ias-ease), transform 160ms var(--ias-ease), box-shadow 160ms var(--ias-ease);
+  width: 38px;
+}
+
+.iasIconButton:hover:not(:disabled) {
+  background: var(--ias-surface-muted);
+  border-color: var(--ias-line);
+  color: var(--ias-ink);
+  transform: translateY(-1px);
+}
+
+.iasInput,
+.iasSelect,
+.iasTextarea {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ias-surface) 94%, var(--ias-accent-soft)), var(--ias-surface));
+  border: 1px solid var(--ias-line-strong);
+  border-radius: var(--ias-radius-control);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 1px 2px rgba(16, 32, 39, 0.03);
+  color: var(--ias-ink);
+  font: inherit;
+  min-height: 42px;
+  padding: 9px 11px;
+  transition: border-color 160ms var(--ias-ease), box-shadow 160ms var(--ias-ease), background 160ms var(--ias-ease);
+  width: 100%;
+}
+
+.iasInput:hover:not(:disabled),
+.iasSelect:hover:not(:disabled),
+.iasTextarea:hover:not(:disabled) {
+  border-color: var(--ias-accent-secondary);
+}
+
+.iasTextarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.iasInput::placeholder,
+.iasTextarea::placeholder {
+  color: var(--ias-muted);
+}
+
+.iasField {
+  display: grid;
+  gap: 7px;
+}
+
+.iasField > span,
+.iasField > label {
+  color: var(--ias-copy);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.iasCheckbox {
+  accent-color: var(--ias-accent);
+  height: 16px;
+  width: 16px;
+}
+
+.iasBadge {
+  align-items: center;
+  background: var(--ias-accent-soft);
+  border-radius: 999px;
+  color: var(--ias-accent-strong);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 750;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+}
+
+.iasBadgeWarm {
+  background: color-mix(in srgb, var(--ias-warm) 14%, transparent);
+  color: var(--ias-warm);
+}
+
+.iasBadgeDanger {
+  background: color-mix(in srgb, var(--ias-danger) 12%, transparent);
+  color: var(--ias-danger);
+}
+
+.iasReveal {
+  animation: iasReveal 420ms var(--ias-ease) both;
+}
+
+@keyframes iasReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iasButton,
+  .iasReveal { animation: none; transition: none; }
+}

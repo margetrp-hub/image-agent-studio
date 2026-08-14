@@ -54,8 +54,8 @@ const STANDALONE_PROVIDER_KEY = Object.freeze({
 });
 
 const providerDefaults = {
-  providerId: 'gateway-account',
-  apiKeySource: 'gateway',
+  providerId: STUDIO_STANDALONE ? 'openai-compatible' : 'gateway-account',
+  apiKeySource: STUDIO_STANDALONE ? 'manual' : 'gateway',
   route: normalizeImageRoute(envImageRoute || 'auto'),
   manualApiKey: '',
   manualGatewayBaseUrl: '',
@@ -213,17 +213,23 @@ function keyIsUsable(apiKey) {
 
 function normalizeProviderSettings(value = {}) {
   if (STUDIO_STANDALONE) {
+    const apiKeySource = 'manual';
+    const requestedProviderId = String(value.providerId || '').trim();
+    const providerId = apiKeySource === 'manual' && requestedProviderId === 'gateway-account'
+      ? 'openai-compatible'
+      : normalizeSettingsProviderId(requestedProviderId, apiKeySource);
     return {
       ...providerDefaults,
-      providerId: 'gateway-account',
-      apiKeySource: 'gateway',
+      ...value,
+      providerId,
+      apiKeySource,
       route: normalizeImageRoute(value.route || providerDefaults.route),
-      manualApiKey: '',
-      manualGatewayBaseUrl: '',
+      manualApiKey: String(value.manualApiKey || ''),
+      manualGatewayBaseUrl: String(value.manualGatewayBaseUrl || ''),
       imageGenerationModel: String(value.imageGenerationModel || ''),
       imageEditModel: String(value.imageEditModel || ''),
       videoModel: String(value.videoModel || ''),
-      videoGatewayBaseUrl: '',
+      videoGatewayBaseUrl: String(value.videoGatewayBaseUrl || ''),
       responsesModel: normalizeResponsesModel(value.responsesModel),
       partialImages: normalizePartialImageCount(value.partialImages)
     };
@@ -293,9 +299,11 @@ function providerSettingsForStorage(settings) {
       providerId: normalized.providerId,
       apiKeySource: normalized.apiKeySource,
       route: normalized.route,
+      manualGatewayBaseUrl: normalized.manualGatewayBaseUrl,
       imageGenerationModel: normalized.imageGenerationModel,
       imageEditModel: normalized.imageEditModel,
       videoModel: normalized.videoModel,
+      videoGatewayBaseUrl: normalized.videoGatewayBaseUrl,
       responsesModel: normalized.responsesModel,
       partialImages: normalized.partialImages
     };
@@ -308,8 +316,13 @@ export function loadProviderSettings() {
   if (STUDIO_STANDALONE) {
     try {
       const parsed = JSON.parse(localStorage.getItem(PROVIDER_SETTINGS_KEY) || 'null') || {};
-      const nextSettings = normalizeProviderSettings(parsed);
-      sessionStorage.removeItem(MANUAL_PROVIDER_SECRET_KEY);
+      const sessionManualSecret = readManualProviderSecret();
+      const nextSettings = normalizeProviderSettings({
+        ...parsed,
+        apiKeySource: 'manual',
+        providerId: parsed.providerId === 'gateway-account' ? 'openai-compatible' : parsed.providerId,
+        manualApiKey: sessionManualSecret
+      });
       localStorage.removeItem(LEGACY_PROVIDER_SETTINGS_KEY);
       localStorage.setItem(PROVIDER_SETTINGS_KEY, JSON.stringify(providerSettingsForStorage(nextSettings)));
       return nextSettings;
@@ -342,7 +355,11 @@ export function saveProviderSettings(settings) {
   const nextSettings = normalizeProviderSettings(settings);
   if (STUDIO_STANDALONE) {
     try {
-      sessionStorage.removeItem(MANUAL_PROVIDER_SECRET_KEY);
+      if (nextSettings.apiKeySource === 'manual') {
+        writeManualProviderSecret(nextSettings.manualApiKey);
+      } else {
+        sessionStorage.removeItem(MANUAL_PROVIDER_SECRET_KEY);
+      }
       localStorage.removeItem(LEGACY_PROVIDER_SETTINGS_KEY);
     } catch {
       // Standalone provider settings do not depend on browser secret storage.
@@ -357,7 +374,13 @@ export function saveProviderSettings(settings) {
 
 export function getLoginUrl() {
   if (STUDIO_STANDALONE) {
-    const appBase = new URL(viteEnv.BASE_URL || '/', window.location.origin);
+    const currentPath = String(window.location.pathname || '');
+    const inferredBase = currentPath === '/studio' || currentPath.startsWith('/studio/')
+      ? '/studio/'
+      : '/';
+    const configuredBase = String(viteEnv.BASE_URL || '').trim();
+    const basePath = configuredBase && configuredBase !== '/' ? configuredBase : inferredBase;
+    const appBase = new URL(basePath.endsWith('/') ? basePath : `${basePath}/`, window.location.origin);
     const loginUrl = new URL('login.html', appBase);
     loginUrl.searchParams.set('redirect', `${window.location.pathname}${window.location.search || ''}${window.location.hash || ''}`);
     return loginUrl.toString();
@@ -1025,6 +1048,64 @@ export class AiGatewayClient {
     return session;
   }
 
+  async getStandaloneConfig() {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_CONFIG_UNSUPPORTED');
+    return this.request('/auth/config', { skipAuth: true, skipRefresh: true });
+  }
+
+  async getCredits() {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_CREDITS_UNSUPPORTED');
+    const payload = await this.request('/auth/credits');
+    return payload.credits || null;
+  }
+
+  async listCreditTransactions(limit = 50) {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_CREDITS_UNSUPPORTED');
+    const payload = await this.request(`/auth/credits/transactions?limit=${encodeURIComponent(limit)}`);
+    return {
+      credits: payload.credits || null,
+      transactions: Array.isArray(payload.transactions) ? payload.transactions : []
+    };
+  }
+
+  async getAdminBillingSettings() {
+    const payload = await this.request('/auth/admin/billing/settings');
+    return payload.settings || {};
+  }
+
+  async updateAdminBillingSettings(settings) {
+    const payload = await this.request('/auth/admin/billing/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
+    return payload.settings || {};
+  }
+
+  async getAdminBillingStats() {
+    const payload = await this.request('/auth/admin/billing/stats');
+    return payload.stats || {};
+  }
+
+  async listAdminUsers() {
+    const payload = await this.request('/auth/admin/users');
+    return Array.isArray(payload.users) ? payload.users : [];
+  }
+
+  async adjustAdminUserCredits(userId, { amount, reason, referenceId } = {}) {
+    const payload = await this.request(`/auth/admin/users/${encodeURIComponent(userId)}/credits`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, reason, referenceId })
+    });
+    return { user: payload.user || null, credits: payload.credits || null };
+  }
+
+  async disableAdminUser(userId) {
+    const payload = await this.request(`/auth/admin/users/${encodeURIComponent(userId)}/disable`, {
+      method: 'POST'
+    });
+    return payload.user || null;
+  }
+
   async login2FA({ tempToken, totpCode }) {
     const data = await this.request('/auth/login/2fa', {
       method: 'POST',
@@ -1150,10 +1231,13 @@ export class AiGatewayClient {
 
   async optimizePrompt({ apiKey, prompt, instruction = '', size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
     if (STUDIO_STANDALONE) {
+      const providerRequest = this.providerSettings.apiKeySource === 'manual'
+        ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
+        : {};
       const result = await this.request('/prompt/optimize', {
         method: 'POST',
         signal,
-        body: JSON.stringify({ prompt, instruction, size, aspectRatio, quality, resolutionTier })
+        body: JSON.stringify({ prompt, instruction, size, aspectRatio, quality, resolutionTier, model, ...providerRequest })
       });
       const normalized = result?.prompt ? result : (result?.data || result);
       if (!normalized?.prompt) throw new Error('PROMPT_OPTIMIZER_RETURNED_EMPTY');
@@ -1230,6 +1314,9 @@ export class AiGatewayClient {
 
   async chatPromptAssistant({ apiKey, prompt, basePrompt = '', userInstruction = '', selectedCanvasLabel = '', messages = [], size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
     if (STUDIO_STANDALONE) {
+      const providerRequest = this.providerSettings.apiKeySource === 'manual'
+        ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
+        : {};
       const result = await this.request('/prompt/assistant', {
         method: 'POST',
         signal,
@@ -1242,7 +1329,9 @@ export class AiGatewayClient {
           size,
           aspectRatio,
           quality,
-          resolutionTier
+          resolutionTier,
+          model,
+          ...providerRequest
         })
       });
       const normalized = result?.text ? result : (result?.data || result);
@@ -1327,7 +1416,15 @@ export class AiGatewayClient {
   }
 
   async listGatewayModels({ apiKey, gatewayBaseUrl, signal } = {}) {
-    if (STUDIO_STANDALONE) return this.listGatewayModelsViaStudio({ signal });
+    if (STUDIO_STANDALONE) {
+      // The standalone service is the only supported upstream boundary. A browser
+      // fallback would turn a provider error into a misleading CORS/Failed to fetch.
+      return this.listGatewayModelsViaStudio({
+        apiKey,
+        gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl),
+        signal
+      });
+    }
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     let models = [];
     try {
@@ -1373,7 +1470,14 @@ export class AiGatewayClient {
       ? trimTrailingSlash(window.location.origin)
       : getConfiguredBaseUrls().studioHistoryBaseUrl;
     const body = STUDIO_STANDALONE
-      ? {}
+      ? this.providerSettings.apiKeySource === 'manual'
+        ? {
+          apiKey,
+          gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl),
+          providerType: this.providerSettings.providerId,
+          apiKeySource: 'manual'
+        }
+        : {}
       : {
         apiKey,
         gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl),

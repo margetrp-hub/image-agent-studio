@@ -7,6 +7,7 @@ The goal is to keep the web workstation, desktop app, Mini Program client, Andro
 ## Source Of Truth
 
 - `tokens.json` stores semantic design tokens.
+- `web.css` maps those tokens to Web/Desktop CSS custom properties.
 - Platform code maps tokens into CSS variables, WXSS variables, Android resources, or Compose theme values.
 - Product components should prefer semantic token names over raw hex colors and one-off spacing.
 
@@ -18,7 +19,7 @@ The goal is to keep the web workstation, desktop app, Mini Program client, Andro
 
 ## Client Mapping
 
-- Web/Desktop: map tokens to CSS custom properties.
+- Web/Desktop: map tokens to CSS custom properties; React primitives live in `src/ui` and behavior-heavy controls use Radix UI.
 - Mini Program: map tokens to WXSS variables or build-time constants.
 - Android: map tokens to Material/Compose color, typography, shape, and motion definitions.
 

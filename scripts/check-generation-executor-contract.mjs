@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildServerImageGenerationJobPayload,
+  buildServerVideoGenerationJobPayload,
   endpointForGenerationTask,
   imageGenerationRouteForMode
 } from '../src/studio/generation/executor.js';
@@ -82,6 +83,25 @@ const standalonePayload = buildServerImageGenerationJobPayload({
 });
 assert.equal('apiKey' in standalonePayload, false);
 assert.equal('gatewayBaseUrl' in standalonePayload, false);
+
+const videoPayload = buildServerVideoGenerationJobPayload({
+  serverManaged: true,
+  apiKey: 'video-session-secret',
+  gatewayBaseUrl: 'https://video-gateway.example/v1',
+  generationMeta: { id: 'video-job-1' },
+  sessionId: 'session-1',
+  providerId: 'xai-compatible',
+  apiKeySource: 'manual',
+  model: 'grok-imagine-video',
+  prompt: 'A short cinematic product shot.',
+  aspectRatio: '16:9',
+  duration: 5,
+  fps: 24
+});
+assert.equal(videoPayload.apiKey, 'video-session-secret');
+assert.equal(videoPayload.gatewayBaseUrl, 'https://video-gateway.example/v1');
+assert.equal(videoPayload.request.mode, 'video');
+assert.equal(videoPayload.request.route, 'video');
 
 const firstNode = {
   id: 'node-1',

@@ -20,6 +20,8 @@ assert.equal(config.LIBRARY_DIR, path.resolve(scriptsDir, '..', 'data'));
 assert.equal(config.AUTH_DATABASE_PATH, path.resolve(scriptsDir, '..', '.image-sub2api-studio-data', 'auth.sqlite'));
 assert.equal(config.AUTH_REGISTRATION_MODE, 'open');
 assert.equal(config.AUTH_LOGIN_MAX_BODY_BYTES, 16 * 1024);
+assert.equal(config.CREDITS_ENABLED, false);
+assert.equal(config.USER_PROVIDER_ONLY, true);
 assert.equal(config.AI_GATEWAY_BASE_URL, 'https://legacy-gateway.example/v1');
 assert.equal(config.JOB_CONCURRENCY, 6);
 assert.equal(config.SERVICE_STARTED_AT, 12345);
@@ -46,6 +48,8 @@ const explicit = createServiceConfig({
     STUDIO_PROVIDER_TYPE: 'xai-compatible',
     STUDIO_PROVIDER_API_KEY: 'server-secret',
     STUDIO_PROVIDER_CHAT_MODEL: 'chat-model',
+    STUDIO_CREDITS_ENABLED: 'true',
+    STUDIO_USER_PROVIDER_ONLY: 'false',
     STUDIO_JOB_CONCURRENCY: '0'
   }
 });
@@ -60,6 +64,8 @@ assert.equal(explicit.AUTH_LOGIN_MAX_CONCURRENCY, 2);
   assert.equal(explicit.PROVIDER_TYPE, 'xai-compatible');
 assert.equal(explicit.PROVIDER_API_KEY, 'server-secret');
 assert.equal(explicit.PROVIDER_CHAT_MODEL, 'chat-model');
+assert.equal(explicit.CREDITS_ENABLED, true);
+assert.equal(explicit.USER_PROVIDER_ONLY, false);
 assert.equal(explicit.JOB_CONCURRENCY, 1);
 
 assert.throws(() => createServiceConfig({ scriptsDir, env: { STUDIO_AUTH_MODE: 'typo' } }), /Unsupported STUDIO_AUTH_MODE/);

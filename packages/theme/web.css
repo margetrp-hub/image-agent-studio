@@ -1,0 +1,68 @@
+/* Web/Desktop mapping for the shared semantic theme tokens. */
+:root {
+  --ias-bg: #f4f7f7;
+  --ias-canvas-bg: #f8fbfa;
+  --ias-surface: #ffffff;
+  --ias-surface-muted: #eef3f3;
+  --ias-surface-raised: #fbfdfc;
+  --ias-ink: #102027;
+  --ias-copy: #50636b;
+  --ias-muted: #7c8c91;
+  --ias-inverse: #ffffff;
+  --ias-line: #d8e2e3;
+  --ias-line-subtle: #e8efef;
+  --ias-line-strong: #b9c9cb;
+  --ias-accent: #0f766e;
+  --ias-accent-strong: #0b5f59;
+  --ias-accent-secondary: #2b9a8f;
+  --ias-accent-soft: #dff3ef;
+  --ias-warm: #b45309;
+  --ias-danger: #b42318;
+  --ias-warning: #b45309;
+  --ias-success: #087443;
+  --ias-info: #0f766e;
+  --ias-overlay-scrim: rgba(8, 22, 26, 0.36);
+  --ias-radius-control: 10px;
+  --ias-radius-panel: 18px;
+  --ias-radius-sheet: 22px;
+  --ias-radius-round: 999px;
+  --ias-stroke-hairline: 1px;
+  --ias-stroke-focus: 2px;
+  --ias-stroke-canvas-link: 1.25px;
+  --ias-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ias-motion-quick: 120ms;
+  --ias-motion-normal: 180ms;
+  --ias-motion-slow: 260ms;
+  --ias-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ias-shadow-panel: 0 24px 80px rgba(16, 32, 39, 0.12), 0 2px 8px rgba(16, 32, 39, 0.04);
+  --ias-shadow-soft: 0 10px 30px rgba(16, 32, 39, 0.07);
+  --ias-focus: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+html[data-ias-theme="dark"] {
+  --ias-bg: #111315;
+  --ias-canvas-bg: #171a1f;
+  --ias-surface: #1d2127;
+  --ias-surface-muted: #252b33;
+  --ias-surface-raised: #242a32;
+  --ias-ink: #f7f8fa;
+  --ias-copy: #c4ccd6;
+  --ias-muted: #8994a2;
+  --ias-inverse: #102027;
+  --ias-line: #39424f;
+  --ias-line-subtle: #2d3540;
+  --ias-line-strong: #5c6877;
+  --ias-accent: #4ecdc4;
+  --ias-accent-strong: #7be0d8;
+  --ias-accent-secondary: #70d7cf;
+  --ias-accent-soft: #183c3b;
+  --ias-warm: #f7b267;
+  --ias-danger: #ff8a80;
+  --ias-warning: #f7b267;
+  --ias-success: #62d69a;
+  --ias-info: #4ecdc4;
+  --ias-overlay-scrim: rgba(0, 0, 0, 0.42);
+  --ias-shadow-panel: 0 24px 80px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.18);
+  --ias-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.2);
+  --ias-focus: 0 0 0 3px rgba(78, 205, 196, 0.2);
+}

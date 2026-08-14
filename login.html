@@ -17,28 +17,41 @@
             <p>独立创作工作台</p>
           </div>
         </div>
+        <div class="studioLoginIntro">
+          <span class="studioLoginKicker">CREATE WITH CONTROL</span>
+          <strong>把灵感留在自己的工作区。</strong>
+          <p>会话、历史图库和生成资产按账号独立保存。</p>
+        </div>
         <div class="studioLoginMode" role="tablist" aria-label="账号操作">
           <button class="is-active" id="studio-login-mode-login" type="button" data-mode="login" role="tab" aria-selected="true">登录</button>
           <button id="studio-login-mode-register" type="button" data-mode="register" role="tab" aria-selected="false">创建账号</button>
         </div>
-        <form class="studioLoginForm" id="studio-login-form">
+        <div class="studioLoginReward" id="studio-login-reward" role="status" hidden>
+          <span class="studioLoginRewardMark" aria-hidden="true">+</span>
+          <span><strong id="studio-login-reward-amount">200</strong> 积分注册即到账</span>
+        </div>
+        <form class="studioLoginForm" id="studio-login-form" novalidate>
           <label class="studioLoginField" id="studio-login-identifier-field" for="studio-login-identifier">
             <span>账号</span>
-            <input id="studio-login-identifier" name="identifier" type="text" autocomplete="username" maxlength="254" required autofocus />
+            <input class="iasInput" id="studio-login-identifier" name="identifier" type="text" autocomplete="username" maxlength="254" required autofocus />
           </label>
           <label class="studioLoginField" id="studio-login-email-field" for="studio-login-email" hidden>
             <span>邮箱</span>
-            <input id="studio-login-email" name="email" type="email" autocomplete="email" maxlength="254" />
+            <input class="iasInput" id="studio-login-email" name="email" type="email" autocomplete="email" maxlength="254" />
           </label>
           <label class="studioLoginField" id="studio-login-username-field" for="studio-login-username" hidden>
             <span>用户名</span>
-            <input id="studio-login-username" name="username" type="text" autocomplete="username" maxlength="80" />
+            <input class="iasInput" id="studio-login-username" name="username" type="text" autocomplete="username" maxlength="80" />
           </label>
           <label class="studioLoginField" for="studio-login-password">
             <span>密码</span>
-            <input id="studio-login-password" name="password" type="password" autocomplete="current-password" maxlength="4096" required />
+            <span class="studioLoginPasswordWrap">
+              <input class="iasInput" id="studio-login-password" name="password" type="password" autocomplete="current-password" maxlength="4096" required aria-describedby="studio-login-password-hint" />
+              <button type="button" class="studioLoginPasswordToggle" id="studio-login-password-toggle" aria-label="显示密码">显示</button>
+            </span>
+            <small class="studioLoginFieldHint" id="studio-login-password-hint">创建账号时，密码至少 12 位。</small>
           </label>
-          <button class="studioLoginSubmit" id="studio-login-submit" type="submit">登录</button>
+          <button class="studioLoginSubmit iasButton iasButtonPrimary" id="studio-login-submit" type="submit">登录</button>
           <p class="studioLoginStatus" id="studio-login-status" role="status" aria-live="polite"></p>
         </form>
         <p class="studioLoginFootnote">账号用于隔离你的会话、历史图库、队列和生成资产。模型与密钥由部署方在服务端统一配置。</p>

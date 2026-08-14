@@ -1,0 +1,118 @@
+/* Mobile uses a single-column workstation; the desktop rail and floating
+   single-generation controls otherwise compete for the same narrow viewport. */
+@media (max-width: 760px) {
+  .studioLayout,
+  .studioLayout.railCollapsed {
+    --studio-left-rail-width: 0px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .studioLayout .templateRail,
+  .studioLayout .templateRail.collapsed {
+    display: none !important;
+  }
+
+  .studioLayout .creationDesk {
+    grid-column: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .studioLayout .creationDesk .workPreview.infiniteCanvas {
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .studioLayout .creationDesk.singleFlowMode .workPreview.singleGenerationPreview {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  .studioLayout .creationDesk.singleFlowMode .workbenchTopControls {
+    position: static !important;
+    inset: auto !important;
+    order: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 8px 8px 0 !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    transform: none !important;
+  }
+
+  .studioLayout .creationDesk.singleFlowMode .canvasQueueDock {
+    position: static !important;
+    inset: auto !important;
+    order: 1;
+    flex: 0 0 auto !important;
+    width: calc(100% - 16px) !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: 240px !important;
+    margin: 8px 8px 0 !important;
+    overflow-y: auto !important;
+  }
+
+  .studioLayout .creationDesk.singleFlowMode .singleGenerationWorkspace {
+    position: static !important;
+    inset: auto !important;
+    order: 2;
+    flex: 0 0 auto;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 8px 8px 18px !important;
+    overflow: visible !important;
+  }
+
+  .studioLayout .creationDesk.singleFlowMode .singleGenerationWorkspace > div,
+  .studioLayout .creationDesk.singleFlowMode .singleGenerationWorkspace section {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .studioLayout .creationDesk.singleFlowMode .singleGenerationWorkspace :is(img, video, canvas, svg) {
+    max-width: 100% !important;
+  }
+}
+@media (min-width: 761px) {
+  .studioLayout .creationDesk.singleFlowMode .canvasQueueDock {
+    left: auto !important;
+    right: 18px !important;
+    top: 74px !important;
+    width: min(320px, calc(100% - 36px)) !important;
+    max-height: min(220px, calc(100% - 112px)) !important;
+  }
+}
+
+.singleGenerationWorkspace :is(.singleGenerationHead > button, .singleActionBar button, .singleKeyButton) {
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.singleGenerationWorkspace :is(.singleGenerationHead > button, .singleActionBar button, .singleKeyButton):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-primary) 44%, var(--studio-border));
+  background: color-mix(in srgb, var(--studio-primary) 7%, var(--studio-surface));
+  color: var(--studio-text-strong);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--studio-primary) 10%, transparent);
+  transform: translateY(-1px);
+}
+
+.singleGenerationWorkspace .singleActionBar .singleGenerateButton {
+  border-color: transparent;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--studio-primary) 19%, transparent);
+}
+
+.singleGenerationWorkspace .singleActionBar .singleGenerateButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 92%, #fff 8%), color-mix(in srgb, var(--studio-accent) 88%, #fff 12%));
+  color: #fff;
+}

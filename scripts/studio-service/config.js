@@ -17,6 +17,8 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     throw new TypeError(`Unsupported STUDIO_AUTH_REGISTRATION_MODE: ${authRegistrationMode || '<empty>'}`);
   }
   const providerBaseUrl = String(env.STUDIO_PROVIDER_BASE_URL || '').trim().replace(/\/+$/, '');
+  const creditsEnabled = String(env.STUDIO_CREDITS_ENABLED ?? 'false').trim().toLowerCase() === 'true';
+  const userProviderOnly = String(env.STUDIO_USER_PROVIDER_ONLY ?? 'true').trim().toLowerCase() === 'true';
 
   return {
     PORT: Number(env.PORT || env.STUDIO_HISTORY_PORT || 8787),
@@ -37,6 +39,8 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS: Number(env.STUDIO_AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS || 120),
     AUTH_LOGIN_MAX_CONCURRENCY: Number(env.STUDIO_AUTH_LOGIN_MAX_CONCURRENCY || 4),
     AUTH_LOGIN_MAX_BODY_BYTES: Number(env.STUDIO_AUTH_LOGIN_MAX_BODY_BYTES || 16 * 1024),
+    CREDITS_ENABLED: creditsEnabled,
+    USER_PROVIDER_ONLY: userProviderOnly,
     AI_GATEWAY_BASE_URL: String(env.AI_GATEWAY_BASE_URL || env.SUB2API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, ''),
     PROVIDER_BASE_URL: providerBaseUrl,
     PROVIDER_API_KEY: String(env.STUDIO_PROVIDER_API_KEY || ''),

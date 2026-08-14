@@ -406,6 +406,7 @@ const FALLBACK_PROMPT_PRESETS = [];
 const FALLBACK_VIDEO_INSPIRATIONS = [];
 const BASE_PATH = import.meta.env.BASE_URL || '/';
 const STUDIO_BACK_URL = import.meta.env.VITE_STUDIO_BACK_URL || '/';
+const STUDIO_ADMIN_URL = new URL('admin.html', new URL(BASE_PATH, window.location.origin)).pathname;
 const LIBRARY_AUTH_REQUIRED = String(import.meta.env.VITE_STUDIO_LIBRARY_AUTH_REQUIRED || '').toLowerCase() === 'true';
 const HISTORY_KEY = 'image-sub2api-studio:history:v1';
 const LEGACY_HISTORY_KEY = 'ohlaoo-studio:history:v1';
@@ -612,9 +613,17 @@ function buildCategoryGroups(cases) {
 
 function connectionReady(settings, apiKey, isAuthenticated) {
   if (settings.apiKeySource === 'manual') {
-    return Boolean(settings.manualApiKey?.trim());
+    return Boolean(settings.manualApiKey?.trim() && settings.manualGatewayBaseUrl?.trim());
   }
   return Boolean(isAuthenticated && apiKey?.key);
+}
+
+function providerSetupMessage(settings, providerRequest, t) {
+  if (settings.apiKeySource === 'manual') {
+    if (!providerRequest?.gatewayBaseUrl) return t('statusMessages.gatewayRequired', '请先填写接口地址。');
+    if (!providerRequest?.apiKey) return t('statusMessages.keyRequired', '请先填写密钥。');
+  }
+  return t('statusMessages.accountPreparing', '账号连接还在准备中。');
 }
 
 function canUseClientGenerationFallback() {
@@ -2353,11 +2362,9 @@ function CreationDesk({
       return;
     }
     const providerRequest = resolveProviderRequest(providerSettings, apiKey);
-    if (!providerRequest.apiKey) {
+    if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
       setStatus('error');
-      setMessage(providerSettings.apiKeySource === 'manual'
-        ? t('statusMessages.keyRequired', '请先填写密钥。')
-        : t('statusMessages.accountPreparing', '账号连接还在准备中。'));
+      setMessage(providerSetupMessage(providerSettings, providerRequest, t));
       onOpenSettings();
       return;
     }
@@ -2417,11 +2424,9 @@ function CreationDesk({
       return;
     }
     const providerRequest = resolveProviderRequest(providerSettings, apiKey);
-    if (!providerRequest.apiKey) {
+    if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
       setStatus('error');
-      setMessage(providerSettings.apiKeySource === 'manual'
-        ? t('statusMessages.keyRequired', '请先填写密钥。')
-        : t('statusMessages.accountPreparing', '账号连接还在准备中。'));
+      setMessage(providerSetupMessage(providerSettings, providerRequest, t));
       onOpenSettings();
       return;
     }
@@ -2888,11 +2893,9 @@ function CreationDesk({
         generations: currentGenerationPlan.endpoint
       }
     });
-    if (!providerRequest.apiKey) {
+    if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
       setStatus('error');
-      setMessage(providerSettings.apiKeySource === 'manual'
-        ? t('statusMessages.keyRequired', '请先填写密钥。')
-        : t('statusMessages.accountPreparing', '账号连接还在准备中。'));
+      setMessage(providerSetupMessage(providerSettings, providerRequest, t));
       onOpenSettings();
       return false;
     }
@@ -2974,7 +2977,9 @@ function CreationDesk({
           const historyClient = createHistoryClient({ session: loadSession() });
           const jobImages = await generationFilesForJob(activeVideoReferenceFiles, 1);
           const job = await historyClient.createGenerationJob(buildServerVideoGenerationJobPayload({
-            serverManaged: true,
+            serverManaged: STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual',
+            apiKey: providerRequest.apiKey,
+            gatewayBaseUrl: activeVideoGatewayBaseUrl,
             generationMeta,
             sessionId,
             parentCanvasNodeId: lineageParentId,
@@ -3163,7 +3168,7 @@ function CreationDesk({
       let payload = null;
       let urls = [];
       let persistedResultUrls = [];
-      const canUseServerJob = Boolean(providerRequest.apiKey && (isAuthenticated || providerSettings.apiKeySource === 'manual'));
+      const canUseServerJob = Boolean(providerRequest.apiKey && providerRequest.gatewayBaseUrl && (isAuthenticated || providerSettings.apiKeySource === 'manual'));
       if (canUseServerJob) {
         try {
           const historyClient = createHistoryClient({ session: loadSession() });
@@ -3176,7 +3181,7 @@ function CreationDesk({
           if (!isCurrentRequest()) return false;
           const imageRoute = shouldUseImageEdits ? 'edits' : 'generations';
           const job = await historyClient.createGenerationJob(buildServerImageGenerationJobPayload({
-            serverManaged: STUDIO_STANDALONE,
+            serverManaged: STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual',
             apiKey: providerRequest.apiKey,
             gatewayBaseUrl: providerRequest.gatewayBaseUrl,
             images: jobImages,
@@ -3879,11 +3884,11 @@ function CreationDesk({
                     <span>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : 'API Key'}</span>
                     <button type="button" className="singleKeyButton" onClick={onOpenSettings}>
                       {STUDIO_STANDALONE ? <Server size={14} /> : <KeyRound size={14} />}
-                      <strong>{STUDIO_STANDALONE
+                      <strong>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
                         ? t('settings.studioManagedProvider', '服务端托管')
                         : providerLabel(providerSettings, apiKey)}</strong>
                     </button>
-                    <em>{STUDIO_STANDALONE
+                    <em>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
                       ? t('settings.serverManagedShort', '系统安全托管')
                       : (apiKeyDisplay(apiKey) || t('rail.chooseKey', '选择 Key'))}</em>
                   </label>
@@ -5111,6 +5116,7 @@ function StudioApp() {
   const [siteData, setSiteData] = useState(null);
   const [session, setSession] = useState(() => initialSession);
   const [profile, setProfile] = useState(() => initialSession?.user || null);
+  const [creditsEnabled, setCreditsEnabled] = useState(false);
   const [providerSettings, setProviderSettings] = useState(() => loadProviderSettings());
   const [client, setClient] = useState(() => createGatewayClient({ session: initialSession, providerSettings: loadProviderSettings() }));
   const [apiKey, setApiKey] = useState(null);
@@ -5242,6 +5248,7 @@ function StudioApp() {
   useEffect(() => {
     if (!session?.accessToken) {
       let active = true;
+      setCreditsEnabled(false);
       setSiteData(null);
       loadStaticLibraryData()
         .then((nextSiteData) => {
@@ -5319,12 +5326,14 @@ function StudioApp() {
     Promise.all([
       nextClient.profile().catch(() => nextClient.me()),
       nextClient.ensureApiKey(),
-      nextClient.listKeys().catch(() => [])
-    ]).then(([nextProfile, nextKey, nextKeys]) => {
+      nextClient.listKeys().catch(() => []),
+      STUDIO_STANDALONE ? nextClient.getStandaloneConfig().catch(() => null) : Promise.resolve(null)
+    ]).then(([nextProfile, nextKey, nextKeys, standaloneConfig]) => {
       if (!active) return;
       setProfile(nextProfile);
       setApiKey(nextKey);
       setKeys(nextKeys.length ? nextKeys : nextKey ? [nextKey] : []);
+      setCreditsEnabled(STUDIO_STANDALONE && standaloneConfig?.credits?.enabled === true);
     }).catch((error) => {
       if (!active) return;
       setBootError(error.message);
@@ -5838,9 +5847,18 @@ function StudioApp() {
           onNewSession={handleNewSession}
           accountLabel={Boolean(session?.accessToken) ? (profile?.email || profile?.username || t('rail.loggedIn', '已登录用户')) : t('rail.notLoggedIn', '未登录')}
           accountDetail={Boolean(session?.accessToken)
-            ? (STUDIO_STANDALONE ? t('rail.serverManaged', 'Server managed') : (apiKeyDisplay(apiKey) || t('rail.hiddenKey', 'Key 已隐藏')))
+            ? (STUDIO_STANDALONE
+              ? (providerSettings.apiKeySource === 'manual'
+                ? (providerSettings.manualGatewayBaseUrl ? t('rail.customProvider', '自定义接口') : t('rail.providerNotConfigured', '请配置 URL 与 Key'))
+                : t('rail.serverManaged', 'Server managed'))
+              : (apiKeyDisplay(apiKey) || t('rail.hiddenKey', 'Key 已隐藏')))
             : t('rail.notLoggedIn', '未登录')}
+          accountCredits={STUDIO_STANDALONE && creditsEnabled && profile?.credits
+            ? Number(profile.credits.balance || 0).toLocaleString(language === 'en' ? 'en-US' : 'zh-CN')
+            : null}
+          isAdmin={STUDIO_STANDALONE && profile?.role === 'admin'}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenAdmin={() => { window.location.href = STUDIO_ADMIN_URL; }}
           theme={theme}
           onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
           currentLanguage={SUPPORTED_LANGUAGES.find((item) => item.value === language) || SUPPORTED_LANGUAGES[0]}

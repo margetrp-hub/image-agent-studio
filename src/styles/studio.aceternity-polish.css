@@ -1,0 +1,147 @@
+/*
+ * Aceternity-inspired surface polish for the workstation.
+ * Keep the effect budget small: hover sweeps and focus depth only.
+ */
+
+.studioLayout {
+  --studio-accent-glow: color-mix(in srgb, var(--studio-primary) 24%, transparent);
+  --studio-surface-glow: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+}
+
+.studioLayout .creationDesk .bottomComposerBar,
+.studioLayout .creationDesk .referenceSidePanel,
+.studioLayout .creationDesk .generationQueueDock,
+.studioLayout .creationDesk .canvasQueueDock,
+.studioLayout .creationDesk .singleGenerationPanel,
+.studioLayout .creationDesk .galleryWorkspacePanel {
+  box-shadow:
+    0 22px 58px color-mix(in srgb, var(--studio-primary) 8%, transparent),
+    0 2px 10px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 color-mix(in srgb, #fff 64%, transparent) !important;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease !important;
+}
+
+.studioLayout .creationDesk .referenceSidePanel:hover,
+.studioLayout .creationDesk .singleGenerationPanel:hover,
+.studioLayout .creationDesk .galleryWorkspacePanel:hover {
+  border-color: color-mix(in srgb, var(--studio-primary) 38%, var(--studio-border)) !important;
+}
+
+.studioLayout :is(
+  button.primaryAction,
+  button.primary,
+  button.singleGenerateButton,
+  button.composerGenerateAction,
+  button.maskGenerateButton
+) {
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease !important;
+}
+
+.studioLayout :is(
+  button.primaryAction,
+  button.primary,
+  button.singleGenerateButton,
+  button.composerGenerateAction,
+  button.maskGenerateButton
+)::after {
+  background: linear-gradient(112deg, transparent 25%, rgba(255, 255, 255, 0.3) 50%, transparent 75%);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-130%);
+  transition: transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.studioLayout :is(
+  button.primaryAction,
+  button.primary,
+  button.singleGenerateButton,
+  button.composerGenerateAction,
+  button.maskGenerateButton
+):hover:not(:disabled) {
+  box-shadow: 0 12px 28px var(--studio-accent-glow) !important;
+  transform: translateY(-1px) !important;
+}
+
+.studioLayout :is(
+  button.primaryAction,
+  button.primary,
+  button.singleGenerateButton,
+  button.composerGenerateAction,
+  button.maskGenerateButton
+):hover:not(:disabled)::after {
+  transform: translateX(130%);
+}
+
+.studioLayout :is(
+  button.secondaryButton,
+  button.galleryFilterButton,
+  button.loadMoreButton,
+  button.appendMiniButton,
+  button.singleKeyButton,
+  button.connectionPill,
+  button.composerIconPill,
+  button.railIconAction,
+  button.railThemeButton
+) {
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease !important;
+}
+
+.studioLayout :is(
+  button.secondaryButton,
+  button.galleryFilterButton,
+  button.loadMoreButton,
+  button.appendMiniButton,
+  button.singleKeyButton,
+  button.connectionPill,
+  button.composerIconPill,
+  button.railIconAction,
+  button.railThemeButton
+):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--studio-primary) 10%, transparent) !important;
+  transform: translateY(-1px) !important;
+}
+
+.studioLayout .workbenchModeSwitch,
+.studioLayout .workspaceNav {
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.13),
+    0 4px 14px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+.studioLayout .workbenchModeSwitch button.active,
+.studioLayout .workspaceNav button.active {
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--studio-primary) 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--studio-primary) 20%, transparent) !important;
+}
+
+.studioLayout :is(input, textarea, select):focus-visible {
+  border-color: var(--studio-primary) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--studio-primary) 15%, transparent),
+    0 8px 24px color-mix(in srgb, var(--studio-primary) 10%, transparent) !important;
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studioLayout .creationDesk .bottomComposerBar,
+  .studioLayout .creationDesk .referenceSidePanel,
+  .studioLayout .creationDesk .generationQueueDock,
+  .studioLayout .creationDesk .canvasQueueDock,
+  .studioLayout .creationDesk .singleGenerationPanel,
+  .studioLayout .creationDesk .galleryWorkspacePanel,
+  .studioLayout button {
+    transition: none !important;
+  }
+
+  .studioLayout :is(button.primaryAction, button.primary, button.singleGenerateButton, button.composerGenerateAction, button.maskGenerateButton)::after {
+    display: none;
+  }
+}

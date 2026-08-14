@@ -1,8 +1,11 @@
+@import url('./studio.foundation.css');
+@import url('../ui/primitives.css');
+
 :root {
   color-scheme: light;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #eef1f4;
-  color: #18212b;
+  font-family: "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  background: var(--ias-bg);
+  color: var(--ias-ink);
 }
 
 * {
@@ -24,17 +27,32 @@ input {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 28px 20px;
-  background: #eef1f4;
+  overflow: hidden;
+  padding: 32px 20px;
+  position: relative;
+  background: var(--ias-bg);
+}
+
+.studioLoginShell::before {
+  background-image: linear-gradient(var(--ias-line) 1px, transparent 1px), linear-gradient(90deg, var(--ias-line) 1px, transparent 1px);
+  background-size: 36px 36px;
+  content: "";
+  inset: 0;
+  opacity: 0.26;
+  pointer-events: none;
+  position: absolute;
 }
 
 .studioLoginPanel {
-  width: min(100%, 400px);
-  padding: 32px;
-  border: 1px solid #d7dde3;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 18px 48px rgba(24, 33, 43, 0.1);
+  animation: iasReveal 420ms var(--ias-ease) both;
+  background: var(--ias-surface);
+  border: 1px solid var(--ias-line);
+  border-radius: var(--ias-radius-sheet);
+  box-shadow: var(--ias-shadow-panel);
+  padding: 34px;
+  position: relative;
+  width: min(100%, 440px);
+  z-index: 1;
 }
 
 .studioLoginBrand {
@@ -50,8 +68,8 @@ input {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 7px;
-  background: #18212b;
+  border-radius: 12px;
+  background: var(--ias-ink);
   color: #ffffff;
   font-size: 20px;
   font-weight: 750;
@@ -59,15 +77,40 @@ input {
 
 .studioLoginBrand h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 21px;
   line-height: 1.2;
   letter-spacing: 0;
 }
 
 .studioLoginBrand p {
   margin: 4px 0 0;
-  color: #67727e;
+  color: var(--ias-muted);
   font-size: 13px;
+}
+
+.studioLoginIntro {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 22px;
+}
+
+.studioLoginKicker {
+  color: var(--ias-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.studioLoginIntro strong {
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.studioLoginIntro p {
+  color: var(--ias-copy);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .studioLoginMode {
@@ -76,9 +119,9 @@ input {
   gap: 4px;
   margin-bottom: 22px;
   padding: 4px;
-  border: 1px solid #dce2e8;
-  border-radius: 8px;
-  background: #f5f7f9;
+  background: var(--ias-surface-muted);
+  border: 1px solid var(--ias-line);
+  border-radius: 12px;
 }
 
 .studioLoginMode button {
@@ -86,19 +129,45 @@ input {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #5c6874;
+  color: var(--ias-copy);
   font-weight: 700;
   cursor: pointer;
 }
 
 .studioLoginMode button:hover {
-  color: #18212b;
+  color: var(--ias-ink);
 }
 
 .studioLoginMode button.is-active {
-  background: #ffffff;
-  color: #18212b;
-  box-shadow: 0 1px 4px rgba(24, 33, 43, 0.1);
+  background: var(--ias-surface);
+  box-shadow: var(--ias-shadow-soft);
+  color: var(--ias-ink);
+}
+
+.studioLoginReward {
+  align-items: center;
+  background: var(--ias-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--ias-accent) 20%, var(--ias-line));
+  border-radius: 12px;
+  color: var(--ias-accent-strong);
+  display: flex;
+  font-size: 12px;
+  gap: 9px;
+  margin: -8px 0 18px;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.studioLoginRewardMark {
+  align-items: center;
+  background: var(--ias-accent);
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 18px;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
 }
 
 .studioLoginForm {
@@ -116,65 +185,74 @@ input {
 }
 
 .studioLoginField span {
-  color: #35414d;
+  color: var(--ias-copy);
   font-size: 13px;
   font-weight: 650;
 }
 
 .studioLoginField input {
-  width: 100%;
   min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid #c6ced6;
-  border-radius: 6px;
-  outline: none;
-  background: #ffffff;
-  color: #18212b;
 }
 
-.studioLoginField input:focus {
-  border-color: #176b87;
-  box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.14);
+.studioLoginField input[aria-invalid="true"] {
+  border-color: var(--ias-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ias-danger) 16%, transparent);
+}
+
+.studioLoginFieldHint {
+  color: var(--ias-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.studioLoginPasswordWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  position: relative;
+}
+
+.studioLoginPasswordWrap input {
+  padding-right: 62px;
+}
+
+.studioLoginPasswordToggle {
+  align-self: center;
+  background: transparent;
+  border: 0;
+  color: var(--ias-accent-strong);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  margin-left: -58px;
+  min-height: 32px;
+  padding: 0 10px;
+  position: relative;
 }
 
 .studioLoginSubmit {
   min-height: 44px;
-  border: 0;
-  border-radius: 6px;
-  background: #176b87;
-  color: #ffffff;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.studioLoginSubmit:hover {
-  background: #125b73;
-}
-
-.studioLoginSubmit:disabled {
-  cursor: wait;
-  opacity: 0.65;
+  width: 100%;
 }
 
 .studioLoginStatus {
   min-height: 20px;
   margin: 0;
-  color: #67727e;
+  color: var(--ias-muted);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .studioLoginStatus[data-state="error"] {
-  color: #b42318;
+  color: var(--ias-danger);
 }
 
 .studioLoginStatus[data-state="success"] {
-  color: #087443;
+  color: var(--ias-success);
 }
 
 .studioLoginFootnote {
   margin: 18px 0 0;
-  color: #67727e;
+  color: var(--ias-muted);
   font-size: 12px;
   line-height: 1.6;
 }

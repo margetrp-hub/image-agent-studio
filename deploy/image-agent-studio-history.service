@@ -10,6 +10,8 @@ Environment=STUDIO_AUTH_MODE=standalone
 Environment=STUDIO_AUTH_DB_PATH=/var/lib/image-agent-studio/auth.sqlite
 Environment=STUDIO_AUTH_PASSWORD_MIN_LENGTH=12
 Environment=STUDIO_AUTH_PASSWORD_ITERATIONS=600000
+Environment=STUDIO_CREDITS_ENABLED=false
+Environment=STUDIO_USER_PROVIDER_ONLY=true
 EnvironmentFile=-/etc/image-agent-studio.env
 Environment=STUDIO_DATA_DIR=/var/lib/image-agent-studio
 Environment=STUDIO_LIBRARY_DIR=/var/lib/image-agent-studio/library

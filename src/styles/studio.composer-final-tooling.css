@@ -340,8 +340,12 @@
 
 .railPreferenceRow {
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 8px !important;
+}
+
+.railPreferenceRow:not(:has(.railAdminButton)) {
+  grid-template-columns: 1fr 1fr !important;
 }
 
 .railPreferenceRow .railThemeButton {
@@ -451,85 +455,3 @@
     height: 112px !important;
   }
 }
-
-/* Final lock: collapsed right parameters must remain a visible, clickable affordance. */
-.creationDesk.paramRailCollapsed .paramRail {
-  grid-column: 2 !important;
-  grid-row: 1 !important;
-  align-self: start !important;
-  justify-self: center !important;
-  width: 42px !important;
-  min-width: 42px !important;
-  min-height: 154px !important;
-  margin: 72px 8px 0 0 !important;
-  padding: 5px !important;
-  display: grid !important;
-  place-items: center !important;
-  border: 1px solid color-mix(in srgb, var(--studio-primary) 24%, var(--studio-border)) !important;
-  border-radius: 999px !important;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 96%, transparent), color-mix(in srgb, var(--studio-surface-soft) 88%, transparent)) !important;
-  box-shadow:
-    0 18px 42px rgba(15, 23, 42, 0.16),
-    inset 0 1px 0 color-mix(in srgb, #fff 58%, transparent) !important;
-  pointer-events: auto !important;
-  z-index: 12 !important;
-}
-
-.creationDesk.paramRailCollapsed .paramRail button:not(.paramRailHead),
-.creationDesk.paramRailCollapsed .paramDrawer {
-  display: none !important;
-}
-
-.creationDesk.paramRailCollapsed .paramRailHead {
-  width: 32px !important;
-  min-width: 32px !important;
-  height: 144px !important;
-  min-height: 144px !important;
-  padding: 10px 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  border: 0 !important;
-  border-radius: 999px !important;
-  background: linear-gradient(180deg, var(--studio-primary), color-mix(in srgb, var(--studio-primary) 70%, #12343a)) !important;
-  color: #fff !important;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--studio-primary) 28%, transparent) !important;
-  font-size: 0 !important;
-  line-height: 1 !important;
-  writing-mode: horizontal-tb !important;
-  cursor: pointer !important;
-}
-
-.creationDesk.paramRailCollapsed .paramRailHead svg {
-  width: 16px !important;
-  height: 16px !important;
-  display: block !important;
-  flex: 0 0 auto !important;
-  color: #fff !important;
-  stroke-width: 2.4 !important;
-}
-
-.creationDesk.paramRailCollapsed .paramRailHead::after {
-  content: "\53C2\6570" !important;
-  display: block !important;
-  color: #fff !important;
-  font-size: 10px !important;
-  font-weight: 950 !important;
-  letter-spacing: 0 !important;
-  line-height: 1.1 !important;
-  text-orientation: mixed !important;
-  writing-mode: vertical-rl !important;
-}
-
-html[lang="en"] .creationDesk.paramRailCollapsed .paramRailHead::after {
-  content: "Params" !important;
-}
-
-.creationDesk.paramRailCollapsed .paramRailHead:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 14px 28px color-mix(in srgb, var(--studio-primary) 34%, transparent) !important;
-}
-

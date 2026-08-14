@@ -101,6 +101,10 @@ const historyServiceSource = readFileSync(new URL('./image-agent-studio-history-
 if (!gatewayClientSource.includes('listGatewayModelsViaStudio')) {
   failures.push('manual model sync should try the same-origin Studio proxy before browser-direct upstream fetch.');
 }
+const modelSyncMethod = gatewayClientSource.match(/async listGatewayModels\([\s\S]*?\n  async listGatewayModelsViaStudio/gi)?.[0] || '';
+if (!modelSyncMethod.includes('if (STUDIO_STANDALONE)') || !modelSyncMethod.includes('return this.listGatewayModelsViaStudio')) {
+  failures.push('standalone model sync must remain on the same-origin Studio proxy and must not fall back to a browser-direct upstream request.');
+}
 if (!historyServiceSource.includes("parts[1] === 'model-sync'") || !historyServiceSource.includes('/models')) {
   failures.push('history service must expose /studio-api/model-sync and proxy only the /v1/models endpoint.');
 }

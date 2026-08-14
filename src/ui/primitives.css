@@ -1,0 +1,127 @@
+.iasSwitch {
+  appearance: none;
+  background: var(--ias-line-strong);
+  border: 0;
+  border-radius: var(--ias-radius-round);
+  cursor: pointer;
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 2px;
+  transition: background var(--ias-motion-normal) var(--ias-ease), box-shadow var(--ias-motion-normal) var(--ias-ease);
+  width: 42px;
+}
+
+.iasSwitch[data-state="checked"] {
+  background: var(--ias-accent);
+}
+
+.iasSwitch:focus-visible {
+  box-shadow: var(--ias-focus);
+  outline: none;
+}
+
+.iasSwitchThumb {
+  background: var(--ias-surface);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(16, 32, 39, 0.2);
+  display: block;
+  height: 20px;
+  transform: translateX(0);
+  transition: transform var(--ias-motion-normal) var(--ias-ease);
+  width: 20px;
+}
+
+.iasSwitch[data-state="checked"] .iasSwitchThumb {
+  transform: translateX(18px);
+}
+
+.iasIconButtonDanger {
+  color: var(--ias-danger);
+}
+
+.iasIconButtonDanger:hover {
+  background: color-mix(in srgb, var(--ias-danger) 9%, transparent);
+  border-color: color-mix(in srgb, var(--ias-danger) 22%, var(--ias-line));
+  color: var(--ias-danger);
+}
+
+.iasNotice {
+  align-items: center;
+  border: 1px solid;
+  border-radius: var(--ias-radius-control);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  line-height: 1.45;
+  min-height: 40px;
+  padding: 9px 12px;
+  box-shadow: 0 8px 20px rgba(16, 32, 39, 0.04);
+}
+
+.iasNotice > svg {
+  flex: 0 0 auto;
+}
+
+.iasNoticeInfo {
+  background: color-mix(in srgb, var(--ias-info) 8%, transparent);
+  border-color: color-mix(in srgb, var(--ias-info) 22%, var(--ias-line));
+  color: var(--ias-info);
+}
+
+.iasNoticeSuccess {
+  background: color-mix(in srgb, var(--ias-success) 8%, transparent);
+  border-color: color-mix(in srgb, var(--ias-success) 22%, var(--ias-line));
+  color: var(--ias-success);
+}
+
+.iasNoticeWarning {
+  background: color-mix(in srgb, var(--ias-warning) 9%, transparent);
+  border-color: color-mix(in srgb, var(--ias-warning) 24%, var(--ias-line));
+  color: var(--ias-warning);
+}
+
+.iasNoticeDanger {
+  background: color-mix(in srgb, var(--ias-danger) 8%, transparent);
+  border-color: color-mix(in srgb, var(--ias-danger) 22%, var(--ias-line));
+  color: var(--ias-danger);
+}
+
+.iasUiDialogOverlay {
+  background: var(--ias-overlay-scrim);
+  inset: 0;
+  position: fixed;
+  z-index: 30;
+}
+
+.iasUiDialogContent {
+  animation: iasUiDialogIn var(--ias-motion-slow) var(--ias-ease) both;
+  isolation: isolate;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 31;
+}
+
+.iasUiDialogContent::before {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ias-accent) 62%, transparent), transparent);
+  content: '';
+  height: 1px;
+  inset: 0 16% auto;
+  opacity: 0.7;
+  pointer-events: none;
+  position: absolute;
+}
+
+@keyframes iasUiDialogIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iasSwitch,
+  .iasSwitchThumb,
+  .iasUiDialogContent { transition: none; animation: none; }
+}

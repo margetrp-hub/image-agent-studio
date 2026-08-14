@@ -28,6 +28,7 @@ import {
   Video
 } from 'lucide-react';
 import '../../styles/studio.gallery-cards.css';
+import '../../styles/studio.gallery-cards-responsive.css';
 
 import { compact, templateKey } from '../util/formatters.js';
 import { displayResultUrl } from '../util/assets.js';

@@ -1,0 +1,91 @@
+@import url('./studio.foundation.css');
+
+:root { font-family: "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif; }
+body { background: var(--ias-bg); color: var(--ias-ink); margin: 0; min-width: 320px; }
+button, input, textarea, select { font: inherit; }
+.iasAdminApp { min-height: 100vh; }
+.iasAdminTopbar { align-items: center; background: color-mix(in srgb, var(--ias-surface) 88%, transparent); border-bottom: 1px solid var(--ias-line); display: flex; justify-content: space-between; min-height: 70px; padding: 0 clamp(18px, 4vw, 56px); position: sticky; top: 0; backdrop-filter: blur(14px); z-index: 10; }
+.iasAdminBrand { align-items: center; color: var(--ias-ink); display: inline-flex; gap: 10px; text-decoration: none; }
+.iasAdminBrandMark { align-items: center; background: var(--ias-ink); border-radius: 11px; color: var(--ias-surface); display: inline-flex; font-size: 19px; font-weight: 850; height: 36px; justify-content: center; width: 36px; }
+.iasAdminBrand span:last-child { display: grid; gap: 2px; }
+.iasAdminBrand strong { font-size: 14px; }
+.iasAdminBrand small { color: var(--ias-muted); font-size: 11px; }
+.iasAdminTopActions { align-items: center; display: flex; gap: 8px; }
+.iasAdminIdentity { align-items: center; color: var(--ias-copy); display: inline-flex; font-size: 12px; gap: 6px; margin-right: 4px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iasAdminBody { margin: 0 auto; max-width: 1320px; padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 56px) 72px; }
+.iasAdminHeading { align-items: end; display: flex; justify-content: space-between; margin-bottom: 28px; }
+.iasSectionKicker { color: var(--ias-accent); display: block; font-size: 10px; font-weight: 850; letter-spacing: .14em; margin-bottom: 7px; }
+.iasAdminHeading h1, .iasSectionHeader h2 { letter-spacing: -.02em; margin: 0; }
+.iasAdminHeading h1 { font-size: clamp(27px, 4vw, 42px); }
+.iasAdminHeading p, .iasSectionHeader p { color: var(--ias-copy); font-size: 13px; line-height: 1.5; margin: 7px 0 0; }
+.iasStatsGrid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; }
+.iasStatCard { align-items: flex-start; background: var(--ias-surface); border: 1px solid var(--ias-line); border-radius: var(--ias-radius-panel); display: flex; gap: 13px; min-height: 124px; padding: 17px; box-shadow: var(--ias-shadow-soft); }
+.iasStatIcon { align-items: center; background: var(--ias-surface-muted); border-radius: 11px; color: var(--ias-accent); display: inline-flex; height: 34px; justify-content: center; width: 34px; }
+.iasStatCard.isTeal .iasStatIcon { background: var(--ias-accent-soft); }
+.iasStatCard.isWarm .iasStatIcon { background: color-mix(in srgb, var(--ias-warm) 14%, transparent); color: var(--ias-warm); }
+.iasStatBody { display: grid; gap: 3px; min-width: 0; }
+.iasStatBody span { color: var(--ias-copy); font-size: 12px; }
+.iasStatBody strong { font-size: 26px; letter-spacing: -.02em; line-height: 1.1; }
+.iasStatBody small { color: var(--ias-muted); font-size: 11px; }
+.iasAdminColumns { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.35fr) minmax(310px, .65fr); margin-bottom: 14px; }
+.iasAdminSection { background: var(--ias-surface); border: 1px solid var(--ias-line); border-radius: var(--ias-radius-panel); box-shadow: var(--ias-shadow-soft); min-width: 0; padding: 22px; }
+.iasSectionHeader { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 21px; }
+.iasSectionHeader h2 { font-size: 20px; }
+.iasSectionHeaderIcon { color: var(--ias-muted); }
+.iasSettingGrid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 18px; }
+.iasToggleRow { align-items: center; background: var(--ias-surface-raised); border: 1px solid var(--ias-line); border-radius: 12px; display: flex; gap: 12px; justify-content: space-between; min-height: 65px; padding: 0 13px; }
+.iasToggleRow span { display: grid; gap: 3px; }
+.iasToggleRow strong { font-size: 13px; }
+.iasToggleRow small { color: var(--ias-muted); font-size: 11px; }
+.iasCostGrid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.iasSectionFooter { align-items: center; border-top: 1px solid var(--ias-line); display: flex; gap: 12px; justify-content: space-between; margin-top: 20px; padding-top: 17px; }
+.iasInlineMessage { color: var(--ias-muted); font-size: 11px; }
+.iasLedgerList { display: grid; gap: 2px; }
+.iasLedgerItem { align-items: center; border-bottom: 1px solid var(--ias-line); display: grid; gap: 10px; grid-template-columns: 64px minmax(0, 1fr) auto; min-height: 56px; }
+.iasLedgerItem:last-child { border-bottom: 0; }
+.iasLedgerItem > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.iasLedgerItem strong { font-size: 12px; }
+.iasLedgerItem small { color: var(--ias-muted); font-size: 10px; }
+.iasLedgerItem b { color: var(--ias-copy); font-size: 12px; }
+.iasLedgerSign { font-size: 13px; font-weight: 850; }
+.iasLedgerSign.isPlus { color: var(--ias-success); }
+.iasLedgerSign.isMinus { color: var(--ias-danger); }
+.iasSectionHeaderRow { align-items: end; gap: 20px; }
+.iasSearchBox { align-items: center; display: inline-flex; max-width: 280px; position: relative; width: 100%; }
+.iasSearchBox > svg { color: var(--ias-muted); left: 11px; pointer-events: none; position: absolute; z-index: 1; }
+.iasSearchBox .iasInput { padding-left: 33px; }
+.iasTableWrap { overflow-x: auto; }
+.iasUserTable { border-collapse: collapse; min-width: 780px; width: 100%; }
+.iasUserTable th { color: var(--ias-muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; padding: 0 10px 11px; text-align: left; text-transform: uppercase; }
+.iasUserTable td { border-top: 1px solid var(--ias-line); padding: 12px 10px; vertical-align: middle; }
+.iasUserCell { align-items: center; display: flex; gap: 9px; min-width: 190px; }
+.iasUserCell > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.iasUserCell strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iasUserCell small, .iasTableSubtext { color: var(--ias-muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iasUserAvatar { align-items: center; background: var(--ias-accent-soft); border-radius: 10px; color: var(--ias-accent-strong); display: inline-flex; flex: 0 0 auto; font-size: 12px; font-weight: 850; height: 32px; justify-content: center; width: 32px; }
+.iasRoleBadge { background: var(--ias-surface-muted); border-radius: 999px; color: var(--ias-copy); font-size: 10px; font-weight: 750; padding: 5px 8px; }
+.iasRoleBadge.isAdmin { background: color-mix(in srgb, var(--ias-warm) 14%, transparent); color: var(--ias-warm); }
+.iasStatusDot { align-items: center; color: var(--ias-copy); display: inline-flex; font-size: 11px; gap: 6px; white-space: nowrap; }
+.iasStatusDot i { background: var(--ias-success); border-radius: 50%; height: 7px; width: 7px; }
+.iasStatusDot.isDisabled i { background: var(--ias-danger); }
+.iasBalanceValue { display: block; font-size: 13px; }
+.iasDateCell { color: var(--ias-copy); font-size: 11px; white-space: nowrap; }
+.iasTableActions { align-items: center; display: flex; gap: 4px; justify-content: flex-end; }
+.iasButtonSmall { min-height: 32px; padding: 0 9px; font-size: 11px; }
+.iasEmptyCell, .iasEmptyState { color: var(--ias-muted); font-size: 12px; padding: 28px 12px !important; text-align: center; }
+.iasAdminNotice { margin: -12px 0 14px; }
+.iasAdminLoading { align-items: center; color: var(--ias-copy); display: flex; gap: 9px; justify-content: center; min-height: 180px; }
+.iasSpin { animation: iasSpin 900ms linear infinite; }
+@keyframes iasSpin { to { transform: rotate(360deg); } }
+.iasAdminGate { align-items: center; background: var(--ias-bg); color: var(--ias-ink); display: flex; flex-direction: column; gap: 12px; justify-content: center; min-height: 100vh; padding: 24px; text-align: center; }
+.iasAdminGate p { color: var(--ias-copy); margin: 0 0 8px; }
+.iasDialog { background: var(--ias-surface); border: 1px solid var(--ias-line); border-radius: var(--ias-radius-panel); box-shadow: var(--ias-shadow-panel); max-width: 440px; padding: 22px; width: calc(100% - 36px); }
+.iasDialogHeader { align-items: flex-start; display: flex; justify-content: space-between; }
+.iasDialogHeader h2 { font-size: 20px; margin: 0; }
+.iasDialogHint { color: var(--ias-copy); font-size: 12px; line-height: 1.5; margin: 13px 0 20px; }
+.iasDialogForm { display: grid; gap: 15px; }
+.iasFormError { align-items: center; color: var(--ias-danger); display: flex; font-size: 12px; gap: 6px; margin: -2px 0 0; }
+.iasDialogActions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 5px; }
+@media (max-width: 980px) { .iasStatsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .iasAdminColumns { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .iasAdminTopbar { align-items: flex-start; flex-direction: column; gap: 12px; padding: 14px 18px; } .iasAdminTopActions { width: 100%; justify-content: space-between; } .iasAdminHeading { align-items: flex-start; flex-direction: column; gap: 16px; } .iasSettingGrid, .iasCostGrid { grid-template-columns: 1fr 1fr; } .iasSectionHeaderRow { align-items: stretch; flex-direction: column; } .iasSearchBox { max-width: none; } }
+@media (max-width: 420px) { .iasStatsGrid, .iasSettingGrid, .iasCostGrid { grid-template-columns: 1fr; } .iasAdminBody { padding-inline: 12px; } .iasAdminSection { padding: 16px; } .iasAdminIdentity { max-width: 150px; } }

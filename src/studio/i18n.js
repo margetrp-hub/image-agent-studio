@@ -92,6 +92,10 @@ export const dictionaries = {
       hiddenKey: 'Key 已隐藏',
       chooseKey: '选择 Key',
       serverManaged: '服务端托管',
+      customProvider: '自定义接口',
+      providerNotConfigured: '请配置 URL 与 Key',
+      credits: '积分',
+      admin: '管理控制台',
       light: '切换浅色',
       dark: '切换深色'
     },
@@ -789,6 +793,10 @@ export const dictionaries = {
       hiddenKey: 'Key hidden',
       chooseKey: 'Choose key',
       serverManaged: 'Server managed',
+      customProvider: 'Custom endpoint',
+      providerNotConfigured: 'Set URL and key',
+      credits: 'credits',
+      admin: 'Admin console',
       light: 'Switch to light mode',
       dark: 'Switch to dark mode'
     },

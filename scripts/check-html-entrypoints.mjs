@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-const files = ['index.html', 'studio.html', 'login.html'];
+const files = ['index.html', 'studio.html', 'login.html', 'admin.html'];
 const suspiciousTokens = [
   '\uFFFD',
   '锟',
@@ -29,6 +29,7 @@ for (const file of files) {
 const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const studioHtml = fs.readFileSync(path.join(root, 'studio.html'), 'utf8');
 const loginHtml = fs.readFileSync(path.join(root, 'login.html'), 'utf8');
+const adminHtml = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
 
 if (!indexHtml.includes('Image Agent Studio')) {
   failures.push('index.html: root entry should present the Image Agent Studio name.');
@@ -50,10 +51,15 @@ if (!loginHtml.includes('Image Agent Studio') || !loginHtml.includes('studio-log
   failures.push('login.html: standalone login entry should expose the Image Agent Studio login form.');
 }
 
+if (!adminHtml.includes('Image Agent Studio') || !adminHtml.includes('studio-admin-root')) {
+  failures.push('admin.html: standalone admin entry should expose the admin root.');
+}
+
 for (const [file, body] of Object.entries({
   'index.html': indexHtml,
   'studio.html': studioHtml,
-  'login.html': loginHtml
+  'login.html': loginHtml,
+  'admin.html': adminHtml
 })) {
   if (/Sub2API|NewAPI/.test(body)) {
     failures.push(`${file}: user-facing entry should not expose provider implementation names.`);

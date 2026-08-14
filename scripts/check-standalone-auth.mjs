@@ -10,6 +10,7 @@ import {
   createLoginFailureLimiter,
   createStandaloneAuthStore
 } from './studio-service/standaloneAuth.js';
+import { StandaloneBillingError } from './studio-service/standaloneBilling.js';
 
 const tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'studio-standalone-auth-'));
 const databasePath = path.join(tempDir, 'auth.sqlite');
@@ -27,6 +28,14 @@ function expectAuthError(callback, code) {
     assert(error instanceof StandaloneAuthError);
     assert.equal(error.code, code);
     assert(!String(error.message).includes('Correct Horse'));
+    return true;
+  });
+}
+
+function expectBillingError(callback, code) {
+  assert.throws(callback, (error) => {
+    assert(error instanceof StandaloneBillingError);
+    assert.equal(error.code, code);
     return true;
   });
 }
@@ -57,7 +66,27 @@ const store = createStandaloneAuthStore({
   passwordIterations: 100_000,
   sessionTtlMs: 5_000,
   loginMaxFailures: 2,
-  loginFailureWindowMs: 1_000
+  loginFailureWindowMs: 1_000,
+  billingDefaults: { creditsEnabled: true }
+});
+
+const policyStore = createStandaloneAuthStore({
+  databasePath: ':memory:',
+  passwordIterations: 100_000
+});
+const policyUser = policyStore.register({
+  email: 'policy@yhoo.lol',
+  username: 'PolicyUser',
+  password: 'Policy Password 123'
+});
+
+check('credits are controlled by the persisted admin policy', () => {
+  assert.equal(policyStore.getBillingSettings().creditsEnabled, false);
+  assert.equal(policyUser.credits.balance, 0);
+  assert.equal(policyStore.calculateJobCost({ mode: 'image', route: 'generations' }).amount, 0);
+  policyStore.updateBillingSettings({ creditsEnabled: true }, 'admin-policy-test');
+  assert.equal(policyStore.getBillingSettings().creditsEnabled, true);
+  assert.equal(policyStore.calculateJobCost({ mode: 'image', route: 'generations' }).amount, 10);
 });
 
 const password = 'Correct Horse Battery Staple';
@@ -76,6 +105,8 @@ const member = store.register({
 check('users are created without credential fields', () => {
   assert.equal(admin.role, 'admin');
   assert.equal(member.role, 'user');
+  assert.equal(member.credits.balance, 200);
+  assert.equal(member.credits.lifetimeEarned, 200);
   assert.equal(admin.active, true);
   assert.deepEqual(Object.keys(admin).sort(), [
     'active', 'createdAt', 'disabledAt', 'email', 'id', 'role', 'updatedAt', 'username'
@@ -85,6 +116,56 @@ check('users are created without credential fields', () => {
     username: 'Other',
     password: 'Another Password'
   }), 'USER_EXISTS');
+});
+
+check('credit reservations and refunds are idempotent and user-scoped', () => {
+  const reserved = store.reserveCredits({
+    userId: member.id,
+    amount: 50,
+    referenceId: 'generation-1',
+    metadata: { route: 'generations' }
+  });
+  assert.equal(reserved.balance, 150);
+  assert.equal(reserved.charged, 50);
+
+  const duplicateReservation = store.reserveCredits({
+    userId: member.id,
+    amount: 50,
+    referenceId: 'generation-1'
+  });
+  assert.equal(duplicateReservation.duplicate, true);
+  assert.equal(duplicateReservation.balance, 150);
+
+  const otherMember = store.register({
+    email: 'other-member@yhoo.lol',
+    username: 'OtherMember',
+    password: 'Other Member Password 123'
+  });
+  const sameReferenceOtherUser = store.reserveCredits({
+    userId: otherMember.id,
+    amount: 50,
+    referenceId: 'generation-1'
+  });
+  assert.equal(sameReferenceOtherUser.balance, 150);
+
+  const refunded = store.refundCredits({
+    userId: member.id,
+    amount: 50,
+    referenceId: 'generation-refund-1'
+  });
+  assert.equal(refunded.balance, 200);
+  assert.equal(refunded.lifetimeSpent, 0);
+  const duplicateRefund = store.refundCredits({
+    userId: member.id,
+    amount: 50,
+    referenceId: 'generation-refund-1'
+  });
+  assert.equal(duplicateRefund.balance, 200);
+  expectBillingError(() => store.reserveCredits({
+    userId: member.id,
+    amount: 201,
+    referenceId: 'generation-too-large'
+  }), 'INSUFFICIENT_CREDITS');
 });
 
 const login = await store.login({
@@ -176,8 +257,11 @@ await (async () => {
     () => store.login({ identifier: 'Member', password: 'Member Password 123', rateLimitKey: 'disabled-member' }),
     'ACCOUNT_DISABLED'
   );
-  assert.equal(store.listUsers().length, 2);
-  assert.deepEqual(store.listUsers({ includeDisabled: false }).map((user) => user.id), [admin.id]);
+  assert.equal(store.listUsers().length, 3);
+  const activeUsers = store.listUsers({ includeDisabled: false });
+  assert.equal(activeUsers.length, 2);
+  assert(activeUsers.some((user) => user.id === admin.id));
+  assert(activeUsers.every((user) => user.id !== member.id));
   checks.push('disabling a user revokes sessions and prevents login');
 })();
 

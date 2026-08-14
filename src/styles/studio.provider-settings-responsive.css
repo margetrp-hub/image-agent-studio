@@ -1,0 +1,47 @@
+@media (max-width: 720px) {
+  .settingsOverlay {
+    padding: 6px;
+    place-items: start center;
+  }
+
+  .settingsDialog {
+    width: min(100%, calc(100vw - 12px)) !important;
+    max-height: calc(100dvh - 12px) !important;
+    padding: 10px !important;
+    border-radius: var(--studio-radius-card, 16px) !important;
+  }
+
+  .settingsTitle {
+    margin-bottom: 8px;
+  }
+
+  .settingsDialog h2 {
+    font-size: 19px;
+  }
+
+  .settingsDialog .iconButton {
+    width: 34px;
+    min-height: 34px;
+    border-radius: 12px;
+  }
+
+  .settingsDialog .manualFields,
+  .settingsCallGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settingsActions {
+    bottom: -10px;
+    margin: 8px -10px -10px;
+    padding: 8px 10px 9px;
+  }
+
+  .settingsCallConfigHead {
+    display: grid !important;
+    gap: 4px !important;
+  }
+
+  .settingsCallConfigHead span {
+    text-align: left !important;
+  }
+}

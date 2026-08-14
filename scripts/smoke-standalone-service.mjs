@@ -19,13 +19,23 @@ const tinyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x
 const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
 let videoPollAttempts = 0;
 let videoAffinityId = '';
+let slowImageRequests = 0;
 
-const bootstrapStore = createStandaloneAuthStore({ databasePath, passwordIterations: 100_000 });
+const bootstrapStore = createStandaloneAuthStore({
+  databasePath,
+  passwordIterations: 100_000,
+  billingDefaults: { creditsEnabled: true }
+});
 const admin = bootstrapStore.createUser({
   email: 'admin@yhoo.lol',
   username: 'Admin',
   password: adminPassword,
   role: 'admin'
+});
+bootstrapStore.adjustCredits({
+  userId: admin.id,
+  amount: 1_000,
+  reason: 'Standalone service smoke seed'
 });
 bootstrapStore.close();
 
@@ -42,6 +52,15 @@ const provider = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'POST' && req.url === '/v1/images/generations') {
+    const payload = JSON.parse(rawBody || '{}');
+    if (payload.prompt === 'network ambiguity smoke') {
+      req.socket.destroy();
+      return;
+    }
+    if (payload.prompt === 'slow active cancellation smoke') {
+      slowImageRequests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
     res.end(JSON.stringify({ data: [{ b64_json: tinyJpeg.toString('base64') }], usage: { total_tokens: 1 } }));
     return;
   }
@@ -165,11 +184,26 @@ try {
   assert.equal(registered.status, 201, registered.raw);
   assert.equal(registered.payload.user.email, 'creator@yhoo.lol');
   assert.equal(registered.payload.user.role, 'user');
+  assert.equal(registered.payload.user.credits.balance, 200);
+  assert.equal(registered.payload.user.credits.lifetimeEarned, 200);
   assert.match(registered.payload.token, /^[A-Za-z0-9_-]{43}$/);
   const registeredMe = await request(servicePort, '/studio-api/auth/me', { token: registered.payload.token });
   assert.equal(registeredMe.status, 200);
   assert.equal(registeredMe.payload.user.email, 'creator@yhoo.lol');
   assert.equal(JSON.stringify(registeredMe.payload).includes(registered.payload.token), false);
+
+  const billingConfig = await request(servicePort, '/studio-api/auth/config');
+  assert.equal(billingConfig.status, 200);
+  assert.equal(billingConfig.payload.registration.enabled, true);
+  assert.equal(billingConfig.payload.registration.bonusCredits, 200);
+  assert.equal(billingConfig.payload.registration.passwordMinLength, 12);
+
+  const billingSettings = await request(servicePort, '/studio-api/auth/admin/billing/settings', { token: adminToken });
+  assert.equal(billingSettings.status, 200);
+  assert.equal(billingSettings.payload.settings.registrationBonusCredits, 200);
+  const billingStats = await request(servicePort, '/studio-api/auth/admin/billing/stats', { token: adminToken });
+  assert.equal(billingStats.status, 200);
+  assert.equal(billingStats.payload.stats.users, 2);
 
   const duplicateRegister = await request(servicePort, '/studio-api/auth/register', {
     method: 'POST',
@@ -315,9 +349,11 @@ try {
     }
   });
   assert.equal(generation.status, 202);
+  assert.equal(generation.payload.job.billing.amount, 10);
   assert.equal(generation.raw.includes(serverProviderKey), false);
   const completedJob = await waitForJob(servicePort, adminToken, jobId);
   assert.equal(completedJob.status, 'succeeded');
+  assert.equal(completedJob.billing.status, 'charged');
   assert.equal(completedJob.resultUrls.length, 1);
   assert.match(completedJob.resultUrls[0], /0\.jpg$/);
   const imageAsset = await fetch(`http://127.0.0.1:${servicePort}${completedJob.resultUrls[0]}`, {
@@ -327,6 +363,26 @@ try {
   assert.equal(imageAsset.headers.get('content-type'), 'image/jpeg');
   assert.deepEqual(Buffer.from(await imageAsset.arrayBuffer()), tinyJpeg);
   assert.equal(maliciousHits, 0);
+  const duplicateJobIdResponse = await request(servicePort, '/studio-api/generation-jobs', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      apiKey: clientProviderKey,
+      gatewayBaseUrl: `http://127.0.0.1:${maliciousPort}`,
+      request: {
+        id: jobId,
+        clientRequestId: 'client-request-replay',
+        sessionId: 'shared_session',
+        model: 'grok-imagine-image',
+        prompt: 'different replay prompt',
+        size: '1024x1024',
+        n: 1
+      }
+    }
+  });
+  assert.equal(duplicateJobIdResponse.status, 202);
+  assert.equal(duplicateJobIdResponse.payload.duplicate, true);
+  assert.equal(duplicateJobIdResponse.payload.job.id, jobId);
   assert(providerHits.some((hit) => hit.url === '/v1/models' && hit.authorization === `Bearer ${serverProviderKey}`));
   const imageCreateHit = providerHits.find((hit) => hit.url === '/v1/images/generations');
   assert(imageCreateHit && imageCreateHit.authorization === `Bearer ${serverProviderKey}`);
@@ -335,6 +391,95 @@ try {
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && JSON.parse(hit.rawBody).stream === false));
   assert(providerHits.some((hit) => hit.url === '/v1/chat/completions' && JSON.parse(hit.rawBody).model === 'studio-chat-model'));
   assert(providerHits.every((hit) => hit.authorization !== `Bearer ${clientProviderKey}`));
+
+  const creditsBeforeCancellation = await request(servicePort, '/studio-api/auth/credits', { token: adminToken });
+  const activeCancelJobId = 'job-active-cancel-123';
+  const activeGeneration = await request(servicePort, '/studio-api/generation-jobs', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      request: {
+        id: activeCancelJobId,
+        clientRequestId: 'client-active-cancel-123',
+        sessionId: 'shared_session',
+        model: 'grok-imagine-image',
+        prompt: 'slow active cancellation smoke',
+        size: '1024x1024',
+        n: 1
+      }
+    }
+  });
+  assert.equal(activeGeneration.status, 202);
+  await waitFor(() => slowImageRequests === 1, 'Slow image request did not reach the provider.');
+
+  const queuedCancelJobId = 'job-queued-cancel-123';
+  const queuedGeneration = await request(servicePort, '/studio-api/generation-jobs', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      request: {
+        id: queuedCancelJobId,
+        clientRequestId: 'client-queued-cancel-123',
+        sessionId: 'shared_session',
+        model: 'grok-imagine-image',
+        prompt: 'queued cancellation smoke',
+        size: '1024x1024',
+        n: 1
+      }
+    }
+  });
+  assert.equal(queuedGeneration.status, 202);
+  const queuedCanceled = await request(servicePort, `/studio-api/generation-jobs/${queuedCancelJobId}`, {
+    method: 'DELETE',
+    token: adminToken
+  });
+  assert.equal(queuedCanceled.status, 200);
+  assert.equal(queuedCanceled.payload.job.status, 'canceled');
+  assert.equal(queuedCanceled.payload.job.billing.status, 'refunded');
+
+  const activeCanceled = await request(servicePort, `/studio-api/generation-jobs/${activeCancelJobId}`, {
+    method: 'DELETE',
+    token: adminToken
+  });
+  assert.equal(activeCanceled.status, 200);
+  assert.equal(activeCanceled.payload.job.status, 'unknown');
+  assert.equal(activeCanceled.payload.job.billing.status, 'unknown');
+  assert.equal(activeCanceled.payload.job.error.code, 'JOB_CANCELED_UPSTREAM_UNKNOWN');
+  const creditsAfterCancellation = await request(servicePort, '/studio-api/auth/credits', { token: adminToken });
+  assert.equal(
+    creditsAfterCancellation.payload.credits.balance,
+    creditsBeforeCancellation.payload.credits.balance - 10,
+    'Queued cancellation should refund, while an already-dispatched cancellation remains reserved.'
+  );
+
+  const networkJobId = 'job-network-unknown-123';
+  const networkGeneration = await request(servicePort, '/studio-api/generation-jobs', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      request: {
+        id: networkJobId,
+        clientRequestId: 'client-network-unknown-123',
+        sessionId: 'shared_session',
+        model: 'grok-imagine-image',
+        prompt: 'network ambiguity smoke',
+        size: '1024x1024',
+        n: 1
+      }
+    }
+  });
+  assert.equal(networkGeneration.status, 202);
+  const networkJob = await waitForJob(servicePort, adminToken, networkJobId);
+  assert.equal(networkJob.status, 'unknown');
+  assert.equal(networkJob.billing.status, 'unknown');
+  assert.equal(networkJob.billing.unknownReason, 'dispatch_result_unknown');
+  assert.equal(networkJob.error.code, 'GATEWAY_DISPATCH_FAILED');
+  const creditsAfterNetworkFailure = await request(servicePort, '/studio-api/auth/credits', { token: adminToken });
+  assert.equal(
+    creditsAfterNetworkFailure.payload.credits.balance,
+    creditsBeforeCancellation.payload.credits.balance - 20,
+    'An ambiguous network failure must remain reserved until reconciliation.'
+  );
 
   const videoJobId = 'job-grok-video-123';
   const videoGeneration = await request(servicePort, '/studio-api/generation-jobs', {
@@ -463,12 +608,14 @@ function startService(port, providerEnv) {
       PORT: String(port),
       STUDIO_HISTORY_HOST: '127.0.0.1',
       STUDIO_AUTH_MODE: 'standalone',
+      STUDIO_USER_PROVIDER_ONLY: 'false',
       STUDIO_DATA_DIR: dataDir,
       STUDIO_AUTH_DB_PATH: databasePath,
       STUDIO_AUTH_LOGIN_MAX_FAILURES: '2',
       STUDIO_AUTH_LOGIN_MAX_CONCURRENCY: '1',
       STUDIO_AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS: '50',
       STUDIO_AUTH_LOGIN_MAX_BODY_BYTES: '16384',
+      STUDIO_CREDITS_ENABLED: 'true',
       STUDIO_ALLOWED_ORIGINS: 'http://127.0.0.1',
       ...providerEnv
     },
@@ -532,10 +679,19 @@ async function waitForJob(port, token, jobId) {
   while (Date.now() < deadline) {
     const response = await request(port, `/studio-api/generation-jobs/${jobId}`, { token });
     assert.equal(response.status, 200, response.raw);
-    if (['completed', 'succeeded', 'failed', 'canceled'].includes(response.payload.job?.status)) return response.payload.job;
+    if (['completed', 'succeeded', 'failed', 'canceled', 'unknown'].includes(response.payload.job?.status)) return response.payload.job;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`Job ${jobId} did not finish.`);
+}
+
+async function waitFor(predicate, message) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(message);
 }
 
 function listen(server) {

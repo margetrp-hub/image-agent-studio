@@ -41,6 +41,8 @@ const {
   AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS,
   AUTH_LOGIN_MAX_CONCURRENCY,
   AUTH_LOGIN_MAX_BODY_BYTES,
+  CREDITS_ENABLED,
+  USER_PROVIDER_ONLY,
   AI_GATEWAY_BASE_URL,
   PROVIDER_BASE_URL,
   PROVIDER_API_KEY,
@@ -74,7 +76,8 @@ const standaloneAuthStore = AUTH_MODE === 'standalone'
     passwordIterations: AUTH_PASSWORD_ITERATIONS,
     minimumPasswordLength: AUTH_PASSWORD_MIN_LENGTH,
     loginMaxFailures: AUTH_LOGIN_MAX_FAILURES,
-    loginFailureWindowMs: AUTH_LOGIN_FAILURE_WINDOW_MS
+    loginFailureWindowMs: AUTH_LOGIN_FAILURE_WINDOW_MS,
+    billingDefaults: { creditsEnabled: CREDITS_ENABLED }
   })
   : null;
 const standaloneLoginIpLimiter = AUTH_MODE === 'standalone'
@@ -308,6 +311,14 @@ const gatewayFetchAgent = new Agent({
   keepAliveTimeout: 120_000,
   keepAliveMaxTimeout: 120_000,
   connections: Math.max(8, JOB_CONCURRENCY * 4)
+});
+const videoPollAgent = new Agent({
+  headersTimeout: GATEWAY_FETCH_TIMEOUT_MS,
+  bodyTimeout: GATEWAY_FETCH_TIMEOUT_MS,
+  keepAliveTimeout: 10_000,
+  keepAliveMaxTimeout: 10_000,
+  connections: Math.max(4, JOB_CONCURRENCY * 2),
+  pipelining: 0
 });
 
 function sendJson(res, status, payload) {
@@ -574,6 +585,100 @@ function jobRuntimeKey(auth, jobId) {
   return `${auth.userKey}:${jobId}`;
 }
 
+function jobBillingReference(jobId) {
+  return `generation:${jobId}`;
+}
+
+function jobRefundReference(jobId) {
+  return `generation-refund:${jobId}`;
+}
+
+function reserveJobCredits(auth, job) {
+  if (!standaloneAuthStore || AUTH_MODE !== 'standalone') return null;
+  const cost = standaloneAuthStore.calculateJobCost(job);
+  const chargeReference = jobBillingReference(job.id);
+  const reservation = standaloneAuthStore.reserveCredits({
+    userId: auth.user.id,
+    amount: cost.amount,
+    referenceId: chargeReference,
+    metadata: {
+      jobId: job.id,
+      mode: job.mode,
+      route: job.route,
+      model: job.model,
+      unit: cost.unit || 0,
+      quantity: cost.quantity || 1
+    }
+  });
+  return {
+    amount: cost.amount,
+    unit: cost.unit || 0,
+    quantity: cost.quantity || 1,
+    status: cost.amount > 0 ? 'reserved' : 'disabled',
+    chargeReference,
+    refundReference: jobRefundReference(job.id),
+    balanceAfter: reservation.balance,
+    reservedAt: new Date().toISOString()
+  };
+}
+
+function chargeJobCredits(auth, job) {
+  const billing = job?.billing;
+  if (!standaloneAuthStore || AUTH_MODE !== 'standalone' || !billing) return billing || null;
+  if (['charged', 'refunded', 'unknown'].includes(billing.status)) return billing;
+  const amount = Math.max(0, Number(billing.amount || 0));
+  if (!amount) return { ...billing, status: 'disabled' };
+  const summary = standaloneAuthStore.getCreditSummary(auth.user.id);
+  return {
+    ...billing,
+    status: 'charged',
+    balanceAfter: summary.balance,
+    chargedAt: new Date().toISOString()
+  };
+}
+
+function refundJobCredits(auth, job, reason) {
+  const billing = job?.billing;
+  if (!standaloneAuthStore || AUTH_MODE !== 'standalone' || !billing || billing.status === 'refunded') {
+    return billing || null;
+  }
+  const amount = Math.max(0, Number(billing.amount || 0));
+  if (!amount) return { ...billing, status: 'disabled' };
+  const refundReference = billing.refundReference || jobRefundReference(job.id);
+  const refund = standaloneAuthStore.refundCredits({
+    userId: auth.user.id,
+    amount,
+    referenceId: refundReference,
+    metadata: {
+      jobId: job.id,
+      reason: text(reason || 'generation_failed', 120),
+      chargeReference: billing.chargeReference || jobBillingReference(job.id)
+    }
+  });
+  return {
+    ...billing,
+    status: 'refunded',
+    refundReference,
+    balanceAfter: refund.balance,
+    refundedAt: new Date().toISOString()
+  };
+}
+
+function markJobBillingUnknown(auth, job, reason) {
+  const billing = job?.billing;
+  if (!standaloneAuthStore || AUTH_MODE !== 'standalone' || !billing) return billing || null;
+  const amount = Math.max(0, Number(billing.amount || 0));
+  if (!amount) return { ...billing, status: 'disabled' };
+  const summary = standaloneAuthStore.getCreditSummary(auth.user.id);
+  return {
+    ...billing,
+    status: 'unknown',
+    balanceAfter: summary.balance,
+    unknownReason: text(reason || 'upstream_status_unknown', 120),
+    unknownAt: new Date().toISOString()
+  };
+}
+
 function isQueuedInMemory(auth, jobId) {
   const queue = jobQueues.get(auth.userKey);
   return Boolean(queue?.items?.some((item) => item.jobId === jobId));
@@ -588,12 +693,14 @@ function normalizeJobForRead(auth, job) {
   const status = text(job.status || 'queued', 40);
   if (JOB_ACTIVE_STATUSES.has(status) && !jobIsActiveInMemory(auth, job.id)) {
     const updatedAt = Date.parse(job.updatedAt || job.startedAt || job.createdAt || '');
-    if (!Number.isFinite(updatedAt) || updatedAt < SERVICE_STARTED_AT - 1000) {
+    const canResumeVideo = job.mode === 'video' && text(job.upstreamTaskId || job.requestIds?.[0], 180);
+    if ((!Number.isFinite(updatedAt) || updatedAt < SERVICE_STARTED_AT - 1000) && !canResumeVideo) {
       return {
         ...job,
         status: 'unknown',
         stage: 'unknown',
         updatedAt: new Date().toISOString(),
+        billing: markJobBillingUnknown(auth, job, 'runtime_not_attached'),
         error: {
           code: 'JOB_RUNTIME_NOT_ATTACHED',
           message: 'The service restarted or lost the active runner before this job returned a final result.'
@@ -669,14 +776,6 @@ async function updateJob(auth, jobId, patch) {
     const nextJobs = [nextJob, ...jobs.filter((job) => job.id !== jobId)];
     await writeJobsUnlocked(auth, nextJobs);
     return nextJob;
-  });
-}
-
-async function upsertJob(auth, job) {
-  return withUserJobLock(auth, async () => {
-    const jobs = await readJobsUnlocked(auth);
-    await writeJobsUnlocked(auth, [job, ...jobs.filter((item) => item.id !== job.id)].slice(0, JOB_LIMIT));
-    return job;
   });
 }
 
@@ -1258,13 +1357,16 @@ function normalizeGatewayBaseUrl(value) {
   return `${raw}/v1`;
 }
 
-function standaloneProviderRuntime() {
-  if (!PROVIDER_BASE_URL || !PROVIDER_API_KEY) {
-    const error = new Error('STUDIO_PROVIDER_NOT_CONFIGURED');
+function standaloneProviderRuntime(request = {}) {
+  const manual = AUTH_MODE === 'standalone' && (USER_PROVIDER_ONLY || request.apiKeySource === 'manual');
+  const apiKey = manual ? text(request.apiKey, 4000) : PROVIDER_API_KEY;
+  const configuredBaseUrl = manual ? text(request.gatewayBaseUrl, 4000) : PROVIDER_BASE_URL;
+  if (!configuredBaseUrl || !apiKey) {
+    const error = new Error(manual ? 'MANUAL_PROVIDER_NOT_CONFIGURED' : 'STUDIO_PROVIDER_NOT_CONFIGURED');
     error.status = 503;
     throw error;
   }
-  const gatewayBaseUrl = normalizeGatewayBaseUrl(PROVIDER_BASE_URL);
+  const gatewayBaseUrl = normalizeGatewayBaseUrl(configuredBaseUrl);
   let url;
   try {
     url = new URL(gatewayBaseUrl);
@@ -1279,9 +1381,9 @@ function standaloneProviderRuntime() {
     throw error;
   }
   return {
-    apiKey: PROVIDER_API_KEY,
+    apiKey,
     gatewayBaseUrl: url.toString().replace(/\/+$/, ''),
-    profile: providerProfile(PROVIDER_TYPE)
+    profile: providerProfile(manual ? request.providerType || request.providerId : PROVIDER_TYPE)
   };
 }
 
@@ -1327,9 +1429,11 @@ function chatCompletionText(payload) {
   return '';
 }
 
-async function providerChatCompletion({ model, messages, signal }) {
-  const runtime = standaloneProviderRuntime();
-  const selectedModel = text(PROVIDER_CHAT_MODEL || model || 'gpt-4o-mini', 160);
+async function providerChatCompletion({ model, messages, signal, request = {} }) {
+  const runtime = standaloneProviderRuntime(request);
+  const selectedModel = text(request.apiKeySource === 'manual'
+    ? model || 'gpt-4o-mini'
+    : PROVIDER_CHAT_MODEL || model || 'gpt-4o-mini', 160);
   const payload = await postJsonToGateway(`${runtime.gatewayBaseUrl}/chat/completions`, runtime.apiKey, {
     model: selectedModel,
     messages,
@@ -1364,6 +1468,7 @@ async function handleStandalonePromptRoute(req, res, parts) {
     const instruction = text(body.instruction, 4_000);
     const result = await providerChatCompletion({
       model: body.model,
+      request: body,
       messages: [
         {
           role: 'system',
@@ -1393,7 +1498,7 @@ async function handleStandalonePromptRoute(req, res, parts) {
     if (!messages.length && prompt) messages.push({ role: 'user', content: `Current prompt:\n${prompt}` });
     if (instruction) messages.push({ role: 'user', content: instruction });
     if (!messages.length) return sendJson(res, 400, { ok: false, error: 'PROMPT_REQUIRED' });
-    const result = await providerChatCompletion({ model: body.model, messages, signal: req.signal });
+    const result = await providerChatCompletion({ model: body.model, messages, signal: req.signal, request: body });
     return sendJson(res, 200, { ok: true, text: result.text, model: result.model });
   }
   return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
@@ -1547,6 +1652,19 @@ async function getJsonFromGateway(url, apiKey, clientRequestId, signal) {
   return readGatewayResponse(response);
 }
 
+async function getVideoTaskFromGateway(url, apiKey, clientRequestId, signal) {
+  const response = await undiciFetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...(clientRequestId ? { 'X-Client-Request-ID': clientRequestId } : {})
+    },
+    dispatcher: videoPollAgent,
+    signal
+  });
+  return readGatewayResponse(response);
+}
+
 async function readLimitedResponseBuffer(response, maxBytes) {
   const contentLength = Number(response.headers.get('content-length') || 0);
   if (contentLength > maxBytes) {
@@ -1623,38 +1741,53 @@ function isTransientVideoPollError(error) {
   return [404, 408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error?.status || 0));
 }
 
-async function runVideoGenerationRequest(auth, job, runtime, signal) {
+function pollFailureDetails(error) {
+  const status = Number(error?.status || 0);
+  const causeCode = String(error?.cause?.code || '').trim();
+  const errorCode = String(causeCode || error?.code || error?.name || 'POLL_FAILED')
+    .replace(/[^A-Za-z0-9_.-]/g, '_')
+    .slice(0, 80);
+  return { status: status || null, code: errorCode };
+}
+
+async function runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskId = '') {
   const plan = runtime.plan || buildProviderVideoGenerationPlan(
     runtime.profile || providerProfile(PROVIDER_TYPE),
     job,
     imageInputDataUrl(runtime.images[0])
   );
   const createEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, plan.endpoint);
-  let currentJob = await updateJob(auth, job.id, {
-    status: 'gateway',
-    stage: 'gateway',
-    endpoint: providerPublicEndpoint(plan.endpoint),
-    invocationAdapter: plan.adapter,
-    completed: 0,
-    total: 1,
-    timing: {
-      ...(job.timing || {}),
-      gatewayAt: Date.now()
-    }
-  }) || job;
-  const createPayload = plan.payloadFormat === 'multipart'
-    ? await postMultipartToGateway(
-        createEndpoint,
-        runtime.apiKey,
-        buildProviderMultipartForm(plan, runtime, { includeVideoReference: true }),
-        job.clientRequestId,
-        signal
-      )
-    : await postJsonToGateway(createEndpoint, runtime.apiKey, plan.body, job.clientRequestId, signal);
-  let task = normalizeProviderVideoTask(createPayload);
+  let currentJob = job;
+  let task;
+  if (resumeTaskId) {
+    task = { id: resumeTaskId, status: 'in_progress', progress: job.progress };
+  } else {
+    currentJob = await updateJob(auth, job.id, {
+      status: 'gateway',
+      stage: 'gateway',
+      endpoint: providerPublicEndpoint(plan.endpoint),
+      invocationAdapter: plan.adapter,
+      completed: 0,
+      total: 1,
+      timing: {
+        ...(job.timing || {}),
+        gatewayAt: Date.now()
+      }
+    }) || job;
+    const createPayload = plan.payloadFormat === 'multipart'
+      ? await postMultipartToGateway(
+          createEndpoint,
+          runtime.apiKey,
+          buildProviderMultipartForm(plan, runtime, { includeVideoReference: true }),
+          job.clientRequestId,
+          signal
+        )
+      : await postJsonToGateway(createEndpoint, runtime.apiKey, plan.body, job.clientRequestId, signal);
+    task = normalizeProviderVideoTask(createPayload);
+  }
   if (!task.id) {
     const error = new Error('VIDEO_TASK_ID_MISSING');
-    error.payload = createPayload;
+    error.payload = task.raw || null;
     throw error;
   }
   const requestIds = [task.id];
@@ -1666,7 +1799,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
     progress: task.progress,
     timing: {
       ...(currentJob.timing || {}),
-      responseAt: Date.now()
+      ...(resumeTaskId ? { recoveryAt: Date.now() } : { responseAt: Date.now() })
     }
   }) || currentJob;
 
@@ -1675,11 +1808,24 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
     await waitForProviderPoll(VIDEO_POLL_INTERVAL_MS, signal);
     const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(plan.retrieveEndpoint, { id: task.id }));
     try {
-      task = normalizeProviderVideoTask(await getJsonFromGateway(retrieveEndpoint, runtime.apiKey, job.clientRequestId, signal));
+      task = normalizeProviderVideoTask(await getVideoTaskFromGateway(retrieveEndpoint, runtime.apiKey, job.clientRequestId, signal));
       transientPollFailures = 0;
+      currentJob = await updateJob(auth, job.id, {
+        status: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
+        stage: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
+        progress: task.progress,
+        requestIds,
+        timing: {
+          ...(currentJob.timing || {}),
+          polledAt: Date.now(),
+          pollLastStatus: 200,
+          pollLastError: null
+        }
+      }) || currentJob;
     } catch (error) {
       transientPollFailures += 1;
       if (!isTransientVideoPollError(error) || transientPollFailures > VIDEO_POLL_MAX_TRANSIENT_FAILURES) throw error;
+      const failure = pollFailureDetails(error);
       currentJob = await updateJob(auth, job.id, {
         status: 'upstream',
         stage: 'upstream',
@@ -1687,22 +1833,14 @@ async function runVideoGenerationRequest(auth, job, runtime, signal) {
         timing: {
           ...(currentJob.timing || {}),
           pollRetryAt: Date.now(),
-          pollRetryCount: transientPollFailures
+          pollRetryCount: transientPollFailures,
+          pollLastStatus: failure.status,
+          pollLastError: failure.code
         }
       }) || currentJob;
       continue;
     }
     if (!task.id) task.id = requestIds[0];
-    currentJob = await updateJob(auth, job.id, {
-      status: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
-      stage: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
-      progress: task.progress,
-      requestIds,
-      timing: {
-        ...(currentJob.timing || {}),
-        polledAt: Date.now()
-      }
-    }) || currentJob;
   }
   if (task.status === 'failed') {
     const error = new Error(task.error?.message || 'VIDEO_GENERATION_FAILED');
@@ -1804,7 +1942,7 @@ function buildJobRuntime(body) {
   let gatewayBaseUrl;
   let profile;
   if (AUTH_MODE === 'standalone') {
-    ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime());
+    ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime({ ...body, ...request }));
   } else {
     apiKey = text(body.apiKey || request.apiKey, 4000);
     gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL);
@@ -2067,12 +2205,15 @@ async function runGenerationRequest(auth, job, runtime, signal) {
   return { resultUrls, requestIds, usage: usages.length === 1 ? usages[0] : usages.length ? usages : null, timing: currentJob.timing || null };
 }
 
-async function runGenerationJob(auth, jobId, runtime) {
+async function runGenerationJob(auth, jobId, runtime, resumeTaskId = '') {
   const existingJobs = await readJobs(auth);
   const existingJob = existingJobs.find((job) => job.id === jobId);
-  if (!existingJob || existingJob.status === 'canceled') return;
+  const recovering = Boolean(resumeTaskId);
+  if (!existingJob || (recovering
+    ? existingJob.status !== 'upstream' || existingJob.upstreamTaskId !== resumeTaskId
+    : existingJob.status !== 'queued')) return;
 
-  const startedAt = Date.now();
+  const startedAt = Number(existingJob.timing?.startedAt) || Date.now();
   const controller = new AbortController();
   const key = jobRuntimeKey(auth, jobId);
   activeJobControllers.set(key, controller);
@@ -2080,19 +2221,21 @@ async function runGenerationJob(auth, jobId, runtime) {
   try {
     const queuedAt = Number(existingJob.timing?.queuedAt) || Date.parse(existingJob.createdAt || '') || null;
     let job = await updateJob(auth, jobId, {
-      status: 'dispatching',
-      stage: 'dispatching',
+      status: recovering ? 'upstream' : 'dispatching',
+      stage: recovering ? 'upstream' : 'dispatching',
       startedAt: new Date(startedAt).toISOString(),
       timing: {
         queuedAt,
         startedAt,
         completedAt: null,
-        totalMs: null
+        totalMs: null,
+        ...(recovering ? { recoveryStartedAt: Date.now() } : {})
       }
     });
     if (!job) return;
-    const result = await runGenerationRequest(auth, job, runtime, controller.signal);
+    const result = await runGenerationRequest(auth, job, runtime, controller.signal, resumeTaskId);
     const completedAt = Date.now();
+    const billing = chargeJobCredits(auth, job);
     const nextJob = await updateJob(auth, jobId, {
       status: 'succeeded',
       stage: 'succeeded',
@@ -2102,6 +2245,7 @@ async function runGenerationJob(auth, jobId, runtime) {
       resultUrls: result.resultUrls,
       usage: result.usage,
       requestIds: result.requestIds.filter(Boolean),
+      billing,
       timing: {
         ...(result.timing || {}),
         queuedAt: result.timing?.queuedAt || Number(existingJob.timing?.queuedAt) || Date.parse(existingJob.createdAt || '') || null,
@@ -2127,9 +2271,20 @@ async function runGenerationJob(auth, jobId, runtime) {
         error?.name === 'TypeError'
         || /fetch failed|network|econn|enotfound|etimedout|eai_again/i.test(String(error?.message || ''))
       );
+    const failedStatus = timedOut || canceled || dispatchFailed ? 'unknown' : 'failed';
+    let billing = failedJob?.billing || null;
+    if (failedStatus === 'unknown' && billing) {
+      billing = markJobBillingUnknown(
+        auth,
+        failedJob,
+        timedOut ? 'job_timeout' : canceled ? 'canceled_after_dispatch' : 'dispatch_result_unknown'
+      );
+    } else if (failedStatus !== 'unknown') {
+      billing = refundJobCredits(auth, failedJob, failedStatus);
+    }
     await updateJob(auth, jobId, {
-      status: timedOut ? 'unknown' : canceled ? 'canceled' : 'failed',
-      stage: timedOut ? 'unknown' : canceled ? 'canceled' : 'failed',
+      status: failedStatus,
+      stage: failedStatus,
       completedAt: new Date(completedAt).toISOString(),
       timing: {
         ...(failedJob?.timing || {}),
@@ -2137,14 +2292,15 @@ async function runGenerationJob(auth, jobId, runtime) {
         completedAt,
         totalMs: completedAt - startedAt
       },
+      billing,
       error: {
-        code: timedOut ? 'JOB_TIMEOUT' : canceled ? 'JOB_CANCELED' : dispatchFailed ? 'GATEWAY_DISPATCH_FAILED' : (error?.status ? `HTTP_${error.status}` : 'GENERATION_JOB_FAILED'),
+        code: timedOut ? 'JOB_TIMEOUT' : canceled ? 'JOB_CANCELED_UPSTREAM_UNKNOWN' : dispatchFailed ? 'GATEWAY_DISPATCH_FAILED' : (error?.status ? `HTTP_${error.status}` : 'GENERATION_JOB_FAILED'),
         status: error?.status || null,
         requestId,
         message: timedOut
           ? 'The server stopped waiting for this generation job. The upstream request may still finish or bill.'
           : canceled
-            ? 'The queued or running job was canceled locally. If it already reached the upstream, the upstream may still finish or bill.'
+            ? 'The running job was canceled locally, but the upstream may still finish or bill. Billing requires reconciliation.'
             : dispatchFailed
               ? gatewayDispatchErrorMessage(error)
               : gatewayErrorMessage(error)
@@ -2156,11 +2312,29 @@ async function runGenerationJob(auth, jobId, runtime) {
   }
 }
 
-function enqueueGenerationJob(auth, job, runtime) {
+function enqueueGenerationJob(auth, job, runtime, resumeTaskId = '') {
   const queue = jobQueues.get(auth.userKey) || { running: 0, draining: false, items: [] };
-  queue.items.push({ auth, jobId: job.id, runtime });
+  if (queue.items.some((item) => item.jobId === job.id) || activeJobControllers.has(jobRuntimeKey(auth, job.id))) return;
+  queue.items.push({ auth, jobId: job.id, runtime, resumeTaskId });
   jobQueues.set(auth.userKey, queue);
   setTimeout(() => drainGenerationQueue(auth.userKey), 0);
+}
+
+function recoverPersistedVideoJobs(auth, jobs) {
+  if (AUTH_MODE !== 'standalone') return;
+  for (const job of jobs) {
+    const taskId = job.mode === 'video' && job.status === 'upstream'
+      ? text(job.upstreamTaskId || job.requestIds?.[0], 180)
+      : '';
+    if (!taskId || jobIsActiveInMemory(auth, job.id)) continue;
+    try {
+      const runtime = buildJobRuntime({ request: job });
+      runtime.plan = buildJobInvocationPlan(job, runtime);
+      enqueueGenerationJob(auth, job, runtime, taskId);
+    } catch {
+      // Keep the persisted job visible; the next read can retry recovery.
+    }
+  }
 }
 
 async function drainGenerationQueue(userKey) {
@@ -2170,7 +2344,7 @@ async function drainGenerationQueue(userKey) {
   while (queue.items.length && queue.running < JOB_CONCURRENCY) {
     const item = queue.items.shift();
     queue.running += 1;
-    runGenerationJob(item.auth, item.jobId, item.runtime)
+    runGenerationJob(item.auth, item.jobId, item.runtime, item.resumeTaskId)
       .catch(() => {})
       .finally(() => {
         queue.running = Math.max(0, queue.running - 1);
@@ -2317,11 +2491,27 @@ async function serveLibraryAsset(req, res, auth, parts) {
   createReadStream(filePath).pipe(res);
 }
 
-async function handleStandaloneAuthRoute(req, res, parts) {
+async function handleStandaloneAuthRoute(req, res, parts, url) {
   if (!standaloneAuthStore) return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
 
+  if (req.method === 'GET' && parts.length === 3 && parts[2] === 'config') {
+    const settings = standaloneAuthStore.getBillingSettings();
+    return sendJson(res, 200, {
+      ok: true,
+      registration: {
+        enabled: AUTH_REGISTRATION_MODE === 'open' && settings.registrationEnabled,
+        bonusCredits: settings.creditsEnabled ? settings.registrationBonusCredits : 0,
+        passwordMinLength: AUTH_PASSWORD_MIN_LENGTH
+      },
+      credits: {
+        enabled: settings.creditsEnabled
+      }
+    });
+  }
+
   if (req.method === 'POST' && parts.length === 3 && parts[2] === 'register') {
-    if (AUTH_REGISTRATION_MODE !== 'open') {
+    const settings = standaloneAuthStore.getBillingSettings();
+    if (AUTH_REGISTRATION_MODE !== 'open' || !settings.registrationEnabled) {
       return sendJson(res, 403, { ok: false, error: 'REGISTRATION_DISABLED' });
     }
 
@@ -2388,16 +2578,48 @@ async function handleStandaloneAuthRoute(req, res, parts) {
     return sendJson(res, 200, { ok: true, ...result });
   }
   if (req.method === 'GET' && parts.length === 3 && parts[2] === 'me') {
-    return sendJson(res, 200, { ok: true, user: auth.user, session: auth.session });
+    return sendJson(res, 200, {
+      ok: true,
+      user: standaloneAuthStore.getUserWithBilling(auth.user.id),
+      session: auth.session
+    });
   }
 
-  if (parts[2] !== 'admin' || parts[3] !== 'users') {
+  if (req.method === 'GET' && parts.length === 3 && parts[2] === 'credits') {
+    return sendJson(res, 200, { ok: true, credits: standaloneAuthStore.getCreditSummary(auth.user.id) });
+  }
+  if (req.method === 'GET' && parts.length === 4 && parts[2] === 'credits' && parts[3] === 'transactions') {
+    const limit = Math.max(1, Math.min(200, Number(url.searchParams.get('limit') || 50)));
+    return sendJson(res, 200, {
+      ok: true,
+      credits: standaloneAuthStore.getCreditSummary(auth.user.id),
+      transactions: standaloneAuthStore.listCreditTransactions(auth.user.id, limit)
+    });
+  }
+
+  if (parts[2] !== 'admin') {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
   requireAdmin(auth);
 
+  if (req.method === 'GET' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'settings') {
+    return sendJson(res, 200, { ok: true, settings: standaloneAuthStore.getBillingSettings() });
+  }
+  if (req.method === 'POST' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'settings') {
+    const body = await readJsonBody(req);
+    const settings = standaloneAuthStore.updateBillingSettings(body, auth.user.id);
+    return sendJson(res, 200, { ok: true, settings });
+  }
+  if (req.method === 'GET' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'stats') {
+    return sendJson(res, 200, { ok: true, stats: standaloneAuthStore.getBillingStats() });
+  }
+
+  if (parts[3] !== 'users') {
+    return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+  }
+
   if (req.method === 'GET' && parts.length === 4) {
-    const users = standaloneAuthStore.listUsers();
+    const users = standaloneAuthStore.listUsersWithBilling();
     return sendJson(res, 200, { ok: true, users });
   }
   if (req.method === 'POST' && parts.length === 4) {
@@ -2420,6 +2642,21 @@ async function handleStandaloneAuthRoute(req, res, parts) {
   if (req.method === 'POST' && parts.length === 6 && parts[5] === 'disable') {
     const user = standaloneAuthStore.disableUser(decodeRoutePart(parts[4]));
     return sendJson(res, 200, { ok: true, user });
+  }
+  if (req.method === 'POST' && parts.length === 6 && parts[5] === 'credits') {
+    const userId = decodeRoutePart(parts[4]);
+    const body = await readJsonBody(req);
+    const credits = standaloneAuthStore.adjustCredits({
+      userId,
+      amount: body.amount,
+      reason: body.reason,
+      referenceId: body.referenceId
+    });
+    return sendJson(res, 200, {
+      ok: true,
+      user: standaloneAuthStore.getUserWithBilling(userId),
+      credits
+    });
   }
 
   res.setHeader('Allow', 'GET, POST, OPTIONS');
@@ -2445,8 +2682,11 @@ async function handler(req, res) {
       legacyService: 'ai-image-workbench-history',
       version: SERVICE_VERSION,
       providerType: AUTH_MODE === 'standalone' ? providerProfile(PROVIDER_TYPE).type : '',
-      providerConfigured: AUTH_MODE === 'standalone' ? Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY) : false,
-      videoConfigured: AUTH_MODE === 'standalone' ? Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY) : false,
+      providerConfigured: AUTH_MODE === 'standalone' ? (!USER_PROVIDER_ONLY && Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)) : false,
+      videoConfigured: AUTH_MODE === 'standalone' ? (!USER_PROVIDER_ONLY && Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)) : false,
+      providerMode: AUTH_MODE === 'standalone' && USER_PROVIDER_ONLY ? 'per-user' : 'server',
+      userProviderOnly: USER_PROVIDER_ONLY,
+      creditsEnabled: standaloneAuthStore ? standaloneAuthStore.getBillingSettings().creditsEnabled : false,
       startedAt: new Date(SERVICE_STARTED_AT).toISOString()
     });
   }
@@ -2459,7 +2699,7 @@ async function handler(req, res) {
     const hasAuthHeader = Boolean(String(req.headers.authorization || '').trim());
 
     if (parts[1] === 'auth') {
-      return await handleStandaloneAuthRoute(req, res, parts);
+      return await handleStandaloneAuthRoute(req, res, parts, url);
     }
 
     if (!hasAuthHeader && req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'library' && parts.length === 2) {
@@ -2491,7 +2731,7 @@ async function handler(req, res) {
       let gatewayBaseUrl;
       let profile;
       if (AUTH_MODE === 'standalone') {
-        ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime());
+        ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime(body));
       } else {
         apiKey = text(body.apiKey, 4000);
         gatewayBaseUrl = body.gatewayBaseUrl || AI_GATEWAY_BASE_URL;
@@ -2544,6 +2784,7 @@ async function handler(req, res) {
       const sessionId = text(url.searchParams.get('sessionId'), 120);
       const limit = Math.max(1, Math.min(JOB_LIMIT, Number(url.searchParams.get('limit') || 40)));
       const jobs = await readJobs(auth);
+      recoverPersistedVideoJobs(auth, jobs);
       const filtered = sessionId ? jobs.filter((job) => job.sessionId === sessionId) : jobs;
       return sendJson(res, 200, { ok: true, jobs: filtered.slice(0, limit) });
     }
@@ -2551,25 +2792,48 @@ async function handler(req, res) {
     if (req.method === 'POST' && parts[0] === 'studio-api' && parts[1] === 'generation-jobs' && parts.length === 2) {
       const body = await readJsonBody(req);
       const job = buildJobRecord(body);
-      const runtime = buildJobRuntime(body);
-      if (job.route === 'edits' && !runtime.images.length) {
-        return sendJson(res, 400, { ok: false, error: 'REFERENCE_IMAGE_REQUIRED' });
+      const result = await withUserJobLock(auth, async () => {
+        const jobs = await readJobsUnlocked(auth);
+        const existingById = jobs.find((item) => item.id === job.id);
+        if (existingById) return { job: existingById, duplicate: true };
+
+        const runtime = buildJobRuntime(body);
+        if (job.route === 'edits' && !runtime.images.length) {
+          const error = new Error('REFERENCE_IMAGE_REQUIRED');
+          error.status = 400;
+          throw error;
+        }
+        runtime.plan = buildJobInvocationPlan(job, runtime);
+        job.endpoint = providerPublicEndpoint(runtime.plan.endpoint);
+        job.invocationAdapter = runtime.plan.adapter;
+        if (job.fingerprint) {
+          const existing = jobs.find((item) => (
+            item.fingerprint === job.fingerprint
+            && item.sessionId === job.sessionId
+            && JOB_ACTIVE_STATUSES.has(item.status)
+          ));
+          if (existing) return { job: existing, duplicate: true };
+        }
+        job.billing = reserveJobCredits(auth, job);
+        try {
+          await writeJobsUnlocked(auth, [job, ...jobs.filter((item) => item.id !== job.id)].slice(0, JOB_LIMIT));
+        } catch (error) {
+          if (job.billing) refundJobCredits(auth, job, 'enqueue_failed');
+          throw error;
+        }
+        return { job, runtime, duplicate: false };
+      });
+      if (result.duplicate) return sendJson(res, 202, { ok: true, job: result.job, duplicate: true });
+      try {
+        enqueueGenerationJob(auth, result.job, result.runtime);
+      } catch (error) {
+        if (result.job.billing) {
+          const billing = refundJobCredits(auth, result.job, 'enqueue_failed');
+          await updateJob(auth, result.job.id, { billing });
+        }
+        throw error;
       }
-      runtime.plan = buildJobInvocationPlan(job, runtime);
-      job.endpoint = providerPublicEndpoint(runtime.plan.endpoint);
-      job.invocationAdapter = runtime.plan.adapter;
-      if (job.fingerprint) {
-        const jobs = await readJobs(auth);
-        const existing = jobs.find((item) => (
-          item.fingerprint === job.fingerprint
-          && item.sessionId === job.sessionId
-          && JOB_ACTIVE_STATUSES.has(item.status)
-        ));
-        if (existing) return sendJson(res, 202, { ok: true, job: existing, duplicate: true });
-      }
-      await upsertJob(auth, job);
-      enqueueGenerationJob(auth, job, runtime);
-      return sendJson(res, 202, { ok: true, job });
+      return sendJson(res, 202, { ok: true, job: result.job });
     }
 
     if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'generation-jobs' && parts.length === 3) {
@@ -2577,6 +2841,7 @@ async function handler(req, res) {
       const jobs = await readJobs(auth);
       const job = jobs.find((item) => item.id === jobId);
       if (!job) return sendJson(res, 404, { ok: false, error: 'GENERATION_JOB_NOT_FOUND' });
+      recoverPersistedVideoJobs(auth, [job]);
       return sendJson(res, 200, { ok: true, job });
     }
 
@@ -2590,18 +2855,27 @@ async function handler(req, res) {
       }
       const key = jobRuntimeKey(auth, jobId);
       const controller = activeJobControllers.get(key);
-      if (controller) controller.abort(new Error('JOB_CANCELED'));
       const queue = jobQueues.get(auth.userKey);
+      const queued = Boolean(queue?.items?.some((item) => item.jobId === jobId));
       if (queue?.items?.length) {
         queue.items = queue.items.filter((item) => item.jobId !== jobId);
       }
+      if (controller) controller.abort(new Error('JOB_CANCELED'));
+      const upstreamMayHaveAccepted = Boolean(controller) || !queued;
+      const status = upstreamMayHaveAccepted ? 'unknown' : 'canceled';
+      const billing = upstreamMayHaveAccepted
+        ? markJobBillingUnknown(auth, currentJob, 'canceled_after_dispatch')
+        : refundJobCredits(auth, currentJob, 'canceled_before_dispatch');
       const job = await updateJob(auth, jobId, {
-        status: 'canceled',
-        stage: 'canceled',
+        status,
+        stage: status,
         completedAt: new Date().toISOString(),
+        billing,
         error: {
-          code: 'JOB_CANCELED',
-          message: 'The job was canceled locally.'
+          code: upstreamMayHaveAccepted ? 'JOB_CANCELED_UPSTREAM_UNKNOWN' : 'JOB_CANCELED',
+          message: upstreamMayHaveAccepted
+            ? 'The job was canceled locally after dispatch. The upstream result and billing require reconciliation.'
+            : 'The queued job was canceled before dispatch.'
         }
       });
       return sendJson(res, 200, { ok: true, job });
@@ -2746,7 +3020,13 @@ async function handler(req, res) {
         message: redactProviderSecret(String(error?.code || error?.message || 'unknown').slice(0, 240))
       });
     }
-    return sendJson(res, status, { ok: false, error: message });
+    return sendJson(res, status, {
+      ok: false,
+      error: message,
+      ...(status < 500 && error.details && typeof error.details === 'object'
+        ? { details: redactProviderValue(error.details) }
+        : {})
+    });
   }
 }
 
@@ -2765,8 +3045,10 @@ server.listen(PORT, HOST, () => {
   console.log(`Auth mode: ${AUTH_MODE}`);
   if (AUTH_MODE === 'standalone') {
     console.log(`Registration mode: ${AUTH_REGISTRATION_MODE}`);
-    console.log(`Server-managed provider configured: ${Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)}`);
-    console.log(`Server-managed provider type: ${providerProfile(PROVIDER_TYPE).type}`);
+    const effectiveProviderMode = AUTH_MODE === 'standalone' && USER_PROVIDER_ONLY ? 'per-user' : 'server';
+    console.log(`Provider mode: ${effectiveProviderMode}`);
+    console.log(`Server-managed provider configured: ${effectiveProviderMode === 'server' && Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)}`);
+    console.log(`Provider type: ${providerProfile(PROVIDER_TYPE).type}`);
   } else {
     console.log(`AI gateway base URL: ${AI_GATEWAY_BASE_URL}`);
   }

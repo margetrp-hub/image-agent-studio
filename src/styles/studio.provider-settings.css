@@ -343,50 +343,24 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
   min-height: 38px !important;
 }
 
-@media (max-width: 720px) {
-  .settingsOverlay {
-    padding: 6px;
-    place-items: start center;
-  }
+.settingsCallGrid select {
+  width: 100% !important;
+  min-height: 38px !important;
+  padding: 0 32px 0 11px !important;
+  border: 1px solid var(--studio-border) !important;
+  border-radius: var(--studio-radius-control, 12px) !important;
+  background: var(--studio-surface) !important;
+  color: var(--studio-text) !important;
+  font: inherit !important;
+  font-weight: 700 !important;
+}
 
-  .settingsDialog {
-    width: min(100%, calc(100vw - 12px)) !important;
-    max-height: calc(100dvh - 12px) !important;
-    padding: 10px !important;
-    border-radius: var(--studio-radius-card, 16px) !important;
-  }
+.settingsCallGrid select:focus {
+  outline: none !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 55%, var(--studio-border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 12%, transparent) !important;
+}
 
-  .settingsTitle {
-    margin-bottom: 8px;
-  }
-
-  .settingsDialog h2 {
-    font-size: 19px;
-  }
-
-  .settingsDialog .iconButton {
-    width: 34px;
-    min-height: 34px;
-    border-radius: 12px;
-  }
-
-  .settingsDialog .manualFields,
-  .settingsCallGrid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .settingsActions {
-    bottom: -10px;
-    margin: 8px -10px -10px;
-    padding: 8px 10px 9px;
-  }
-
-  .settingsCallConfigHead {
-    display: grid !important;
-    gap: 4px !important;
-  }
-
-  .settingsCallConfigHead span {
-    text-align: left !important;
-  }
+.settingsCallGrid select + input {
+  margin-top: 6px !important;
 }

@@ -4,7 +4,6 @@
 
 import { AiGatewayClient, STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 import { formatUsageValue } from '../util/billing.js';
-import { defaultProviderGatewayBaseUrl } from '../util/providerSettings.js';
 
 const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d|grok[-_.]imagine[-_.]image|(?:^|[-_.])(seedream|nano[-_.]?banana|flux|ideogram|recraft|stable[-_.]?diffusion|sdxl|sd3|jimeng|doubao[-_.]?image|gemini[-_.a-z0-9]*image|imagen|midjourney|mj|firefly|leonardo|playground|kolors|qwen[-_.]?image|hunyuan[-_.]?image|hidream|photon|cogview)(?:[-_.0-9]|$)/i;
 const VIDEO_MODEL_PATTERN = /grok[-_.]imagine[-_.]video|(?:^|[-_.])(video|sora|veo|kling|runway|luma|hailuo|jimeng|seedance|wan|vidu|minimax|hunyuan|pixverse|pika|dreamina)(?:[-_.0-9]|$)/i;
@@ -38,7 +37,7 @@ export function modelLooksLikeImage(item) {
 }
 
 export function resolveProviderRequest(settings, apiKey) {
-  if (STUDIO_STANDALONE) {
+  if (STUDIO_STANDALONE && settings?.apiKeySource !== 'manual') {
     return {
       apiKey: apiKey?.key || (apiKey?.synthetic ? 'studio-managed' : ''),
       route: settings?.route || 'auto',
@@ -46,11 +45,12 @@ export function resolveProviderRequest(settings, apiKey) {
       partialImages: settings?.partialImages
     };
   }
-  if (settings.apiKeySource === 'manual') {
+  if (settings?.apiKeySource === 'manual') {
     const manualApiKey = String(settings.manualApiKey || '').trim();
     return {
       apiKey: manualApiKey,
-      gatewayBaseUrl: manualApiKey ? String(settings.manualGatewayBaseUrl || '').trim() || defaultProviderGatewayBaseUrl(settings) : '',
+      gatewayBaseUrl: manualApiKey ? String(settings.manualGatewayBaseUrl || '').trim() : '',
+      providerType: settings.providerId,
       route: settings.route || 'auto',
       responsesModel: settings.responsesModel,
       partialImages: settings.partialImages
@@ -68,6 +68,13 @@ export async function syncGatewayModels({ session, providerSettings, apiKey, sig
   const providerRequest = resolveProviderRequest(providerSettings, apiKey);
   if (!providerRequest.apiKey) {
     return emptyModelSyncResult('idle');
+  }
+  if (!providerRequest.gatewayBaseUrl) {
+    return emptyModelSyncResult('fallback', {
+      code: 'MANUAL_PROVIDER_GATEWAY_REQUIRED',
+      message: 'A provider URL is required before model sync.',
+      retryable: false
+    });
   }
 
   const client = new GatewayClient({ session, providerSettings });

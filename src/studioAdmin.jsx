@@ -1,0 +1,305 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  Activity,
+  ArrowLeft,
+  Check,
+  CircleAlert,
+  Coins,
+  Gauge,
+  LogOut,
+  Moon,
+  RefreshCw,
+  Save,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Sun,
+  UserRound,
+  UserX,
+  WalletCards,
+  X
+} from 'lucide-react';
+import {
+  AiGatewayClient,
+  clearSession,
+  getLoginUrl,
+  loadSession,
+  STUDIO_STANDALONE
+} from './aiGatewayClient.js';
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  IconButton,
+  Input,
+  Notice,
+  Switch,
+  Textarea
+} from './ui/index.js';
+import './styles/studio.admin.css';
+
+const DEFAULT_SETTINGS = {
+  creditsEnabled: false,
+  registrationEnabled: true,
+  registrationBonusCredits: 200,
+  imageGenerationCost: 10,
+  imageEditCost: 15,
+  videoGenerationCost: 50
+};
+
+const EMPTY_STATS = {
+  users: 0,
+  activeUsers: 0,
+  balance: 0,
+  spent: 0,
+  transactions: 0
+};
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString('zh-CN');
+}
+
+function formatDate(value) {
+  if (!value) return '暂无';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '暂无' : date.toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function getErrorMessage(error) {
+  const code = error?.payload?.error || error?.code || '';
+  if (code === 'ADMIN_REQUIRED') return '当前账号没有管理员权限。';
+  if (code === 'INSUFFICIENT_CREDITS') return '余额不足，无法完成这次操作。';
+  if (code === 'CREDIT_REASON_REQUIRED') return '请填写调账原因。';
+  return '请求没有完成，请稍后重试。';
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.iasTheme = theme;
+  localStorage.setItem('image-agent-studio:theme:v1', theme);
+}
+
+function initialTheme() {
+  const stored = localStorage.getItem('image-agent-studio:theme:v1');
+  return stored === 'dark' ? 'dark' : 'light';
+}
+
+function LoadingState() {
+  return <div className="iasAdminLoading"><RefreshCw size={20} className="iasSpin" /> 正在加载管理数据...</div>;
+}
+
+function StatCard({ icon: Icon, label, value, detail, tone = '' }) {
+  return (
+    <article className={`iasStatCard ${tone}`}>
+      <div className="iasStatIcon"><Icon size={17} /></div>
+      <div className="iasStatBody">
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{detail}</small>
+      </div>
+    </article>
+  );
+}
+
+function SettingsPanel({ settings, onChange, onSave, saving, message }) {
+  return (
+    <section className="iasAdminSection iasSettingsSection">
+      <div className="iasSectionHeader">
+        <div>
+          <span className="iasSectionKicker">POLICY</span>
+          <h2>注册与积分</h2>
+          <p>调整后立即对新请求生效，历史账务不会被重算。</p>
+        </div>
+        <Settings2 size={20} className="iasSectionHeaderIcon" />
+      </div>
+      <div className="iasSettingGrid">
+        <div className="iasToggleRow">
+          <span>
+            <strong>启用积分</strong>
+            <small>关闭后不扣积分，用户只使用自己配置的 URL 与 Key。</small>
+          </span>
+          <Switch aria-label="启用积分" checked={settings.creditsEnabled} onCheckedChange={(checked) => onChange('creditsEnabled', checked)} />
+        </div>
+        <div className="iasToggleRow">
+          <span>
+            <strong>开放注册</strong>
+            <small>允许新用户自行创建账号。</small>
+          </span>
+          <Switch aria-label="开放注册" checked={settings.registrationEnabled} onCheckedChange={(checked) => onChange('registrationEnabled', checked)} />
+        </div>
+      </div>
+      <div className="iasCostGrid">
+        <label className="iasField"><span>注册奖励</span><Input type="number" min="0" step="1" value={settings.registrationBonusCredits} onChange={(event) => onChange('registrationBonusCredits', event.target.value)} /></label>
+        <label className="iasField"><span>单次生图</span><Input type="number" min="0" step="1" value={settings.imageGenerationCost} onChange={(event) => onChange('imageGenerationCost', event.target.value)} /></label>
+        <label className="iasField"><span>参考图编辑</span><Input type="number" min="0" step="1" value={settings.imageEditCost} onChange={(event) => onChange('imageEditCost', event.target.value)} /></label>
+        <label className="iasField"><span>视频生成</span><Input type="number" min="0" step="1" value={settings.videoGenerationCost} onChange={(event) => onChange('videoGenerationCost', event.target.value)} /></label>
+      </div>
+      <div className="iasSectionFooter">
+        <span className="iasInlineMessage">{message || '关闭积分后，历史账务保留，新的生成不再扣除。'}</span>
+        <Button variant="primary" onClick={onSave} disabled={saving}><Save size={15} /> {saving ? '保存中...' : '保存设置'}</Button>
+      </div>
+    </section>
+  );
+}
+
+function UserTable({ users, query, onQueryChange, onAdjust, onDisable }) {
+  const filteredUsers = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return users;
+    return users.filter((user) => [user.email, user.username, user.role].some((value) => String(value || '').toLowerCase().includes(needle)));
+  }, [query, users]);
+
+  return (
+    <section className="iasAdminSection iasUsersSection">
+      <div className="iasSectionHeader iasSectionHeaderRow">
+        <div>
+          <span className="iasSectionKicker">ACCOUNTS</span>
+          <h2>用户账户</h2>
+          <p>查看状态与余额，调账会留下可追溯流水。</p>
+        </div>
+        <label className="iasSearchBox"><Search size={15} /><Input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="搜索邮箱或用户名" /></label>
+      </div>
+      <div className="iasTableWrap">
+        <table className="iasUserTable">
+          <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>余额</th><th>注册时间</th><th aria-label="操作" /></tr></thead>
+          <tbody>
+            {filteredUsers.length ? filteredUsers.map((user) => (
+              <tr key={user.id}>
+                <td><div className="iasUserCell"><span className="iasUserAvatar">{String(user.username || user.email || '?').slice(0, 1).toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.email}</small></span></div></td>
+                <td><span className={`iasRoleBadge ${user.role === 'admin' ? 'isAdmin' : ''}`}>{user.role === 'admin' ? '管理员' : '用户'}</span></td>
+                <td><span className={`iasStatusDot ${user.active ? 'isActive' : 'isDisabled'}`}><i />{user.active ? '正常' : '已禁用'}</span></td>
+                <td><strong className="iasBalanceValue">{formatNumber(user.credits?.balance)}</strong><small className="iasTableSubtext">已用 {formatNumber(user.credits?.lifetimeSpent)}</small></td>
+                <td className="iasDateCell">{formatDate(user.createdAt)}</td>
+                <td><div className="iasTableActions"><Button size="small" onClick={() => onAdjust(user)}><Coins size={14} /> 调账</Button>{user.active ? <IconButton tone="danger" title="禁用账号" aria-label="禁用账号" onClick={() => onDisable(user)}><UserX size={16} /></IconButton> : null}</div></td>
+              </tr>
+            )) : <tr><td colSpan="6" className="iasEmptyCell">没有匹配的用户。</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function AdjustmentDialog({ user, onClose, onSubmit, saving }) {
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (!amount || !reason.trim()) { setError('请输入积分变动数量和原因。'); return; }
+    try { await onSubmit({ amount: Number(amount), reason: reason.trim() }); } catch (submitError) { setError(getErrorMessage(submitError)); }
+  }
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="iasDialog">
+        <div className="iasDialogHeader"><div><span className="iasSectionKicker">CREDIT LEDGER</span><DialogTitle id="ias-adjust-title">调整 {user.username} 的余额</DialogTitle></div><DialogClose asChild><IconButton aria-label="关闭"><X size={18} /></IconButton></DialogClose></div>
+        <DialogDescription className="iasDialogHint">当前余额 <strong>{formatNumber(user.credits?.balance)}</strong>。输入正数增加，负数扣减。</DialogDescription>
+        <form className="iasDialogForm" onSubmit={submit}>
+          <label className="iasField"><span>变动数量</span><Input autoFocus type="number" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="例如 200 或 -50" /></label>
+          <label className="iasField"><span>原因</span><Textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="例如：活动赠送、异常补偿、人工扣减" maxLength="240" /></label>
+          {error ? <p className="iasFormError"><CircleAlert size={15} /> {error}</p> : null}
+          <div className="iasDialogActions"><DialogClose asChild><Button variant="quiet">取消</Button></DialogClose><Button variant="primary" type="submit" disabled={saving}><Check size={15} /> {saving ? '提交中...' : '确认调账'}</Button></div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AdminApp() {
+  const [theme, setTheme] = useState(initialTheme);
+  const [client, setClient] = useState(null);
+  const [user, setUser] = useState(null);
+  const [stats, setStats] = useState(EMPTY_STATS);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [users, setUsers] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [query, setQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => applyTheme(theme), [theme]);
+
+  useEffect(() => {
+    if (!STUDIO_STANDALONE) { window.location.replace('./studio.html'); return; }
+    const session = loadSession();
+    if (!session?.accessToken) { window.location.replace(getLoginUrl()); return; }
+    const nextClient = new AiGatewayClient({ session });
+    setClient(nextClient);
+    nextClient.me().then((nextUser) => {
+      if (nextUser?.role !== 'admin') throw Object.assign(new Error('ADMIN_REQUIRED'), { payload: { error: 'ADMIN_REQUIRED' } });
+      setUser(nextUser);
+      return Promise.all([nextClient.getAdminBillingStats(), nextClient.getAdminBillingSettings(), nextClient.listAdminUsers(), nextClient.listCreditTransactions(80)]);
+    }).then(([nextStats, nextSettings, nextUsers, ledger]) => {
+      setStats(nextStats);
+      setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
+      setUsers(nextUsers);
+      setTransactions(ledger.transactions || []);
+    }).catch((loadError) => {
+      if (loadError?.payload?.error === 'ADMIN_REQUIRED') setError('当前账号没有管理员权限，请返回工作台。');
+      else { clearSession(); window.location.replace(getLoginUrl()); }
+    }).finally(() => setLoading(false));
+  }, []);
+
+  async function refresh() {
+    if (!client) return;
+    setLoading(true); setError('');
+    try {
+      const [nextStats, nextSettings, nextUsers, ledger, nextUser] = await Promise.all([client.getAdminBillingStats(), client.getAdminBillingSettings(), client.listAdminUsers(), client.listCreditTransactions(80), client.me()]);
+      setStats(nextStats); setSettings({ ...DEFAULT_SETTINGS, ...nextSettings }); setUsers(nextUsers); setTransactions(ledger.transactions || []); setUser(nextUser); setStatus('数据已更新。');
+    } catch (refreshError) { setError(getErrorMessage(refreshError)); }
+    finally { setLoading(false); }
+  }
+
+  async function saveSettings() {
+    setSaving(true); setError('');
+    try { const next = await client.updateAdminBillingSettings(settings); setSettings({ ...DEFAULT_SETTINGS, ...next }); setStatus('设置已保存。'); }
+    catch (saveError) { setError(getErrorMessage(saveError)); }
+    finally { setSaving(false); }
+  }
+
+  async function adjustUser(input) {
+    setSaving(true); setError('');
+    try { await client.adjustAdminUserCredits(selectedUser.id, input); setSelectedUser(null); setStatus('积分流水已写入。'); await refresh(); }
+    catch (adjustError) { throw adjustError; }
+    finally { setSaving(false); }
+  }
+
+  async function disableUser(target) {
+    if (!window.confirm(`确定禁用 ${target.username} 吗？这会立即注销其会话。`)) return;
+    setError('');
+    try { await client.disableAdminUser(target.id); setStatus('账号已禁用。'); await refresh(); }
+    catch (disableError) { setError(getErrorMessage(disableError)); }
+  }
+
+  if (error && !user) return <main className="iasAdminGate"><ShieldCheck size={28} /><h1>管理员权限</h1><p>{error}</p><a className="iasButton iasButtonSecondary" href="./studio.html"><ArrowLeft size={15} /> 返回工作台</a></main>;
+  if (loading && !user) return <main className="iasAdminGate"><LoadingState /></main>;
+
+  return (
+    <main className="iasAdminApp">
+      <header className="iasAdminTopbar">
+        <a className="iasAdminBrand" href="./studio.html"><span className="iasAdminBrandMark">I</span><span><strong>Image Agent Studio</strong><small>管理控制台</small></span></a>
+        <div className="iasAdminTopActions"><span className="iasAdminIdentity"><UserRound size={15} /> {user?.username || user?.email}</span><IconButton onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')} aria-label="切换主题">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</IconButton><Button variant="quiet" onClick={async () => { await client.logout().catch(() => {}); clearSession(); window.location.replace('./login.html'); }}><LogOut size={15} /> 退出</Button></div>
+      </header>
+      <div className="iasAdminBody">
+        <div className="iasAdminHeading"><div><span className="iasSectionKicker">CONTROL PLANE</span><h1>运营概览</h1><p>账户、积分与生成策略集中在这里管理。</p></div><Button onClick={refresh} disabled={loading}><RefreshCw size={15} className={loading ? 'iasSpin' : ''} /> 刷新数据</Button></div>
+        {error ? <Notice className="iasAdminNotice iasAlertError" tone="danger" icon={CircleAlert}>{error}</Notice> : null}
+        {status ? <Notice className="iasAdminNotice iasAlertSuccess" tone="success" icon={Check}>{status}</Notice> : null}
+        <section className="iasStatsGrid"><StatCard icon={UserRound} label="注册用户" value={formatNumber(stats.users)} detail={`${formatNumber(stats.activeUsers)} 个账号正常使用`} /><StatCard icon={WalletCards} label="当前余额" value={formatNumber(stats.balance)} detail="所有用户可用积分" tone="isTeal" /><StatCard icon={Activity} label="累计消耗" value={formatNumber(stats.spent)} detail={`${formatNumber(stats.transactions)} 条账务流水`} tone="isWarm" /><StatCard icon={Gauge} label="运行策略" value={settings.creditsEnabled ? '积分计费' : '自由试用'} detail={`注册奖励 ${formatNumber(settings.registrationBonusCredits)} 积分`} /></section>
+        <div className="iasAdminColumns"><SettingsPanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : Math.max(0, Number(value) || 0) }))} onSave={saveSettings} saving={saving} message={status} /><section className="iasAdminSection iasLedgerSection"><div className="iasSectionHeader"><div><span className="iasSectionKicker">LEDGER</span><h2>最近流水</h2><p>当前管理员账户的最近积分变动。</p></div><Coins size={20} className="iasSectionHeaderIcon" /></div><div className="iasLedgerList">{transactions.length ? transactions.slice(0, 8).map((item) => <div className="iasLedgerItem" key={item.id}><span className={`iasLedgerSign ${item.delta >= 0 ? 'isPlus' : 'isMinus'}`}>{item.delta >= 0 ? '+' : ''}{formatNumber(item.delta)}</span><span><strong>{item.kind === 'registration_bonus' ? '注册奖励' : item.kind === 'generation_charge' ? '生成扣除' : item.kind === 'generation_refund' ? '生成退回' : '管理员调账'}</strong><small>{formatDate(item.createdAt)}</small></span><b>{formatNumber(item.balanceAfter)}</b></div>) : <div className="iasEmptyState">还没有账务流水。</div>}</div></section></div>
+        <UserTable users={users} query={query} onQueryChange={setQuery} onAdjust={setSelectedUser} onDisable={disableUser} />
+      </div>
+      {selectedUser ? <AdjustmentDialog user={selectedUser} onClose={() => setSelectedUser(null)} onSubmit={adjustUser} saving={saving} /> : null}
+    </main>
+  );
+}
+
+createRoot(document.querySelector('#studio-admin-root')).render(<AdminApp />);

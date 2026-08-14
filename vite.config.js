@@ -48,7 +48,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         studio: resolve(__dirname, 'studio.html'),
-        login: resolve(__dirname, 'login.html')
+        login: resolve(__dirname, 'login.html'),
+        admin: resolve(__dirname, 'admin.html')
       },
       output: {
         manualChunks(id) {

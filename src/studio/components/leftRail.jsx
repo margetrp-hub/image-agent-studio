@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   Sparkles,
   Sun,
+  ShieldCheck,
   Trash2,
   Video,
   WandSparkles
@@ -36,7 +37,10 @@ export function LeftRail({
   onNewSession,
   accountLabel,
   accountDetail,
+  accountCredits,
+  isAdmin,
   onOpenSettings,
+  onOpenAdmin,
   theme,
   onThemeToggle,
   currentProject,
@@ -246,11 +250,11 @@ export function LeftRail({
         )}
       </div>
       <div className="railBottomBar">
-        <button type="button" className="railAccountCard" data-action="open-settings" onClick={onOpenSettings}>
+          <button type="button" className="railAccountCard" data-action="open-settings" onClick={onOpenSettings}>
           <span className="railAvatar">{String(safeAccountLabel).slice(0, 1).toUpperCase()}</span>
           <span>
             <strong>{safeAccountLabel}</strong>
-            <em>{safeAccountDetail}</em>
+            <em>{accountCredits !== null && accountCredits !== undefined ? `${accountCredits} ${t('rail.credits', '积分')}` : safeAccountDetail}</em>
           </span>
           <KeyRound size={15} />
         </button>
@@ -268,6 +272,11 @@ export function LeftRail({
           <button type="button" className="railThemeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? t('rail.light', '切换浅色') : t('rail.dark', '切换深色')}>
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
+          {isAdmin ? (
+            <button type="button" className="railThemeButton railAdminButton" onClick={onOpenAdmin} aria-label={t('rail.admin', '管理控制台')} title={t('rail.admin', '管理控制台')}>
+              <ShieldCheck size={16} />
+            </button>
+          ) : null}
         </div>
       </div>
     </aside>

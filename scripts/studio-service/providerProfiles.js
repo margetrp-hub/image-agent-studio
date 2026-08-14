@@ -2,7 +2,8 @@ const PROVIDER_TYPES = new Set([
   'openai-compatible',
   'newapi-compatible',
   'sub2api-compatible',
-  'xai-compatible'
+  'xai-compatible',
+  'video-compatible'
 ]);
 
 export const PROVIDER_INVOCATION_ADAPTERS = Object.freeze({
@@ -30,8 +31,11 @@ export function resolveProviderInvocation(providerType, modelId, mode) {
   if (!model) return unsupported('Model id is empty');
 
   if (mode === 'image') {
-    if (type === 'xai-compatible' && model.includes('grok') && model.includes('image')) {
+    if (['xai-compatible', 'video-compatible'].includes(type) && model.includes('grok') && model.includes('image')) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.XAI_IMAGES);
+    }
+    if (type === 'video-compatible' && isDirectImageModel(model)) {
+      return verified(PROVIDER_INVOCATION_ADAPTERS.OPENAI_IMAGES);
     }
     if (type === 'newapi-compatible' && isChatImageModel(model)) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.OPENAI_CHAT_IMAGES);
@@ -42,8 +46,14 @@ export function resolveProviderInvocation(providerType, modelId, mode) {
   }
 
   if (mode === 'video') {
-    if (type === 'xai-compatible' && model.includes('grok') && model.includes('video')) {
+    if (['xai-compatible', 'video-compatible'].includes(type) && model.includes('grok') && model.includes('video')) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.XAI_VIDEOS);
+    }
+    if (type === 'video-compatible' && model.includes('sora')) {
+      return verified(PROVIDER_INVOCATION_ADAPTERS.OPENAI_VIDEOS);
+    }
+    if (type === 'video-compatible' && isTaskVideoModel(model)) {
+      return verified(PROVIDER_INVOCATION_ADAPTERS.NEWAPI_TASK_VIDEO);
     }
     if (['openai-compatible', 'newapi-compatible', 'sub2api-compatible'].includes(type) && model.includes('sora')) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.OPENAI_VIDEOS);

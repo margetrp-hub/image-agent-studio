@@ -2,6 +2,7 @@ import { createHash, pbkdf2, pbkdf2Sync, randomBytes, randomUUID, timingSafeEqua
 import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { createStandaloneBillingStore } from './standaloneBilling.js';
 
 const PASSWORD_ALGORITHM = 'pbkdf2-sha256';
 const PASSWORD_KEY_BYTES = 32;
@@ -112,7 +113,8 @@ export class StandaloneAuthStore {
     now = Date.now,
     loginLimiter,
     loginMaxFailures = 5,
-    loginFailureWindowMs = 15 * 60 * 1000
+    loginFailureWindowMs = 15 * 60 * 1000,
+    billingDefaults = {}
   } = {}) {
     if (!databasePath || typeof databasePath !== 'string') {
       throw new TypeError('databasePath is required. Use ":memory:" for an in-memory store.');
@@ -150,6 +152,7 @@ export class StandaloneAuthStore {
     this.dummyPasswordHash = pbkdf2Sync(randomBytes(32), dummySalt, passwordIterations, PASSWORD_KEY_BYTES, 'sha256');
     this.dummyPasswordSalt = dummySalt;
     this.initializeSchema();
+    this.billing = createStandaloneBillingStore({ database: this.database, now, defaults: billingDefaults });
     this.secureDatabaseFiles();
   }
 
@@ -210,7 +213,9 @@ export class StandaloneAuthStore {
   }
 
   register({ email, username, password } = {}) {
-    return this.createUser({ email, username, password, role: 'user' });
+    const user = this.createUser({ email, username, password, role: 'user' });
+    this.billing.grantRegistrationBonus(user.id);
+    return this.getUserWithBilling(user.id);
   }
 
   createUser({ email, username, password, role = 'user' } = {}) {
@@ -254,7 +259,51 @@ export class StandaloneAuthStore {
       throw error;
     }
 
+    this.billing.ensureAccount(userId);
+
     return this.getUserById(userId);
+  }
+
+  getUserWithBilling(userId) {
+    const user = this.getUserById(userId);
+    if (!user) return null;
+    return { ...user, credits: this.billing.getSummary(user.id) };
+  }
+
+  getCreditSummary(userId) {
+    return this.billing.getSummary(userId);
+  }
+
+  listCreditTransactions(userId, limit) {
+    return this.billing.listTransactions(userId, limit);
+  }
+
+  getBillingSettings() {
+    return this.billing.getSettings();
+  }
+
+  updateBillingSettings(patch, actorUserId) {
+    return this.billing.updateSettings(patch, actorUserId);
+  }
+
+  getBillingStats() {
+    return this.billing.stats();
+  }
+
+  calculateJobCost(input) {
+    return this.billing.calculateJobCost(input);
+  }
+
+  reserveCredits(input) {
+    return this.billing.reserveCredits(input);
+  }
+
+  refundCredits(input) {
+    return this.billing.refundCredits(input);
+  }
+
+  adjustCredits(input) {
+    return this.billing.adjustCredits(input);
   }
 
   async login({ identifier, email, username, password, rateLimitKey } = {}) {
@@ -301,7 +350,7 @@ export class StandaloneAuthStore {
       token,
       tokenType: 'Bearer',
       expiresAt: toIso(expiresAt),
-      user: toPublicUser(row)
+      user: this.getUserWithBilling(row.id)
     };
   }
 
@@ -329,7 +378,7 @@ export class StandaloneAuthStore {
     }
 
     return {
-      user: toPublicUser(row),
+      user: this.getUserWithBilling(row.id),
       session: {
         id: row.session_id,
         userId: row.id,
@@ -349,6 +398,13 @@ export class StandaloneAuthStore {
       ? 'SELECT * FROM users ORDER BY created_at ASC, id ASC'
       : 'SELECT * FROM users WHERE active = 1 ORDER BY created_at ASC, id ASC';
     return this.database.prepare(sql).all().map(toPublicUser);
+  }
+
+  listUsersWithBilling(options) {
+    return this.listUsers(options).map((user) => ({
+      ...user,
+      credits: this.billing.getSummary(user.id)
+    }));
   }
 
   disableUser(userId) {

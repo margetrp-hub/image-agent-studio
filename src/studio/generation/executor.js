@@ -43,7 +43,7 @@ export function buildServerImageGenerationJobPayload({
   const safeRoute = route || imageGenerationRouteForMode({ mode, referenceCount, hasMask });
   const safeCount = Number(count) || 1;
   return {
-    ...(!serverManaged ? { apiKey, gatewayBaseUrl } : {}),
+    ...(!serverManaged || apiKeySource === 'manual' ? { apiKey, gatewayBaseUrl } : {}),
     images,
     mask,
     request: {
@@ -117,7 +117,7 @@ export function buildServerVideoGenerationJobPayload({
   workflow = null
 } = {}) {
   return {
-    ...(!serverManaged ? { apiKey, gatewayBaseUrl } : {}),
+    ...(!serverManaged || apiKeySource === 'manual' ? { apiKey, gatewayBaseUrl } : {}),
     images: images.slice(0, 1),
     request: {
       id: generationMeta?.id || '',

@@ -9,6 +9,7 @@ import {
 } from './studio-service/providerProfiles.js';
 
 const newApi = providerProfile('newapi-compatible');
+const videoGateway = providerProfile('video-compatible');
 const annotated = annotateProviderModels({
   object: 'list',
   data: [
@@ -30,6 +31,22 @@ assert.equal(annotated.data[3].invocations.video.adapter, 'openai-videos');
 assert.equal(annotated.data[4].invocations.video.adapter, 'newapi-task-video');
 assert.equal(annotated.data[5].discoveryStatus, 'discovered');
 assert.equal(annotated.data[5].invocations.image.status, 'unsupported');
+
+const genericVideoGatewayModels = annotateProviderModels({
+  data: [{ id: 'grok-imagine-image' }, { id: 'grok-imagine-video' }, { id: 'veo3' }]
+}, videoGateway.type);
+assert.equal(genericVideoGatewayModels.data[0].invocations.image.adapter, 'xai-images');
+assert.equal(genericVideoGatewayModels.data[1].invocations.video.adapter, 'xai-videos');
+assert.equal(genericVideoGatewayModels.data[2].invocations.video.adapter, 'newapi-task-video');
+
+const genericGrokVideoPlan = buildProviderVideoGenerationPlan(videoGateway, {
+  model: 'grok-imagine-video',
+  prompt: 'A short product shot.',
+  duration: 5,
+  aspectRatio: '16:9'
+});
+assert.equal(genericGrokVideoPlan.endpoint, '/videos/generations');
+assert.equal(genericGrokVideoPlan.adapter, 'xai-videos');
 
 const nanoPlan = buildProviderImageGenerationPlan(newApi, {
   model: 'nano-banana-pro-preview',

@@ -1,0 +1,677 @@
+/* Final alignment pass: canvas controls live top-right, rails align to one shell. */
+.canvasToolbar {
+  top: 16px;
+  right: 150px;
+  bottom: auto;
+}
+
+.creationDesk.referencesOpen .promptCollapsedBlock {
+  transform: translateY(204px);
+}
+
+.referenceBox {
+  z-index: 8;
+}
+
+.paramRail {
+  align-self: start;
+  justify-self: center;
+  width: 64px;
+  min-height: auto;
+  margin-top: 48px;
+  margin-right: 10px;
+  padding: 8px 6px 10px;
+  border-radius: 10px;
+}
+
+.paramRailHead {
+  min-height: 28px !important;
+}
+
+.creationDesk .paramRail button {
+  min-height: 46px;
+}
+
+.bottomComposerToggle {
+  align-self: end;
+  justify-self: stretch;
+  min-height: 74px;
+  margin: 0 8px 0 0;
+  border-radius: 8px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  width: 104px;
+  min-height: 48px;
+  margin: 0 0 0 12px;
+  justify-self: start;
+}
+
+.creationDesk.composerOpen .bottomComposerToggle {
+  width: 56px;
+}
+
+.creationDesk .statusLine {
+  position: absolute;
+  left: 28px;
+  top: 230px;
+  z-index: 9;
+  max-width: 260px;
+  margin: 0;
+  padding: 8px 11px;
+  pointer-events: none;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+  color: var(--studio-text);
+  box-shadow: var(--studio-shadow-soft);
+  backdrop-filter: blur(14px);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+@media (max-width: 900px) {
+  .sideLibraryDrawer {
+    left: 76px;
+    width: min(430px, calc(100vw - 92px));
+  }
+
+  .creationDesk,
+  .studioLayout.railCollapsed .creationDesk {
+    grid-template-columns: minmax(0, 1fr) 58px;
+  }
+
+  .referenceBox {
+    width: min(340px, calc(100vw - 104px));
+  }
+
+  .creationDesk .bottomComposerBar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .composerInspirationPanel {
+    right: -48px;
+    width: min(320px, calc(100vw - 36px));
+  }
+
+  .composerRecipeList {
+    grid-template-columns: 1fr;
+  }
+
+  .composerQuotaHint {
+    display: none;
+  }
+}
+
+/* Compact the left rail so it reads like a usable conversation/tool strip. */
+.sideBrand {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 3px;
+  margin-bottom: 8px;
+}
+
+.sideBrand > span:last-of-type {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.sideBrand strong {
+  display: block;
+  overflow: hidden;
+  color: var(--studio-text-strong);
+  font-size: 11px;
+  line-height: 1.12;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.sideBrand em {
+  display: block;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 9px;
+  line-height: 1;
+  font-style: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sideBrandMark {
+  width: 24px;
+  height: 24px;
+}
+
+.sideCollapseButton {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+.newChatButton {
+  min-height: 34px;
+  margin-bottom: 8px;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.sidePrimaryNav {
+  gap: 6px;
+}
+
+.sidePrimaryNav button {
+  min-height: 32px;
+  padding: 0 8px;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sideLibraryItem {
+  min-height: 30px;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sideChatBlock {
+  margin-top: 12px;
+  gap: 6px;
+}
+
+.sideChatCard {
+  min-height: 58px;
+  padding: 7px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.sideChatIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.sideChatCard strong {
+  font-size: 11px;
+}
+
+.sideChatCard em {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.25;
+  -webkit-line-clamp: 1;
+}
+
+/* Bottom chat collapse keeps the composer usable as a one-line input. */
+.creationDesk:not(.composerOpen) {
+  grid-template-rows: minmax(460px, 1fr) 54px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerBar {
+  display: grid !important;
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 48px;
+  height: 48px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-self: end;
+  align-items: center;
+  margin: 0 0 0 12px;
+  padding: 6px 8px 6px 12px;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerInput textarea {
+  min-height: 34px;
+  height: 34px;
+  max-height: 34px;
+  padding: 7px 12px;
+  resize: none;
+  overflow: hidden;
+  border-radius: 999px;
+  line-height: 1.35;
+}
+
+.creationDesk:not(.composerOpen) .composerAssistGroup {
+  display: none;
+}
+
+.creationDesk:not(.composerOpen) .composerThread {
+  display: none;
+}
+
+.creationDesk:not(.composerOpen) .composerPrimaryAction {
+  height: 36px !important;
+  min-height: 36px !important;
+  min-width: 68px !important;
+  width: auto;
+  padding: 0 12px;
+  color: #fff;
+}
+
+.creationDesk:not(.composerOpen) .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: auto;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  height: 34px;
+  margin: 0;
+  justify-self: start;
+  align-self: center;
+}
+
+.creationDesk.composerOpen .bottomComposerToggle {
+  height: 64px;
+  min-height: 64px;
+}
+
+/* Conversation composer and generation controls are separate: chat on bottom, render on right. */
+.creationDesk .bottomComposerBar {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  transition: grid-template-columns 180ms ease, height 180ms ease, min-height 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.creationDesk .bottomComposerBar.hasLineage {
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+}
+
+.creationDesk .bottomComposerToggle {
+  grid-column: 1;
+  grid-row: auto;
+  width: 44px;
+  min-width: 44px;
+  height: 64px;
+  min-height: 64px;
+  margin: 0;
+  display: grid !important;
+  place-items: center;
+  align-self: center;
+  justify-self: start;
+  color: var(--studio-muted);
+}
+
+.creationDesk.composerOpen .bottomComposerInput textarea {
+  min-height: 64px;
+  height: 64px;
+  max-height: 64px;
+  resize: none;
+}
+
+.bottomComposerToggle::before,
+.bottomComposerToggle.isOpen::before,
+.bottomComposerToggle.isClosed::before {
+  content: none;
+}
+
+.creationDesk .composerPrimaryAction {
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 44%, rgba(255, 255, 255, 0.3));
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.82), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 92%, #ffffff 8%), color-mix(in srgb, var(--studio-accent) 84%, #f7c4b3 16%)) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 14px 30px color-mix(in srgb, var(--studio-primary) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42) !important;
+  font-size: 0;
+  transition: transform 170ms ease, box-shadow 170ms ease, filter 170ms ease, opacity 170ms ease;
+}
+
+.creationDesk .composerPrimaryAction svg {
+  width: 17px;
+  height: 17px;
+  color: currentColor !important;
+  transform: translateX(1px);
+  transition: transform 170ms ease;
+}
+
+.creationDesk .composerPrimaryAction:hover:not(:disabled) {
+  color: #fff !important;
+  filter: saturate(1.08) brightness(1.04);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow:
+    0 18px 38px color-mix(in srgb, var(--studio-primary) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
+}
+
+.creationDesk .composerPrimaryAction:hover:not(:disabled) svg {
+  transform: translateX(2px) scale(1.04);
+}
+
+.creationDesk .composerPrimaryAction:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  box-shadow:
+    0 8px 18px color-mix(in srgb, var(--studio-primary) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36) !important;
+}
+
+.creationDesk .composerPrimaryAction:disabled {
+  opacity: 0.58;
+  filter: grayscale(0.18);
+  cursor: not-allowed;
+}
+
+.paramGenerateAction {
+  margin-top: 8px;
+  min-height: 54px !important;
+  border-color: color-mix(in srgb, var(--studio-primary) 35%, var(--studio-border)) !important;
+  background: linear-gradient(135deg, var(--studio-primary), var(--studio-accent)) !important;
+  color: #fff !important;
+}
+
+.paramGenerateAction svg,
+.paramGenerateAction .spin {
+  color: #fff !important;
+}
+
+.paramDrawerGenerate {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border-color: color-mix(in srgb, var(--studio-primary) 35%, var(--studio-border));
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--studio-primary), var(--studio-accent));
+  color: #fff;
+  font-weight: 950;
+}
+
+.sideLibraryDrawer {
+  width: min(640px, calc(100vw - 164px));
+}
+
+.sideLibraryDrawerList {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 250px);
+  grid-template-rows: 1fr;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 10px;
+  scroll-snap-type: x proximity;
+}
+
+.sideLibraryDrawerList > * {
+  scroll-snap-align: start;
+}
+
+.sideLibraryDrawerList .categoryTile,
+.sideLibraryDrawerList .caseTile,
+.sideLibraryDrawerList .videoInspirationTile {
+  width: 100%;
+  height: 100%;
+}
+
+.sideLibraryDrawerList .caseTileMain {
+  grid-template-columns: 1fr;
+  grid-template-rows: 132px auto auto auto;
+  padding: 10px;
+  padding-right: 10px;
+  align-content: start;
+}
+
+.sideLibraryDrawerList .caseTile img,
+.sideLibraryDrawerList .caseMedia {
+  width: 100%;
+  height: 132px;
+}
+
+/* Final rail brand fix: keep the narrow header from squeezing the title. */
+.templateRail:not(.collapsed) .sideBrand {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 3px;
+  margin-bottom: 8px;
+}
+
+.templateRail:not(.collapsed) .sideBrand > span:last-of-type {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.templateRail:not(.collapsed) .sideBrand strong {
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  line-height: 1.08;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.templateRail:not(.collapsed) .sideBrand em {
+  display: block;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 9px;
+  line-height: 1;
+  font-style: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.templateRail:not(.collapsed) .sideBrandMark {
+  width: 24px;
+  height: 24px;
+}
+
+.templateRail:not(.collapsed) .sideCollapseButton {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+/* Final detail pass: make the narrow rail and floating panels breathe. */
+.sideChatCard {
+  min-height: 54px;
+  padding: 6px;
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+
+.sideChatCard strong {
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sideChatCard em {
+  max-width: 64px;
+  font-size: 9px;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.railAccountCard {
+  min-height: 48px;
+  padding: 6px 5px;
+  grid-template-columns: 30px minmax(0, 1fr) 14px;
+  gap: 5px;
+}
+
+.railAccountCard strong,
+.railAccountCard em {
+  max-width: 50px;
+}
+
+.railAvatar {
+  width: 30px;
+  height: 30px;
+}
+
+.railAccountCard strong {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.railAccountCard em {
+  font-size: 9px;
+  line-height: 1.1;
+}
+
+.railPreferenceRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.railLanguageButton {
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.railLanguageButton span {
+  line-height: 1;
+}
+
+.collapsedRailBottom {
+  margin-top: auto;
+  display: grid;
+  gap: 8px;
+  place-items: center;
+}
+
+.templateRail.collapsed .collapsedRailBottom .railAvatarButton {
+  margin-top: 0;
+}
+
+.templateRail.collapsed .collapsedRailBottom .railLanguageButton {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+}
+
+.templateRail.collapsed .collapsedRailBottom .railLanguageButton span {
+  font-size: 9px;
+}
+
+.referenceBox {
+  width: min(340px, calc(100vw - 260px));
+  padding: 11px;
+  border-color: color-mix(in srgb, var(--studio-border) 70%, transparent);
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+  box-shadow: 0 14px 40px rgba(17, 24, 39, 0.07);
+}
+
+.referenceBox .miniPanelHead {
+  min-height: 26px;
+}
+
+.uploadDrop {
+  min-height: 72px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 78%, transparent);
+}
+
+.uploadDrop span {
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.canvasToolbar {
+  right: 138px;
+  min-height: 34px;
+  padding: 4px;
+  gap: 3px;
+}
+
+.canvasToolbar button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+}
+
+.canvasToolbar span {
+  min-width: 38px;
+}
+
+.paramRail {
+  width: 58px;
+  margin-right: 8px;
+  padding: 7px 5px 8px;
+  gap: 12px;
+  transition: width 190ms ease, margin 190ms ease, padding 190ms ease, border-radius 190ms ease, box-shadow 190ms ease, background 190ms ease;
+}
+
+.creationDesk .paramRail button {
+  min-height: 42px;
+  font-size: 11px;
+}
+
+.paramRailHead {
+  min-height: 26px !important;
+  font-size: 11px !important;
+}
+
+.canvasPlane > .previewFallbackNode,
+.canvasPlane > .emptyCanvasNode:not(.graphNode),
+.canvasPlane > .sourceNode:not(.graphNode) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.emptyCanvasNode {
+  width: 300px;
+  min-height: 178px;
+  padding: 22px;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--studio-border) 82%, transparent);
+  background: color-mix(in srgb, var(--studio-surface-strong) 82%, transparent);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+}
+
+.emptyCanvasNode svg {
+  width: 26px;
+  height: 26px;
+  color: var(--studio-primary);
+}
+
+.emptyCanvasNode strong {
+  margin-top: 6px;
+  color: var(--studio-text-strong);
+  font-size: 13px;
+}
+
+.emptyCanvasNode span {
+  max-width: 220px;
+  color: var(--studio-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.composerQuotaHint {
+  max-width: 210px;
+  min-height: 24px;
+  padding: 0;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+}
