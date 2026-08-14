@@ -34,7 +34,9 @@ function queueHeadline(items, t, concurrency = 0) {
   const done = countStatus('done');
   const parts = [];
   parts.push(running
-    ? t('composer.queueRunning', '{count}/{limit} running', { count: running, limit: concurrency || running })
+    ? concurrency > 0
+      ? t('composer.queueRunning', '{count}/{limit} running', { count: running, limit: concurrency })
+      : t('composer.queueRunningUnlimited', '{count} running without a Workbench cap', { count: running })
     : t('composer.queueIdle', 'Queue'));
   if (queued) parts.push(t('composer.queueWaiting', '{count} waiting', { count: queued }));
   if (failed + unknown) parts.push(t('composer.queueNeedsReview', '{count} to review', { count: failed + unknown }));

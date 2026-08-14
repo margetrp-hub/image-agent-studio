@@ -125,7 +125,7 @@ export function createCurrentSessionSerializers({
     const generationQueue = Array.isArray(session.generationQueue)
       ? session.generationQueue
         .filter((item) => item && typeof item === 'object')
-        .slice(-generationQueueLimit)
+        .slice(generationQueueLimit > 0 ? -generationQueueLimit : 0)
         .map((item) => ({
           ...item,
           status: restoredQueueStatus(item),

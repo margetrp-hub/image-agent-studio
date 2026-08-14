@@ -4,10 +4,10 @@ const QUEUE_STATUSES = new Set(['queued', 'running', 'failed', 'canceled', 'unkn
 
 export const GENERATION_STALL_NOTICE_MS = 90 * 1000;
 export const GENERATION_TIMEOUT_MS = 45 * 60 * 1000;
-export const GENERATION_QUEUE_LIMIT = 12;
-// Two in-flight tasks keeps the workstation responsive while the server and
-// provider still retain an explicit environment-level concurrency guard.
-export const GENERATION_CONCURRENCY = 2;
+// Zero means no artificial Workbench queue/concurrency cap. Provider limits
+// are still surfaced as real upstream errors.
+export const GENERATION_QUEUE_LIMIT = 0;
+export const GENERATION_CONCURRENCY = 0;
 export const VISIBLE_GENERATION_QUEUE_STATUSES = ['queued', 'running', 'failed', 'canceled', 'unknown', 'done'];
 export const CURRENT_PROJECT_QUEUE_STATUSES = new Set(VISIBLE_GENERATION_QUEUE_STATUSES);
 
@@ -124,9 +124,18 @@ export function removeGenerationQueueItem(queue, id) {
   return Array.isArray(queue) ? queue.filter((item) => item?.id !== id) : [];
 }
 
+function limitGenerationQueueItems(queue, limit, direction = 'tail') {
+  const source = Array.isArray(queue) ? queue : [];
+  const normalizedLimit = Number(limit);
+  if (!Number.isFinite(normalizedLimit) || normalizedLimit <= 0) return source;
+  return direction === 'head'
+    ? source.slice(0, normalizedLimit)
+    : source.slice(-normalizedLimit);
+}
+
 export function appendGenerationQueueTask(queue, task, limit = GENERATION_QUEUE_LIMIT) {
   const source = Array.isArray(queue) ? queue : [];
-  return [...source, task].slice(-limit);
+  return limitGenerationQueueItems([...source, task], limit);
 }
 
 export function retryGenerationQueueTask(queue, id, {
@@ -152,10 +161,10 @@ export function retryGenerationQueueTask(queue, id, {
     summary: target.prompt || target.summary || fallbackSummary
   };
   return {
-    queue: [
+    queue: limitGenerationQueueItems([
       retryTask,
       ...source.filter((item) => item?.id !== id)
-    ].slice(0, limit),
+    ], limit, 'head'),
     target,
     retryTask,
     blocked: false
@@ -197,7 +206,7 @@ export function upsertRemoteGenerationJobTask(queue, job, {
     stage: job.stage || job.status || '',
     completed: Number(job.completed || 0),
     total: Number(job.total || job.count || 1),
-    resultUrls: Array.isArray(job.resultUrls) ? job.resultUrls.filter(Boolean).slice(0, 4) : [],
+    resultUrls: Array.isArray(job.resultUrls) ? job.resultUrls.filter(Boolean).slice(0, 10) : [],
     requestIds,
     error: normalizeServerJobError(job),
     selectedCanvasNodeId: job.parentCanvasNodeId || '',
@@ -205,10 +214,10 @@ export function upsertRemoteGenerationJobTask(queue, job, {
     summary: inheritedPrompt || job.error?.message || `${fallbackSummary} ${job.id}`,
     restorable: false
   };
-  return [
+  return limitGenerationQueueItems([
     remoteTask,
     ...source.filter((item) => item?.id !== remoteTask.id && item?.serverJobId !== job.id)
-  ].slice(0, limit);
+  ], limit, 'head');
 }
 
 export function markRemoteGenerationJobTask(queue, jobId, status = 'done', now = Date.now()) {

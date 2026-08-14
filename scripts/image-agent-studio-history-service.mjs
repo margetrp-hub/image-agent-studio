@@ -310,14 +310,14 @@ const gatewayFetchAgent = new Agent({
   bodyTimeout: GATEWAY_FETCH_TIMEOUT_MS,
   keepAliveTimeout: 120_000,
   keepAliveMaxTimeout: 120_000,
-  connections: Math.max(8, JOB_CONCURRENCY * 4)
+  ...(JOB_CONCURRENCY > 0 ? { connections: Math.max(8, JOB_CONCURRENCY * 4) } : {})
 });
 const videoPollAgent = new Agent({
   headersTimeout: GATEWAY_FETCH_TIMEOUT_MS,
   bodyTimeout: GATEWAY_FETCH_TIMEOUT_MS,
   keepAliveTimeout: 10_000,
   keepAliveMaxTimeout: 10_000,
-  connections: Math.max(4, JOB_CONCURRENCY * 2),
+  ...(JOB_CONCURRENCY > 0 ? { connections: Math.max(4, JOB_CONCURRENCY * 2) } : {}),
   pipelining: 0
 });
 
@@ -756,7 +756,7 @@ async function readJobs(auth) {
 
 async function writeJobsUnlocked(auth, jobs) {
   await ensureUserDirs(auth);
-  await atomicWriteJson(jobsPath(auth), jobs.slice(0, JOB_LIMIT));
+  await atomicWriteJson(jobsPath(auth), JOB_LIMIT > 0 ? jobs.slice(0, JOB_LIMIT) : jobs);
 }
 
 async function writeJobs(auth, jobs) {
@@ -1189,7 +1189,9 @@ function sanitizeCanvasCustomLinks(links) {
 }
 
 function sanitizeGenerationQueue(items) {
-  const source = Array.isArray(items) ? items.slice(-SESSION_QUEUE_LIMIT) : [];
+  const source = Array.isArray(items)
+    ? SESSION_QUEUE_LIMIT > 0 ? items.slice(-SESSION_QUEUE_LIMIT) : items
+    : [];
   return source
     .filter((item) => item && typeof item === 'object')
     .map((item) => ({
@@ -1215,7 +1217,7 @@ function sanitizeGenerationQueue(items) {
       resolutionTier: text(item.resolutionTier, 40),
       outputFormat: text(item.outputFormat, 20),
       moderation: text(item.moderation, 40),
-      count: Math.max(1, Math.min(4, Number(item.count || 1))),
+      count: Math.max(1, Math.min(10, Number(item.count || 1))),
       selectedCanvasNodeId: text(item.selectedCanvasNodeId, 120),
       selectedCanvasNodeSnapshot: sanitizeSessionObject(item.selectedCanvasNodeSnapshot),
       referencesOpen: Boolean(item.referencesOpen),
@@ -1223,9 +1225,9 @@ function sanitizeGenerationQueue(items) {
       restorable: Boolean(item.restorable),
       restored: Boolean(item.restored),
       stage: text(item.stage, 40),
-      completed: Math.max(0, Math.min(4, Number(item.completed || 0))),
-      total: Math.max(1, Math.min(4, Number(item.total || item.count || 1))),
-      resultUrls: Array.isArray(item.resultUrls) ? item.resultUrls.slice(0, 4).map((value) => text(value, 1200)).filter(Boolean) : [],
+      completed: Math.max(0, Math.min(10, Number(item.completed || 0))),
+      total: Math.max(1, Math.min(10, Number(item.total || item.count || 1))),
+      resultUrls: Array.isArray(item.resultUrls) ? item.resultUrls.slice(0, 10).map((value) => text(value, 1200)).filter(Boolean) : [],
       requestIds: Array.isArray(item.requestIds) ? item.requestIds.slice(0, 8).map((value) => text(value, 160)).filter(Boolean) : [],
       error: item.error && typeof item.error === 'object'
         ? {
@@ -1320,7 +1322,7 @@ async function sanitizeRecord(auth, body) {
     usageSummary: text(body.usageSummary || body.costSummary || '', 240),
     costSummary: text(body.costSummary || '', 240),
     timing: sanitizeSessionObject(body.timing),
-    count: Math.max(1, Math.min(4, Number(body.count || 1))),
+    count: Math.max(1, Math.min(10, Number(body.count || 1))),
     resultUrls,
     case: sanitizeCase(body.case)
   };
@@ -1877,7 +1879,7 @@ function buildJobRecord(body) {
   const request = body?.request && typeof body.request === 'object' ? body.request : body;
   const mode = request.mode === 'video' ? 'video' : ['edit', 'mask'].includes(request.mode) ? request.mode : 'image';
   const route = mode === 'video' ? 'video' : mode === 'image' && request.route !== 'edits' ? 'generations' : 'edits';
-  const count = mode === 'video' ? 1 : Math.max(1, Math.min(4, Number(request.n || request.count || 1)));
+  const count = mode === 'video' ? 1 : Math.max(1, Math.min(10, Number(request.n || request.count || 1)));
   const now = new Date().toISOString();
   return {
     id: cleanJobId(request.id || body.id),
@@ -2341,7 +2343,7 @@ async function drainGenerationQueue(userKey) {
   const queue = jobQueues.get(userKey);
   if (!queue || queue.draining) return;
   queue.draining = true;
-  while (queue.items.length && queue.running < JOB_CONCURRENCY) {
+  while (queue.items.length && (!JOB_CONCURRENCY || queue.running < JOB_CONCURRENCY)) {
     const item = queue.items.shift();
     queue.running += 1;
     runGenerationJob(item.auth, item.jobId, item.runtime, item.resumeTaskId)
@@ -2783,7 +2785,8 @@ async function handler(req, res) {
 
     if (req.method === 'GET' && parts[0] === 'studio-api' && parts[1] === 'generation-jobs' && parts.length === 2) {
       const sessionId = text(url.searchParams.get('sessionId'), 120);
-      const limit = Math.max(1, Math.min(JOB_LIMIT, Number(url.searchParams.get('limit') || 40)));
+      const requestedLimit = Math.max(1, Number(url.searchParams.get('limit') || 40));
+      const limit = JOB_LIMIT > 0 ? Math.min(JOB_LIMIT, requestedLimit) : requestedLimit;
       const jobs = await readJobs(auth);
       recoverPersistedVideoJobs(auth, jobs);
       const filtered = sessionId ? jobs.filter((job) => job.sessionId === sessionId) : jobs;
@@ -2817,7 +2820,7 @@ async function handler(req, res) {
         }
         job.billing = reserveJobCredits(auth, job);
         try {
-          await writeJobsUnlocked(auth, [job, ...jobs.filter((item) => item.id !== job.id)].slice(0, JOB_LIMIT));
+          await writeJobsUnlocked(auth, [job, ...jobs.filter((item) => item.id !== job.id)]);
         } catch (error) {
           if (job.billing) refundJobCredits(auth, job, 'enqueue_failed');
           throw error;

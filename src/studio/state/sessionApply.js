@@ -45,7 +45,10 @@ export function deriveSessionStateFromSnapshot(snapshot, deps) {
   const size = normalizeSize(parameters.size || parameters.customSize || fallbackCustomSize);
 
   const generationQueue = Array.isArray(snapshot.generationQueue)
-    ? snapshot.generationQueue.map(serializeGenerationQueueItem).filter(Boolean).slice(-generationQueueLimit)
+    ? snapshot.generationQueue
+      .map(serializeGenerationQueueItem)
+      .filter(Boolean)
+      .slice(generationQueueLimit > 0 ? -generationQueueLimit : 0)
     : [];
 
   const assistantMessages = Array.isArray(snapshot.assistantMessages)

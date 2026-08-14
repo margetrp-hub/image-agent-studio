@@ -216,6 +216,16 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     await page.mouse.up();
     await page.waitForFunction(() => document.querySelector('.canvasQueueDock')?.classList.contains('isPositioned'), null, { timeout: 3000 });
   }
+  const historyToggle = page.locator('.composerHistoryToggle');
+  if (await historyToggle.count()) {
+    assert(
+      await historyToggle.getAttribute('aria-expanded') === 'false',
+      `${name}: conversation history should be collapsed by default.`
+    );
+    await historyToggle.click();
+    await page.waitForSelector('.composerThread.isHistoryOpen', { timeout: 3000 });
+    await page.waitForTimeout(260);
+  }
   const screenshotPath = `${screenshotDir}/composer-layout-${name}.png`;
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
@@ -456,19 +466,11 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     assert(visibleMessage.width >= Math.min(200, result.rects.thread.width - 16), `${name}: visible message collapsed into a narrow vertical bubble.`, result);
     assert(visibleMessageText.width >= Math.min(150, result.rects.thread.width - 58), `${name}: visible message text became too narrow to read horizontally.`, result);
   }
-  if (liveStatus) {
-    assert(result.rects.liveStatus, `${name}: live generation status bar was not visible.`, result);
-    assert(result.rects.liveProgress, `${name}: live generation progress track was not visible.`, result);
-    assert(
-      result.rects.thread
-        ? result.rects.liveStatus.y >= result.rects.head.bottom - 2 && result.rects.liveStatus.bottom <= result.rects.thread.y + 2
-        : result.rects.liveStatus.y >= result.rects.head.bottom - 2,
-      `${name}: live status bar is not fixed between the header and chat thread.`,
-      result
-    );
-  } else {
-    assert(!result.rects.liveStatus, `${name}: live status bar appeared when generation is idle.`, result);
-  }
+  assert(
+    !result.rects.liveStatus,
+    `${name}: canvas mode should keep live generation status in the top queue dock, not in the bottom composer.`,
+    result
+  );
   assert(result.rects.prompt, `${name}: prompt row was not visible.`, result);
   assert(
     result.rects.actions.y >= result.rects.prompt.y - 1 && result.rects.actions.bottom <= result.rects.prompt.bottom + 1,
@@ -565,6 +567,13 @@ async function runCloseReopenScenario(browser, baseUrl) {
 
   await closeButtons.first().click();
   await page.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 5000 });
+  const historyToggle = page.locator('.composerHistoryToggle');
+  assert(await historyToggle.getAttribute('aria-expanded') === 'false', 'close/reopen: history should remain collapsed after reopening.', {
+    ariaExpanded: await historyToggle.getAttribute('aria-expanded')
+  });
+  await historyToggle.click();
+  await page.waitForSelector('.composerThread.isHistoryOpen', { timeout: 3000 });
+  await page.waitForTimeout(260);
   const reopened = await page.evaluate(() => {
     const composer = document.querySelector('.bottomComposerBar.isExpandedComposer');
     const thread = document.querySelector('.bottomComposerBar.isExpandedComposer .composerThread');
@@ -572,11 +581,15 @@ async function runCloseReopenScenario(browser, baseUrl) {
     const threadBox = thread?.getBoundingClientRect();
     return {
       composer: box ? { width: box.width, height: box.height } : null,
-      thread: threadBox ? { width: threadBox.width, height: threadBox.height } : null
+      thread: threadBox ? {
+        width: threadBox.width,
+        height: threadBox.height,
+        className: thread.className
+      } : null
     };
   });
   assert(reopened.composer?.height >= 430, 'close/reopen: expand button did not restore the full composer.', reopened);
-  assert(reopened.thread?.height >= 120, 'close/reopen: restored composer thread is not visible.', reopened);
+  assert(reopened.thread?.height >= 60, 'close/reopen: restored composer thread is not visible.', reopened);
 
   const screenshotPath = `${screenshotDir}/composer-layout-close-reopen.png`;
   await page.screenshot({ path: screenshotPath, fullPage: true });

@@ -45,7 +45,7 @@ mustInclude('docker-compose.yml', 'STUDIO_HISTORY_UPSTREAM: http://studio-histor
 mustInclude('docker-compose.yml', 'STUDIO_AUTH_MODE: ${STUDIO_AUTH_MODE:-standalone}', 'Docker should default to Studio-owned user authentication');
 mustInclude('docker-compose.yml', 'STUDIO_AUTH_REGISTRATION_MODE: ${STUDIO_AUTH_REGISTRATION_MODE:-open}', 'Docker should default to user self-registration');
 mustInclude('docker-compose.yml', 'studio-data:/data', 'History, sessions, jobs, and generated assets must persist in a volume');
-mustInclude('docker-compose.yml', 'STUDIO_JOB_CONCURRENCY: ${STUDIO_JOB_CONCURRENCY:-2}', 'Server-side queue concurrency must be explicit and bounded');
+mustInclude('docker-compose.yml', 'STUDIO_JOB_CONCURRENCY: ${STUDIO_JOB_CONCURRENCY:-0}', 'Server-side queue concurrency must default to no Workbench-side cap');
 mustInclude('docker-compose.yml', 'STUDIO_GATEWAY_FETCH_TIMEOUT_MS: ${STUDIO_GATEWAY_FETCH_TIMEOUT_MS:-2640000}', 'Gateway fetch timeout must outlast slow native image jobs');
 
 mustInclude('deploy/docker-nginx.conf.template', 'location /studio/', 'Docker Nginx must serve the Studio route');

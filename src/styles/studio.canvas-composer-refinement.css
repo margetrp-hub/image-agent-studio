@@ -1,0 +1,181 @@
+/* Canvas mode keeps the conversation surface focused on input. */
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer {
+  width: min(900px, calc(100% - 44px)) !important;
+  min-width: min(520px, calc(100% - 44px)) !important;
+  max-width: 900px !important;
+  height: min(500px, calc(100dvh - 56px)) !important;
+  min-height: min(390px, calc(100dvh - 56px)) !important;
+  max-height: min(500px, calc(100dvh - 56px)) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: 44px 34px minmax(0, 1fr) 40px !important;
+  gap: 8px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer.noThread {
+  grid-template-rows: 44px minmax(0, 1fr) 40px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer:has(.composerParamShelf.isExpanded) {
+  height: min(620px, calc(100dvh - 44px)) !important;
+  min-height: min(430px, calc(100dvh - 44px)) !important;
+  max-height: min(620px, calc(100dvh - 44px)) !important;
+  grid-template-rows: 44px 34px minmax(0, 1fr) 132px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer.noThread:has(.composerParamShelf.isExpanded) {
+  grid-template-rows: 44px minmax(0, 1fr) 132px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer:has(.composerThread.isHistoryOpen) {
+  grid-template-rows: 44px 154px minmax(0, 1fr) 40px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer:has(.composerThread.isHistoryOpen):has(.composerParamShelf.isExpanded) {
+  grid-template-rows: 44px 154px minmax(0, 1fr) 132px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPanelTitle em:empty {
+  display: none !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerThread {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerThread.isHistoryCollapsed {
+  height: 34px !important;
+  max-height: 34px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerThread.isHistoryOpen {
+  height: 154px !important;
+  min-height: 154px !important;
+  max-height: 154px !important;
+  align-self: stretch !important;
+}
+
+.composerHistoryToggle {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--studio-surface-soft) 92%, #fff);
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.composerHistoryToggle:hover {
+  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border));
+  background: color-mix(in srgb, var(--studio-primary) 7%, var(--studio-surface-strong));
+  color: var(--studio-primary);
+}
+
+.composerHistoryToggle em {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-primary) 10%, var(--studio-surface-strong));
+  color: var(--studio-primary);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.composerThreadMessages {
+  height: calc(100% - 42px);
+  min-height: 0;
+  margin-top: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-gutter: stable;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPromptRow {
+  grid-column: 1 / -1 !important;
+  grid-row: 3 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-self: stretch !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer.noThread .composerPromptRow {
+  grid-row: 2 !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .bottomComposerInput textarea {
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+  resize: vertical !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerActionGroup {
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerAssistantAction,
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerGenerateAction {
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  border-radius: 14px !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerParamShelf {
+  grid-column: 1 / -1 !important;
+  grid-row: 4 !important;
+}
+
+.studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer.noThread .composerParamShelf {
+  grid-row: 3 !important;
+}
+
+@media (max-width: 760px) {
+  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer {
+    width: calc(100% - 20px) !important;
+    min-width: 0 !important;
+    height: min(520px, calc(100dvh - 32px)) !important;
+    min-height: min(360px, calc(100dvh - 32px)) !important;
+    max-height: min(520px, calc(100dvh - 32px)) !important;
+  }
+
+  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer:has(.composerParamShelf.isExpanded) {
+    height: min(610px, calc(100dvh - 28px)) !important;
+  }
+
+  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPromptRow {
+    grid-template-columns: minmax(0, 1fr) 58px !important;
+  }
+
+  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerActionGroup,
+  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerAssistantAction,
+  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerGenerateAction {
+    width: 58px !important;
+    min-width: 58px !important;
+    max-width: 58px !important;
+  }
+}

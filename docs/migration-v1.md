@@ -79,7 +79,7 @@ The Go API can explicitly execute an OpenAI-compatible image job when `STUDIO_GO
 
 Required:
 
-- bounded per-user workers and dedupe;
+- optional per-user worker cap and dedupe; set it to `0` to remove the Workbench-side cap while preserving provider and network limits;
 - adapter dispatch for image, edit, and video contracts;
 - retry and timeout ownership;
 - uncertain-outcome handling after disconnect or restart;

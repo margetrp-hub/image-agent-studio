@@ -23,7 +23,7 @@ assert.equal(config.AUTH_LOGIN_MAX_BODY_BYTES, 16 * 1024);
 assert.equal(config.CREDITS_ENABLED, false);
 assert.equal(config.USER_PROVIDER_ONLY, true);
 assert.equal(config.AI_GATEWAY_BASE_URL, 'https://legacy-gateway.example/v1');
-assert.equal(config.JOB_CONCURRENCY, 6);
+assert.equal(config.JOB_CONCURRENCY, 99);
 assert.equal(config.SERVICE_STARTED_AT, 12345);
 const deployedVersion = createServiceConfig({
   scriptsDir,
@@ -66,7 +66,7 @@ assert.equal(explicit.PROVIDER_API_KEY, 'server-secret');
 assert.equal(explicit.PROVIDER_CHAT_MODEL, 'chat-model');
 assert.equal(explicit.CREDITS_ENABLED, true);
 assert.equal(explicit.USER_PROVIDER_ONLY, false);
-assert.equal(explicit.JOB_CONCURRENCY, 1);
+assert.equal(explicit.JOB_CONCURRENCY, 0);
 
 assert.throws(() => createServiceConfig({ scriptsDir, env: { STUDIO_AUTH_MODE: 'typo' } }), /Unsupported STUDIO_AUTH_MODE/);
 assert.throws(() => createServiceConfig({ scriptsDir, env: { STUDIO_AUTH_REGISTRATION_MODE: 'invite-only' } }), /Unsupported STUDIO_AUTH_REGISTRATION_MODE/);

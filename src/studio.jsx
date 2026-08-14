@@ -78,6 +78,7 @@ import './styles/studio.workstation-shell.css';
 import './styles/studio.playground-polish.css';
 import './styles/studio.flow-modes.css';
 import './styles/studio.composer-state-polish.css';
+import './styles/studio.canvas-composer-refinement.css';
 import {
   clearSession,
   getImageUrls,
@@ -2703,7 +2704,7 @@ function CreationDesk({
       return false;
     }
     const activeCount = activeGenerationQueueCount(generationQueueRef.current);
-    if (activeCount >= GENERATION_QUEUE_LIMIT) {
+    if (GENERATION_QUEUE_LIMIT > 0 && activeCount >= GENERATION_QUEUE_LIMIT) {
       setStatus('error');
       setMessage(t('statusMessages.queueLimit', '当前队列已满，最多保留 {count} 个待生成任务。', { count: GENERATION_QUEUE_LIMIT }));
       return false;
@@ -2721,14 +2722,18 @@ function CreationDesk({
   function enqueueGenerationTask(task) {
     if (!validateGenerationTask(task)) return false;
     const activeCount = activeGenerationQueueCount(generationQueueRef.current);
-    const availableSlots = Math.max(0, GENERATION_CONCURRENCY - activeCount);
+    const availableSlots = GENERATION_CONCURRENCY > 0
+      ? Math.max(0, GENERATION_CONCURRENCY - activeCount)
+      : Number.POSITIVE_INFINITY;
     showComposerForGeneration();
     commitGenerationQueue(appendGenerationQueueTask(generationQueueRef.current, task));
     setMessage(activeCount && availableSlots > 0
-      ? t('statusMessages.parallelStarted', '已加入并行生成，当前将同时运行 {count}/{limit} 个任务。', {
-        count: Math.min(GENERATION_CONCURRENCY, activeCount + 1),
-        limit: GENERATION_CONCURRENCY
-      })
+      ? GENERATION_CONCURRENCY > 0
+        ? t('statusMessages.parallelStarted', '已加入并行生成，当前将同时运行 {count}/{limit} 个任务。', {
+          count: Math.min(GENERATION_CONCURRENCY, activeCount + 1),
+          limit: GENERATION_CONCURRENCY
+        })
+        : t('statusMessages.parallelStartedUnlimited', '已加入并行生成，工作台不设置并发上限。')
       : activeCount
         ? t('statusMessages.queueAddedBehind', '当前并发已满，已进入等待队列，前面还有 {count} 个任务。', { count: activeCount })
         : t('statusMessages.queueAdded', '已开始生成。'));
@@ -2743,7 +2748,10 @@ function CreationDesk({
   function runGenerationQueue() {
     if (generationQueueRunnerRef.current) return;
     generationQueueRunnerRef.current = true;
-    while (generationQueueActiveCountRef.current < GENERATION_CONCURRENCY) {
+    while (
+      (!GENERATION_CONCURRENCY || generationQueueActiveCountRef.current < GENERATION_CONCURRENCY)
+      && firstQueuedGenerationTask(generationQueueRef.current)
+    ) {
         const nextTask = firstQueuedGenerationTask(generationQueueRef.current);
         if (!nextTask) break;
         if (nextTask.remote || nextTask.restorable === false) {
@@ -3511,7 +3519,9 @@ function CreationDesk({
     : selectedCase?.imageAlt || selectedCase?.title || 'Preview';
   const activeGenerationCount = generationQueue.filter((item) => item?.status === 'running').length;
   const activeQueuedGenerationCount = activeGenerationQueueCount(generationQueue);
-  const availableGenerationSlots = Math.max(0, GENERATION_CONCURRENCY - activeQueuedGenerationCount);
+  const availableGenerationSlots = GENERATION_CONCURRENCY > 0
+    ? Math.max(0, GENERATION_CONCURRENCY - activeQueuedGenerationCount)
+    : Number.POSITIVE_INFINITY;
   const isGenerating = activeGenerationCount > 0
     || (status === 'loading' && Boolean(generationRef.current.controller));
   const generationActionDisabled = false;
@@ -4986,9 +4996,9 @@ function CreationDesk({
       </section>
       <BottomComposerPanel
         composerFolded={composerFolded}
-        composerRouteLabel={composerRouteLabel}
+        composerRouteLabel={workspaceFlowMode === 'single' ? composerRouteLabel : ''}
         composerThreadHasContent={composerThreadHasContent}
-        hasLiveStatus={composerGenerationVisible}
+        hasLiveStatus={workspaceFlowMode === 'single' && composerGenerationVisible}
         hasLineage={Boolean(selectedCanvasNode)}
         hasReferences={layoutSections.references}
         isOpen={layoutSections.bottomComposer}
@@ -4999,7 +5009,7 @@ function CreationDesk({
         selectedCanvasNode={selectedCanvasNode}
         t={t}
       >
-        {layoutSections.bottomComposer && !composerFolded && composerGenerationVisible ? (
+        {workspaceFlowMode === 'single' && layoutSections.bottomComposer && !composerFolded && composerGenerationVisible ? (
           <ComposerLiveStatus
             progress={progress}
             status={status}

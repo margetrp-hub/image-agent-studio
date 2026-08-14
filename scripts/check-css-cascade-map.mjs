@@ -41,7 +41,8 @@ const expectedCssImports = [
   './styles/studio.workstation-shell.css',
   './styles/studio.playground-polish.css',
   './styles/studio.flow-modes.css',
-  './styles/studio.composer-state-polish.css'
+  './styles/studio.composer-state-polish.css',
+  './styles/studio.canvas-composer-refinement.css'
 ];
 const lazyCssImports = [
   './styles/studio.provider-settings.css',
@@ -227,6 +228,10 @@ const cssBudgets = {
   'src/styles/studio.composer-state-polish.css': {
     lines: 300,
     important: 230
+  },
+  'src/styles/studio.canvas-composer-refinement.css': {
+    lines: 220,
+    important: 90
   }
 };
 const selectorOwnership = [
@@ -288,8 +293,8 @@ if (cssImports.length !== expectedCssImports.length) {
   failures.push(`src/studio.jsx should have ${expectedCssImports.length} CSS imports, found ${cssImports.length}.`);
 }
 
-if (cssImports.at(-1) !== './styles/studio.composer-state-polish.css') {
-  failures.push('src/studio.jsx must import ./styles/studio.composer-state-polish.css last so the composer state layer remains authoritative.');
+if (cssImports.at(-1) !== './styles/studio.canvas-composer-refinement.css') {
+  failures.push('src/studio.jsx must import ./styles/studio.canvas-composer-refinement.css last so canvas composer rules remain authoritative.');
 }
 
 lazyCssImports.forEach((lazyImport) => {
