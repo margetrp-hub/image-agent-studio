@@ -55,10 +55,10 @@
 }
 
 .singleGenerationWorkspace .singleGenerationFormPanel {
-  align-self: stretch;
-  min-height: 100%;
+  align-self: start;
+  min-height: 0;
 }
 
 .singleGenerationWorkspace .singleActionBar {
-  margin-top: auto;
+  margin-top: 0;
 }

@@ -9,11 +9,12 @@ body:has(.singleGenerationWorkspace),
   inset: 0;
   padding: clamp(14px, 1.7vw, 24px);
   display: grid;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .singleGenerationWorkspace > div {
   width: min(1760px, 100%);
+  height: 100%;
   min-height: 100%;
   margin: auto;
   display: grid;
@@ -29,7 +30,7 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleGenerationWorkspace section {
-  padding: 16px;
+  padding: 14px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent);
   border-radius: var(--studio-radius-panel, 22px);
   background: color-mix(in srgb, var(--studio-surface-strong) 95%, transparent);
@@ -39,18 +40,36 @@ body:has(.singleGenerationWorkspace),
   backdrop-filter: blur(14px);
 }
 
-.singleGenerationWorkspace section:first-child,
+.singleGenerationControlColumn,
 .singleGenerationSide {
   display: grid;
   gap: 14px;
 }
 
+.singleGenerationControlColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.singleGenerationControlColumn > * {
+  flex: 0 0 auto;
+}
+
 .singleGenerationSide {
-  grid-template-rows: minmax(420px, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr);
   align-self: stretch;
+  min-height: 0;
 }
 
 .singleGenerationFormPanel {
+  display: grid;
+  gap: 6px;
+  padding: 10px !important;
   align-self: start;
   align-content: start;
 }
@@ -64,8 +83,7 @@ body:has(.singleGenerationWorkspace),
   flex-wrap: wrap;
 }
 
-.singleGenerationHead strong,
-.singleTipsPanel > strong {
+.singleGenerationHead strong {
   display: block;
   color: var(--studio-text-strong);
   font-size: 17px;
@@ -118,14 +136,14 @@ body:has(.singleGenerationWorkspace),
 .singleFieldGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
   align-items: end;
 }
 
 .singleParamsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 11px;
+  gap: 9px;
 }
 
 .singleField,
@@ -158,7 +176,7 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleField :is(select, input) {
-  min-height: 44px;
+  min-height: 42px;
   padding: 0 12px;
 }
 
@@ -175,7 +193,7 @@ body:has(.singleGenerationWorkspace),
 .singleField:has(.singleKeyButton) .singleKeyButton {
   min-width: 0;
   width: 100%;
-  min-height: 44px;
+  min-height: 42px;
   justify-content: flex-start;
   padding-right: 108px;
 }
@@ -190,11 +208,42 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singlePromptBox textarea {
-  min-height: clamp(136px, 18vh, 200px);
-  max-height: 260px;
+  min-height: clamp(78px, 9vh, 98px);
+  max-height: 150px;
   padding: 12px 13px;
   line-height: 1.55;
   resize: vertical;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--studio-muted) 58%, transparent) transparent;
+}
+
+.singlePromptBox textarea::-webkit-scrollbar {
+  width: 10px;
+}
+
+.singlePromptBox textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.singlePromptBox textarea::-webkit-scrollbar-thumb {
+  min-height: 34px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-muted) 58%, transparent);
+  background-clip: padding-box;
+}
+
+.singlePromptBox textarea::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--studio-primary) 72%, var(--studio-muted));
+  background-clip: padding-box;
+}
+
+.singlePromptBox textarea::-webkit-scrollbar-button,
+.singlePromptBox textarea::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .singleKeyButton strong,
@@ -217,8 +266,8 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleUploadDrop {
-  min-height: clamp(88px, 12vh, 118px);
-  padding: 14px;
+  min-height: clamp(58px, 6.5vh, 70px);
+  padding: 8px 10px;
   display: grid;
   place-items: center;
   gap: 6px;
@@ -327,38 +376,10 @@ body:has(.singleGenerationWorkspace),
   color: var(--studio-danger);
 }
 
-.singleGenerationSide .singleStatusPanel {
+.singleGenerationWorkspace .singleStatusPanel {
   display: grid;
   gap: 10px;
-  padding: 14px 16px;
-}
-
-.singleGenerationSide .singleTipsPanel {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-}
-
-.singleGenerationSide .singleTipsPanel > strong {
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.singleTipsPanel div {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.singleTipsPanel span {
-  padding: 8px 10px;
-  border-radius: var(--studio-radius-control, 16px);
-  background: var(--studio-surface-soft);
-  color: var(--studio-muted);
-  font-size: 11px;
-  line-height: 1.35;
+  padding: 10px 12px;
 }
 
 /* A single result is the work surface in this mode, not a thumbnail card. */
@@ -405,10 +426,88 @@ body:has(.singleGenerationWorkspace),
   background: transparent !important;
 }
 
-/* Keep the status readable while removing the repeated vertical padding. */
-.singleGenerationSide .singleStatusPanel {
+.singleLatestResult .resultGridCarousel {
+  position: relative;
+  overflow: hidden;
+}
+
+.singleLatestResult .resultCarouselButton {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #fff 78%, var(--studio-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+  color: var(--studio-text-strong);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(12px);
+  transform: translateY(-50%);
+}
+
+.singleLatestResult .resultCarouselPrevious {
+  left: 16px;
+}
+
+.singleLatestResult .resultCarouselNext {
+  right: 16px;
+}
+
+.singleLatestResult .resultCarouselButton:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--studio-primary) 56%, var(--studio-border));
+  color: var(--studio-primary);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.singleLatestResult .resultCarouselButton:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.singleLatestResult .resultCarouselPosition {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 3;
+  min-height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
   gap: 7px;
-  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, #fff 76%, var(--studio-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent);
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
+  transform: translateX(-50%);
+}
+
+.singleLatestResult .resultCarouselPosition em {
+  color: var(--studio-primary);
+  font-style: normal;
+}
+
+/* Keep the status readable while removing the repeated vertical padding. */
+.singleGenerationWorkspace .singleStatusPanel {
+  gap: 5px;
+  padding: 8px 10px;
+}
+
+.singleStatusPanel .singleGenerationHead {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.singleStatusPanel .singleGenerationHead span {
+  margin-top: 2px;
 }
 
 .singleStatusPanel .generationProgress {
@@ -431,22 +530,22 @@ body:has(.singleGenerationWorkspace),
 
 .singleStatusPanel .generationTimingPanel {
   margin-top: 0;
-  gap: 6px;
-  padding: 8px;
+  gap: 4px;
+  padding: 6px;
   border-radius: 12px;
 }
 
-.singleStatusPanel .generationTimingPanel > div:first-child span {
+.singleStatusPanel .generationTimingPanel > div:first-child {
   display: none;
 }
 
 .singleStatusPanel .generationTimingPanel dl {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .singleStatusPanel .generationTimingPanel dl div {
-  padding: 6px 7px;
+  padding: 5px 6px;
   border-radius: 8px;
 }
 
@@ -460,7 +559,11 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleStatusPanel .singleStatusLine {
-  padding: 8px 10px;
+  padding: 6px 8px;
+}
+
+.singleStatusPanel .singleStatusLine.success {
+  display: none;
 }
 
 .singleReferenceThumbs figure {
@@ -504,22 +607,24 @@ body:has(.singleGenerationWorkspace),
     grid-template-rows: auto;
   }
 
-  .singleTipsPanel div {
-    grid-template-columns: 1fr;
-  }
-
   .singleStatusPanel .generationTimingPanel dl {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .singleGenerationSide .singleTipsPanel {
-    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
   .singleGenerationWorkspace {
     padding: 104px 10px 18px;
+    overflow-y: auto;
+  }
+
+  .singleGenerationWorkspace > div {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .singleGenerationControlColumn {
+    overflow: visible;
   }
 
   .singleGenerationWorkspace section {
@@ -577,5 +682,19 @@ body:has(.singleGenerationWorkspace),
   .singleField:has(.singleKeyButton) em {
     position: static;
     max-width: 100%;
+  }
+
+  .singleLatestResult .resultCarouselButton {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .singleLatestResult .resultCarouselPrevious {
+    left: 8px;
+  }
+
+  .singleLatestResult .resultCarouselNext {
+    right: 8px;
   }
 }

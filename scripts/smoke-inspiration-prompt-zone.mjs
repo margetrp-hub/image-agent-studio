@@ -49,6 +49,15 @@ try {
   const missingRequests = [];
 
   await page.addInitScript((items) => {
+    localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({
+      sessionId: 'prompt-zone-smoke-session',
+      mode: 'image',
+      status: 'idle',
+      prompt: 'Existing prompt must stay independent.',
+      model: 'gpt-image-2',
+      generationQueue: [],
+      canvasNodes: []
+    }));
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const url = typeof input === 'string' ? input : input?.url || '';
@@ -99,11 +108,13 @@ try {
     hasDesk: Boolean(document.querySelector('.creationDesk')),
     imageWorkspaceActive: Boolean(document.querySelector('[data-workspace="image"].active')),
     promptValue: document.querySelector('.creationDesk textarea')?.value || '',
-    promptTextVisible: document.body.innerText.includes('Prompt-only idea 1')
+    promptTextVisible: document.body.innerText.includes('Prompt-only idea 1'),
+    promptBadges: document.querySelectorAll('.promptOnlyZone .promptCaseMain > span').length
   }));
   assert(!useFlow.hasLightbox, 'Prompt-only cards should not open the image lightbox.', useFlow);
   assert(useFlow.hasDesk, 'Using a prompt-only inspiration should return to the creation desk.', useFlow);
-  assert(useFlow.promptValue.includes('Prompt-only idea 1'), 'Using a prompt-only inspiration should fill the composer prompt.', useFlow);
+  assert(useFlow.promptValue === 'Prompt-only idea 1: create a careful product scene with clear composition.', 'Using a prompt-only inspiration should replace, not append to, the composer prompt.', useFlow);
+  assert(useFlow.promptBadges === 0, 'Prompt-only cards should not repeat a prompt-type badge on every card.', useFlow);
 
   console.log(JSON.stringify({ ok: true, initial, useFlow }, null, 2));
 } finally {

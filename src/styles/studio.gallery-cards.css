@@ -295,17 +295,9 @@
 }
 
 .galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain {
-  padding: 44px 12px 48px !important;
-  grid-template-rows: auto auto 1fr auto !important;
+  padding: 14px 12px 48px !important;
+  grid-template-rows: auto 1fr auto !important;
   gap: 8px !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain > span {
-  position: static !important;
-  width: fit-content !important;
-  max-width: calc(100% - 140px) !important;
-  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-soft)) !important;
-  color: var(--studio-primary) !important;
 }
 
 .galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain > strong {

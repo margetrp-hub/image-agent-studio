@@ -44,4 +44,27 @@
   .settingsCallConfigHead span {
     text-align: left !important;
   }
+
+  .providerLibraryHead,
+  .providerEditorHead {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .providerLibraryNewButton {
+    width: 100%;
+  }
+
+  .providerEditorFeedback {
+    max-width: none;
+    text-align: left;
+  }
+
+  .providerLibraryItemMain {
+    padding-left: 3px !important;
+  }
+
+  .providerLibraryActive {
+    display: none;
+  }
 }

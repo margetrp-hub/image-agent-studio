@@ -18,6 +18,9 @@ export function ComposerParamShelf({
   layoutSections,
   mode,
   model,
+  providerProfiles = [],
+  activeProviderProfileId = '',
+  onProviderChange,
   onAspectChange,
   onCountChange,
   onModeChange,
@@ -78,6 +81,14 @@ export function ComposerParamShelf({
             <ArrowDown size={13} />
           </button>
           <div className="composerParamLane primary">
+            {providerProfiles.length ? (
+              <label className="composerParamField composerParamGroup composerProviderParamGroup">
+                <span>{t('settings.provider', '供应商')}</span>
+                <select value={activeProviderProfileId} onChange={(event) => onProviderChange?.(event.target.value)}>
+                  {providerProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                </select>
+              </label>
+            ) : null}
             {activeWorkspace === 'image' ? (
               <div className="composerModeSegment composerParamGroup composerParamModeGroup" role="group" aria-label={t('workspace.image', '图片创作')}>
                 {deskModes.map((item) => {

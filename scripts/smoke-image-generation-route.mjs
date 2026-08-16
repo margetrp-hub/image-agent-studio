@@ -141,6 +141,53 @@ try {
   await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
   await page.waitForFunction(() => document.querySelectorAll('.resultGrid img, .canvasNode img').length >= 1, null, { timeout: 12000 });
+  const carouselBefore = await page.evaluate(() => ({
+    figures: document.querySelectorAll('.singleLatestResult .resultGridCarousel figure').length,
+    images: document.querySelectorAll('.singleLatestResult .resultGridCarousel img').length,
+    alt: document.querySelector('.singleLatestResult .resultGridCarousel img')?.alt || '',
+    position: document.querySelector('.singleLatestResult .resultCarouselPosition')?.textContent || '',
+    previousDisabled: document.querySelector('.singleLatestResult .resultCarouselPrevious')?.disabled,
+    nextDisabled: document.querySelector('.singleLatestResult .resultCarouselNext')?.disabled
+  }));
+  const singleLayout = await page.evaluate(() => {
+    const workspace = document.querySelector('.singleGenerationWorkspace');
+    const controlColumn = document.querySelector('.singleGenerationControlColumn');
+    const resultSide = document.querySelector('.singleGenerationSide');
+    const formPanel = controlColumn?.querySelector(':scope > .singleGenerationFormPanel');
+    const statusPanel = controlColumn?.querySelector(':scope > .singleStatusPanel');
+    const formRect = formPanel?.getBoundingClientRect();
+    const statusRect = statusPanel?.getBoundingClientRect();
+    return {
+      statusInControlColumn: Boolean(controlColumn?.querySelector(':scope > .singleStatusPanel')),
+      hasTipsPanel: Boolean(controlColumn?.querySelector(':scope > .singleTipsPanel')),
+      resultSidePanels: resultSide?.children.length || 0,
+      workspaceScrolls: Boolean(workspace && workspace.scrollHeight > workspace.clientHeight + 1),
+      controlColumnScrolls: Boolean(controlColumn && controlColumn.scrollHeight > controlColumn.clientHeight + 1),
+      formHeight: formRect?.height || 0,
+      formScrollHeight: formPanel?.scrollHeight || 0,
+      formBottom: formRect?.bottom || 0,
+      statusTop: statusRect?.top || 0,
+      statusHeight: statusRect?.height || 0
+    };
+  });
+  await page.locator('.singleLatestResult .resultCarouselPrevious').click();
+  const carouselAfterPrevious = await page.evaluate(() => ({
+    alt: document.querySelector('.singleLatestResult .resultGridCarousel img')?.alt || '',
+    position: document.querySelector('.singleLatestResult .resultCarouselPosition')?.textContent || ''
+  }));
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.waitForTimeout(100);
+  const widescreenLayout = await page.evaluate(() => {
+    const workspace = document.querySelector('.singleGenerationWorkspace');
+    const controlColumn = document.querySelector('.singleGenerationControlColumn');
+    return {
+      workspaceScrolls: Boolean(workspace && workspace.scrollHeight > workspace.clientHeight + 1),
+      controlColumnScrolls: Boolean(controlColumn && controlColumn.scrollHeight > controlColumn.clientHeight + 1),
+      workspaceHeight: workspace?.clientHeight || 0,
+      controlColumnHeight: controlColumn?.clientHeight || 0,
+      controlColumnScrollHeight: controlColumn?.scrollHeight || 0
+    };
+  });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   const result = await page.evaluate(({ providerSettingsKey, manualSecretKey, fakeSecret }) => ({
@@ -173,6 +220,18 @@ try {
   assert(result.sessionSecret === fakeSecret, 'Manual API key was not retained in sessionStorage for the current session.', result);
   assert(!result.hasSecretInDom, 'Manual API key leaked into visible page text.', result);
   assert(result.resultImages >= 1, 'Successful generation did not render a result image.', result);
+  assert(carouselBefore.figures === 1 && carouselBefore.images === 1, 'Single-generation mode should render one large result at a time.', carouselBefore);
+  assert(carouselBefore.alt.endsWith(' 4') && carouselBefore.position.includes('4 / 4'), 'The result carousel should open on the latest image.', carouselBefore);
+  assert(carouselBefore.previousDisabled === false && carouselBefore.nextDisabled === true, 'Latest result navigation controls have the wrong initial state.', carouselBefore);
+  assert(carouselAfterPrevious.alt.endsWith(' 3') && carouselAfterPrevious.position.includes('3 / 4'), 'The previous result button did not move to the preceding image.', carouselAfterPrevious);
+  assert(singleLayout.statusInControlColumn, 'Generation status should be placed in the left control column.', singleLayout);
+  assert(!singleLayout.hasTipsPanel, 'The redundant single-generation tips panel should not consume workspace height.', singleLayout);
+  assert(singleLayout.resultSidePanels === 1, 'The right side should contain only the result panel.', singleLayout);
+  assert(!singleLayout.workspaceScrolls, 'Desktop single-generation workspace should fit without whole-page vertical scrolling.', singleLayout);
+  assert(!singleLayout.controlColumnScrolls, 'Desktop single-generation controls should fit without an internal scrollbar at the reference viewport.', singleLayout);
+  assert(singleLayout.formHeight >= singleLayout.formScrollHeight - 1, 'The single-generation form clipped its own content.', singleLayout);
+  assert(singleLayout.statusTop >= singleLayout.formBottom, 'The generation status overlapped the single-generation form.', singleLayout);
+  assert(!widescreenLayout.workspaceScrolls && !widescreenLayout.controlColumnScrolls, 'Widescreen single-generation mode should fit without vertical scrolling.', widescreenLayout);
   assert(!result.composerHasResultStrip, 'Generation results should stay on canvas/history, not inside the bottom chat composer.', result);
   assert(!result.composerHasThread, 'A successful result alone should not expand the bottom composer thread.', result);
 

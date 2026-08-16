@@ -174,7 +174,6 @@ function PromptCaseCard({ item, selected, onSelect, favorite, onToggleFavorite, 
   return (
     <div className={`caseTile promptOnly ${selected ? 'selected' : ''}`}>
       <button className="caseTileMain promptCaseMain" type="button" onClick={() => onSelect(item)}>
-        <span>{typeof item.id === 'number' ? `#${item.id}` : t('gallery.promptOnly', '提示词')}</span>
         <strong>{item.title}</strong>
         <p className="casePromptExcerpt">{compact(promptPreview, 180) || t('gallery.promptOnlyHint', '这条灵感暂时没有可用图片，但提示词仍可预览和选用。')}</p>
         {meta ? <em>{meta}</em> : null}

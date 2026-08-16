@@ -623,6 +623,13 @@ async function runCloseReopenScenario(browser, baseUrl) {
     };
   });
   assert(hidden.dock?.width >= 220 && hidden.dock?.height >= 44, 'close/reopen: hidden composer fallback is not a visible reopen dock.', hidden);
+  await hiddenPage.locator('.bottomComposerReopenDock').hover();
+  const hovered = await hiddenPage.evaluate(() => {
+    const dock = document.querySelector('.bottomComposerReopenDock');
+    const box = dock?.getBoundingClientRect();
+    return box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null;
+  });
+  assert(hovered && Math.abs(hovered.x - hidden.dock.x) <= 1, 'close/reopen: hovering the dock moved the edge-anchored panel horizontally.', { hidden, hovered });
   await hiddenPage.locator('.bottomComposerReopenDock').click();
   await hiddenPage.waitForSelector('.bottomComposerBar.isExpandedComposer', { timeout: 5000 });
 

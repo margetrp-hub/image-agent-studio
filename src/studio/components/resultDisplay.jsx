@@ -1,4 +1,5 @@
-import { Copy, Download, ImageIcon, Video, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Copy, Download, ImageIcon, Video, X } from 'lucide-react';
 import '../../styles/studio.prompt-lightbox.css';
 import { PromptSectionList } from './promptTools.jsx';
 import { ProtectedStudioImage } from './media.jsx';
@@ -120,7 +121,13 @@ export function VideoLightbox({ url, index = 0, downloadMeta, onClose, t = (key,
   );
 }
 
-export function ResultGrid({ urls, featured = false, outputFormat = 'png', downloadMeta, onPreview, t = (key, fallback) => fallback || key }) {
+export function ResultGrid({ urls, featured = false, carousel = false, outputFormat = 'png', downloadMeta, onPreview, t = (key, fallback) => fallback || key }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (carousel) setActiveIndex(Math.max(0, urls.length - 1));
+  }, [carousel, urls]);
+
   if (!urls.length) {
     return (
       <div className="emptyResult">
@@ -129,9 +136,14 @@ export function ResultGrid({ urls, featured = false, outputFormat = 'png', downl
       </div>
     );
   }
+  const currentIndex = Math.min(activeIndex, urls.length - 1);
+  const visibleResults = carousel
+    ? [{ url: urls[currentIndex], index: currentIndex }]
+    : urls.map((url, index) => ({ url, index }));
+  const carouselEnabled = carousel && urls.length > 1;
   return (
-    <div className={`resultGrid${featured && urls.length === 1 ? ' resultGridFeatured' : ''}`}>
-      {urls.map((url, index) => (
+    <div className={`resultGrid${featured ? ' resultGridFeatured' : ''}${carouselEnabled ? ' resultGridCarousel' : ''}`}>
+      {visibleResults.map(({ url, index }) => (
         <figure key={`${url}-${index}`}>
           <button type="button" className="resultPreviewButton" onClick={() => onPreview(url, index)}>
             <img src={url} alt={`${t('lightbox.imageAlt', '生成结果')} ${index + 1}`} />
@@ -147,6 +159,34 @@ export function ResultGrid({ urls, featured = false, outputFormat = 'png', downl
           </a>
         </figure>
       ))}
+      {carouselEnabled ? (
+        <>
+          <button
+            type="button"
+            className="resultCarouselButton resultCarouselPrevious"
+            onClick={() => setActiveIndex((index) => Math.max(0, index - 1))}
+            disabled={currentIndex === 0}
+            aria-label={t('canvas.previousResult', '上一张')}
+            title={t('canvas.previousResult', '上一张')}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            type="button"
+            className="resultCarouselButton resultCarouselNext"
+            onClick={() => setActiveIndex((index) => Math.min(urls.length - 1, index + 1))}
+            disabled={currentIndex === urls.length - 1}
+            aria-label={t('canvas.nextResult', '下一张')}
+            title={t('canvas.nextResult', '下一张')}
+          >
+            <ChevronRight size={20} />
+          </button>
+          <div className="resultCarouselPosition" aria-live="polite">
+            <span>{currentIndex + 1} / {urls.length}</span>
+            {currentIndex === urls.length - 1 ? <em>{t('canvas.latestResult', '最新')}</em> : null}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

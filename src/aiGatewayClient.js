@@ -221,6 +221,7 @@ function normalizeProviderSettings(value = {}) {
     return {
       ...providerDefaults,
       ...value,
+      providerProfileId: String(value.providerProfileId || '').trim(),
       providerId,
       apiKeySource,
       route: normalizeImageRoute(value.route || providerDefaults.route),
@@ -238,6 +239,7 @@ function normalizeProviderSettings(value = {}) {
   return {
     ...providerDefaults,
     ...value,
+    providerProfileId: String(value.providerProfileId || '').trim(),
     apiKeySource,
     providerId: normalizeSettingsProviderId(value.providerId, apiKeySource),
     route: normalizeImageRoute(value.route || providerDefaults.route),
@@ -296,6 +298,7 @@ function providerSettingsForStorage(settings) {
   if (STUDIO_STANDALONE) {
     const normalized = normalizeProviderSettings(settings);
     return {
+      providerProfileId: normalized.providerProfileId,
       providerId: normalized.providerId,
       apiKeySource: normalized.apiKeySource,
       route: normalized.route,

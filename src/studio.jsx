@@ -141,6 +141,15 @@ import {
   usesGatewayAccount
 } from './studio/util/providerSettings.js';
 import {
+  createProviderProfileId,
+  deleteProviderProfile,
+  loadProviderLibrary,
+  modelOptionsForProfile,
+  providerSettingsFromProfile,
+  saveProviderLibrary,
+  upsertProviderProfile
+} from './studio/util/providerLibrary.js';
+import {
   caseCardMeta,
   hasLibraryPreviewImage,
   templatePreviewImage,
@@ -707,6 +716,9 @@ function CreationDesk({
   client,
   providerSettings,
   onProviderChange,
+  providerProfiles = [],
+  activeProviderProfileId = '',
+  onSelectProvider,
   modelOptions,
   modelsStatus,
   usageSummary,
@@ -2037,10 +2049,10 @@ function CreationDesk({
 
   useEffect(() => {
     if (!appendTemplateRequest?.prompt) return;
-    setPrompt((current) => `${current.trim()}${current.trim() ? '\n\n' : ''}${appendTemplateRequest.prompt}`.trim());
+    setPrompt(appendTemplateRequest.prompt.trim());
     updateLayoutSections({ bottomComposer: true });
     setStatus('success');
-    setMessage(t('statusMessages.templateAppended', '已追加模板提示词。'));
+    setMessage(t('statusMessages.templateLoaded', '已载入独立提示词，可继续编辑。'));
     window.setTimeout(() => setStatus('idle'), 1200);
     onAppendTemplateConsumed?.(appendTemplateRequest.id);
   }, [appendTemplateRequest?.id]);
@@ -3960,7 +3972,8 @@ function CreationDesk({
         ) : (
           <div className="singleGenerationWorkspace">
             <div className="singleGenerationShell">
-              <section className="singleGenerationPanel singleGenerationFormPanel">
+              <div className="singleGenerationControlColumn">
+                <section className="singleGenerationPanel singleGenerationFormPanel">
                 <div className="singleGenerationHead">
                   <div>
                     <strong>{t('single.title', '单次生图')}</strong>
@@ -3977,16 +3990,20 @@ function CreationDesk({
                 </div>
                 <div className="singleFieldGrid">
                   <label className="singleField">
-                    <span>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : 'API Key'}</span>
-                    <button type="button" className="singleKeyButton" onClick={onOpenSettings}>
-                      {STUDIO_STANDALONE ? <Server size={14} /> : <KeyRound size={14} />}
-                      <strong>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
-                        ? t('settings.studioManagedProvider', '服务端托管')
-                        : providerLabel(providerSettings, apiKey)}</strong>
-                    </button>
-                    <em>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
-                      ? t('settings.serverManagedShort', '系统安全托管')
-                      : (apiKeyDisplay(apiKey) || t('rail.chooseKey', '选择 Key'))}</em>
+                    <span>{t('settings.provider', '供应商')}</span>
+                    {providerProfiles.length ? (
+                      <select value={activeProviderProfileId} onChange={(event) => onSelectProvider?.(event.target.value)}>
+                        {providerProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                      </select>
+                    ) : (
+                      <button type="button" className="singleKeyButton" onClick={onOpenSettings}>
+                        {STUDIO_STANDALONE ? <Server size={14} /> : <KeyRound size={14} />}
+                        <strong>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
+                          ? t('settings.studioManagedProvider', '服务端托管')
+                          : providerLabel(providerSettings, apiKey)}</strong>
+                      </button>
+                    )}
+                    <em>{t('settings.manageProviders', '在设置中管理供应商')}</em>
                   </label>
                   {isVideoSingleMode ? (
                     <label className="singleField">
@@ -4226,20 +4243,6 @@ function CreationDesk({
                     {generationActionLabel}
                   </button>
                 </div>
-              </section>
-              <div className="singleGenerationSide">
-                <section className={`singleGenerationPanel singleLatestResult ${hasPrimaryResult ? 'hasResult' : ''}`}>
-                  <div className="singleGenerationHead">
-                    <div>
-                      <strong>{isVideoSingleMode ? t('canvas.videoResult', '视频结果') : t('composer.resultTitle', '生成结果')}</strong>
-                      <span>{hasPrimaryResult ? t('composer.resultCount', '共 {count} 张', { count: singleResultCount }) : t('composer.pending', '待生成')}</span>
-                    </div>
-                  </div>
-                  {isVideoSingleMode ? (
-                    <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} t={t} />
-                  ) : (
-                    <ResultGrid urls={results} featured={results.length === 1} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
-                  )}
                 </section>
                 <section className="singleGenerationPanel singleStatusPanel">
                   <div className="singleGenerationHead">
@@ -4260,13 +4263,20 @@ function CreationDesk({
                   <GenerationTimingPanel timing={timing} t={t} />
                   {message ? <p className={`singleStatusLine ${status}`}>{message}</p> : null}
                 </section>
-                <section className="singleGenerationPanel singleTipsPanel">
-                  <strong>{t('single.tipsTitle', '提示')}</strong>
-                  <div>
-                    <span>{t('single.tipPrompt', '描述里包含主体、场景、风格、光线和构图会更稳定。')}</span>
-                    <span>{t('single.tipReference', '需要延续人物或产品时，先上传参考图。')}</span>
-                    <span>{t('single.tipCanvas', '多轮分支、对比和衍生创作请切到无限画布。')}</span>
+              </div>
+              <div className="singleGenerationSide">
+                <section className={`singleGenerationPanel singleLatestResult ${hasPrimaryResult ? 'hasResult' : ''}`}>
+                  <div className="singleGenerationHead">
+                    <div>
+                      <strong>{isVideoSingleMode ? t('canvas.videoResult', '视频结果') : t('composer.resultTitle', '生成结果')}</strong>
+                      <span>{hasPrimaryResult ? t('composer.resultCount', '共 {count} 张', { count: singleResultCount }) : t('composer.pending', '待生成')}</span>
+                    </div>
                   </div>
+                  {isVideoSingleMode ? (
+                    <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} t={t} />
+                  ) : (
+                    <ResultGrid urls={results} featured carousel outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
+                  )}
                 </section>
               </div>
             </div>
@@ -5090,13 +5100,16 @@ function CreationDesk({
             imageAspectOptions={imageAspectOptions}
             imageCountRange={imageCountRange}
             imageCountSuffix={imageCountSuffix}
-            imageModelOptions={imageModelOptions}
-            imageQualityOptions={imageQualityOptions}
-            imageResolutionTierOptions={imageResolutionTierOptions}
-            layoutSections={layoutSections}
-            mode={mode}
-            model={model}
-            onAspectChange={setAspect}
+             imageModelOptions={imageModelOptions}
+             imageQualityOptions={imageQualityOptions}
+             imageResolutionTierOptions={imageResolutionTierOptions}
+             layoutSections={layoutSections}
+             mode={mode}
+             model={model}
+             providerProfiles={providerProfiles}
+             activeProviderProfileId={activeProviderProfileId}
+             onProviderChange={onSelectProvider}
+             onAspectChange={setAspect}
             onCountChange={(value) => setCount(clampCountForProvider(value, currentImageProvider, normalizeCount))}
             onModeChange={setMode}
             onModelChange={setModel}
@@ -5212,6 +5225,20 @@ function CreationDesk({
   );
 }
 
+function loadProviderWorkspaceState() {
+  const legacySettings = loadProviderSettings();
+  const library = loadProviderLibrary(legacySettings);
+  const activeProfile = library.profiles.find((profile) => profile.id === library.activeProfileId) || library.profiles[0];
+  const settings = activeProfile ? saveProviderSettings(providerSettingsFromProfile(activeProfile)) : legacySettings;
+  return {
+    library: activeProfile
+      ? { ...library, activeProfileId: activeProfile.id }
+      : library,
+    settings,
+    modelOptions: modelOptionsForProfile(activeProfile)
+  };
+}
+
 function StudioApp() {
   const initialSession = useMemo(() => loadSession(), []);
   const initialCurrentSession = useMemo(() => (
@@ -5221,8 +5248,12 @@ function StudioApp() {
   const [session, setSession] = useState(() => initialSession);
   const [profile, setProfile] = useState(() => initialSession?.user || null);
   const [creditsEnabled, setCreditsEnabled] = useState(false);
-  const [providerSettings, setProviderSettings] = useState(() => loadProviderSettings());
-  const [client, setClient] = useState(() => createGatewayClient({ session: initialSession, providerSettings: loadProviderSettings() }));
+  const initialProviderWorkspaceRef = useRef(null);
+  if (!initialProviderWorkspaceRef.current) initialProviderWorkspaceRef.current = loadProviderWorkspaceState();
+  const initialProviderWorkspace = initialProviderWorkspaceRef.current;
+  const [providerLibrary, setProviderLibrary] = useState(() => initialProviderWorkspace.library);
+  const [providerSettings, setProviderSettings] = useState(() => initialProviderWorkspace.settings);
+  const [client, setClient] = useState(() => createGatewayClient({ session: initialSession, providerSettings: initialProviderWorkspace.settings }));
   const [apiKey, setApiKey] = useState(null);
   const [keys, setKeys] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -5238,7 +5269,7 @@ function StudioApp() {
   const [historyNextOffset, setHistoryNextOffset] = useState(null);
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
-  const [modelOptions, setModelOptions] = useState({ image: [], responses: [], video: [] });
+  const [modelOptions, setModelOptions] = useState(() => initialProviderWorkspace.modelOptions);
   const [modelsStatus, setModelsStatus] = useState('idle');
   const [modelSyncError, setModelSyncError] = useState(null);
   const [usageSummary, setUsageSummary] = useState('');
@@ -5299,6 +5330,68 @@ function StudioApp() {
       current.setProviderSettings(savedSettings);
       return current;
     });
+    setProviderLibrary((current) => {
+      const profileId = savedSettings.providerProfileId || current.activeProfileId;
+      const currentProfile = current.profiles.find((profile) => profile.id === profileId);
+      return upsertProviderProfile({ ...current, activeProfileId: profileId }, {
+        id: profileId,
+        name: currentProfile?.name,
+        settings: savedSettings,
+        modelOptions
+      });
+    });
+  }
+
+  function handleSelectProvider(profileId) {
+    const profile = providerLibrary.profiles.find((item) => item.id === profileId);
+    if (!profile) return;
+    const nextSettings = saveProviderSettings(providerSettingsFromProfile(profile));
+    const nextLibrary = saveProviderLibrary({ ...providerLibrary, activeProfileId: profile.id });
+    setProviderLibrary(nextLibrary);
+    setProviderSettings(nextSettings);
+    setModelOptions(modelOptionsForProfile(profile));
+    setClient((current) => {
+      current.setProviderSettings(nextSettings);
+      return current;
+    });
+  }
+
+  function handleSaveProvider({ id, name, settings, modelOptions: cachedModelOptions, activate = true } = {}) {
+    const profileId = id || createProviderProfileId();
+    const nextLibrary = upsertProviderProfile({
+      ...providerLibrary,
+      activeProfileId: activate ? profileId : providerLibrary.activeProfileId
+    }, {
+      id: profileId,
+      name,
+      settings: { ...settings, providerProfileId: profileId },
+      modelOptions: cachedModelOptions
+    });
+    setProviderLibrary(nextLibrary);
+    if (!activate) return;
+    const profile = nextLibrary.profiles.find((item) => item.id === profileId);
+    const nextSettings = saveProviderSettings(providerSettingsFromProfile(profile));
+    setProviderSettings(nextSettings);
+    setModelOptions(modelOptionsForProfile(profile));
+    setClient((current) => {
+      current.setProviderSettings(nextSettings);
+      return current;
+    });
+  }
+
+  function handleDeleteProvider(profileId) {
+    const nextLibrary = deleteProviderProfile(providerLibrary, profileId);
+    setProviderLibrary(nextLibrary);
+    if (providerLibrary.activeProfileId !== profileId) return;
+    const nextProfile = nextLibrary.profiles[0];
+    if (!nextProfile) return;
+    const nextSettings = saveProviderSettings(providerSettingsFromProfile(nextProfile));
+    setProviderSettings(nextSettings);
+    setModelOptions(modelOptionsForProfile(nextProfile));
+    setClient((current) => {
+      current.setProviderSettings(nextSettings);
+      return current;
+    });
   }
 
   function syncProviderModels(options = {}) {
@@ -5314,6 +5407,17 @@ function StudioApp() {
         setModelsStatus(result.modelsStatus);
         setModelSyncError(result.modelSyncError || null);
         setUsageSummary(result.usageSummary);
+        setProviderLibrary((current) => {
+          const profileId = current.activeProfileId || providerSettings.providerProfileId;
+          const profile = current.profiles.find((item) => item.id === profileId);
+          if (!profile) return current;
+          return upsertProviderProfile(current, {
+            id: profile.id,
+            name: profile.name,
+            settings: providerSettings,
+            modelOptions: result.modelOptions
+          });
+        });
       })
       .catch((error) => {
         if (error?.name === 'AbortError') return;
@@ -5986,10 +6090,13 @@ function StudioApp() {
             selectedHistory={selectedHistory}
             onResolveCase={resolveLibraryCase}
             apiKey={apiKey}
-            client={client}
-            providerSettings={providerSettings}
-            onProviderChange={handleProviderChange}
-            modelOptions={modelOptions}
+             client={client}
+             providerSettings={providerSettings}
+             onProviderChange={handleProviderChange}
+             providerProfiles={providerLibrary.profiles}
+             activeProviderProfileId={providerLibrary.activeProfileId}
+             onSelectProvider={handleSelectProvider}
+             modelOptions={modelOptions}
             modelsStatus={modelsStatus}
             usageSummary={usageSummary}
             isAuthenticated={Boolean(session?.accessToken)}
@@ -6095,6 +6202,11 @@ function StudioApp() {
             onSelectKey={handleSelectKey}
             providerSettings={providerSettings}
             onProviderChange={handleProviderChange}
+            providerProfiles={providerLibrary.profiles}
+            activeProviderProfileId={providerLibrary.activeProfileId}
+            onSelectProvider={handleSelectProvider}
+            onSaveProvider={handleSaveProvider}
+            onDeleteProvider={handleDeleteProvider}
             modelOptions={modelOptions}
             modelsStatus={modelsStatus}
             modelSyncError={modelSyncError}

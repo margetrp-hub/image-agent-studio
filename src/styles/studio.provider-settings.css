@@ -14,7 +14,7 @@
 
 .settingsDialog {
   box-sizing: border-box;
-  width: min(620px, calc(100vw - 40px));
+  width: min(820px, calc(100vw - 40px));
   max-height: min(740px, calc(100dvh - 32px));
   overflow: auto;
   scrollbar-width: thin;
