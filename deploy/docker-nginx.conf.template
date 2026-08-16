@@ -23,6 +23,10 @@ server {
     return 301 /studio/;
   }
 
+  location = /studio/admin {
+    return 301 /studio/admin.html;
+  }
+
   location = /studio/login.html {
     try_files /login.html =404;
   }
