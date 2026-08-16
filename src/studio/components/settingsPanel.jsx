@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, KeyRound, Link2, Pencil, Plus, RefreshCw, Save, Search, Server, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Bot, Check, KeyRound, Link2, Pencil, Plus, RefreshCw, Rocket, Save, Search, Server, Trash2, X } from 'lucide-react';
 import '../../styles/studio.provider-settings.css';
 import '../../styles/studio.provider-settings-responsive.css';
 import '../../styles/studio.provider-settings-sync.css';
@@ -15,7 +15,8 @@ import {
   orderedImageProviders,
   providerAccountBindingTypes,
   providerConnectionTypeLabel,
-  providerForConnectionType
+  providerForConnectionType,
+  providerModelSlots as providerModelSlotDefinitions
 } from '../providers/index.js';
 import {
   apiKeyDisplay,
@@ -112,6 +113,9 @@ export function SettingsPanel({
   onProviderChange,
   providerProfiles = [],
   activeProviderProfileId,
+  assistantProviderProfileId = '',
+  assistantModel = '',
+  onAssistantConfigChange,
   onSelectProvider,
   onSaveProvider,
   onDeleteProvider,
@@ -124,6 +128,7 @@ export function SettingsPanel({
   modelsStatus = 'idle',
   modelSyncError = null,
   onSyncModels,
+  onOpenOnboarding,
   isAuthenticated,
   onLogin,
   t
@@ -154,7 +159,9 @@ export function SettingsPanel({
       : modelOptions
     : { image: [], responses: [], video: [] };
   const baseUrlPlaceholder = providerDescriptor.baseUrlExample || defaultProviderGatewayBaseUrl(draft);
-  const providerModelSlots = new Set((providerDescriptor.modelSlots || []).map((slot) => slot.key));
+  const generationModelSlots = new Set((providerDescriptor.modelSlots || [])
+    .map((slot) => slot.key)
+    .filter((key) => key !== 'responsesModel'));
   const accountBindingTypes = STUDIO_STANDALONE ? providerAccountBindingTypes(currentProvider) : [];
   const supportsAccountBinding = accountBindingTypes.length > 0;
   const usesLinkedProvider = draft.apiKeySource === 'linked';
@@ -164,6 +171,18 @@ export function SettingsPanel({
     if (!query) return providerProfiles;
     return providerProfiles.filter((profile) => `${profile.name} ${profile.manualGatewayBaseUrl} ${profile.providerId}`.toLowerCase().includes(query));
   }, [providerProfiles, search]);
+  const assistantProfiles = useMemo(() => providerProfiles.filter((profile) => (
+    providerModelSlotDefinitions(profile.providerId).some((slot) => slot.key === 'responsesModel')
+  )), [providerProfiles]);
+  const assistantProfile = assistantProfiles.find((profile) => profile.id === assistantProviderProfileId)
+    || assistantProfiles[0]
+    || null;
+  const assistantModels = assistantProfile?.id === activeId
+    ? modelOptions.responses
+    : modelOptionsForProfile(assistantProfile).responses;
+  const assistantModelDefault = assistantModels[0]?.id
+    || providerModelSlotDefinitions(assistantProfile?.providerId).find((slot) => slot.key === 'responsesModel')?.defaultModel
+    || '';
   const isActiveDraft = Boolean(editing && selectedProfileId && selectedProfileId === activeId);
   const gatewayAccountDisabled = draft.apiKeySource === 'manual';
 
@@ -371,6 +390,16 @@ export function SettingsPanel({
     setEditing(false);
   };
 
+  const handleAssistantProviderChange = (providerProfileId) => {
+    const profile = assistantProfiles.find((item) => item.id === providerProfileId);
+    const options = profile?.id === activeId ? modelOptions.responses : modelOptionsForProfile(profile).responses;
+    const model = options[0]?.id
+      || providerModelSlotDefinitions(profile?.providerId).find((slot) => slot.key === 'responsesModel')?.defaultModel
+      || '';
+    setFeedback('');
+    onAssistantConfigChange?.({ providerProfileId, model });
+  };
+
   return (
     <div className="settingsOverlay" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -390,13 +419,6 @@ export function SettingsPanel({
               : STUDIO_STANDALONE
                 ? t('settings.serviceTitle', '生成服务')
                 : t('settings.title', '连接')}</h2>
-            <p className="settingsDialogSubtitle">{editing
-              ? selectedProfile
-                ? isActiveDraft
-                  ? t('settings.activeProviderHint', '当前生成会使用这套配置')
-                  : t('settings.inactiveProviderHint', '保存后可在生成区切换使用')
-                : t('settings.providerCreateHint', '选择接口类型，只填写该类型需要的配置。')
-              : t('settings.libraryHint', '保存供应商连接，生成时直接选择。')}</p>
           </div>
           <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')} title={t('settings.close', '关闭')}><X size={17} /></button>
         </div>
@@ -407,10 +429,16 @@ export function SettingsPanel({
               <strong>{t('settings.libraryTitle', '供应商库')}</strong>
               <span>{t('settings.libraryCount', '{count} 个已保存供应商', { count: providerProfiles.length })}</span>
             </div>
-            <button type="button" className="providerLibraryNewButton" onClick={handleNewProvider}>
-              <Plus size={14} />
-              {t('settings.newProvider', '新增供应商')}
-            </button>
+            <div className="providerLibraryHeadActions">
+              {onOpenOnboarding ? <button type="button" className="providerLibraryStartButton" onClick={onOpenOnboarding}>
+                <Rocket size={14} />
+                {t('settings.quickStart', '快速开始')}
+              </button> : null}
+              <button type="button" className="providerLibraryNewButton" onClick={handleNewProvider}>
+                <Plus size={14} />
+                {t('settings.newProvider', '新增供应商')}
+              </button>
+            </div>
           </div>
           <label className="providerLibrarySearch">
             <Search size={15} />
@@ -441,6 +469,33 @@ export function SettingsPanel({
               <div className="providerLibraryEmpty">{t('settings.noProviders', '还没有保存的供应商。')}</div>
             )}
           </div>
+          {assistantProfile ? <section className="providerAssistantRoute" aria-label={t('settings.assistantRoute', '助手配置')}>
+            <div className="providerAssistantRouteHead">
+              <span><Bot size={15} /></span>
+              <strong>{t('settings.assistantRoute', '助手配置')}</strong>
+            </div>
+            <div className="providerAssistantRouteFields">
+              <label>
+                <span>{t('settings.assistantProvider', '助手供应商')}</span>
+                <select value={assistantProfile.id} onChange={(event) => handleAssistantProviderChange(event.target.value)}>
+                  {assistantProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>{t('settings.assistantModel', '助手模型')}</span>
+                <ModelSettingControl
+                  value={assistantModel || assistantModelDefault}
+                  options={assistantModels}
+                  onChange={(model) => {
+                    setFeedback('');
+                    onAssistantConfigChange?.({ providerProfileId: assistantProfile.id, model });
+                  }}
+                  placeholder={assistantModelDefault || 'gpt-5.5'}
+                  t={t}
+                />
+              </label>
+            </div>
+          </section> : null}
         </section> : null}
 
         {!editing && feedback ? <div className="providerLibraryFeedback" role="status">{feedback}</div> : null}
@@ -486,7 +541,6 @@ export function SettingsPanel({
             <div className="providerConnectionBoxHead">
               <div>
                 <strong><Link2 size={15} />{t('settings.providerConnections', '账号绑定')}</strong>
-                <span>{t('settings.providerConnectionsHint', '绑定后由服务端读取供应商 Key，浏览器不保存密码。')}</span>
               </div>
               <em className={providerConnectionsEnabled ? 'isReady' : ''}>{providerConnectionsEnabled ? t('settings.providerConnectionsReady', '已启用') : t('settings.providerConnectionsUnavailable', '未配置')}</em>
             </div>
@@ -534,7 +588,7 @@ export function SettingsPanel({
         ) : null}
 
         {usesLinkedProvider && STUDIO_STANDALONE ? (
-          <div className="settingsEmpty providerLinkedState">{t('settings.providerLinked', '已使用绑定账号，保存后生成时直接选择。')}</div>
+          <div className="settingsEmpty providerLinkedState">{t('settings.providerLinked', '账号已绑定')}</div>
         ) : draft.apiKeySource !== 'manual' && STUDIO_STANDALONE ? (
           <div className="settingsEmpty">{t('settings.noBrowserSecrets', '浏览器不保存服务密钥或调用地址。')}</div>
         ) : usesGatewayAccount(draft) ? (
@@ -562,33 +616,35 @@ export function SettingsPanel({
             <label>
               <span>{t('settings.key', '密钥')}</span>
               <input type="password" value={draft.manualApiKey} onChange={(event) => updateDraft({ manualApiKey: event.target.value })} placeholder="sk-..." />
-              <small>{t('settings.sessionOnlyKey', '仅保存在当前浏览器会话，不写入 localStorage。')}</small>
             </label>
           </div>
         )}
 
         <div className="manualFields">
-          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && providerModelSlots.size ? <div className="settingsCallConfig">
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && generationModelSlots.size ? <div className="settingsCallConfig">
             <div className="settingsCallConfigHead">
               <strong>{t('settings.modelCallSettings', '模型')}</strong>
-              <span>{t('settings.modelSelectionHint', '保存后生成时可直接选择')}</span>
             </div>
             <div className="settingsCallGrid">
-              {providerModelSlots.has('imageGenerationModel') ? <label className="providerImageGenerationModelField">
+              {generationModelSlots.has('imageGenerationModel') ? <label className="providerImageGenerationModelField">
                 <span>{t('settings.imageGenerationModel', '生图模型')}</span>
                 <ModelSettingControl value={draft.imageGenerationModel} options={selectedModels.image} onChange={(value) => updateDraft({ imageGenerationModel: value })} placeholder="gpt-image-2 / nano-banana" t={t} />
               </label> : null}
-              {providerModelSlots.has('imageEditModel') ? <label className="providerImageEditModelField">
+              {generationModelSlots.has('imageEditModel') ? <label className="providerImageEditModelField">
                 <span>{t('settings.imageEditModel', '编辑 / Mask 模型')}</span>
                 <ModelSettingControl value={draft.imageEditModel} options={selectedModels.image} onChange={(value) => updateDraft({ imageEditModel: value })} placeholder={draft.imageGenerationModel || 'gpt-image-2'} t={t} />
               </label> : null}
-              {providerModelSlots.has('videoModel') ? <label className="providerVideoModelField">
+              {generationModelSlots.has('videoModel') ? <label className="providerVideoModelField">
                 <span>{t('settings.videoModel', '视频模型')}</span>
                 <ModelSettingControl value={draft.videoModel} options={selectedModels.video} onChange={(value) => updateDraft({ videoModel: value })} placeholder="veo3 / grok-imagine-video / runway" t={t} />
               </label> : null}
-              {providerModelSlots.has('videoModel') ? <label className="providerVideoGatewayField">
+              {generationModelSlots.has('videoModel') ? <label className="providerVideoGatewayField">
                 <span>{t('settings.videoGateway', '视频接口 URL')}</span>
                 <input value={draft.videoGatewayBaseUrl || ''} onChange={(event) => updateDraft({ videoGatewayBaseUrl: event.target.value })} placeholder={draft.manualGatewayBaseUrl || getConfiguredBaseUrls().gatewayBaseUrl} />
+              </label> : null}
+              {generationModelSlots.has('imageGenerationModel') ? <label className="providerPreviewFramesField">
+                <span>{t('settings.previewFrames', '预览帧')}</span>
+                <input type="number" min="0" max="3" value={draft.partialImages} onChange={(event) => updateDraft({ partialImages: event.target.value })} />
               </label> : null}
             </div>
           </div> : null}
@@ -605,14 +661,6 @@ export function SettingsPanel({
               </button>
             ) : null}
           </div> : null}
-          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && providerModelSlots.has('responsesModel') ? <label className="providerAssistantModelField">
-            <span>{t('settings.assistantModel', '助手模型')}</span>
-            <ModelSettingControl value={draft.responsesModel} options={selectedModels.responses} onChange={(value) => updateDraft({ responsesModel: value })} placeholder="gpt-5.5" t={t} />
-          </label> : null}
-          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && providerModelSlots.has('imageGenerationModel') ? <label>
-            <span>{t('settings.previewFrames', '预览帧')}</span>
-            <input type="number" min="0" max="3" value={draft.partialImages} onChange={(event) => updateDraft({ partialImages: event.target.value })} />
-          </label> : null}
         </div>
 
         <div className="settingsActions">

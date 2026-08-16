@@ -40,6 +40,7 @@ let billingSettings = {
   imageEditCost: 15,
   videoGenerationCost: 50
 };
+let firstRunJobInput = null;
 
 let browser;
 try {
@@ -53,13 +54,15 @@ try {
 
   await page.addInitScript(() => {
     localStorage.setItem('auth_token', 'legacy-sub2-token-must-not-be-used');
-    localStorage.setItem('image-sub2api-studio:provider-settings:v1', JSON.stringify({
-      providerId: 'openai-compatible',
-      apiKeySource: 'manual',
-      manualApiKey: 'legacy-provider-secret-must-not-be-used',
-      manualGatewayBaseUrl: 'https://provider.example/v1'
-    }));
-    sessionStorage.setItem('image-sub2api-studio:manual-provider-secret:v1', 'client-provider-secret');
+    if (localStorage.getItem('studio-smoke:first-run') !== '1') {
+      localStorage.setItem('image-sub2api-studio:provider-settings:v1', JSON.stringify({
+        providerId: 'openai-compatible',
+        apiKeySource: 'manual',
+        manualApiKey: 'legacy-provider-secret-must-not-be-used',
+        manualGatewayBaseUrl: 'https://provider.example/v1'
+      }));
+      sessionStorage.setItem('image-sub2api-studio:manual-provider-secret:v1', 'client-provider-secret');
+    }
   });
 
   await page.route('**/studio-api/**', async (route) => {
@@ -144,8 +147,33 @@ try {
       body = { ok: true, records: [], total: 0, nextOffset: null };
     } else if (path.endsWith('/session')) {
       body = { ok: true, session: null };
+    } else if (path.endsWith('/generation-jobs/first-run-job')) {
+      body = {
+        ok: true,
+        job: {
+          id: 'first-run-job',
+          status: 'succeeded',
+          prompt: firstRunJobInput?.request?.prompt || '',
+          resultUrls: ['https://images.example.test/first-run.png'],
+          requestIds: ['first-run-request'],
+          usage: {},
+          timing: { totalMs: 18 }
+        }
+      };
     } else if (path.endsWith('/generation-jobs')) {
-      body = { ok: true, jobs: [] };
+      if (request.method() === 'POST') {
+        firstRunJobInput = JSON.parse(postData);
+        body = {
+          ok: true,
+          job: {
+            id: 'first-run-job',
+            status: 'queued',
+            prompt: firstRunJobInput.request?.prompt || ''
+          }
+        };
+      } else {
+        body = { ok: true, jobs: [] };
+      }
     }
 
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -343,6 +371,66 @@ try {
   }));
   assert.ok(mobileAdminLayout.pageWidth <= mobileAdminLayout.viewportWidth + 1, 'Mobile admin page has horizontal overflow.');
   assert.ok(mobileAdminLayout.tableWidth >= mobileAdminLayout.tableWrapWidth, 'Admin table should scroll inside its own container on mobile.');
+
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await page.evaluate(() => {
+    localStorage.setItem('studio-smoke:first-run', '1');
+    localStorage.removeItem('image-sub2api-studio:provider-settings:v1');
+    localStorage.removeItem('image-sub2api-studio:provider-library:v1');
+    localStorage.removeItem('image-sub2api-studio:first-run:v1');
+    sessionStorage.clear();
+    localStorage.setItem('image-agent-studio:session:v1', JSON.stringify({
+      accessToken: 'standalone-session-token',
+      expiresAt: Date.parse('2030-01-01T00:00:00.000Z'),
+      user: { id: 'studio-user-1', username: 'studio-admin', email: 'admin@example.test', role: 'admin' }
+    }));
+  });
+  await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
+  await page.waitForSelector('.firstRunDialog', { timeout: 10000 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileFirstRunLayout = await page.evaluate(() => {
+    const dialog = document.querySelector('.firstRunDialog')?.getBoundingClientRect();
+    return {
+      viewportWidth: window.innerWidth,
+      pageWidth: document.documentElement.scrollWidth,
+      dialogLeft: dialog?.left ?? -1,
+      dialogRight: dialog?.right ?? window.innerWidth + 1
+    };
+  });
+  assert.ok(mobileFirstRunLayout.pageWidth <= mobileFirstRunLayout.viewportWidth + 1, 'First-run guide has horizontal overflow on mobile.');
+  assert.ok(mobileFirstRunLayout.dialogLeft >= 0 && mobileFirstRunLayout.dialogRight <= mobileFirstRunLayout.viewportWidth, 'First-run guide exceeds the mobile viewport.');
+  await page.screenshot({ path: 'output/playwright/first-run-guide-mobile.png' });
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await page.locator('.firstRunFields input[autocomplete="url"]').fill('https://first-run.example/v1');
+  await page.locator('.firstRunFields input[type="password"]').fill('first-run-secret');
+  await page.locator('.firstRunWideField input').fill('first-run-image-model');
+  await page.getByRole('button', { name: '下一步' }).click();
+  await page.locator('.firstRunPromptField textarea').fill('一座雨后霓虹城市，电影感');
+  await page.screenshot({ path: 'output/playwright/first-run-guide.png' });
+  await page.getByRole('button', { name: '生成第一张' }).click();
+  await page.waitForFunction(() => !document.querySelector('.firstRunDialog'));
+  await page.waitForFunction(() => document.body.textContent?.includes('生成完成'), null, { timeout: 10000 });
+
+  const firstRunRequest = requests.findLast((item) => item.path.endsWith('/generation-jobs') && item.method === 'POST');
+  assert.ok(firstRunRequest, 'First-run guide did not enqueue an image generation job.');
+  const firstRunPayload = JSON.parse(firstRunRequest.postData);
+  assert.equal(firstRunPayload.gatewayBaseUrl, 'https://first-run.example/v1', 'First-run generation used the wrong provider URL.');
+  assert.equal(firstRunPayload.apiKey, 'first-run-secret', 'First-run generation did not use the session provider key.');
+  assert.equal(firstRunPayload.request?.model, 'first-run-image-model', 'First-run generation used the wrong image model.');
+  assert.equal(firstRunPayload.request?.prompt, '一座雨后霓虹城市，电影感', 'First-run generation used the wrong prompt.');
+  const firstRunStorage = await page.evaluate(() => ({
+    library: JSON.parse(localStorage.getItem('image-sub2api-studio:provider-library:v1') || '{}'),
+    state: localStorage.getItem('image-sub2api-studio:first-run:v1') || '',
+    secret: Object.keys(sessionStorage)
+      .filter((key) => key.startsWith('image-sub2api-studio:provider-secret:v1:'))
+      .map((key) => sessionStorage.getItem(key))
+      .find(Boolean) || ''
+  }));
+  assert.equal(firstRunStorage.state, 'completed', 'First-run completion was not persisted.');
+  assert.equal(firstRunStorage.secret, 'first-run-secret', 'First-run key was not retained in session storage.');
+  assert.ok(firstRunStorage.library.profiles?.length === 1, 'First-run provider was not saved to the provider library.');
+  assert.ok(firstRunStorage.library.profiles.every((profile) => !Object.hasOwn(profile, 'responsesModel')), 'First-run provider persisted an assistant model.');
+  assert.ok(firstRunStorage.library.assistant, 'Provider library is missing the independent assistant route.');
 
   console.log('Standalone frontend smoke passed.');
 } finally {

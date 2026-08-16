@@ -21,9 +21,7 @@
           <div class="studioLoginIntro">
             <span class="studioLoginKicker">CREATE WITH CONTROL</span>
             <strong>登录你的创作工作区。</strong>
-            <p>会话、历史图库和生成资产按账号独立保存。</p>
           </div>
-          <div class="studioLoginAsideMeta"><span>01</span><span>PRIVATE WORKSPACE</span></div>
         </aside>
         <div class="studioLoginContent">
           <div class="studioLoginMode" id="studio-login-mode-tabs" role="tablist" aria-label="账号操作">
@@ -62,7 +60,7 @@
                 <input class="iasInput" id="studio-login-password" name="password" type="password" autocomplete="current-password" maxlength="4096" required aria-describedby="studio-login-password-hint" />
                 <button type="button" class="studioLoginPasswordToggle" id="studio-login-password-toggle" aria-label="显示密码">显示</button>
               </span>
-              <small class="studioLoginFieldHint" id="studio-login-password-hint">使用独立账号密码登录。</small>
+              <small class="studioLoginFieldHint" id="studio-login-password-hint" hidden></small>
             </label>
             <label class="studioLoginField" id="studio-login-password-confirm-field" for="studio-login-password-confirm" hidden>
               <span>确认新密码</span>

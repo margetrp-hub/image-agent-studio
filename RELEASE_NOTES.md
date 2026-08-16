@@ -1,5 +1,34 @@
 ﻿# Release Notes
 
+## 1.0.12
+
+This patch separates prompt-assistant routing from generation providers and
+adds a direct first-image onboarding flow.
+
+### What Changed
+
+- Provider profiles now store only their connection and generation models.
+  The provider library owns one independent assistant provider/model route.
+- Prompt optimization and assistant chat use that selected assistant route,
+  even when image generation uses another provider.
+- New users can enter a provider URL, session-only key, image model, and first
+  prompt in a compact two-step guide that submits the first generation directly.
+- Provider and login surfaces use less explanatory copy, smoother panel motion,
+  and responsive rounded controls inspired by the DSH desktop treatment.
+- Fixed the prompt optimizer's successful-response return path and reset the
+  assistant model safely when its provider is deleted.
+
+### Verification
+
+- `npm run smoke:provider:security`
+- `npm run smoke:standalone:frontend`
+- `npm run check:boundaries`
+- `npm run check:css`
+- `npm run check:ui`
+- `npm run check:standalone-auth`
+- `npm run check:storage-security`
+- `npm run build`
+
 ## 1.0.11
 
 This patch removes the remaining idle workspace gap and turns provider setup into

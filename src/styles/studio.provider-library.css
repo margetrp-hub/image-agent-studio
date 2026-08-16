@@ -1,7 +1,19 @@
-.settingsDialogSubtitle {
-  margin: 4px 0 0 !important;
-  color: var(--studio-muted) !important;
-  font-size: 12px;
+.settingsOverlay {
+  animation: providerOverlayIn 180ms var(--ias-ease, ease) both;
+}
+
+.settingsDialog {
+  animation: providerDialogIn 220ms var(--ias-ease, ease) both;
+}
+
+@keyframes providerOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes providerDialogIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .providerLibrary {
@@ -10,7 +22,7 @@
   margin: 12px 0 14px;
   padding: 11px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 82%, transparent);
-  border-radius: var(--studio-radius-control, 13px);
+  border-radius: var(--studio-radius-card, 14px);
   background: color-mix(in srgb, var(--studio-surface-soft) 78%, transparent);
 }
 
@@ -39,6 +51,14 @@
   font-weight: 760;
 }
 
+.providerLibraryHeadActions {
+  min-width: auto !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px !important;
+}
+
+.providerLibraryStartButton,
 .providerLibraryNewButton {
   min-height: 32px !important;
   padding: 0 10px !important;
@@ -49,11 +69,32 @@
   font-size: 11px;
   font-weight: 900;
   white-space: nowrap;
+  transition: background 160ms var(--ias-ease, ease), border-color 160ms var(--ias-ease, ease), color 160ms var(--ias-ease, ease), transform 160ms var(--ias-ease, ease) !important;
+}
+
+.providerLibraryStartButton {
+  padding: 0 9px !important;
+  border: 1px solid var(--studio-border) !important;
+  border-radius: var(--studio-radius-control, 11px) !important;
+  background: var(--studio-surface-strong) !important;
+  color: var(--studio-text) !important;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.providerLibraryStartButton:hover,
+.providerLibraryNewButton:hover {
+  transform: translateY(-1px) !important;
 }
 
 .providerLibraryNewButton:hover {
   border-color: var(--studio-primary);
   background: color-mix(in srgb, var(--studio-primary) 19%, var(--studio-surface));
+}
+
+.providerLibraryStartButton:hover {
+  border-color: var(--studio-border-strong) !important;
+  color: var(--studio-primary) !important;
 }
 
 .providerLibrarySearch {
@@ -233,6 +274,69 @@
   text-align: center;
 }
 
+.providerAssistantRoute {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 2px 1px;
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 82%, transparent);
+}
+
+.providerAssistantRouteHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 108px;
+}
+
+.providerAssistantRouteHead > span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--studio-primary) 13%, transparent);
+  color: var(--studio-primary);
+}
+
+.providerAssistantRouteHead strong {
+  color: var(--studio-text-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.providerAssistantRouteFields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(140px, 0.85fr) minmax(180px, 1.15fr);
+  gap: 8px;
+}
+
+.providerAssistantRouteFields label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.providerAssistantRouteFields label > span {
+  color: var(--studio-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.providerAssistantRouteFields select,
+.providerAssistantRouteFields input {
+  min-width: 0;
+  min-height: 36px !important;
+  height: 36px !important;
+  border-radius: var(--studio-radius-control, 11px) !important;
+}
+
+.providerAssistantRouteFields select + input {
+  margin-top: 5px;
+}
+
 .providerLibraryFeedback {
   margin: -4px 0 8px;
   padding: 8px 10px;
@@ -372,6 +476,12 @@
   color: #5eead4 !important;
 }
 
+:root[data-theme="dark"] .providerLibraryStartButton {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  background: rgba(15, 23, 42, 0.82) !important;
+  color: #dbe7ef !important;
+}
+
 :root[data-theme="dark"] .keyList button,
 :root[data-theme="dark"] .settingsEmpty {
   border-color: rgba(148, 163, 184, 0.22) !important;
@@ -396,4 +506,35 @@
   background: linear-gradient(180deg, #2dd4bf, #0f8f84) !important;
   color: #041311 !important;
   box-shadow: 0 10px 24px rgba(45, 212, 191, 0.2) !important;
+}
+
+@media (max-width: 680px) {
+  .providerLibraryHead,
+  .providerAssistantRoute {
+    align-items: stretch;
+  }
+
+  .providerLibraryHead {
+    flex-direction: column;
+  }
+
+  .providerLibraryHeadActions,
+  .providerLibraryHeadActions button {
+    width: 100%;
+  }
+
+  .providerAssistantRoute {
+    grid-template-columns: 1fr;
+  }
+
+  .providerAssistantRouteFields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settingsOverlay,
+  .settingsDialog {
+    animation: none;
+  }
 }

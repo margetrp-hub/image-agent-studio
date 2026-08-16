@@ -1,5 +1,9 @@
 import { generationTaskFingerprint } from '../util/generationJobs.js';
 
+export function buildQueuedImageTaskFingerprint(input) {
+  return generationTaskFingerprint(input);
+}
+
 export function imageGenerationRouteForMode({ mode, referenceCount = 0, hasCanvasReference = false, hasMask = false } = {}) {
   if (mode === 'mask' || hasMask) return 'edits';
   if (mode === 'edit' && (Number(referenceCount) > 0 || hasCanvasReference)) return 'edits';

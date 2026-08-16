@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 1.0.12 - 2026-08-16
+
+- Moved prompt-assistant selection out of provider profiles and into one
+  provider-library route that selects an assistant provider and model.
+- Added a two-step first-run guide that saves a URL, session-only key, and image
+  model before directly submitting the user's first image generation.
+- Tightened provider, login, and single-generation copy while adding softer
+  panel motion, rounded controls, and responsive first-run layouts.
+- Fixed prompt optimization after a successful non-streaming response and kept
+  queue fingerprint construction behind the generation boundary.
+- Added browser regressions for assistant routing, first-run generation, secret
+  storage, provider deletion fallback, and mobile overflow.
+
 ## 1.0.11 - 2026-08-16
 
 - Removed the blank footer below the idle single-generation workspace by making

@@ -1,4 +1,4 @@
-import { getImageProvider, normalizeProviderId } from '../providers/index.js';
+import { getImageProvider, normalizeProviderId, providerModelSlots } from '../providers/index.js';
 
 const PROVIDER_LIBRARY_KEY = 'image-sub2api-studio:provider-library:v1';
 const PROVIDER_SECRET_PREFIX = 'image-sub2api-studio:provider-secret:v1:';
@@ -35,6 +35,25 @@ function normalizeModelOptions(value) {
   };
 }
 
+function defaultAssistantModel(profile) {
+  const synced = normalizeModelOptions(profile?.modelOptions).responses[0]?.id;
+  if (synced) return synced;
+  return providerModelSlots(profile?.providerId)
+    .find((slot) => slot.key === 'responsesModel')?.defaultModel || '';
+}
+
+function normalizeAssistantConfig(value, profiles, fallbackProfileId = '', legacyModel = '') {
+  const list = Array.isArray(profiles) ? profiles : [];
+  const requestedProfileId = trim(value?.providerProfileId || fallbackProfileId);
+  const requestedProfile = list.find((item) => item.id === requestedProfileId) || null;
+  const profile = requestedProfile || list[0] || null;
+  if (!profile) return { providerProfileId: '', model: '' };
+  return {
+    providerProfileId: profile.id,
+    model: (requestedProfile ? trim(value?.model || legacyModel) : '') || defaultAssistantModel(profile)
+  };
+}
+
 function inferProviderName(settings) {
   const provider = getImageProvider(settings?.providerId, settings?.apiKeySource);
   const url = trim(settings?.manualGatewayBaseUrl);
@@ -61,7 +80,6 @@ export function providerProfileFromSettings(settings = {}, options = {}) {
     imageEditModel: trim(settings.imageEditModel),
     videoModel: trim(settings.videoModel),
     videoGatewayBaseUrl: trim(settings.videoGatewayBaseUrl),
-    responsesModel: trim(settings.responsesModel),
     partialImages: Number.isFinite(Number(settings.partialImages)) ? Number(settings.partialImages) : 2,
     modelOptions: normalizeModelOptions(options.modelOptions || settings.modelOptions)
   };
@@ -80,7 +98,7 @@ export function providerSettingsFromProfile(profile) {
     imageEditModel: profile.imageEditModel,
     videoModel: profile.videoModel,
     videoGatewayBaseUrl: profile.videoGatewayBaseUrl,
-    responsesModel: profile.responsesModel,
+    responsesModel: '',
     partialImages: profile.partialImages
   };
 }
@@ -89,14 +107,17 @@ function readStoredLibrary() {
   try {
     const parsed = JSON.parse(localStorage.getItem(PROVIDER_LIBRARY_KEY) || 'null');
     if (!parsed || !Array.isArray(parsed.profiles)) return null;
-    const profiles = parsed.profiles
+    const rawProfiles = parsed.profiles;
+    const profiles = rawProfiles
       .map((profile) => providerProfileFromSettings(profile, { id: profile.id, name: profile.name, modelOptions: profile.modelOptions }))
       .filter((profile, index, list) => profile.id && list.findIndex((candidate) => candidate.id === profile.id) === index);
     if (!profiles.length) return null;
     const activeProfileId = profiles.some((profile) => profile.id === parsed.activeProfileId)
       ? parsed.activeProfileId
       : profiles[0].id;
-    return { profiles, activeProfileId };
+    const legacyAssistantProfile = rawProfiles.find((profile) => profile.id === (parsed.assistant?.providerProfileId || activeProfileId));
+    const assistant = normalizeAssistantConfig(parsed.assistant, profiles, activeProfileId, legacyAssistantProfile?.responsesModel);
+    return { profiles, activeProfileId, assistant };
   } catch {
     return null;
   }
@@ -105,8 +126,10 @@ function readStoredLibrary() {
 export function saveProviderLibrary(library) {
   const profiles = Array.isArray(library?.profiles) ? library.profiles : [];
   const activeProfileId = library?.activeProfileId || profiles[0]?.id || '';
+  const assistant = normalizeAssistantConfig(library?.assistant, profiles, activeProfileId);
   const payload = {
     activeProfileId,
+    assistant,
     profiles: profiles.map((profile) => providerProfileFromSettings(profile, {
       id: profile.id,
       name: profile.name,
@@ -127,7 +150,14 @@ export function loadProviderLibrary(fallbackSettings = {}) {
     modelOptions: fallbackSettings.modelOptions
   });
   writeProviderSecret(profile.id, fallbackSettings.manualApiKey);
-  return saveProviderLibrary({ profiles: [profile], activeProfileId: profile.id });
+  return saveProviderLibrary({
+    profiles: [profile],
+    activeProfileId: profile.id,
+    assistant: {
+      providerProfileId: profile.id,
+      model: trim(fallbackSettings.responsesModel)
+    }
+  });
 }
 
 export function upsertProviderProfile(library, { id, name, settings, modelOptions } = {}) {
@@ -143,6 +173,7 @@ export function upsertProviderProfile(library, { id, name, settings, modelOption
     ? currentProfiles.map((item) => item.id === profile.id ? profile : item)
     : [...currentProfiles, profile];
   return saveProviderLibrary({
+    ...library,
     profiles,
     activeProfileId: library?.activeProfileId || profile.id
   });
@@ -152,9 +183,18 @@ export function deleteProviderProfile(library, profileId) {
   const profiles = (library?.profiles || []).filter((profile) => profile.id !== profileId);
   removeProviderSecret(profileId);
   return saveProviderLibrary({
+    ...library,
     profiles,
     activeProfileId: library?.activeProfileId === profileId ? (profiles[0]?.id || '') : library?.activeProfileId
   });
+}
+
+export function assistantConfigForLibrary(library) {
+  return normalizeAssistantConfig(
+    library?.assistant,
+    library?.profiles,
+    library?.activeProfileId
+  );
 }
 
 export function writeProviderSecret(profileId, value) {

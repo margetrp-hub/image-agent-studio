@@ -1,0 +1,310 @@
+.firstRunBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: var(--ias-overlay-scrim, rgba(8, 22, 26, 0.36));
+  backdrop-filter: blur(10px);
+  animation: firstRunFade 180ms var(--ias-ease, ease-out) both;
+}
+
+.firstRunDialog {
+  width: min(620px, calc(100vw - 36px));
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--ias-radius-sheet, 22px);
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  box-shadow: var(--ias-shadow-panel, 0 24px 80px rgba(16, 32, 39, 0.12));
+  animation: firstRunEnter 220ms var(--ias-ease, ease-out) both;
+}
+
+.firstRunHeader,
+.firstRunActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.firstRunHeader {
+  min-height: 70px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--studio-border);
+}
+
+.firstRunBrand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.firstRunBrand > span,
+.firstRunStepTitle > span {
+  display: grid;
+  place-items: center;
+  color: var(--studio-primary);
+  background: color-mix(in srgb, var(--studio-primary) 12%, transparent);
+}
+
+.firstRunBrand > span {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.firstRunBrand > div {
+  display: grid;
+  gap: 7px;
+}
+
+.firstRunBrand strong {
+  color: var(--studio-text-strong);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.firstRunProgress {
+  display: flex;
+  gap: 5px;
+}
+
+.firstRunProgress i {
+  width: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--studio-border);
+  transition: background 180ms var(--ias-ease, ease), width 180ms var(--ias-ease, ease);
+}
+
+.firstRunProgress i.isActive {
+  width: 34px;
+  background: var(--studio-primary);
+}
+
+.firstRunClose {
+  width: 36px;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--studio-muted) !important;
+}
+
+.firstRunClose:hover {
+  border-color: var(--studio-border) !important;
+  background: var(--studio-surface-soft) !important;
+  color: var(--studio-text) !important;
+}
+
+.firstRunBody {
+  display: grid;
+  gap: 16px;
+  padding: 22px 22px 18px;
+}
+
+.firstRunStepTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.firstRunStepTitle > span {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+.firstRunStepTitle strong {
+  color: var(--studio-text-strong);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.firstRunFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.firstRunFields label,
+.firstRunPromptField {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.firstRunFields label > span,
+.firstRunPromptField > span {
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.firstRunWideField {
+  grid-column: 1 / -1;
+}
+
+.firstRunFields input,
+.firstRunFields select,
+.firstRunPromptField textarea {
+  border-radius: var(--ias-radius-control, 10px) !important;
+  border-color: var(--studio-border) !important;
+  background: var(--studio-surface) !important;
+  color: var(--studio-text) !important;
+  transition: border-color 160ms var(--ias-ease, ease), box-shadow 160ms var(--ias-ease, ease), background 160ms var(--ias-ease, ease) !important;
+}
+
+.firstRunFields input:focus,
+.firstRunFields select:focus,
+.firstRunPromptField textarea:focus {
+  border-color: var(--studio-primary) !important;
+  box-shadow: var(--ias-focus, 0 0 0 3px rgba(15, 118, 110, 0.16)) !important;
+}
+
+.firstRunSecretField {
+  position: relative;
+}
+
+.firstRunSecretField svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  color: var(--studio-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.firstRunSecretField input {
+  padding-left: 36px !important;
+}
+
+.firstRunSecurity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: var(--studio-muted);
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.firstRunConnectionSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.firstRunConnectionSummary span,
+.firstRunConnectionSummary strong {
+  overflow: hidden;
+  padding: 5px 9px;
+  border-radius: 999px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.firstRunConnectionSummary span {
+  background: var(--studio-surface-soft);
+  color: var(--studio-text);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.firstRunConnectionSummary strong {
+  background: color-mix(in srgb, var(--studio-primary) 12%, transparent);
+  color: var(--studio-primary);
+  font-size: 10.5px;
+  font-weight: 850;
+}
+
+.firstRunPromptField textarea {
+  min-height: 156px !important;
+  resize: vertical;
+}
+
+.firstRunFeedback {
+  margin: 0 22px 12px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--studio-danger) 32%, var(--studio-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--studio-danger) 8%, transparent);
+  color: var(--studio-danger);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.firstRunActions {
+  min-height: 64px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--studio-border);
+  background: color-mix(in srgb, var(--studio-surface-soft) 56%, var(--studio-surface-strong));
+}
+
+.firstRunActions button {
+  min-height: 40px !important;
+  border-radius: 12px !important;
+  transition: background 160ms var(--ias-ease, ease), border-color 160ms var(--ias-ease, ease), color 160ms var(--ias-ease, ease), transform 160ms var(--ias-ease, ease), box-shadow 160ms var(--ias-ease, ease) !important;
+}
+
+.firstRunActions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.firstRunBack {
+  border: 1px solid var(--studio-border) !important;
+  background: var(--studio-surface-strong) !important;
+  color: var(--studio-text) !important;
+}
+
+.firstRunPrimary {
+  margin-left: auto;
+  background: var(--studio-primary) !important;
+  color: var(--studio-on-primary, #fff) !important;
+  box-shadow: 0 9px 22px color-mix(in srgb, var(--studio-primary) 20%, transparent);
+}
+
+@keyframes firstRunFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes firstRunEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 620px) {
+  .firstRunBackdrop {
+    padding: 10px;
+  }
+
+  .firstRunDialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    overflow: auto;
+    border-radius: 18px;
+  }
+
+  .firstRunFields {
+    grid-template-columns: 1fr;
+  }
+
+  .firstRunWideField {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .firstRunBackdrop,
+  .firstRunDialog,
+  .firstRunActions button,
+  .firstRunProgress i {
+    animation: none;
+    transition: none !important;
+  }
+}

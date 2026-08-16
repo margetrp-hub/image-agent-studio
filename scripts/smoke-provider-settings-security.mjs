@@ -25,6 +25,7 @@ const server = await createServer({
 });
 
 let browser;
+let assistantInvocation = null;
 
 try {
   await server.listen();
@@ -33,6 +34,34 @@ try {
 
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+
+  await page.route('https://second.example/v1/chat/completions', async (route) => {
+    assistantInvocation = {
+      authorization: route.request().headers().authorization || '',
+      body: JSON.parse(route.request().postData() || '{}')
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              subject: '雨后城市',
+              scene: '霓虹街道',
+              composition: '广角',
+              style: '电影感',
+              lighting: '柔和霓虹',
+              details: '',
+              textRules: '',
+              constraints: '',
+              finalPrompt: '雨后的霓虹城市街道，电影感广角构图'
+            })
+          }
+        }]
+      })
+    });
+  });
 
   await page.route('**/studio-api/library**', (route) => route.fulfill({
     status: 200,
@@ -98,9 +127,11 @@ try {
   assert(await page.locator('.providerTypeSelect').count() === 0, 'Opening provider settings should show the saved provider library before an editor.', {
     editorVisible: await page.locator('.providerTypeSelect').count()
   });
+  assert(await page.locator('.providerAssistantRoute').count() === 1, 'Provider library should expose one independent assistant route configuration.');
   await page.locator('.providerLibraryItemMain').first().click();
   await page.waitForSelector('.providerTypeSelect');
   assert(await page.locator('.providerLibrary').count() === 0, 'Editing a provider should replace the library instead of stacking below it.');
+  assert(await page.locator('.providerAssistantModelField').count() === 0, 'Assistant model must not be stored inside an individual provider editor.');
   const inputsBefore = await page.evaluate(() => [...document.querySelectorAll('.settingsDialog input')].map((input) => ({
     type: input.type,
     value: input.value,
@@ -126,6 +157,7 @@ try {
   assert(!updated.legacyPersisted.includes('test-key-provider-security-smoke'), 'Updated manual API key was persisted in legacy localStorage.', updated);
   assert(updated.sessionSecret === 'test-key-provider-security-smoke-updated', 'Updated manual API key was not retained for the current browser session.', updated);
   assert(updated.persisted.includes('https://manual.example/v1'), 'Manual gateway URL should remain persistent configuration.', updated);
+  assert(!updated.persisted.includes('responsesModel'), 'Active provider storage should not persist an assistant model.', updated);
 
   await page.locator('.providerLibraryNewButton').click();
   await page.waitForSelector('.providerTypeSelect');
@@ -157,12 +189,40 @@ try {
   const created = await page.evaluate(({ libraryStorageKey }) => JSON.parse(localStorage.getItem(libraryStorageKey) || '{}'), { libraryStorageKey });
   assert(created.profiles?.length === 2, 'Saving a new provider should add it to the provider library.', created);
   assert(!JSON.stringify(created).includes('second-provider-secret'), 'New provider secret was persisted in the provider library.', created);
+  assert(created.profiles.every((profile) => !Object.prototype.hasOwnProperty.call(profile, 'responsesModel')), 'Provider profiles should not persist assistant model selection.', created);
+
+  const secondProfile = created.profiles.find((profile) => profile.name === 'Second provider');
+  await page.locator('.providerAssistantRouteFields select').first().selectOption(secondProfile.id);
+  await page.locator('.providerAssistantRouteFields input').fill('assistant-special-model');
+  await page.waitForFunction(({ libraryStorageKey, profileId }) => {
+    const library = JSON.parse(localStorage.getItem(libraryStorageKey) || '{}');
+    return library.assistant?.providerProfileId === profileId && library.assistant?.model === 'assistant-special-model';
+  }, { libraryStorageKey, profileId: secondProfile.id });
+  const assistantUpdated = await page.evaluate(({ libraryStorageKey }) => JSON.parse(localStorage.getItem(libraryStorageKey) || '{}'), { libraryStorageKey });
+  assert(assistantUpdated.assistant.providerProfileId === secondProfile.id, 'Assistant route did not save the selected provider.', assistantUpdated);
+  assert(assistantUpdated.assistant.model === 'assistant-special-model', 'Assistant route did not save the selected model.', assistantUpdated);
+  await page.screenshot({ path: 'output/playwright/provider-assistant-route.png' });
+
+  const firstProviderItem = page.locator('.providerLibraryItem').filter({ hasText: 'legacy.example' });
+  await firstProviderItem.locator('.providerLibraryItemActions button').first().click();
+  await page.waitForFunction(() => document.querySelector('.singleField select')?.selectedOptions?.[0]?.textContent?.includes('legacy.example'));
+  await page.locator('.settingsTitle .iconButton').click();
+  await page.locator('.singlePromptBox textarea').fill('雨后的城市街道');
+  await page.locator('.singleActionBar button').first().click();
+  await page.waitForFunction(() => document.body.textContent?.includes('已生成优化建议'), null, { timeout: 10000 });
+  assert(assistantInvocation?.authorization === 'Bearer second-provider-secret', 'Prompt optimization did not use the selected assistant provider key.', assistantInvocation);
+  assert(assistantInvocation?.body?.model === 'assistant-special-model', 'Prompt optimization did not use the selected assistant model.', assistantInvocation);
+
+  await page.locator('.singleGenerationFormPanel .singleGenerationHead button').last().click();
+  await page.waitForSelector('.providerLibrary');
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.locator('.providerLibraryItem').filter({ hasText: 'Second provider' }).locator('button.danger').click();
   await page.waitForFunction(() => document.querySelectorAll('.providerLibraryItem').length === 1);
   const deleted = await page.evaluate(({ libraryStorageKey }) => JSON.parse(localStorage.getItem(libraryStorageKey) || '{}'), { libraryStorageKey });
   assert(deleted.profiles?.length === 1, 'Deleting a provider should remove it from the provider library.', deleted);
+  assert(deleted.assistant?.providerProfileId === deleted.profiles[0].id, 'Deleting the assistant provider should select a remaining provider.', deleted);
+  assert(deleted.assistant?.model === 'gpt-5.5', 'Deleting the assistant provider should reset the assistant model.', deleted);
 
   console.log(JSON.stringify({
     ok: true,
@@ -170,6 +230,7 @@ try {
     migrated,
     updated,
     created: { profileCount: created.profiles?.length || 0 },
+    assistant: assistantUpdated.assistant,
     deleted: { profileCount: deleted.profiles?.length || 0 }
   }, null, 2));
 } finally {

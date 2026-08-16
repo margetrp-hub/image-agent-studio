@@ -99,7 +99,8 @@ function setMode(nextMode) {
     ? `创建账号时，密码至少 ${registrationPasswordMinLength} 位。`
     : isReset
       ? `密码至少 ${registrationPasswordMinLength} 位，重置后旧会话会退出。`
-      : '使用独立账号密码登录。';
+      : '';
+  passwordHint.hidden = !passwordHint.textContent;
   setStatus('');
   clearFieldErrors();
   for (const button of modeButtons) {
@@ -139,7 +140,8 @@ function applyRegistrationConfig(config) {
     ? `创建账号时，密码至少 ${registrationPasswordMinLength} 位。`
     : mode === 'reset'
       ? `密码至少 ${registrationPasswordMinLength} 位，重置后旧会话会退出。`
-      : '使用独立账号密码登录。';
+      : '';
+  passwordHint.hidden = !passwordHint.textContent;
   registerModeButton.hidden = !registrationEnabled;
   reward.hidden = !registrationEnabled || registrationBonusCredits <= 0 || mode === 'reset';
   if (!reward.hidden) rewardAmount.textContent = Number(config.registration.bonusCredits).toLocaleString('zh-CN');

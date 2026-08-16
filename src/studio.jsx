@@ -141,6 +141,7 @@ import {
   usesGatewayAccount
 } from './studio/util/providerSettings.js';
 import {
+  assistantConfigForLibrary,
   createProviderProfileId,
   deleteProviderProfile,
   loadProviderLibrary,
@@ -149,6 +150,7 @@ import {
   saveProviderLibrary,
   upsertProviderProfile
 } from './studio/util/providerLibrary.js';
+import { saveFirstRunState, shouldOpenFirstRun } from './studio/util/firstRun.js';
 import {
   caseCardMeta,
   hasLibraryPreviewImage,
@@ -178,17 +180,20 @@ const GalleryWorkspacePanel = React.lazy(() => import('./studio/components/galle
 const SettingsPanel = React.lazy(() => import('./studio/components/settingsPanel.jsx').then((module) => ({
   default: module.SettingsPanel
 })));
+const FirstRunGuide = React.lazy(() => import('./studio/components/firstRunGuide.jsx').then((module) => ({
+  default: module.FirstRunGuide
+})));
 const InspirationUploadDialog = React.lazy(() => import('./studio/components/inspirationUploadDialog.jsx').then((module) => ({
   default: module.InspirationUploadDialog
 })));
 import { buildGenerationTask as buildGenerationTaskPure, generationFilesForJob as generationFilesForJobPure, waitForServerJob as waitForServerJobPure } from './studio/generation/taskBuilder.js';
 import { buildCanvasContinuationPlan, composeCanvasContinuationPrompt } from './studio/generation/promptComposition.js';
 import {
-  modelLooksLikeImage,
   resolveProviderRequest,
   syncGatewayModels
 } from './studio/generation/modelSync.js';
 import {
+  buildQueuedImageTaskFingerprint,
   buildServerImageGenerationJobPayload,
   buildServerVideoGenerationJobPayload,
   endpointForGenerationTask,
@@ -263,7 +268,6 @@ import {
   findDuplicateActiveGenerationTask,
   firstQueuedGenerationTask,
   generationErrorMessage,
-  generationTaskFingerprint,
   hasRestorableLocalQueueTask,
   isActiveServerJobStatus,
   isFinalServerJobStatus,
@@ -379,8 +383,6 @@ import {
 import { createGatewayClient, createHistoryClient } from './studio/runtime/clients.js';
 
 const IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'gpt-image-1-mini'];
-const RESPONSE_MODELS = ['gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-4.1'];
-const PROMPT_ASSISTANT_MODEL_EXCLUDE_PATTERN = /image|video|sora|runway|kling|veo|codex|review|audit|security|embed|rerank|tts|whisper/i;
 const VIDEO_MODELS = [];
 const IMAGE_GENERATION_ROUTE_LABEL = '自动选择';
 const WORKSPACES = [
@@ -722,6 +724,8 @@ function CreationDesk({
   onResolveCase,
   apiKey,
   client,
+  assistantClient,
+  assistantProviderSettings,
   providerSettings,
   onProviderChange,
   providerProfiles = [],
@@ -744,6 +748,8 @@ function CreationDesk({
   appendTemplateRequest,
   onAppendTemplateConsumed,
   onOpenWorkspace,
+  firstRunRequest,
+  onFirstRunRequestConsumed,
   focusSignal = 0,
   t
 }) {
@@ -760,6 +766,7 @@ function CreationDesk({
   const initialParameters = restoredSession?.parameters || draftRef.current || {};
   const restoredMode = restoredSession?.mode || (activeWorkspace === 'video' ? 'video' : 'image');
   const generationRef = useRef({ id: 0, controller: null });
+  const handledFirstRunRequestRef = useRef('');
   const batchTaskResultsRef = useRef(new Map());
   const resolvingCaseRef = useRef({ id: 0 });
   const appliedCasePromptRef = useRef({ key: '', prompt: '' });
@@ -795,6 +802,7 @@ function CreationDesk({
   const [videoStyle, setVideoStyle] = useState(() => normalizeVideoStyle(initialParameters.videoStyle));
   const [videoQuality, setVideoQuality] = useState(() => normalizeVideoQuality(initialParameters.videoQuality));
   const [negativePrompt, setNegativePrompt] = useState(() => initialParameters.negativePrompt || '');
+  const [pendingFirstRunRequest, setPendingFirstRunRequest] = useState(null);
   const [videoReferenceFiles, setVideoReferenceFiles] = useState([]);
   const [videoReferencePreviews, setVideoReferencePreviews] = useState([]);
   const restoredWasGenerating = restoredSession?.status === 'loading';
@@ -918,6 +926,55 @@ function CreationDesk({
   }, [workspaceFlowMode]);
 
   useEffect(() => {
+    const requestId = String(firstRunRequest?.id || '');
+    if (!requestId || handledFirstRunRequestRef.current === requestId) return;
+    setPendingFirstRunRequest(firstRunRequest);
+    setMode('image');
+    setPrompt(firstRunRequest.prompt || '');
+    setModel(firstRunRequest.model || providerSettings.imageGenerationModel || IMAGE_MODELS[0]);
+    setCount(1);
+    setSelectedCanvasNodeId('');
+    updateLayoutSections({
+      flowMode: 'single',
+      bottomComposer: true,
+      composerFolded: false,
+      composerParameters: false
+    });
+  }, [firstRunRequest?.id]);
+
+  useEffect(() => {
+    const requestId = String(pendingFirstRunRequest?.id || '');
+    if (!requestId || handledFirstRunRequestRef.current === requestId) return;
+    if (workspaceFlowMode !== 'single' || mode !== 'image') return;
+    if (prompt !== pendingFirstRunRequest.prompt || model !== pendingFirstRunRequest.model) return;
+    if (!connectionReady(providerSettings, apiKey, isAuthenticated)) return;
+    handledFirstRunRequestRef.current = requestId;
+    const task = buildGenerationTask({
+      mode: 'image',
+      prompt: pendingFirstRunRequest.prompt,
+      rawPrompt: pendingFirstRunRequest.prompt,
+      model: pendingFirstRunRequest.model,
+      count: 1,
+      referenceItems: [],
+      selectedCanvasNodeId: ''
+    });
+    setPendingFirstRunRequest(null);
+    onFirstRunRequestConsumed?.(requestId);
+    enqueueIndependentImageBatch(task);
+  }, [
+    pendingFirstRunRequest?.id,
+    workspaceFlowMode,
+    mode,
+    prompt,
+    model,
+    providerSettings.providerProfileId,
+    providerSettings.manualGatewayBaseUrl,
+    providerSettings.manualApiKey,
+    apiKey?.key,
+    isAuthenticated
+  ]);
+
+  useEffect(() => {
     if (status !== 'loading' && timing?.status !== 'running') return undefined;
     setComposerNow(Date.now());
     const timer = window.setInterval(() => setComposerNow(Date.now()), 1000);
@@ -944,6 +1001,8 @@ function CreationDesk({
   }, []);
 
   const isReady = connectionReady(providerSettings, apiKey, isAuthenticated);
+  const promptAssistantSettings = assistantProviderSettings || providerSettings;
+  const promptAssistantClient = assistantClient || client;
   const currentImageProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
   const currentProviderAdapter = resolveProviderAdapter({
     providerId: providerSettings.providerId,
@@ -975,12 +1034,6 @@ function CreationDesk({
     ...configuredImageModelOptions.filter((item) => !baseImageModelOptions.some((option) => option.id === item.id)),
     ...baseImageModelOptions
   ];
-  const assistantModelOptions = modelOptions?.responses?.length
-    ? modelOptions.responses.filter((item) => !modelLooksLikeImage(item) && !PROMPT_ASSISTANT_MODEL_EXCLUDE_PATTERN.test(`${item.id} ${item.label || ''}`))
-    : [];
-  const responseModelOptions = assistantModelOptions.length
-    ? assistantModelOptions
-    : [...new Set([providerSettings.responsesModel, ...RESPONSE_MODELS])].filter(Boolean).map((id) => ({ id, label: id }));
   const configuredVideoModel = String(providerSettings.videoModel || '').trim();
   const baseVideoModelOptions = modelOptions?.video?.length ? modelOptions.video : VIDEO_MODELS.map((id) => ({ id, label: id }));
   const syncedVideoModelOptions = configuredVideoModel && !baseVideoModelOptions.some((item) => item.id === configuredVideoModel)
@@ -2244,10 +2297,7 @@ function CreationDesk({
     if (!imageModelOptions.some((item) => item.id === model)) {
       setModel(imageModelOptions[0]?.id || IMAGE_MODELS[0]);
     }
-    if (assistantModelOptions.length && !responseModelOptions.some((item) => item.id === providerSettings.responsesModel)) {
-      onProviderChange({ ...providerSettings, responsesModel: responseModelOptions[0]?.id || providerSettings.responsesModel });
-    }
-  }, [modelOptions?.image, modelOptions?.responses]);
+  }, [modelOptions?.image]);
 
   useEffect(() => {
     if (syncedVideoModelOptions.length && !syncedVideoModelOptions.some((item) => item.id === videoModel)) {
@@ -2382,7 +2432,7 @@ function CreationDesk({
       return;
     }
     if (optimizingPrompt) return;
-    if (usesGatewayAccount(providerSettings) && !isAuthenticated) {
+    if (usesGatewayAccount(promptAssistantSettings) && !isAuthenticated) {
       saveDraft({
         caseId: selectedCase?.id || null,
         mode,
@@ -2394,10 +2444,10 @@ function CreationDesk({
       onRequireLogin();
       return;
     }
-    const providerRequest = resolveProviderRequest(providerSettings, apiKey);
+    const providerRequest = resolveProviderRequest(promptAssistantSettings, apiKey);
     if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
       setStatus('error');
-      setMessage(providerSetupMessage(providerSettings, providerRequest, t));
+      setMessage(providerSetupMessage(promptAssistantSettings, providerRequest, t));
       onOpenSettings();
       return;
     }
@@ -2405,8 +2455,9 @@ function CreationDesk({
     setStatus('loading');
     setMessage(t('statusMessages.optimizingPrompt', '正在优化提示词'));
     try {
-      const result = await client.optimizePrompt({
+      const result = await promptAssistantClient.optimizePrompt({
         ...providerRequest,
+        model: promptAssistantSettings.responsesModel,
         prompt: currentPrompt,
         instruction: promptInstruction.trim(),
         size,
@@ -2444,7 +2495,7 @@ function CreationDesk({
       return;
     }
     if (optimizingPrompt) return;
-    if (usesGatewayAccount(providerSettings) && !isAuthenticated) {
+    if (usesGatewayAccount(promptAssistantSettings) && !isAuthenticated) {
       saveDraft({
         caseId: selectedCase?.id || null,
         mode,
@@ -2456,10 +2507,10 @@ function CreationDesk({
       onRequireLogin();
       return;
     }
-    const providerRequest = resolveProviderRequest(providerSettings, apiKey);
+    const providerRequest = resolveProviderRequest(promptAssistantSettings, apiKey);
     if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
       setStatus('error');
-      setMessage(providerSetupMessage(providerSettings, providerRequest, t));
+      setMessage(providerSetupMessage(promptAssistantSettings, providerRequest, t));
       onOpenSettings();
       return;
     }
@@ -2481,8 +2532,9 @@ function CreationDesk({
     setStatus('loading');
     setMessage(t('statusMessages.assistantCalling', '正在调用对话模型'));
     try {
-      const result = await client.chatPromptAssistant({
+      const result = await promptAssistantClient.chatPromptAssistant({
         ...providerRequest,
+        model: promptAssistantSettings.responsesModel,
         prompt: selectedCanvasNode ? userText : composedGenerationPrompt(),
         basePrompt: wantsPromptRewrite(userText) ? '' : assistantBasePrompt(),
         userInstruction: userText,
@@ -2794,7 +2846,7 @@ function CreationDesk({
         batchId,
         batchIndex: index,
         batchTotal: total,
-        fingerprint: generationTaskFingerprint({
+        fingerprint: buildQueuedImageTaskFingerprint({
           sessionId,
           mode: task.mode,
           route: task.mode === 'edit' || task.mode === 'mask' ? 'edits' : 'generations',
@@ -4138,7 +4190,6 @@ function CreationDesk({
                   >
                     <Upload size={20} />
                     <span>{singleReferenceCount ? t('references.addMore', '继续添加 / 拖入更多') : t('references.upload', '拖拽 / 粘贴 / 上传参考图')}</span>
-                    <small>{isVideoSingleMode ? t('references.optionalUpload', '可选，上传后会作为视频参考图。') : t('single.referenceHint', '可选。上传参考图会自动切换到参考图/编辑语义。')}</small>
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
@@ -4998,7 +5049,6 @@ function CreationDesk({
                     <select className="compactSelect" aria-label={t('params.apiSize', '接口尺寸')} value={customSize} onChange={(event) => setCustomSize(normalizeSize(event.target.value))}>
                       {customSizeOptions.map((item) => <option key={item.value} value={item.value}>{customSizeLabel(item)}</option>)}
                     </select>
-                    <small className="sizeLimitHint">{t('params.sizeHint', '这里是当前模型支持的 size 枚举；2K/4K 会写进提示词作为目标清晰度。')}</small>
                   </>
                 ) : null}
               </div>
@@ -5337,6 +5387,8 @@ function StudioApp() {
   const [favoriteTemplates, setFavoriteTemplates] = useState(() => loadTemplateFavorites());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [firstRunOpen, setFirstRunOpen] = useState(false);
+  const [firstRunRequest, setFirstRunRequest] = useState(null);
   const [inspirationUploadOpen, setInspirationUploadOpen] = useState(false);
   const [bootError, setBootError] = useState('');
   const [historyItems, setHistoryItems] = useState(() => loadHistory());
@@ -5362,6 +5414,19 @@ function StudioApp() {
   const isLibraryLocked = LIBRARY_AUTH_REQUIRED && !session?.accessToken;
   const t = useMemo(() => createTranslator(language), [language]);
   const persistenceKey = session?.accessToken || 'local-workspace';
+  const assistantConfig = useMemo(() => assistantConfigForLibrary(providerLibrary), [providerLibrary]);
+  const assistantProviderSettings = useMemo(() => {
+    const selected = providerLibrary.profiles.find((item) => item.id === assistantConfig.providerProfileId);
+    if (!selected) return providerSettings;
+    return {
+      ...providerSettingsFromProfile(selected),
+      responsesModel: assistantConfig.model
+    };
+  }, [providerLibrary, assistantConfig.providerProfileId, assistantConfig.model, providerSettings]);
+  const assistantClient = useMemo(() => createGatewayClient({
+    session,
+    providerSettings: assistantProviderSettings
+  }), [session, assistantProviderSettings]);
 
   function historyScope() {
     return historyScopeFromIdentity(session, profile);
@@ -5417,6 +5482,16 @@ function StudioApp() {
     });
   }
 
+  function handleAssistantConfigChange(nextConfig) {
+    setProviderLibrary((current) => saveProviderLibrary({
+      ...current,
+      assistant: {
+        ...current.assistant,
+        ...nextConfig
+      }
+    }));
+  }
+
   async function handleBindProviderConnection(input) {
     const connection = await client.bindProviderConnection(input);
     if (connection) setProviderConnections((current) => [connection, ...current.filter((item) => item.id !== connection.id)]);
@@ -5469,6 +5544,47 @@ function StudioApp() {
       current.setProviderSettings(nextSettings);
       return current;
     });
+  }
+
+  async function handleFirstRunComplete(input) {
+    const reusableProfile = providerLibrary.profiles.length === 1
+      && !providerLibrary.profiles[0].manualGatewayBaseUrl
+      ? providerLibrary.profiles[0]
+      : null;
+    const profileId = reusableProfile?.id || createProviderProfileId();
+    const settings = {
+      providerProfileId: profileId,
+      providerId: input.providerId,
+      apiKeySource: 'manual',
+      route: 'auto',
+      manualApiKey: input.apiKey,
+      manualGatewayBaseUrl: input.baseUrl,
+      imageGenerationModel: input.imageGenerationModel,
+      imageEditModel: input.imageEditModel || input.imageGenerationModel,
+      videoModel: '',
+      videoGatewayBaseUrl: '',
+      responsesModel: '',
+      partialImages: 2
+    };
+    handleSaveProvider({ id: profileId, settings, activate: true });
+    saveFirstRunState('completed');
+    setActiveWorkspace('image');
+    setFirstRunOpen(false);
+    setFirstRunRequest({
+      id: `first-run-${Date.now()}`,
+      prompt: input.prompt,
+      model: input.imageGenerationModel
+    });
+  }
+
+  function handleCloseFirstRun() {
+    saveFirstRunState('dismissed');
+    setFirstRunOpen(false);
+  }
+
+  function handleOpenFirstRun() {
+    setSettingsOpen(false);
+    setFirstRunOpen(true);
   }
 
   function handleDeleteProvider(profileId) {
@@ -5544,6 +5660,24 @@ function StudioApp() {
       window.location.replace(getLoginUrl());
     }
   }, [session?.accessToken]);
+
+  useEffect(() => {
+    if (!STUDIO_STANDALONE || firstRunOpen) return;
+    if (shouldOpenFirstRun({
+      authenticated: Boolean(session?.accessToken),
+      connectionReady: connectionReady(providerSettings, apiKey, Boolean(session?.accessToken))
+    })) {
+      setFirstRunOpen(true);
+    }
+  }, [
+    session?.accessToken,
+    apiKey?.key,
+    providerSettings.providerProfileId,
+    providerSettings.apiKeySource,
+    providerSettings.manualGatewayBaseUrl,
+    providerSettings.manualApiKey,
+    firstRunOpen
+  ]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -5663,13 +5797,11 @@ function StudioApp() {
   useEffect(() => {
     if (modelsStatus !== 'ready') return;
     const imageModel = modelOptions.image?.[0]?.id || '';
-    const responseModel = modelOptions.responses?.find((item) => !modelLooksLikeImage(item))?.id || '';
     const videoModel = modelOptions.video?.[0]?.id || '';
-    if (!imageModel && !responseModel && !videoModel) return;
+    if (!imageModel && !videoModel) return;
     const patch = {};
     if (!String(providerSettings.imageGenerationModel || '').trim() && imageModel) patch.imageGenerationModel = imageModel;
     if (!String(providerSettings.imageEditModel || '').trim() && imageModel) patch.imageEditModel = imageModel;
-    if (!String(providerSettings.responsesModel || '').trim() && responseModel) patch.responsesModel = responseModel;
     if (!String(providerSettings.videoModel || '').trim() && videoModel) patch.videoModel = videoModel;
     if (Object.keys(patch).length) {
       handleProviderChange({ ...providerSettings, ...patch });
@@ -5681,7 +5813,6 @@ function StudioApp() {
     modelOptions.video,
     providerSettings.imageGenerationModel,
     providerSettings.imageEditModel,
-    providerSettings.responsesModel,
     providerSettings.videoModel
   ]);
 
@@ -6187,13 +6318,15 @@ function StudioApp() {
             selectedHistory={selectedHistory}
             onResolveCase={resolveLibraryCase}
             apiKey={apiKey}
-             client={client}
-             providerSettings={providerSettings}
-             onProviderChange={handleProviderChange}
-             providerProfiles={providerLibrary.profiles}
-             activeProviderProfileId={providerLibrary.activeProfileId}
-             onSelectProvider={handleSelectProvider}
-             modelOptions={modelOptions}
+            client={client}
+            assistantClient={assistantClient}
+            assistantProviderSettings={assistantProviderSettings}
+            providerSettings={providerSettings}
+            onProviderChange={handleProviderChange}
+            providerProfiles={providerLibrary.profiles}
+            activeProviderProfileId={providerLibrary.activeProfileId}
+            onSelectProvider={handleSelectProvider}
+            modelOptions={modelOptions}
             modelsStatus={modelsStatus}
             usageSummary={usageSummary}
             isAuthenticated={Boolean(session?.accessToken)}
@@ -6212,6 +6345,8 @@ function StudioApp() {
               setAppendTemplateRequest((current) => current?.id === requestId ? null : current);
             }}
             onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
+            firstRunRequest={firstRunRequest}
+            onFirstRunRequestConsumed={(requestId) => setFirstRunRequest((current) => current?.id === requestId ? null : current)}
             focusSignal={canvasFocusSignal}
             t={t}
           />
@@ -6289,6 +6424,16 @@ function StudioApp() {
           </React.Suspense>
         )}
       </div>
+      {firstRunOpen ? (
+        <React.Suspense fallback={null}>
+          <FirstRunGuide
+            open
+            onClose={handleCloseFirstRun}
+            onComplete={handleFirstRunComplete}
+            t={t}
+          />
+        </React.Suspense>
+      ) : null}
       {settingsOpen ? (
         <React.Suspense fallback={null}>
           <SettingsPanel
@@ -6301,6 +6446,9 @@ function StudioApp() {
             onProviderChange={handleProviderChange}
             providerProfiles={providerLibrary.profiles}
             activeProviderProfileId={providerLibrary.activeProfileId}
+            assistantProviderProfileId={assistantConfig.providerProfileId}
+            assistantModel={assistantConfig.model}
+            onAssistantConfigChange={handleAssistantConfigChange}
             onSelectProvider={handleSelectProvider}
             onSaveProvider={handleSaveProvider}
             onDeleteProvider={handleDeleteProvider}
@@ -6313,6 +6461,7 @@ function StudioApp() {
             modelsStatus={modelsStatus}
             modelSyncError={modelSyncError}
             onSyncModels={syncProviderModels}
+            onOpenOnboarding={handleOpenFirstRun}
             isAuthenticated={Boolean(session?.accessToken)}
             onLogin={handleRequireLogin}
             t={t}

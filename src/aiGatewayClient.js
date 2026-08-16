@@ -307,11 +307,12 @@ function providerSettingsForStorage(settings) {
       imageEditModel: normalized.imageEditModel,
       videoModel: normalized.videoModel,
       videoGatewayBaseUrl: normalized.videoGatewayBaseUrl,
-      responsesModel: normalized.responsesModel,
       partialImages: normalized.partialImages
     };
   }
-  const { manualApiKey, ...storedSettings } = normalizeProviderSettings(settings);
+  const storedSettings = { ...normalizeProviderSettings(settings) };
+  delete storedSettings.manualApiKey;
+  delete storedSettings.responsesModel;
   return storedSettings;
 }
 
@@ -1389,7 +1390,7 @@ export class AiGatewayClient {
     return {
       prompt: text,
       model: optimizerModel,
-      raw: payload
+      raw: text
     };
   }
 
