@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, KeyRound, Pencil, Plus, RefreshCw, Save, Search, Server, Trash2, X } from 'lucide-react';
+import { Check, KeyRound, Link2, Pencil, Plus, RefreshCw, Save, Search, Server, Trash2, X } from 'lucide-react';
 import '../../styles/studio.provider-settings.css';
 import '../../styles/studio.provider-settings-responsive.css';
 import '../../styles/studio.provider-settings-sync.css';
 import '../../styles/studio.provider-library.css';
+import '../../styles/studio.provider-connections.css';
 
 import { getConfiguredBaseUrls, STUDIO_STANDALONE } from '../../aiGatewayClient';
 import { getImageProvider, orderedImageProviders } from '../providers/index.js';
@@ -94,6 +95,11 @@ export function SettingsPanel({
   onSelectProvider,
   onSaveProvider,
   onDeleteProvider,
+  providerConnections = [],
+  providerConnectionsEnabled = false,
+  onBindProvider,
+  onDeleteProviderConnection,
+  onTestProviderConnection,
   modelOptions = { image: [], responses: [], video: [] },
   modelsStatus = 'idle',
   modelSyncError = null,
@@ -108,6 +114,12 @@ export function SettingsPanel({
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [bindingProviderType, setBindingProviderType] = useState('sub2api-compatible');
+  const [bindingBaseUrl, setBindingBaseUrl] = useState('');
+  const [bindingIdentifier, setBindingIdentifier] = useState('');
+  const [bindingPassword, setBindingPassword] = useState('');
+  const [bindingBusy, setBindingBusy] = useState(false);
+  const [bindingFeedback, setBindingFeedback] = useState('');
 
   const activeId = activeProviderProfileId || providerSettings.providerProfileId || providerProfiles[0]?.id || '';
   const selectedProfile = providerProfiles.find((profile) => profile.id === selectedProfileId) || null;
@@ -144,6 +156,12 @@ export function SettingsPanel({
     setDraftName('');
     setEditing(false);
     setFeedback('');
+    setBindingProviderType('sub2api-compatible');
+    setBindingBaseUrl('');
+    setBindingIdentifier('');
+    setBindingPassword('');
+    setBindingBusy(false);
+    setBindingFeedback('');
   }, [open]);
 
   if (!open) return null;
@@ -194,7 +212,68 @@ export function SettingsPanel({
     setDraft(blankProviderSettings());
     setDraftName('');
     setFeedback('');
+    setBindingFeedback('');
     setEditing(true);
+  };
+
+  const selectBoundConnection = (connection) => {
+    updateDraft({
+      providerProfileId: connection.id,
+      providerId: 'openai-compatible',
+      apiKeySource: 'linked',
+      providerName: connection.externalUsername || connection.baseUrl,
+      manualApiKey: '',
+      manualGatewayBaseUrl: ''
+    });
+    if (!draftName.trim()) setDraftName(connection.externalUsername || connection.baseUrl || '绑定供应商');
+    setBindingFeedback('');
+  };
+
+  const handleBindProvider = async () => {
+    if (!bindingBaseUrl.trim() || !bindingIdentifier.trim() || !bindingPassword) {
+      setBindingFeedback(t('settings.providerBindingRequired', '请填写地址、账号和密码。'));
+      return;
+    }
+    setBindingBusy(true);
+    setBindingFeedback('');
+    try {
+      const connection = await onBindProvider?.({
+        providerType: bindingProviderType,
+        baseUrl: bindingBaseUrl.trim(),
+        identifier: bindingIdentifier.trim(),
+        password: bindingPassword
+      });
+      if (!connection) throw new Error('PROVIDER_CONNECTION_EMPTY');
+      selectBoundConnection(connection);
+      setBindingPassword('');
+      setBindingFeedback(t('settings.providerBindingSuccess', '账号已绑定，请保存供应商配置。'));
+    } catch (error) {
+      setBindingFeedback(String(error?.message || 'PROVIDER_BIND_FAILED'));
+    } finally {
+      setBindingBusy(false);
+    }
+  };
+
+  const handleRemoveBoundConnection = async (connection) => {
+    if (!window.confirm(t('settings.deleteProviderConnectionConfirm', '解除这个账号绑定？'))) return;
+    try {
+      await onDeleteProviderConnection?.(connection.id);
+      if (draft.providerProfileId === connection.id) {
+        updateDraft({ providerProfileId: '', apiKeySource: 'manual', providerId: 'openai-compatible' });
+      }
+    } catch (error) {
+      setBindingFeedback(String(error?.message || 'PROVIDER_UNBIND_FAILED'));
+    }
+  };
+
+  const handleTestBoundConnection = async (connection) => {
+    setBindingFeedback('');
+    try {
+      await onTestProviderConnection?.(connection.id);
+      setBindingFeedback(t('settings.providerConnectionTested', '连接测试成功。'));
+    } catch (error) {
+      setBindingFeedback(String(error?.message || 'PROVIDER_CONNECTION_TEST_FAILED'));
+    }
   };
 
   const handleSave = () => {
@@ -205,6 +284,10 @@ export function SettingsPanel({
     }
     if (draft.apiKeySource === 'manual' && !String(draft.manualGatewayBaseUrl || '').trim()) {
       setFeedback(t('settings.providerUrlRequired', '请先填写接口地址。'));
+      return;
+    }
+    if (draft.apiKeySource === 'linked' && !String(draft.providerProfileId || '').trim()) {
+      setFeedback(t('settings.providerConnectionRequired', '请先绑定供应商账号。'));
       return;
     }
     const profileId = selectedProfileId || draft.providerProfileId || '';
@@ -342,7 +425,62 @@ export function SettingsPanel({
           </label>
         </div>
 
-        {draft.apiKeySource !== 'manual' && STUDIO_STANDALONE ? (
+        {STUDIO_STANDALONE ? (
+          <section className="providerConnectionBox">
+            <div className="providerConnectionBoxHead">
+              <div>
+                <strong><Link2 size={15} />{t('settings.providerConnections', '账号绑定')}</strong>
+                <span>{t('settings.providerConnectionsHint', '绑定后由服务端读取供应商 Key，浏览器不保存密码。')}</span>
+              </div>
+              <em className={providerConnectionsEnabled ? 'isReady' : ''}>{providerConnectionsEnabled ? t('settings.providerConnectionsReady', '已启用') : t('settings.providerConnectionsUnavailable', '未配置')}</em>
+            </div>
+            {providerConnections.length ? (
+              <div className="providerConnectionList">
+                {providerConnections.map((connection) => (
+                  <div className={`providerConnectionRow ${draft.providerProfileId === connection.id ? 'isSelected' : ''}`} key={connection.id}>
+                    <button type="button" className="providerConnectionPick" onClick={() => selectBoundConnection(connection)}>
+                      <strong>{connection.externalUsername || connection.baseUrl}</strong>
+                      <small>{connection.providerType === 'newapi-compatible' ? 'NewAPI' : 'Sub2API'} · {connection.baseUrl}</small>
+                    </button>
+                    <div className="providerConnectionActions">
+                      <button type="button" onClick={() => handleTestBoundConnection(connection)} aria-label={t('settings.testProviderConnection', '测试连接')} title={t('settings.testProviderConnection', '测试连接')}><RefreshCw size={13} /></button>
+                      <button type="button" className="danger" onClick={() => handleRemoveBoundConnection(connection)} aria-label={t('settings.deleteProviderConnection', '解除绑定')} title={t('settings.deleteProviderConnection', '解除绑定')}><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="providerBindingFields">
+              <label>
+                <span>{t('settings.bindingProviderType', '平台')}</span>
+                <select value={bindingProviderType} onChange={(event) => setBindingProviderType(event.target.value)} disabled={!providerConnectionsEnabled || bindingBusy}>
+                  <option value="sub2api-compatible">Sub2API</option>
+                  <option value="newapi-compatible">NewAPI</option>
+                </select>
+              </label>
+              <label>
+                <span>{t('settings.bindingBaseUrl', '地址')}</span>
+                <input value={bindingBaseUrl} onChange={(event) => setBindingBaseUrl(event.target.value)} placeholder="https://example.com" disabled={!providerConnectionsEnabled || bindingBusy} />
+              </label>
+              <label>
+                <span>{t('settings.bindingAccount', '账号')}</span>
+                <input value={bindingIdentifier} onChange={(event) => setBindingIdentifier(event.target.value)} placeholder="email / username" disabled={!providerConnectionsEnabled || bindingBusy} />
+              </label>
+              <label>
+                <span>{t('settings.bindingPassword', '密码')}</span>
+                <input type="password" value={bindingPassword} onChange={(event) => setBindingPassword(event.target.value)} placeholder={t('settings.bindingPasswordPlaceholder', '输入平台密码')} disabled={!providerConnectionsEnabled || bindingBusy} />
+              </label>
+            </div>
+            <div className="providerConnectionBoxFoot">
+              {bindingFeedback ? <small>{bindingFeedback}</small> : <span />}
+              <button type="button" className="secondaryAction" onClick={handleBindProvider} disabled={!providerConnectionsEnabled || bindingBusy}><Link2 size={14} />{bindingBusy ? t('settings.binding', '绑定中') : t('settings.bindProvider', '绑定账号')}</button>
+            </div>
+          </section>
+        ) : null}
+
+        {draft.apiKeySource === 'linked' && STUDIO_STANDALONE ? (
+          <div className="settingsEmpty providerLinkedState">{t('settings.providerLinked', '已使用绑定账号，保存后生成时直接选择。')}</div>
+        ) : draft.apiKeySource !== 'manual' && STUDIO_STANDALONE ? (
           <div className="settingsEmpty">{t('settings.noBrowserSecrets', '浏览器不保存服务密钥或调用地址。')}</div>
         ) : usesGatewayAccount(draft) ? (
           <div className="keyList">
@@ -375,7 +513,7 @@ export function SettingsPanel({
         )}
 
         <div className="manualFields">
-          {(!STUDIO_STANDALONE || draft.apiKeySource === 'manual') ? <div className="settingsCallConfig">
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') ? <div className="settingsCallConfig">
             <div className="settingsCallConfigHead">
               <strong>{t('settings.modelCallSettings', '模型')}</strong>
               <span>{t('settings.modelSelectionHint', '保存后生成时可直接选择')}</span>
@@ -412,11 +550,11 @@ export function SettingsPanel({
               </button>
             ) : null}
           </div>
-          {(!STUDIO_STANDALONE || draft.apiKeySource === 'manual') ? <label>
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') ? <label>
             <span>{t('settings.assistantModel', '助手模型')}</span>
             <ModelSettingControl value={draft.responsesModel} options={selectedModels.responses} onChange={(value) => updateDraft({ responsesModel: value })} placeholder="gpt-5.5" t={t} />
           </label> : null}
-          {(!STUDIO_STANDALONE || draft.apiKeySource === 'manual') ? <label>
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') ? <label>
             <span>{t('settings.previewFrames', '预览帧')}</span>
             <input type="number" min="0" max="3" value={draft.partialImages} onChange={(event) => updateDraft({ partialImages: event.target.value })} />
           </label> : null}

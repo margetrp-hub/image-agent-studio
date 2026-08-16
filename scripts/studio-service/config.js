@@ -19,6 +19,7 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
   const providerBaseUrl = String(env.STUDIO_PROVIDER_BASE_URL || '').trim().replace(/\/+$/, '');
   const creditsEnabled = String(env.STUDIO_CREDITS_ENABLED ?? 'false').trim().toLowerCase() === 'true';
   const userProviderOnly = String(env.STUDIO_USER_PROVIDER_ONLY ?? 'true').trim().toLowerCase() === 'true';
+  const allowPrivateProviderUrls = String(env.STUDIO_ALLOW_PRIVATE_PROVIDER_URLS ?? 'false').trim().toLowerCase() === 'true';
 
   return {
     PORT: Number(env.PORT || env.STUDIO_HISTORY_PORT || 8787),
@@ -32,7 +33,7 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     AUTH_REGISTRATION_MODE: authRegistrationMode,
     AUTH_DATABASE_PATH: authDatabasePath,
     AUTH_SESSION_TTL_MS: Number(env.STUDIO_AUTH_SESSION_TTL_MS || 7 * 24 * 60 * 60 * 1000),
-    AUTH_PASSWORD_MIN_LENGTH: Number(env.STUDIO_AUTH_PASSWORD_MIN_LENGTH || 12),
+    AUTH_PASSWORD_MIN_LENGTH: Number(env.STUDIO_AUTH_PASSWORD_MIN_LENGTH || 8),
     AUTH_PASSWORD_ITERATIONS: Number(env.STUDIO_AUTH_PASSWORD_ITERATIONS || 600_000),
     AUTH_LOGIN_MAX_FAILURES: Number(env.STUDIO_AUTH_LOGIN_MAX_FAILURES || 5),
     AUTH_LOGIN_FAILURE_WINDOW_MS: Number(env.STUDIO_AUTH_LOGIN_FAILURE_WINDOW_MS || 15 * 60 * 1000),
@@ -41,6 +42,8 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     AUTH_LOGIN_MAX_BODY_BYTES: Number(env.STUDIO_AUTH_LOGIN_MAX_BODY_BYTES || 16 * 1024),
     CREDITS_ENABLED: creditsEnabled,
     USER_PROVIDER_ONLY: userProviderOnly,
+    STUDIO_MASTER_KEY: String(env.STUDIO_MASTER_KEY || '').trim(),
+    ALLOW_PRIVATE_PROVIDER_URLS: allowPrivateProviderUrls,
     AI_GATEWAY_BASE_URL: String(env.AI_GATEWAY_BASE_URL || env.SUB2API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, ''),
     PROVIDER_BASE_URL: providerBaseUrl,
     PROVIDER_API_KEY: String(env.STUDIO_PROVIDER_API_KEY || ''),

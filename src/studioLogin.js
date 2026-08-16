@@ -32,7 +32,7 @@ const redirect = safeSameOriginRedirect(new URLSearchParams(window.location.sear
 });
 let mode = 'login';
 let registrationEnabled = true;
-let registrationPasswordMinLength = 12;
+let registrationPasswordMinLength = 8;
 
 function setStatus(message, state = '') {
   status.textContent = message;

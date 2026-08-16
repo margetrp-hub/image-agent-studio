@@ -37,6 +37,17 @@ export function modelLooksLikeImage(item) {
 }
 
 export function resolveProviderRequest(settings, apiKey) {
+  if (STUDIO_STANDALONE && settings?.apiKeySource === 'linked') {
+    return {
+      apiKey: 'studio-linked-provider',
+      providerConnectionId: settings?.providerProfileId || '',
+      providerType: settings?.providerId,
+      apiKeySource: 'linked',
+      route: settings?.route || 'auto',
+      responsesModel: settings?.responsesModel,
+      partialImages: settings?.partialImages
+    };
+  }
   if (STUDIO_STANDALONE && settings?.apiKeySource !== 'manual') {
     return {
       apiKey: apiKey?.key || (apiKey?.synthetic ? 'studio-managed' : ''),
@@ -69,7 +80,7 @@ export async function syncGatewayModels({ session, providerSettings, apiKey, sig
   if (!providerRequest.apiKey) {
     return emptyModelSyncResult('idle');
   }
-  if (!providerRequest.gatewayBaseUrl) {
+  if (!providerRequest.gatewayBaseUrl && !providerRequest.providerConnectionId) {
     return emptyModelSyncResult('fallback', {
       code: 'MANUAL_PROVIDER_GATEWAY_REQUIRED',
       message: 'A provider URL is required before model sync.',

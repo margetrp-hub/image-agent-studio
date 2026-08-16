@@ -6,9 +6,11 @@ import {
   Check,
   CircleAlert,
   Coins,
+  ExternalLink,
   Gauge,
   LogOut,
   Moon,
+  Plus,
   RefreshCw,
   Save,
   Search,
@@ -48,7 +50,11 @@ const DEFAULT_SETTINGS = {
   registrationBonusCredits: 200,
   imageGenerationCost: 10,
   imageEditCost: 15,
-  videoGenerationCost: 50
+  videoGenerationCost: 50,
+  rechargeEnabled: true,
+  creditCodeEnabled: true,
+  providerBindingEnabled: true,
+  rechargeShopUrl: 'https://catfk.com/shop/ohlao'
 };
 
 const EMPTY_STATS = {
@@ -76,6 +82,9 @@ function getErrorMessage(error) {
   if (code === 'ADMIN_REQUIRED') return '当前账号没有管理员权限。';
   if (code === 'INSUFFICIENT_CREDITS') return '余额不足，无法完成这次操作。';
   if (code === 'CREDIT_REASON_REQUIRED') return '请填写调账原因。';
+  if (code === 'CREDIT_CODE_EXISTS') return '这个 CDK 已经存在。';
+  if (code === 'INVALID_CREDIT_CODE') return 'CDK 需要 8 到 64 位字母或数字。';
+  if (code === 'INVALID_RECHARGE_URL') return '购买链接必须是 http(s) 地址。';
   return '请求没有完成，请稍后重试。';
 }
 
@@ -142,6 +151,60 @@ function SettingsPanel({ settings, onChange, onSave, saving, message }) {
       <div className="iasSectionFooter">
         <span className="iasInlineMessage">{message || '关闭积分后，历史账务保留，新的生成不再扣除。'}</span>
         <Button variant="primary" onClick={onSave} disabled={saving}><Save size={15} /> {saving ? '保存中...' : '保存设置'}</Button>
+      </div>
+    </section>
+  );
+}
+
+function RechargePanel({ settings, onChange, codes, onCreateCode, onDisableCode, saving }) {
+  const [amount, setAmount] = useState('1000');
+  const [code, setCode] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [note, setNote] = useState('');
+  const [newCode, setNewCode] = useState('');
+  const [error, setError] = useState('');
+
+  async function createCode(event) {
+    event.preventDefault();
+    setError('');
+    try {
+      const created = await onCreateCode({
+        amount: Number(amount),
+        code: code.trim() || undefined,
+        expiresAt: expiresAt || undefined,
+        note: note.trim()
+      });
+      setNewCode(created?.code || '');
+      setCode('');
+      setNote('');
+    } catch (createError) {
+      setError(getErrorMessage(createError));
+    }
+  }
+
+  return (
+    <section className="iasAdminSection iasRechargeSection">
+      <div className="iasSectionHeader iasSectionHeaderRow">
+        <div><span className="iasSectionKicker">RECHARGE</span><h2>充值与 CDK</h2><p>购买链接和兑换码都由后台控制。</p></div>
+        <a className="iasAdminLinkButton" href={settings.rechargeShopUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> 打开购买页</a>
+      </div>
+      <div className="iasSettingGrid">
+        <div className="iasToggleRow"><span><strong>开放充值</strong><small>允许用户兑换 CDK。</small></span><Switch aria-label="开放充值" checked={settings.rechargeEnabled} onCheckedChange={(checked) => onChange('rechargeEnabled', checked)} /></div>
+        <div className="iasToggleRow"><span><strong>启用 CDK</strong><small>关闭后保留历史流水。</small></span><Switch aria-label="启用 CDK" checked={settings.creditCodeEnabled} onCheckedChange={(checked) => onChange('creditCodeEnabled', checked)} /></div>
+        <div className="iasToggleRow"><span><strong>允许账号绑定</strong><small>允许用户绑定 Sub2API 或 NewAPI 账号。</small></span><Switch aria-label="允许账号绑定" checked={settings.providerBindingEnabled} onCheckedChange={(checked) => onChange('providerBindingEnabled', checked)} /></div>
+      </div>
+      <label className="iasField iasRechargeUrlField"><span>购买链接</span><Input value={settings.rechargeShopUrl} onChange={(event) => onChange('rechargeShopUrl', event.target.value)} /></label>
+      <form className="iasCodeForm" onSubmit={createCode}>
+        <label className="iasField"><span>积分数量</span><Input type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
+        <label className="iasField"><span>自定义 CDK（可选）</span><Input value={code} onChange={(event) => setCode(event.target.value)} placeholder="留空自动生成" /></label>
+        <label className="iasField"><span>有效期（可选）</span><Input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
+        <label className="iasField"><span>备注</span><Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="例如：首发活动" maxLength="240" /></label>
+        <Button variant="primary" type="submit" disabled={saving}><Plus size={15} /> 生成 CDK</Button>
+      </form>
+      {newCode ? <div className="iasNewCode" role="status"><span>新 CDK，只显示这一次</span><code>{newCode}</code></div> : null}
+      {error ? <p className="iasFormError"><CircleAlert size={15} /> {error}</p> : null}
+      <div className="iasCodeList">
+        {codes.length ? codes.map((item) => <div className="iasCodeRow" key={item.id}><span><strong>{item.codeMask}</strong><small>{formatNumber(item.amount)} 积分 · {item.redeemed ? '已兑换' : item.active ? '可用' : '已停用'}{item.note ? ` · ${item.note}` : ''}</small></span>{item.active && !item.redeemed ? <Button size="small" onClick={() => onDisableCode(item)}>停用</Button> : null}</div>) : <div className="iasEmptyState">还没有 CDK。</div>}
       </div>
     </section>
   );
@@ -219,6 +282,7 @@ function AdminApp() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [codes, setCodes] = useState([]);
   const [query, setQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -237,12 +301,13 @@ function AdminApp() {
     nextClient.me().then((nextUser) => {
       if (nextUser?.role !== 'admin') throw Object.assign(new Error('ADMIN_REQUIRED'), { payload: { error: 'ADMIN_REQUIRED' } });
       setUser(nextUser);
-      return Promise.all([nextClient.getAdminBillingStats(), nextClient.getAdminBillingSettings(), nextClient.listAdminUsers(), nextClient.listCreditTransactions(80)]);
-    }).then(([nextStats, nextSettings, nextUsers, ledger]) => {
+      return Promise.all([nextClient.getAdminBillingStats(), nextClient.getAdminBillingSettings(), nextClient.listAdminUsers(), nextClient.listCreditTransactions(80), nextClient.listAdminCreditCodes()]);
+    }).then(([nextStats, nextSettings, nextUsers, ledger, nextCodes]) => {
       setStats(nextStats);
       setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
       setUsers(nextUsers);
       setTransactions(ledger.transactions || []);
+      setCodes(nextCodes);
     }).catch((loadError) => {
       if (loadError?.payload?.error === 'ADMIN_REQUIRED') setError('当前账号没有管理员权限，请返回工作台。');
       else { clearSession(); window.location.replace(getLoginUrl()); }
@@ -253,8 +318,8 @@ function AdminApp() {
     if (!client) return;
     setLoading(true); setError('');
     try {
-      const [nextStats, nextSettings, nextUsers, ledger, nextUser] = await Promise.all([client.getAdminBillingStats(), client.getAdminBillingSettings(), client.listAdminUsers(), client.listCreditTransactions(80), client.me()]);
-      setStats(nextStats); setSettings({ ...DEFAULT_SETTINGS, ...nextSettings }); setUsers(nextUsers); setTransactions(ledger.transactions || []); setUser(nextUser); setStatus('数据已更新。');
+      const [nextStats, nextSettings, nextUsers, ledger, nextUser, nextCodes] = await Promise.all([client.getAdminBillingStats(), client.getAdminBillingSettings(), client.listAdminUsers(), client.listCreditTransactions(80), client.me(), client.listAdminCreditCodes()]);
+      setStats(nextStats); setSettings({ ...DEFAULT_SETTINGS, ...nextSettings }); setUsers(nextUsers); setTransactions(ledger.transactions || []); setUser(nextUser); setCodes(nextCodes); setStatus('数据已更新。');
     } catch (refreshError) { setError(getErrorMessage(refreshError)); }
     finally { setLoading(false); }
   }
@@ -280,6 +345,21 @@ function AdminApp() {
     catch (disableError) { setError(getErrorMessage(disableError)); }
   }
 
+  async function createCode(input) {
+    setSaving(true); setError('');
+    try { const created = await client.createAdminCreditCode(input); setStatus('CDK 已创建。'); await refresh(); return created; }
+    catch (createError) { setError(getErrorMessage(createError)); throw createError; }
+    finally { setSaving(false); }
+  }
+
+  async function disableCode(target) {
+    if (!window.confirm(`确定停用 ${target.codeMask} 吗？`)) return;
+    setSaving(true); setError('');
+    try { await client.disableAdminCreditCode(target.id); setStatus('CDK 已停用。'); await refresh(); }
+    catch (disableError) { setError(getErrorMessage(disableError)); }
+    finally { setSaving(false); }
+  }
+
   if (error && !user) return <main className="iasAdminGate"><ShieldCheck size={28} /><h1>管理员权限</h1><p>{error}</p><a className="iasButton iasButtonSecondary" href="./studio.html"><ArrowLeft size={15} /> 返回工作台</a></main>;
   if (loading && !user) return <main className="iasAdminGate"><LoadingState /></main>;
 
@@ -294,7 +374,8 @@ function AdminApp() {
         {error ? <Notice className="iasAdminNotice iasAlertError" tone="danger" icon={CircleAlert}>{error}</Notice> : null}
         {status ? <Notice className="iasAdminNotice iasAlertSuccess" tone="success" icon={Check}>{status}</Notice> : null}
         <section className="iasStatsGrid"><StatCard icon={UserRound} label="注册用户" value={formatNumber(stats.users)} detail={`${formatNumber(stats.activeUsers)} 个账号正常使用`} /><StatCard icon={WalletCards} label="当前余额" value={formatNumber(stats.balance)} detail="所有用户可用积分" tone="isTeal" /><StatCard icon={Activity} label="累计消耗" value={formatNumber(stats.spent)} detail={`${formatNumber(stats.transactions)} 条账务流水`} tone="isWarm" /><StatCard icon={Gauge} label="运行策略" value={settings.creditsEnabled ? '积分计费' : '自由试用'} detail={`注册奖励 ${formatNumber(settings.registrationBonusCredits)} 积分`} /></section>
-        <div className="iasAdminColumns"><SettingsPanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : Math.max(0, Number(value) || 0) }))} onSave={saveSettings} saving={saving} message={status} /><section className="iasAdminSection iasLedgerSection"><div className="iasSectionHeader"><div><span className="iasSectionKicker">LEDGER</span><h2>最近流水</h2><p>当前管理员账户的最近积分变动。</p></div><Coins size={20} className="iasSectionHeaderIcon" /></div><div className="iasLedgerList">{transactions.length ? transactions.slice(0, 8).map((item) => <div className="iasLedgerItem" key={item.id}><span className={`iasLedgerSign ${item.delta >= 0 ? 'isPlus' : 'isMinus'}`}>{item.delta >= 0 ? '+' : ''}{formatNumber(item.delta)}</span><span><strong>{item.kind === 'registration_bonus' ? '注册奖励' : item.kind === 'generation_charge' ? '生成扣除' : item.kind === 'generation_refund' ? '生成退回' : '管理员调账'}</strong><small>{formatDate(item.createdAt)}</small></span><b>{formatNumber(item.balanceAfter)}</b></div>) : <div className="iasEmptyState">还没有账务流水。</div>}</div></section></div>
+        <div className="iasAdminColumns"><SettingsPanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : Math.max(0, Number(value) || 0) }))} onSave={saveSettings} saving={saving} message={status} /><section className="iasAdminSection iasLedgerSection"><div className="iasSectionHeader"><div><span className="iasSectionKicker">LEDGER</span><h2>最近流水</h2><p>积分变动。</p></div><Coins size={20} className="iasSectionHeaderIcon" /></div><div className="iasLedgerList">{transactions.length ? transactions.slice(0, 8).map((item) => <div className="iasLedgerItem" key={item.id}><span className={`iasLedgerSign ${item.delta >= 0 ? 'isPlus' : 'isMinus'}`}>{item.delta >= 0 ? '+' : ''}{formatNumber(item.delta)}</span><span><strong>{item.kind === 'registration_bonus' ? '注册奖励' : item.kind === 'generation_charge' ? '生成扣除' : item.kind === 'generation_refund' ? '生成退回' : item.kind === 'credit_code_redeem' ? 'CDK 兑换' : '管理员调账'}</strong><small>{formatDate(item.createdAt)}</small></span><b>{formatNumber(item.balanceAfter)}</b></div>) : <div className="iasEmptyState">还没有账务流水。</div>}</div></section></div>
+        <RechargePanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : key === 'rechargeShopUrl' ? String(value) : Math.max(0, Number(value) || 0) }))} codes={codes} onCreateCode={createCode} onDisableCode={disableCode} saving={saving} />
         <UserTable users={users} query={query} onQueryChange={setQuery} onAdjust={setSelectedUser} onDisable={disableUser} />
       </div>
       {selectedUser ? <AdjustmentDialog user={selectedUser} onClose={() => setSelectedUser(null)} onSubmit={adjustUser} saving={saving} /> : null}

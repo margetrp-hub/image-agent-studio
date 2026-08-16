@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createStandaloneBillingStore } from './standaloneBilling.js';
+import { createStandaloneProviderConnectionStore } from './standaloneProviderConnections.js';
 
 const PASSWORD_ALGORITHM = 'pbkdf2-sha256';
 const PASSWORD_KEY_BYTES = 32;
@@ -109,12 +110,15 @@ export class StandaloneAuthStore {
     databasePath,
     sessionTtlMs = DEFAULT_SESSION_TTL_MS,
     passwordIterations = DEFAULT_PASSWORD_ITERATIONS,
-    minimumPasswordLength = 12,
+    minimumPasswordLength = 8,
     now = Date.now,
     loginLimiter,
     loginMaxFailures = 5,
     loginFailureWindowMs = 15 * 60 * 1000,
-    billingDefaults = {}
+    billingDefaults = {},
+    providerMasterKey = '',
+    allowPrivateProviderUrls = false,
+    providerFetchImpl = globalThis.fetch
   } = {}) {
     if (!databasePath || typeof databasePath !== 'string') {
       throw new TypeError('databasePath is required. Use ":memory:" for an in-memory store.');
@@ -153,6 +157,13 @@ export class StandaloneAuthStore {
     this.dummyPasswordSalt = dummySalt;
     this.initializeSchema();
     this.billing = createStandaloneBillingStore({ database: this.database, now, defaults: billingDefaults });
+    this.providerConnections = createStandaloneProviderConnectionStore({
+      database: this.database,
+      masterKey: providerMasterKey,
+      allowPrivateUrls: allowPrivateProviderUrls,
+      fetchImpl: providerFetchImpl,
+      now
+    });
     this.secureDatabaseFiles();
   }
 
@@ -304,6 +315,46 @@ export class StandaloneAuthStore {
 
   adjustCredits(input) {
     return this.billing.adjustCredits(input);
+  }
+
+  createCreditCode(input) {
+    return this.billing.createCreditCode(input);
+  }
+
+  listCreditCodes(limit) {
+    return this.billing.listCreditCodes(limit);
+  }
+
+  disableCreditCode(codeId) {
+    return this.billing.disableCreditCode(codeId);
+  }
+
+  redeemCreditCode(input) {
+    return this.billing.redeemCreditCode(input);
+  }
+
+  listProviderConnections(userId) {
+    return this.providerConnections.list(userId);
+  }
+
+  getProviderConnection(userId, connectionId) {
+    return this.providerConnections.get(userId, connectionId);
+  }
+
+  getProviderConnectionRuntime(userId, connectionId) {
+    return this.providerConnections.runtime(userId, connectionId);
+  }
+
+  bindProviderConnection(input) {
+    return this.providerConnections.bind(input);
+  }
+
+  removeProviderConnection(userId, connectionId) {
+    return this.providerConnections.remove(userId, connectionId);
+  }
+
+  testProviderConnection(userId, connectionId) {
+    return this.providerConnections.test(userId, connectionId);
   }
 
   async login({ identifier, email, username, password, rateLimitKey } = {}) {

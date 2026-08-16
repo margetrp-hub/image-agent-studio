@@ -24,7 +24,7 @@ export function apiKeyMeta(apiKey) {
 }
 
 export function usesGatewayAccount(settings) {
-  return settings?.apiKeySource !== 'manual';
+  return settings?.apiKeySource === 'gateway';
 }
 
 export function defaultProviderGatewayBaseUrl(settings) {
@@ -35,5 +35,6 @@ export function defaultProviderGatewayBaseUrl(settings) {
 export function providerLabel(settings, apiKey) {
   const provider = getImageProvider(settings.providerId, settings.apiKeySource);
   if (settings.apiKeySource === 'manual') return provider?.label || (settings.manualGatewayBaseUrl ? 'Custom API' : 'Manual provider');
+  if (settings.apiKeySource === 'linked') return settings.providerName || '已绑定供应商';
   return apiKey?.name || provider?.label || 'Gateway Account';
 }

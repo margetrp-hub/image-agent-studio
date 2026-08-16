@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.0.8 - 2026-08-16
+
+- Made the saved provider library list-first in the standalone settings panel.
+- Added a server-side credit recharge foundation with configurable shop links,
+  one-time CDK redemption, and auditable credit transactions.
+- Added the first standalone admin controls for recharge policy and CDK inventory.
+- Added server-side Sub2API/NewAPI account binding with encrypted provider keys and
+  a saved connection selector for generation.
+- Reduced the default standalone password minimum to 8 characters without
+  changing PBKDF2 hashing or login rate limits.
+
 ## 1.0.7 - 2026-08-01
 
 - Forwarded the original `X-Client-Request-ID` through xAI-compatible video creation, polling, and protected content download requests.

@@ -76,7 +76,7 @@ try {
     if (path.endsWith('/auth/config')) {
       body = {
         ok: true,
-        registration: { enabled: true, bonusCredits: 200, passwordMinLength: 12 },
+        registration: { enabled: true, bonusCredits: 200, passwordMinLength: 8 },
         credits: { enabled: true }
       };
     } else if (path.endsWith('/auth/login')) {
@@ -173,7 +173,7 @@ try {
   assert.equal(requests.filter((item) => item.path.endsWith('/auth/register')).length, registerRequestsBeforeValidation, 'Empty registration password should not call the auth API.');
   await page.locator('#studio-login-password').fill('short');
   await page.locator('#studio-login-submit').click();
-  assert.equal(await page.locator('#studio-login-status').innerText(), '密码至少需要 12 位。', 'Short registration password did not receive the minimum-length message.');
+  assert.equal(await page.locator('#studio-login-status').innerText(), '密码至少需要 8 位。', 'Short registration password did not receive the minimum-length message.');
   assert.equal(requests.filter((item) => item.path.endsWith('/auth/register')).length, registerRequestsBeforeValidation, 'Short registration password should not call the auth API.');
   await page.locator('#studio-login-password').fill('register-password');
   await page.locator('#studio-login-submit').click();
@@ -217,6 +217,7 @@ try {
     await page.locator('.connectionPill').click({ force: true });
   }
   await page.waitForSelector('.settingsDialog');
+  await page.locator('.providerLibraryNewButton').click();
 
   const state = await page.evaluate(() => ({
     currentPath: window.location.pathname,
@@ -234,7 +235,7 @@ try {
   assert.match(state.standaloneSession, /standalone-session-token/, 'Standalone session was not stored.');
   assert.doesNotMatch(state.providerSettings, /legacy-provider-secret|manualApiKey/, 'Provider secret survived standalone sanitization.');
   assert.equal(state.manualSecret, 'client-provider-secret', 'Standalone settings did not retain the session-only provider secret.');
-  assert.equal(state.passwordFieldCount, 1, 'Standalone settings did not expose the user provider key field.');
+  assert.ok(state.passwordFieldCount >= 1, 'Standalone settings did not expose provider credential fields.');
   assert.ok(state.providerOptions.length >= 1, 'Standalone settings did not expose a provider selector.');
   assert.ok(state.providerOptions.some((value) => /OpenAI|Grok|NewAPI|Video|Nano|API/i.test(value)), 'Standalone provider options are empty.');
   assert.equal(state.providerSelectDisabled, false, 'Standalone provider selection should remain available for custom providers.');

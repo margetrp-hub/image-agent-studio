@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 const MAX_CREDITS = 1_000_000_000;
 
@@ -18,7 +18,11 @@ export const DEFAULT_BILLING_SETTINGS = Object.freeze({
   registrationBonusCredits: 200,
   imageGenerationCost: 10,
   imageEditCost: 15,
-  videoGenerationCost: 50
+  videoGenerationCost: 50,
+  rechargeEnabled: true,
+  creditCodeEnabled: true,
+  providerBindingEnabled: true,
+  rechargeShopUrl: 'https://catfk.com/shop/ohlao'
 });
 
 export function createStandaloneBillingStore({
@@ -62,6 +66,23 @@ export function createStandaloneBillingStore({
 
     CREATE INDEX IF NOT EXISTS credit_transactions_user_idx
       ON credit_transactions(user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS credit_codes (
+      id TEXT PRIMARY KEY,
+      code_hash TEXT NOT NULL UNIQUE,
+      code_mask TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      note TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+      expires_at INTEGER,
+      redeemed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      redeemed_at INTEGER,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS credit_codes_status_idx
+      ON credit_codes(active, redeemed_at, expires_at);
   `);
 
   for (const [key, value] of Object.entries(configuredDefaults)) {
@@ -228,6 +249,126 @@ export function createStandaloneBillingStore({
     });
   }
 
+  function createCreditCode({ amount, code, expiresAt, note, actorUserId } = {}) {
+    const normalizedAmount = normalizePositiveAmount(amount, 'amount');
+    const normalizedCode = normalizeCreditCode(code || generateCreditCode());
+    const timestamp = now();
+    const expiry = normalizeExpiry(expiresAt);
+    const id = randomUUID();
+    try {
+      database.prepare(`
+        INSERT INTO credit_codes
+          (id, code_hash, code_mask, amount, note, active, expires_at, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+      `).run(
+        id,
+        hashCreditCode(normalizedCode),
+        maskCreditCode(normalizedCode),
+        normalizedAmount,
+        String(note || '').trim().slice(0, 240),
+        expiry,
+        actorUserId || null,
+        timestamp
+      );
+    } catch (error) {
+      if (String(error?.message || '').includes('UNIQUE constraint failed')) {
+        throw new StandaloneBillingError('CREDIT_CODE_EXISTS', 'That CDK already exists.', { status: 409 });
+      }
+      throw error;
+    }
+    return {
+      id,
+      code: normalizedCode,
+      codeMask: maskCreditCode(normalizedCode),
+      amount: normalizedAmount,
+      note: String(note || '').trim().slice(0, 240),
+      active: true,
+      expiresAt: expiry ? new Date(expiry).toISOString() : null,
+      redeemedAt: null,
+      redeemedBy: null,
+      createdAt: new Date(timestamp).toISOString()
+    };
+  }
+
+  function listCreditCodes(limit = 200) {
+    const boundedLimit = Math.max(1, Math.min(500, Number(limit) || 200));
+    return database.prepare(`
+      SELECT id, code_mask, amount, note, active, expires_at, redeemed_by, redeemed_at, created_at
+      FROM credit_codes
+      ORDER BY created_at DESC, id DESC
+      LIMIT ?
+    `).all(boundedLimit).map((row) => ({
+      id: row.id,
+      codeMask: row.code_mask,
+      amount: Number(row.amount),
+      note: row.note,
+      active: Boolean(row.active),
+      redeemed: Boolean(row.redeemed_at),
+      redeemedBy: row.redeemed_by,
+      redeemedAt: row.redeemed_at ? new Date(Number(row.redeemed_at)).toISOString() : null,
+      expiresAt: row.expires_at ? new Date(Number(row.expires_at)).toISOString() : null,
+      createdAt: new Date(Number(row.created_at)).toISOString()
+    }));
+  }
+
+  function disableCreditCode(codeId) {
+    const id = String(codeId || '').trim();
+    if (!id) throw new StandaloneBillingError('CREDIT_CODE_REQUIRED', 'A CDK id is required.');
+    const result = database.prepare('UPDATE credit_codes SET active = 0 WHERE id = ? AND redeemed_at IS NULL').run(id);
+    if (!Number(result.changes)) {
+      throw new StandaloneBillingError('CREDIT_CODE_NOT_FOUND', 'CDK not found or already redeemed.', { status: 404 });
+    }
+    return listCreditCodes(500).find((item) => item.id === id) || null;
+  }
+
+  function redeemCreditCode({ userId, code } = {}) {
+    const settings = getSettings();
+    if (!settings.creditsEnabled || !settings.rechargeEnabled || !settings.creditCodeEnabled) {
+      throw new StandaloneBillingError('RECHARGE_DISABLED', 'Credit recharge is currently disabled.', { status: 403 });
+    }
+    const id = ensureAccount(userId);
+    const normalizedCode = normalizeCreditCode(code);
+    const timestamp = now();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const row = database.prepare('SELECT * FROM credit_codes WHERE code_hash = ?').get(hashCreditCode(normalizedCode));
+      if (!row) throw new StandaloneBillingError('CREDIT_CODE_INVALID', 'Invalid CDK.');
+      if (!Boolean(row.active) || row.redeemed_at) {
+        throw new StandaloneBillingError('CREDIT_CODE_USED', 'This CDK has already been used or disabled.', { status: 409 });
+      }
+      if (row.expires_at && Number(row.expires_at) <= timestamp) {
+        throw new StandaloneBillingError('CREDIT_CODE_EXPIRED', 'This CDK has expired.', { status: 410 });
+      }
+      const account = database.prepare('SELECT * FROM credit_accounts WHERE user_id = ?').get(id);
+      const amount = Number(row.amount);
+      const nextBalance = Number(account.balance) + amount;
+      database.prepare(`
+        UPDATE credit_accounts
+        SET balance = ?, lifetime_earned = ?, updated_at = ?
+        WHERE user_id = ?
+      `).run(nextBalance, Number(account.lifetime_earned) + amount, timestamp, id);
+      database.prepare(`
+        INSERT INTO credit_transactions
+          (id, user_id, delta, balance_after, kind, reference_id, metadata_json, created_at)
+        VALUES (?, ?, ?, ?, 'credit_code_redeem', ?, ?, ?)
+      `).run(
+        randomUUID(),
+        id,
+        amount,
+        nextBalance,
+        scopedReference(id, `credit-code:${row.id}`),
+        JSON.stringify({ amount, codeId: row.id, source: 'credit_code' }),
+        timestamp
+      );
+      database.prepare('UPDATE credit_codes SET active = 0, redeemed_by = ?, redeemed_at = ? WHERE id = ?').run(id, timestamp, row.id);
+      database.exec('COMMIT');
+      return { amount, codeId: row.id, ...getSummary(id) };
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
   function calculateJobCost({ mode, route, count = 1 } = {}) {
     const settings = getSettings();
     if (!settings.creditsEnabled) return { amount: 0, settings };
@@ -311,6 +452,10 @@ export function createStandaloneBillingStore({
     reserveCredits,
     refundCredits,
     adjustCredits,
+    createCreditCode,
+    listCreditCodes,
+    disableCreditCode,
+    redeemCreditCode,
     calculateJobCost,
     stats
   });
@@ -323,7 +468,11 @@ function normalizeSettings(value) {
     registrationBonusCredits: normalizeNonNegative(value.registrationBonusCredits, 'registrationBonusCredits'),
     imageGenerationCost: normalizeNonNegative(value.imageGenerationCost, 'imageGenerationCost'),
     imageEditCost: normalizeNonNegative(value.imageEditCost, 'imageEditCost'),
-    videoGenerationCost: normalizeNonNegative(value.videoGenerationCost, 'videoGenerationCost')
+    videoGenerationCost: normalizeNonNegative(value.videoGenerationCost, 'videoGenerationCost'),
+    rechargeEnabled: Boolean(value.rechargeEnabled),
+    creditCodeEnabled: Boolean(value.creditCodeEnabled),
+    providerBindingEnabled: Boolean(value.providerBindingEnabled),
+    rechargeShopUrl: normalizeShopUrl(value.rechargeShopUrl)
   };
 }
 
@@ -340,6 +489,12 @@ function normalizeAmount(value, fieldName) {
   if (!Number.isInteger(amount) || amount < 0 || amount > MAX_CREDITS) {
     throw new StandaloneBillingError('INVALID_CREDIT_AMOUNT', `${fieldName} must be a non-negative integer.`);
   }
+  return amount;
+}
+
+function normalizePositiveAmount(value, fieldName) {
+  const amount = normalizeAmount(value, fieldName);
+  if (amount < 1) throw new StandaloneBillingError('INVALID_CREDIT_AMOUNT', `${fieldName} must be greater than 0.`);
   return amount;
 }
 
@@ -363,6 +518,47 @@ function normalizeReference(value) {
   return reference;
 }
 
+function normalizeCreditCode(value) {
+  const code = String(value || '').replace(/[\s-]/g, '').toUpperCase();
+  if (!/^[A-Z0-9]{8,64}$/.test(code)) {
+    throw new StandaloneBillingError('INVALID_CREDIT_CODE', 'CDK must contain 8 to 64 letters or numbers.');
+  }
+  return code;
+}
+
+function generateCreditCode() {
+  return `OHLAO${randomBytes(10).toString('hex').toUpperCase()}`;
+}
+
+function hashCreditCode(code) {
+  return createHash('sha256').update(normalizeCreditCode(code)).digest('hex');
+}
+
+function maskCreditCode(code) {
+  const normalized = normalizeCreditCode(code);
+  return `${normalized.slice(0, 4)}-${normalized.slice(4, 8)}-${'*'.repeat(Math.max(4, normalized.length - 8))}`;
+}
+
+function normalizeExpiry(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const timestamp = typeof value === 'number' ? value : Date.parse(String(value));
+  if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
+    throw new StandaloneBillingError('INVALID_CREDIT_CODE_EXPIRY', 'CDK expiry must be a future date.');
+  }
+  return Math.floor(timestamp);
+}
+
+function normalizeShopUrl(value) {
+  const raw = String(value || DEFAULT_BILLING_SETTINGS.rechargeShopUrl).trim();
+  try {
+    const url = new URL(raw);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('unsupported');
+    return url.toString();
+  } catch {
+    throw new StandaloneBillingError('INVALID_RECHARGE_URL', 'Recharge shop URL must be an http(s) URL.');
+  }
+}
+
 function scopedReference(userId, referenceId) {
   return `${userId}:${referenceId}`;
 }
@@ -376,7 +572,7 @@ function unscopedReference(userId, referenceId) {
 function lifetimeDeltas(kind, delta) {
   if (kind === 'generation_charge') return { earned: 0, spent: Math.max(0, -delta) };
   if (kind === 'generation_refund') return { earned: 0, spent: -Math.max(0, delta) };
-  if (kind === 'registration_bonus') return { earned: Math.max(0, delta), spent: 0 };
+  if (kind === 'registration_bonus' || kind === 'credit_code_redeem') return { earned: Math.max(0, delta), spent: 0 };
   if (kind === 'admin_adjustment' && delta > 0) return { earned: delta, spent: 0 };
   return { earned: 0, spent: 0 };
 }

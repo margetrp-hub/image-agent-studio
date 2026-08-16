@@ -1,5 +1,29 @@
 ﻿# Release Notes
 
+## 1.0.8
+
+This release publishes the provider-library correction and starts the standalone
+account operations layer.
+
+### What Changed
+
+- The standalone provider settings open on the saved provider library.
+- Admins can configure credit charging, registration rewards, generation costs,
+  the CDK shop URL, and one-time credit codes.
+- Users can redeem a CDK from the signed-in workstation; redemptions are
+  recorded in the server-side credit ledger and cannot be reused.
+- Users can bind Sub2API or NewAPI accounts; the service resolves and encrypts
+  the provider key, while generation only receives a saved connection ID.
+- The default password minimum is 8 characters. PBKDF2-SHA256, session expiry,
+  and login throttling remain unchanged.
+
+### Verification
+
+- `npm run check:standalone:billing`
+- `npm run check:standalone:providers`
+- `npm run check:standalone:auth`
+- `npm run build`
+
 ## 1.0.7
 
 This hotfix keeps asynchronous xAI/Grok video requests on the same upstream

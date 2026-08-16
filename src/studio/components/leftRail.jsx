@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Trash2,
   Video,
+  WalletCards,
   WandSparkles
 } from 'lucide-react';
 import { ProtectedHistoryThumb } from './media.jsx';
@@ -40,6 +41,7 @@ export function LeftRail({
   accountCredits,
   isAdmin,
   onOpenSettings,
+  onOpenBilling,
   onOpenAdmin,
   theme,
   onThemeToggle,
@@ -259,6 +261,7 @@ export function LeftRail({
           <KeyRound size={15} />
         </button>
         <div className="railPreferenceRow">
+          {accountCredits !== null && accountCredits !== undefined ? <button type="button" className="railThemeButton" onClick={onOpenBilling} aria-label="积分充值" title="积分充值"><WalletCards size={16} /></button> : null}
           <button
             type="button"
             className="railThemeButton railLanguageButton"

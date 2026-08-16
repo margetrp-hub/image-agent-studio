@@ -196,7 +196,7 @@ try {
   assert.equal(billingConfig.status, 200);
   assert.equal(billingConfig.payload.registration.enabled, true);
   assert.equal(billingConfig.payload.registration.bonusCredits, 200);
-  assert.equal(billingConfig.payload.registration.passwordMinLength, 12);
+  assert.equal(billingConfig.payload.registration.passwordMinLength, 8);
 
   const billingSettings = await request(servicePort, '/studio-api/auth/admin/billing/settings', { token: adminToken });
   assert.equal(billingSettings.status, 200);

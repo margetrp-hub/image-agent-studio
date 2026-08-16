@@ -43,6 +43,8 @@ const {
   AUTH_LOGIN_MAX_BODY_BYTES,
   CREDITS_ENABLED,
   USER_PROVIDER_ONLY,
+  STUDIO_MASTER_KEY,
+  ALLOW_PRIVATE_PROVIDER_URLS,
   AI_GATEWAY_BASE_URL,
   PROVIDER_BASE_URL,
   PROVIDER_API_KEY,
@@ -77,7 +79,10 @@ const standaloneAuthStore = AUTH_MODE === 'standalone'
     minimumPasswordLength: AUTH_PASSWORD_MIN_LENGTH,
     loginMaxFailures: AUTH_LOGIN_MAX_FAILURES,
     loginFailureWindowMs: AUTH_LOGIN_FAILURE_WINDOW_MS,
-    billingDefaults: { creditsEnabled: CREDITS_ENABLED }
+    billingDefaults: { creditsEnabled: CREDITS_ENABLED },
+    providerMasterKey: STUDIO_MASTER_KEY,
+    allowPrivateProviderUrls: ALLOW_PRIVATE_PROVIDER_URLS,
+    providerFetchImpl: undiciFetch
   })
   : null;
 const standaloneLoginIpLimiter = AUTH_MODE === 'standalone'
@@ -1359,7 +1364,28 @@ function normalizeGatewayBaseUrl(value) {
   return `${raw}/v1`;
 }
 
-function standaloneProviderRuntime(request = {}) {
+function standaloneProviderRuntime(request = {}, userId = '') {
+  if (AUTH_MODE === 'standalone' && request.apiKeySource === 'linked') {
+    const connectionId = text(request.providerConnectionId || request.providerProfileId, 160);
+    if (!connectionId || !userId) {
+      const error = new Error('PROVIDER_CONNECTION_REQUIRED');
+      error.status = 400;
+      throw error;
+    }
+    const settings = standaloneAuthStore?.getBillingSettings();
+    if (!settings?.providerBindingEnabled) {
+      const error = new Error('PROVIDER_BINDING_DISABLED');
+      error.status = 403;
+      throw error;
+    }
+    const connection = standaloneAuthStore.getProviderConnectionRuntime(userId, connectionId);
+    return {
+      apiKey: connection.apiKey,
+      gatewayBaseUrl: connection.gatewayBaseUrl,
+      connectionId: connection.connectionId,
+      profile: providerProfile(request.providerType || request.providerId || 'openai-compatible')
+    };
+  }
   const manual = AUTH_MODE === 'standalone' && (USER_PROVIDER_ONLY || request.apiKeySource === 'manual');
   const apiKey = manual ? text(request.apiKey, 4000) : PROVIDER_API_KEY;
   const configuredBaseUrl = manual ? text(request.gatewayBaseUrl, 4000) : PROVIDER_BASE_URL;
@@ -1431,8 +1457,8 @@ function chatCompletionText(payload) {
   return '';
 }
 
-async function providerChatCompletion({ model, messages, signal, request = {} }) {
-  const runtime = standaloneProviderRuntime(request);
+async function providerChatCompletion({ model, messages, signal, request = {}, userId = '' }) {
+  const runtime = standaloneProviderRuntime(request, userId);
   const selectedModel = text(request.apiKeySource === 'manual'
     ? model || 'gpt-4o-mini'
     : PROVIDER_CHAT_MODEL || model || 'gpt-4o-mini', 160);
@@ -1459,7 +1485,7 @@ function sanitizeChatMessages(messages) {
   })).filter((item) => item.content);
 }
 
-async function handleStandalonePromptRoute(req, res, parts) {
+async function handleStandalonePromptRoute(req, res, parts, userId) {
   if (AUTH_MODE !== 'standalone' || req.method !== 'POST' || parts.length !== 3) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
@@ -1481,7 +1507,8 @@ async function handleStandalonePromptRoute(req, res, parts) {
           content: `${instruction ? `${instruction}\n\n` : ''}Original prompt:\n${prompt}`
         }
       ],
-      signal: req.signal
+      signal: req.signal,
+      userId
     });
     return sendJson(res, 200, { ok: true, prompt: result.text, text: result.text, model: result.model });
   }
@@ -1500,7 +1527,7 @@ async function handleStandalonePromptRoute(req, res, parts) {
     if (!messages.length && prompt) messages.push({ role: 'user', content: `Current prompt:\n${prompt}` });
     if (instruction) messages.push({ role: 'user', content: instruction });
     if (!messages.length) return sendJson(res, 400, { ok: false, error: 'PROMPT_REQUIRED' });
-    const result = await providerChatCompletion({ model: body.model, messages, signal: req.signal, request: body });
+    const result = await providerChatCompletion({ model: body.model, messages, signal: req.signal, request: body, userId });
     return sendJson(res, 200, { ok: true, text: result.text, model: result.model });
   }
   return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
@@ -1938,13 +1965,13 @@ function buildJobRecord(body) {
   };
 }
 
-function buildJobRuntime(body) {
+function buildJobRuntime(body, auth) {
   const request = body?.request && typeof body.request === 'object' ? body.request : body;
   let apiKey;
   let gatewayBaseUrl;
   let profile;
   if (AUTH_MODE === 'standalone') {
-    ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime({ ...body, ...request }));
+    ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime({ ...body, ...request }, auth?.user?.id));
   } else {
     apiKey = text(body.apiKey || request.apiKey, 4000);
     gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL);
@@ -2330,7 +2357,7 @@ function recoverPersistedVideoJobs(auth, jobs) {
       : '';
     if (!taskId || jobIsActiveInMemory(auth, job.id)) continue;
     try {
-      const runtime = buildJobRuntime({ request: job });
+      const runtime = buildJobRuntime({ request: job }, auth);
       runtime.plan = buildJobInvocationPlan(job, runtime);
       enqueueGenerationJob(auth, job, runtime, taskId);
     } catch {
@@ -2507,6 +2534,15 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
       },
       credits: {
         enabled: settings.creditsEnabled
+      },
+      recharge: {
+        enabled: settings.creditsEnabled && settings.rechargeEnabled,
+        creditCodeEnabled: settings.creditsEnabled && settings.creditCodeEnabled,
+        shopUrl: settings.rechargeShopUrl
+      },
+      providerConnections: {
+        enabled: settings.providerBindingEnabled && standaloneAuthStore.providerConnections.configured,
+        providers: ['sub2api-compatible', 'newapi-compatible']
       }
     });
   }
@@ -2598,6 +2634,32 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
       transactions: standaloneAuthStore.listCreditTransactions(auth.user.id, limit)
     });
   }
+  if (req.method === 'POST' && parts.length === 4 && parts[2] === 'credits' && parts[3] === 'redeem') {
+    const body = await readJsonBody(req);
+    const result = standaloneAuthStore.redeemCreditCode({ userId: auth.user.id, code: body.code });
+    return sendJson(res, 200, { ok: true, credits: result });
+  }
+
+  if (req.method === 'GET' && parts.length === 3 && parts[2] === 'provider-connections') {
+    return sendJson(res, 200, { ok: true, connections: standaloneAuthStore.listProviderConnections(auth.user.id) });
+  }
+  if (req.method === 'POST' && parts.length === 3 && parts[2] === 'provider-connections') {
+    const settings = standaloneAuthStore.getBillingSettings();
+    if (!settings.providerBindingEnabled) return sendJson(res, 403, { ok: false, error: 'PROVIDER_BINDING_DISABLED' });
+    const body = await readJsonBody(req, Math.max(1024, Number(AUTH_LOGIN_MAX_BODY_BYTES) || 16 * 1024));
+    const connection = await standaloneAuthStore.bindProviderConnection({ ...body, userId: auth.user.id });
+    standaloneAuthStore.secureDatabaseFiles();
+    return sendJson(res, 201, { ok: true, connection });
+  }
+  if (req.method === 'DELETE' && parts.length === 4 && parts[2] === 'provider-connections') {
+    const result = standaloneAuthStore.removeProviderConnection(auth.user.id, decodeRoutePart(parts[3]));
+    standaloneAuthStore.secureDatabaseFiles();
+    return sendJson(res, 200, { ok: true, ...result });
+  }
+  if (req.method === 'POST' && parts.length === 5 && parts[2] === 'provider-connections' && parts[4] === 'test') {
+    const connection = await standaloneAuthStore.testProviderConnection(auth.user.id, decodeRoutePart(parts[3]));
+    return sendJson(res, 200, { ok: true, connection });
+  }
 
   if (parts[2] !== 'admin') {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
@@ -2614,6 +2676,20 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
   }
   if (req.method === 'GET' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'stats') {
     return sendJson(res, 200, { ok: true, stats: standaloneAuthStore.getBillingStats() });
+  }
+
+  if (req.method === 'GET' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'codes') {
+    const limit = Math.max(1, Math.min(500, Number(url.searchParams.get('limit') || 200)));
+    return sendJson(res, 200, { ok: true, codes: standaloneAuthStore.listCreditCodes(limit) });
+  }
+  if (req.method === 'POST' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'codes') {
+    const body = await readJsonBody(req);
+    const code = standaloneAuthStore.createCreditCode({ ...body, actorUserId: auth.user.id });
+    return sendJson(res, 201, { ok: true, code });
+  }
+  if (req.method === 'POST' && parts.length === 7 && parts[3] === 'billing' && parts[4] === 'codes' && parts[6] === 'disable') {
+    const code = standaloneAuthStore.disableCreditCode(decodeRoutePart(parts[5]));
+    return sendJson(res, 200, { ok: true, code });
   }
 
   if (parts[3] !== 'users') {
@@ -2725,7 +2801,7 @@ async function handler(req, res) {
     const auth = await authenticate(req);
 
     if (parts[1] === 'prompt') {
-      return await handleStandalonePromptRoute(req, res, parts);
+      return await handleStandalonePromptRoute(req, res, parts, auth.user.id);
     }
 
     if (req.method === 'POST' && parts[0] === 'studio-api' && parts[1] === 'model-sync' && parts.length === 2) {
@@ -2734,7 +2810,7 @@ async function handler(req, res) {
       let gatewayBaseUrl;
       let profile;
       if (AUTH_MODE === 'standalone') {
-        ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime(body));
+        ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime(body, auth.user.id));
       } else {
         apiKey = text(body.apiKey, 4000);
         gatewayBaseUrl = body.gatewayBaseUrl || AI_GATEWAY_BASE_URL;
@@ -2801,7 +2877,7 @@ async function handler(req, res) {
         const existingById = jobs.find((item) => item.id === job.id);
         if (existingById) return { job: existingById, duplicate: true };
 
-        const runtime = buildJobRuntime(body);
+        const runtime = buildJobRuntime(body, auth);
         if (job.route === 'edits' && !runtime.images.length) {
           const error = new Error('REFERENCE_IMAGE_REQUIRED');
           error.status = 400;

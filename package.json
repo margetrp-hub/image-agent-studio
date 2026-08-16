@@ -1,7 +1,7 @@
 {
   "name": "image-agent-studio",
   "private": true,
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "scripts": {
     "check:deploy": "node scripts/check-deploy-config.mjs",
@@ -20,6 +20,8 @@
     "check:service-config": "node scripts/check-service-config-contract.mjs",
     "check:standalone-auth": "node scripts/check-standalone-auth.mjs",
     "check:admin-cli": "node scripts/check-create-admin-cli.mjs",
+    "check:standalone:billing": "node scripts/check-standalone-billing.mjs",
+    "check:standalone:providers": "node scripts/check-standalone-provider-connections.mjs",
     "check:storage-security": "node scripts/check-user-storage-security.mjs",
     "check:docs": "node scripts/check-doc-encoding.mjs",
     "check:html": "node scripts/check-html-entrypoints.mjs",

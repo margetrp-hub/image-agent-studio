@@ -1,0 +1,17 @@
+.iasBillingDialog { background: var(--ias-surface); border: 1px solid var(--ias-line); border-radius: var(--ias-radius-panel); box-shadow: var(--ias-shadow-panel); max-width: 430px; padding: 22px; width: calc(100% - 36px); }
+.iasBillingHeader { align-items: flex-start; display: flex; justify-content: space-between; }
+.iasBillingHeader h2 { font-size: 21px; margin: 0; }
+.iasBillingKicker { color: var(--ias-accent); display: block; font-size: 10px; font-weight: 850; letter-spacing: .14em; margin-bottom: 6px; }
+.iasBillingDescription { color: var(--ias-copy); font-size: 12px; line-height: 1.5; margin: 13px 0 16px; }
+.iasCreditBalance { align-items: center; background: var(--ias-accent-soft); border: 1px solid color-mix(in srgb, var(--ias-accent) 40%, var(--ias-line)); border-radius: 12px; color: var(--ias-accent-strong); display: flex; gap: 10px; padding: 13px; }
+.iasCreditBalance span { display: grid; gap: 3px; }
+.iasCreditBalance small { color: var(--ias-copy); font-size: 11px; }
+.iasCreditBalance strong { font-size: 24px; line-height: 1; }
+.iasBillingForm { display: grid; gap: 12px; margin-top: 18px; }
+.iasBillingForm label { display: grid; gap: 7px; }
+.iasBillingForm label span { color: var(--ias-copy); font-size: 12px; }
+.iasBillingShopLink { align-items: center; color: var(--ias-accent-strong); display: inline-flex; font-size: 12px; gap: 6px; margin-top: 13px; text-decoration: none; }
+.iasBillingDisabled { color: var(--ias-muted); font-size: 12px; padding: 24px 0 8px; text-align: center; }
+.iasBillingStatus { font-size: 12px; margin: 14px 0 0; }
+.iasBillingStatus.isSuccess { color: var(--ias-success); }
+.iasBillingStatus.isError { color: var(--ias-danger); }

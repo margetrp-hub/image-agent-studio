@@ -108,7 +108,7 @@ function normalizeImageRoute(value) {
 }
 
 function normalizeApiKeySource(value) {
-  return value === 'manual' ? 'manual' : 'gateway';
+  return value === 'manual' || value === 'linked' ? value : 'gateway';
 }
 
 function normalizeSettingsProviderId(value, apiKeySource) {
@@ -213,7 +213,7 @@ function keyIsUsable(apiKey) {
 
 function normalizeProviderSettings(value = {}) {
   if (STUDIO_STANDALONE) {
-    const apiKeySource = 'manual';
+    const apiKeySource = value.apiKeySource === 'linked' ? 'linked' : 'manual';
     const requestedProviderId = String(value.providerId || '').trim();
     const providerId = apiKeySource === 'manual' && requestedProviderId === 'gateway-account'
       ? 'openai-compatible'
@@ -322,7 +322,7 @@ export function loadProviderSettings() {
       const sessionManualSecret = readManualProviderSecret();
       const nextSettings = normalizeProviderSettings({
         ...parsed,
-        apiKeySource: 'manual',
+        apiKeySource: parsed.apiKeySource === 'linked' ? 'linked' : 'manual',
         providerId: parsed.providerId === 'gateway-account' ? 'openai-compatible' : parsed.providerId,
         manualApiKey: sessionManualSecret
       });
@@ -1071,6 +1071,41 @@ export class AiGatewayClient {
     };
   }
 
+  async redeemCreditCode(code) {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_CREDITS_UNSUPPORTED');
+    const payload = await this.request('/auth/credits/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+    return payload.credits || null;
+  }
+
+  async listProviderConnections() {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_PROVIDER_CONNECTIONS_UNSUPPORTED');
+    const payload = await this.request('/auth/provider-connections');
+    return Array.isArray(payload.connections) ? payload.connections : [];
+  }
+
+  async bindProviderConnection(connection) {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_PROVIDER_CONNECTIONS_UNSUPPORTED');
+    const payload = await this.request('/auth/provider-connections', {
+      method: 'POST',
+      body: JSON.stringify(connection || {})
+    });
+    return payload.connection || null;
+  }
+
+  async removeProviderConnection(connectionId) {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_PROVIDER_CONNECTIONS_UNSUPPORTED');
+    return this.request(`/auth/provider-connections/${encodeURIComponent(connectionId)}`, { method: 'DELETE' });
+  }
+
+  async testProviderConnection(connectionId) {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_PROVIDER_CONNECTIONS_UNSUPPORTED');
+    const payload = await this.request(`/auth/provider-connections/${encodeURIComponent(connectionId)}/test`, { method: 'POST' });
+    return payload.connection || null;
+  }
+
   async getAdminBillingSettings() {
     const payload = await this.request('/auth/admin/billing/settings');
     return payload.settings || {};
@@ -1087,6 +1122,26 @@ export class AiGatewayClient {
   async getAdminBillingStats() {
     const payload = await this.request('/auth/admin/billing/stats');
     return payload.stats || {};
+  }
+
+  async listAdminCreditCodes(limit = 200) {
+    const payload = await this.request(`/auth/admin/billing/codes?limit=${encodeURIComponent(limit)}`);
+    return Array.isArray(payload.codes) ? payload.codes : [];
+  }
+
+  async createAdminCreditCode({ amount, code, expiresAt, note } = {}) {
+    const payload = await this.request('/auth/admin/billing/codes', {
+      method: 'POST',
+      body: JSON.stringify({ amount, code, expiresAt, note })
+    });
+    return payload.code || null;
+  }
+
+  async disableAdminCreditCode(codeId) {
+    const payload = await this.request(`/auth/admin/billing/codes/${encodeURIComponent(codeId)}/disable`, {
+      method: 'POST'
+    });
+    return payload.code || null;
   }
 
   async listAdminUsers() {
@@ -1236,7 +1291,9 @@ export class AiGatewayClient {
     if (STUDIO_STANDALONE) {
       const providerRequest = this.providerSettings.apiKeySource === 'manual'
         ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
-        : {};
+        : this.providerSettings.apiKeySource === 'linked'
+          ? { providerConnectionId: this.providerSettings.providerProfileId, providerType: this.providerSettings.providerId, apiKeySource: 'linked' }
+          : {};
       const result = await this.request('/prompt/optimize', {
         method: 'POST',
         signal,
@@ -1319,7 +1376,9 @@ export class AiGatewayClient {
     if (STUDIO_STANDALONE) {
       const providerRequest = this.providerSettings.apiKeySource === 'manual'
         ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
-        : {};
+        : this.providerSettings.apiKeySource === 'linked'
+          ? { providerConnectionId: this.providerSettings.providerProfileId, providerType: this.providerSettings.providerId, apiKeySource: 'linked' }
+          : {};
       const result = await this.request('/prompt/assistant', {
         method: 'POST',
         signal,
@@ -1480,7 +1539,13 @@ export class AiGatewayClient {
           providerType: this.providerSettings.providerId,
           apiKeySource: 'manual'
         }
-        : {}
+        : this.providerSettings.apiKeySource === 'linked'
+          ? {
+            providerConnectionId: this.providerSettings.providerProfileId,
+            providerType: this.providerSettings.providerId,
+            apiKeySource: 'linked'
+          }
+          : {}
       : {
         apiKey,
         gatewayBaseUrl: normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl),

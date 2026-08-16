@@ -213,6 +213,7 @@ import {
   CANVAS_VIRTUALIZATION_MARGIN
 } from './studio/util/canvasConstants.js';
 import { Topbar } from './studio/components/topbar.jsx';
+import { AccountBillingDialog } from './studio/components/accountBillingDialog.jsx';
 import { CanvasNodeCard } from './studio/components/canvasNodeCard.jsx';
 import {
   CreativeRecipeBar,
@@ -624,6 +625,9 @@ function buildCategoryGroups(cases) {
 }
 
 function connectionReady(settings, apiKey, isAuthenticated) {
+  if (settings.apiKeySource === 'linked') {
+    return Boolean(isAuthenticated && settings.providerProfileId);
+  }
   if (settings.apiKeySource === 'manual') {
     return Boolean(settings.manualApiKey?.trim() && settings.manualGatewayBaseUrl?.trim());
   }
@@ -631,6 +635,9 @@ function connectionReady(settings, apiKey, isAuthenticated) {
 }
 
 function providerSetupMessage(settings, providerRequest, t) {
+  if (settings.apiKeySource === 'linked' && !providerRequest?.providerConnectionId) {
+    return t('statusMessages.providerConnectionRequired', '请先绑定供应商账号。');
+  }
   if (settings.apiKeySource === 'manual') {
     if (!providerRequest?.gatewayBaseUrl) return t('statusMessages.gatewayRequired', '请先填写接口地址。');
     if (!providerRequest?.apiKey) return t('statusMessages.keyRequired', '请先填写密钥。');
@@ -3069,6 +3076,7 @@ function CreationDesk({
             sessionId,
             parentCanvasNodeId: lineageParentId,
             providerId: providerSettings.providerId,
+            providerProfileId: providerSettings.providerProfileId,
             apiKeySource: providerSettings.apiKeySource,
             providerLabel: providerLabel(providerSettings, apiKey),
             images: jobImages,
@@ -3256,7 +3264,9 @@ function CreationDesk({
       let payload = null;
       let urls = [];
       let persistedResultUrls = [];
-      const canUseServerJob = Boolean(providerRequest.apiKey && providerRequest.gatewayBaseUrl && (isAuthenticated || providerSettings.apiKeySource === 'manual'));
+      const canUseServerJob = providerSettings.apiKeySource === 'linked'
+        ? Boolean(providerRequest.providerConnectionId && isAuthenticated)
+        : Boolean(providerRequest.apiKey && providerRequest.gatewayBaseUrl && (isAuthenticated || providerSettings.apiKeySource === 'manual'));
       if (canUseServerJob) {
         try {
           const historyClient = createHistoryClient({ session: loadSession() });
@@ -3278,6 +3288,7 @@ function CreationDesk({
             sessionId,
             parentCanvasNodeId: lineageParentId,
             providerId: providerSettings.providerId,
+            providerProfileId: providerSettings.providerProfileId,
             apiKeySource: providerSettings.apiKeySource,
             providerLabel: providerLabel(providerSettings, apiKey),
             mode: activeMode,
@@ -5248,6 +5259,9 @@ function StudioApp() {
   const [session, setSession] = useState(() => initialSession);
   const [profile, setProfile] = useState(() => initialSession?.user || null);
   const [creditsEnabled, setCreditsEnabled] = useState(false);
+  const [billingConfig, setBillingConfig] = useState({ credits: { enabled: false }, recharge: { enabled: false, creditCodeEnabled: false, shopUrl: '' } });
+  const [billingOpen, setBillingOpen] = useState(false);
+  const [providerConnections, setProviderConnections] = useState([]);
   const initialProviderWorkspaceRef = useRef(null);
   if (!initialProviderWorkspaceRef.current) initialProviderWorkspaceRef.current = loadProviderWorkspaceState();
   const initialProviderWorkspace = initialProviderWorkspaceRef.current;
@@ -5340,6 +5354,23 @@ function StudioApp() {
         modelOptions
       });
     });
+  }
+
+  async function handleBindProviderConnection(input) {
+    const connection = await client.bindProviderConnection(input);
+    if (connection) setProviderConnections((current) => [connection, ...current.filter((item) => item.id !== connection.id)]);
+    return connection;
+  }
+
+  async function handleDeleteProviderConnection(connectionId) {
+    await client.removeProviderConnection(connectionId);
+    setProviderConnections((current) => current.filter((item) => item.id !== connectionId));
+  }
+
+  async function handleTestProviderConnection(connectionId) {
+    const connection = await client.testProviderConnection(connectionId);
+    if (connection) setProviderConnections((current) => current.map((item) => item.id === connection.id ? connection : item));
+    return connection;
   }
 
   function handleSelectProvider(profileId) {
@@ -5535,13 +5566,16 @@ function StudioApp() {
       nextClient.profile().catch(() => nextClient.me()),
       nextClient.ensureApiKey(),
       nextClient.listKeys().catch(() => []),
-      STUDIO_STANDALONE ? nextClient.getStandaloneConfig().catch(() => null) : Promise.resolve(null)
-    ]).then(([nextProfile, nextKey, nextKeys, standaloneConfig]) => {
+      STUDIO_STANDALONE ? nextClient.getStandaloneConfig().catch(() => null) : Promise.resolve(null),
+      STUDIO_STANDALONE ? nextClient.listProviderConnections().catch(() => []) : Promise.resolve([])
+    ]).then(([nextProfile, nextKey, nextKeys, standaloneConfig, nextProviderConnections]) => {
       if (!active) return;
       setProfile(nextProfile);
       setApiKey(nextKey);
       setKeys(nextKeys.length ? nextKeys : nextKey ? [nextKey] : []);
       setCreditsEnabled(STUDIO_STANDALONE && standaloneConfig?.credits?.enabled === true);
+      if (standaloneConfig) setBillingConfig(standaloneConfig);
+      setProviderConnections(nextProviderConnections);
     }).catch((error) => {
       if (!active) return;
       setBootError(error.message);
@@ -5558,6 +5592,7 @@ function StudioApp() {
   }, [
     providerSettings.providerId,
     providerSettings.apiKeySource,
+    providerSettings.providerProfileId,
     providerSettings.manualApiKey,
     providerSettings.manualGatewayBaseUrl,
     apiKey?.key,
@@ -6066,6 +6101,7 @@ function StudioApp() {
             : null}
           isAdmin={STUDIO_STANDALONE && profile?.role === 'admin'}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenBilling={() => setBillingOpen(true)}
           onOpenAdmin={() => { window.location.href = STUDIO_ADMIN_URL; }}
           theme={theme}
           onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
@@ -6207,6 +6243,11 @@ function StudioApp() {
             onSelectProvider={handleSelectProvider}
             onSaveProvider={handleSaveProvider}
             onDeleteProvider={handleDeleteProvider}
+            providerConnections={providerConnections}
+            providerConnectionsEnabled={billingConfig.providerConnections?.enabled === true}
+            onBindProvider={handleBindProviderConnection}
+            onDeleteProviderConnection={handleDeleteProviderConnection}
+            onTestProviderConnection={handleTestProviderConnection}
             modelOptions={modelOptions}
             modelsStatus={modelsStatus}
             modelSyncError={modelSyncError}
@@ -6217,6 +6258,7 @@ function StudioApp() {
           />
         </React.Suspense>
       ) : null}
+      {billingOpen ? <AccountBillingDialog open onClose={() => setBillingOpen(false)} onRedeemed={(nextCredits) => setProfile((current) => ({ ...current, credits: nextCredits }))} client={client} credits={profile?.credits} recharge={billingConfig.recharge} /> : null}
       {inspirationUploadOpen ? (
         <React.Suspense fallback={null}>
           <InspirationUploadDialog

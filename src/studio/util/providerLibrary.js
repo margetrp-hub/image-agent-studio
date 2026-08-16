@@ -54,7 +54,7 @@ export function providerProfileFromSettings(settings = {}, options = {}) {
     id,
     name: trim(options.name || settings.providerName) || inferProviderName(settings),
     providerId: normalizeProviderId(settings.providerId, settings.apiKeySource),
-    apiKeySource: settings.apiKeySource === 'manual' ? 'manual' : 'gateway',
+    apiKeySource: settings.apiKeySource === 'linked' ? 'linked' : settings.apiKeySource === 'manual' ? 'manual' : 'gateway',
     route: trim(settings.route) || 'auto',
     manualGatewayBaseUrl: trim(settings.manualGatewayBaseUrl),
     imageGenerationModel: trim(settings.imageGenerationModel),
