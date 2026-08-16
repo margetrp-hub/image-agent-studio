@@ -21,8 +21,6 @@ const include = [
   'studio-assets'
 ];
 const serviceInclude = [
-  'package.json',
-  'package-lock.json',
   'scripts/image-agent-studio-history-service.mjs',
   'scripts/image-sub2api-studio-history-service.mjs',
   'scripts/create-standalone-admin.mjs',
@@ -42,6 +40,10 @@ const serviceInclude = [
   'docs/DOCKER.zh-CN.md',
   'docs/PROVIDERS.md',
   'docs/VPS-GIT-SYNC.zh-CN.md'
+];
+const serviceRuntimeInclude = [
+  'deploy/service-runtime/package.json',
+  'deploy/service-runtime/package-lock.json'
 ];
 
 function pad(value) {
@@ -106,6 +108,12 @@ async function main() {
     const source = join(root, item);
     if (!(await exists(source))) continue;
     await cp(source, join(serviceTempDir, item), { recursive: true });
+  }
+
+  for (const item of serviceRuntimeInclude) {
+    const source = join(root, item);
+    if (!(await exists(source))) continue;
+    await cp(source, join(serviceTempDir, item.split('/').at(-1)));
   }
 
   zipDirectory(tempDir, zipPath);

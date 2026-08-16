@@ -1,5 +1,30 @@
 ﻿# Release Notes
 
+## 1.0.13
+
+This patch reduces the production service install to its actual runtime
+dependency and clears the dependency audit findings reported during deployment.
+
+### What Changed
+
+- Git-sync, Docker history images, and service zip packages now install from a
+  dedicated runtime manifest containing only Undici.
+- Frontend build tools remain available for builds but no longer enter
+  production-only installs.
+- Compatible security updates cover Vite, PostCSS, nanoid, Babel, and Undici.
+- Deployment contracts verify the runtime dependency allow-list and keep the
+  service manifest version aligned with the application release.
+- Cancellation regressions now distinguish queued refunds from dispatched jobs
+  that require billing reconciliation.
+
+### Verification
+
+- `npm audit --registry=https://registry.npmjs.org`
+- `npm audit --omit=dev --registry=https://registry.npmjs.org`
+- `npm audit --omit=dev --prefix deploy/service-runtime --registry=https://registry.npmjs.org`
+- `npm run check:local`
+- `npm run package:release`
+
 ## 1.0.12
 
 This patch separates prompt-assistant routing from generation providers and

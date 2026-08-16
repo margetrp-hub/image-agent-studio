@@ -616,6 +616,7 @@ function startService(port, providerEnv) {
       STUDIO_AUTH_GLOBAL_LOGIN_MAX_ATTEMPTS: '50',
       STUDIO_AUTH_LOGIN_MAX_BODY_BYTES: '16384',
       STUDIO_CREDITS_ENABLED: 'true',
+      STUDIO_JOB_CONCURRENCY: '1',
       STUDIO_ALLOWED_ORIGINS: 'http://127.0.0.1',
       ...providerEnv
     },

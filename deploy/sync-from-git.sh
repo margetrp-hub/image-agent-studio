@@ -197,7 +197,7 @@ find "$STATIC_DIR" -type f -exec chmod 644 {} \;
 
 info "Deploy history/session service"
 mkdir -p "$SERVICE_DIR/scripts" "$SERVICE_DIR/deploy"
-cp -a "$REPO_DIR/package.json" "$REPO_DIR/package-lock.json" "$SERVICE_DIR/"
+cp -a "$REPO_DIR/deploy/service-runtime/package.json" "$REPO_DIR/deploy/service-runtime/package-lock.json" "$SERVICE_DIR/"
 cp -a "$REPO_DIR/scripts/image-sub2api-studio-history-service.mjs" "$SERVICE_DIR/scripts/"
 cp -a "$REPO_DIR/scripts/image-agent-studio-history-service.mjs" "$SERVICE_DIR/scripts/"
 rm -rf "$SERVICE_DIR/scripts/studio-service"

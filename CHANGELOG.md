@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 1.0.13 - 2026-08-16
+
+- Split the history service into a one-package runtime manifest so VPS, Docker,
+  and service zip installs no longer include frontend or desktop build tools.
+- Updated Vite, PostCSS, nanoid, Babel, and Undici within their compatible major
+  versions; full, production-only, and service-runtime audits now report zero
+  known vulnerabilities.
+- Moved Vite and its React plugin to development dependencies and added deploy
+  contracts that reject service dependency drift or mismatched release versions.
+- Made cancellation smoke tests deterministic and aligned dispatched-job checks
+  with the existing unknown-result and billing-reconciliation contract.
+- Updated the Vite configuration to the ESM-native directory API and removed
+  recovery-test requirements for route explanation text already covered by
+  request-level route tests.
+
 ## 1.0.12 - 2026-08-16
 
 - Moved prompt-assistant selection out of provider profiles and into one

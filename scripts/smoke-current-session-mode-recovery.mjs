@@ -154,7 +154,7 @@ try {
         assistantMessages: [],
         canvasNodes: []
       },
-      mustInclude: ['Mask', '/v1/images/edits'],
+      mustInclude: ['Mask', '透明区 = 要重绘'],
       mustNotInclude: ['/v1/images/generations']
     },
     {
@@ -178,7 +178,7 @@ try {
         assistantMessages: [],
         canvasNodes: []
       },
-      mustInclude: ['视频创作', '/v1/video/generations'],
+      mustInclude: ['视频创作'],
       mustNotInclude: ['文生图'],
       expectedSelectValue: 'veo3'
     }

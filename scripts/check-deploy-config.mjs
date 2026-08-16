@@ -37,6 +37,23 @@ function mustScriptInclude(scriptName, command, reason) {
   }
 }
 
+function checkServiceRuntimePackage() {
+  const rootPackage = JSON.parse(read('package.json'));
+  const servicePackage = JSON.parse(read('deploy/service-runtime/package.json'));
+  const dependencies = Object.keys(servicePackage.dependencies || {}).sort();
+  if (dependencies.join(',') !== 'undici') {
+    failures.push(`deploy/service-runtime/package.json: expected only undici, found ${dependencies.join(',') || 'none'} (service installs must exclude frontend and build dependencies)`);
+  }
+  if (servicePackage.version !== rootPackage.version) {
+    failures.push('deploy/service-runtime/package.json: version must match package.json (service packages and health metadata must describe the same release)');
+  }
+  if (rootPackage.dependencies?.vite || rootPackage.dependencies?.['@vitejs/plugin-react']) {
+    failures.push('package.json: Vite and its React plugin must remain devDependencies (build tools must not enter production installs)');
+  }
+}
+
+checkServiceRuntimePackage();
+
 mustMatch('vite.config.js', /base:\s*process\.env\.STUDIO_BASE_PATH\s*\|\|\s*process\.env\.VITE_BASE_PATH\s*,/, 'Vite must let CLI --base or STUDIO_BASE_PATH control /studio/ builds');
 
 mustInclude('docker-compose.yml', 'VITE_BASE_PATH: ${VITE_BASE_PATH:-/studio/}', 'Docker web image should build for /studio/');
@@ -62,6 +79,8 @@ mustInclude('deploy/sync-from-git.sh', 'STATIC_DIR="${STATIC_DIR:-/var/www/image
 mustInclude('deploy/sync-from-git.sh', 'SERVICE_DIR="${SERVICE_DIR:-/opt/image-agent-studio}"', 'Git sync should default to the standard service root');
 mustInclude('deploy/sync-from-git.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"', 'Git sync should default to the standard persistent data root');
 mustInclude('deploy/sync-from-git.sh', 'SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"', 'Git sync should default to the standard systemd service name');
+mustInclude('deploy/sync-from-git.sh', 'deploy/service-runtime/package.json', 'Git sync must install the minimal service runtime manifest');
+mustNotInclude('deploy/sync-from-git.sh', 'cp -a "$REPO_DIR/package.json" "$REPO_DIR/package-lock.json" "$SERVICE_DIR/"', 'Git sync must not install frontend and build dependencies in the service directory');
 mustInclude('deploy/sync-from-git.sh', 'rm -rf "$STATIC_DIR/studio-assets"', 'Git sync should replace hashed assets without deleting the persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_DATA_DIR=$DATA_DIR', 'Git sync must preserve and reuse the configured persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'CLEAN_STALE_DROPINS', 'Git sync must provide an explicit, backup-first cleanup path for stale systemd drop-ins');
@@ -116,6 +135,7 @@ mustInclude('Dockerfile', 'ENV VITE_AI_GATEWAY_BASE_URL=$VITE_AI_GATEWAY_BASE_UR
 mustInclude('Dockerfile', 'ENV VITE_AI_GATEWAY_MODEL_BASE_URL=$VITE_AI_GATEWAY_MODEL_BASE_URL', 'Docker web build must expose provider-neutral model gateway base URL to Vite');
 mustInclude('Dockerfile', 'ARG VITE_SUB2API_BASE_URL=', 'Docker web build must keep legacy Sub2API build args for upgrades');
 mustInclude('Dockerfile', 'COPY scripts/image-agent-studio-history-service.mjs', 'History image must include the standard service wrapper');
+mustInclude('Dockerfile', 'COPY deploy/service-runtime/package*.json ./', 'History image must install only the service runtime dependencies');
 mustInclude('Dockerfile', 'CMD ["node", "scripts/image-agent-studio-history-service.mjs"]', 'History image must start the standard persistence service wrapper');
 mustInclude('Dockerfile', 'ENV STUDIO_DATA_DIR=/data', 'History image must write to the mounted data volume');
 

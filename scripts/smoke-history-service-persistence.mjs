@@ -471,9 +471,9 @@ try {
 
   await waitForJob('servicejob1', (job) => ['dispatching', 'gateway', 'upstream'].includes(job?.status), 'job to reach active gateway state');
   const canceledJob = await request('/studio-api/generation-jobs/servicejob1', { method: 'DELETE' });
-  assert(canceledJob.job?.status === 'canceled', 'DELETE did not return a canceled job.', canceledJob.job);
-  const persistedCanceledJob = await waitForJob('servicejob1', (job) => job?.status === 'canceled', 'job to persist canceled state');
-  assert(persistedCanceledJob.error?.code === 'JOB_CANCELED', 'Canceled job did not keep JOB_CANCELED error code.', persistedCanceledJob);
+  assert(canceledJob.job?.status === 'unknown', 'DELETE did not mark the dispatched job as unknown.', canceledJob.job);
+  const persistedCanceledJob = await waitForJob('servicejob1', (job) => job?.status === 'unknown', 'job to persist unknown cancellation state');
+  assert(persistedCanceledJob.error?.code === 'JOB_CANCELED_UPSTREAM_UNKNOWN', 'Dispatched cancellation did not keep its reconciliation error code.', persistedCanceledJob);
 
   const files = await readAllJsonFiles(dataDir);
   const allJson = files.map((item) => item.raw).join('\n');

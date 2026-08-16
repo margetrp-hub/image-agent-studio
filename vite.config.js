@@ -46,10 +46,10 @@ export default defineConfig({
     assetsDir: 'studio-assets',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        studio: resolve(__dirname, 'studio.html'),
-        login: resolve(__dirname, 'login.html'),
-        admin: resolve(__dirname, 'admin.html')
+        main: resolve(import.meta.dirname, 'index.html'),
+        studio: resolve(import.meta.dirname, 'studio.html'),
+        login: resolve(import.meta.dirname, 'login.html'),
+        admin: resolve(import.meta.dirname, 'admin.html')
       },
       output: {
         manualChunks(id) {
