@@ -8,20 +8,9 @@
   color: var(--ias-ink);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-button,
-input {
-  font: inherit;
-}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input { font: inherit; }
 
 .studioLoginShell {
   min-height: 100vh;
@@ -30,7 +19,7 @@ input {
   overflow: hidden;
   padding: 32px 20px;
   position: relative;
-  background: var(--ias-bg);
+  background: #eef2f0;
 }
 
 .studioLoginShell::before {
@@ -38,7 +27,7 @@ input {
   background-size: 36px 36px;
   content: "";
   inset: 0;
-  opacity: 0.26;
+  opacity: 0.42;
   pointer-events: none;
   position: absolute;
 }
@@ -46,224 +35,84 @@ input {
 .studioLoginPanel {
   animation: iasReveal 420ms var(--ias-ease) both;
   background: var(--ias-surface);
-  border: 1px solid var(--ias-line);
-  border-radius: var(--ias-radius-sheet);
-  box-shadow: var(--ias-shadow-panel);
-  padding: 34px;
+  border: 1px solid var(--ias-line-strong);
+  border-radius: 22px;
+  box-shadow: 0 24px 64px rgba(16, 32, 39, 0.13), 0 2px 8px rgba(16, 32, 39, 0.05);
+  display: grid;
+  grid-template-columns: minmax(245px, .83fr) minmax(340px, 1.17fr);
+  overflow: hidden;
   position: relative;
-  width: min(100%, 440px);
+  width: min(100%, 820px);
   z-index: 1;
 }
 
-.studioLoginBrand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.studioLoginMark {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 12px;
+.studioLoginAside {
   background: var(--ias-ink);
-  color: #ffffff;
-  font-size: 20px;
-  font-weight: 750;
-}
-
-.studioLoginBrand h1 {
-  margin: 0;
-  font-size: 21px;
-  line-height: 1.2;
-  letter-spacing: 0;
-}
-
-.studioLoginBrand p {
-  margin: 4px 0 0;
-  color: var(--ias-muted);
-  font-size: 13px;
-}
-
-.studioLoginIntro {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 22px;
-}
-
-.studioLoginKicker {
-  color: var(--ias-accent);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
-
-.studioLoginIntro strong {
-  font-size: 18px;
-  letter-spacing: 0;
-}
-
-.studioLoginIntro p {
-  color: var(--ias-copy);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0;
-}
-
-.studioLoginMode {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 22px;
-  padding: 4px;
-  background: var(--ias-surface-muted);
-  border: 1px solid var(--ias-line);
-  border-radius: 12px;
-}
-
-.studioLoginMode button {
-  min-height: 36px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ias-copy);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.studioLoginMode button:hover {
-  color: var(--ias-ink);
-}
-
-.studioLoginMode button.is-active {
-  background: var(--ias-surface);
-  box-shadow: var(--ias-shadow-soft);
-  color: var(--ias-ink);
-}
-
-.studioLoginReward {
-  align-items: center;
-  background: var(--ias-accent-soft);
-  border: 1px solid color-mix(in srgb, var(--ias-accent) 20%, var(--ias-line));
-  border-radius: 12px;
-  color: var(--ias-accent-strong);
+  color: #f8fbfa;
   display: flex;
-  font-size: 12px;
-  gap: 9px;
-  margin: -8px 0 18px;
-  min-height: 42px;
-  padding: 0 12px;
-}
-
-.studioLoginRewardMark {
-  align-items: center;
-  background: var(--ias-accent);
-  border-radius: 8px;
-  color: #fff;
-  display: inline-flex;
-  font-size: 18px;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
-}
-
-.studioLoginForm {
-  display: grid;
-  gap: 18px;
-}
-
-.studioLoginField {
-  display: grid;
-  gap: 8px;
-}
-
-.studioLoginField[hidden] {
-  display: none;
-}
-
-.studioLoginField span {
-  color: var(--ias-copy);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.studioLoginField input {
-  min-height: 44px;
-}
-
-.studioLoginField input[aria-invalid="true"] {
-  border-color: var(--ias-danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ias-danger) 16%, transparent);
-}
-
-.studioLoginFieldHint {
-  color: var(--ias-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.studioLoginPasswordWrap {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  flex-direction: column;
+  min-height: 520px;
+  padding: 34px;
   position: relative;
 }
 
-.studioLoginPasswordWrap input {
-  padding-right: 62px;
+.studioLoginAside::after {
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 50%;
+  content: "";
+  height: 270px;
+  position: absolute;
+  right: -124px;
+  top: 34%;
+  width: 270px;
 }
 
-.studioLoginPasswordToggle {
-  align-self: center;
-  background: transparent;
-  border: 0;
-  color: var(--ias-accent-strong);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 750;
-  margin-left: -58px;
-  min-height: 32px;
-  padding: 0 10px;
-  position: relative;
-}
+.studioLoginBrand { align-items: center; display: flex; gap: 12px; position: relative; z-index: 1; }
+.studioLoginMark { align-items: center; background: var(--ias-accent); border-radius: 11px; color: #fff; display: grid; flex: 0 0 auto; font-size: 20px; font-weight: 800; height: 40px; justify-content: center; width: 40px; }
+.studioLoginBrand h1 { color: #f8fbfa; font-size: 20px; letter-spacing: 0; line-height: 1.2; margin: 0; }
+.studioLoginBrand p { color: rgba(248, 251, 250, .62); font-size: 12px; margin: 4px 0 0; }
+.studioLoginIntro { display: grid; gap: 9px; margin: auto 0 0; max-width: 270px; position: relative; z-index: 1; }
+.studioLoginKicker { color: var(--ias-accent-secondary); font-size: 10px; font-weight: 850; letter-spacing: .14em; }
+.studioLoginIntro strong { font-size: 29px; letter-spacing: -.02em; line-height: 1.17; }
+.studioLoginIntro p { color: rgba(248, 251, 250, .66); font-size: 13px; line-height: 1.65; margin: 0; }
+.studioLoginAsideMeta { align-items: center; border-top: 1px solid rgba(255, 255, 255, .14); color: rgba(248, 251, 250, .48); display: flex; font-size: 10px; gap: 10px; letter-spacing: .12em; margin-top: 38px; padding-top: 13px; position: relative; z-index: 1; }
+.studioLoginAsideMeta span:first-child { color: var(--ias-accent-secondary); font-weight: 800; }
 
-.studioLoginSubmit {
-  min-height: 44px;
-  width: 100%;
-}
+.studioLoginContent { padding: 34px 38px 30px; }
+.studioLoginMode { background: var(--ias-surface-muted); border: 1px solid var(--ias-line); border-radius: 11px; display: grid; gap: 4px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 27px; padding: 4px; }
+.studioLoginMode[hidden], .studioLoginRecoveryHeading[hidden], .studioLoginField[hidden], .studioLoginReward[hidden], .studioLoginRecoveryLink[hidden] { display: none; }
+.studioLoginMode button { background: transparent; border: 0; border-radius: 7px; color: var(--ias-copy); cursor: pointer; font-size: 13px; font-weight: 750; min-height: 36px; }
+.studioLoginMode button:hover { color: var(--ias-ink); }
+.studioLoginMode button.is-active { background: var(--ias-surface); box-shadow: var(--ias-shadow-soft); color: var(--ias-ink); }
+.studioLoginRecoveryHeading { display: grid; gap: 7px; margin-bottom: 25px; }
+.studioLoginRecoveryHeading h2 { font-size: 24px; letter-spacing: -.02em; margin: 0; }
+.studioLoginRecoveryHeading p { color: var(--ias-copy); font-size: 13px; line-height: 1.5; margin: 0; }
 
-.studioLoginStatus {
-  min-height: 20px;
-  margin: 0;
-  color: var(--ias-muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
+.studioLoginReward { align-items: center; background: var(--ias-accent-soft); border: 1px solid color-mix(in srgb, var(--ias-accent) 20%, var(--ias-line)); border-radius: 10px; color: var(--ias-accent-strong); display: flex; font-size: 12px; gap: 9px; margin: -8px 0 18px; min-height: 42px; padding: 0 12px; }
+.studioLoginRewardMark { align-items: center; background: var(--ias-accent); border-radius: 7px; color: #fff; display: inline-flex; font-size: 18px; height: 24px; justify-content: center; width: 24px; }
+.studioLoginForm { display: grid; gap: 16px; }
+.studioLoginField { display: grid; gap: 8px; }
+.studioLoginField > span:first-child { color: var(--ias-copy); font-size: 12px; font-weight: 750; }
+.studioLoginField input { min-height: 45px; }
+.studioLoginField input[aria-invalid="true"] { border-color: var(--ias-danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ias-danger) 16%, transparent); }
+.studioLoginFieldHint { color: var(--ias-muted); font-size: 11px; line-height: 1.45; }
+.studioLoginPasswordWrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; position: relative; }
+.studioLoginPasswordWrap input { padding-right: 62px; }
+.studioLoginPasswordToggle { align-self: center; background: transparent; border: 0; color: var(--ias-accent-strong); cursor: pointer; font-size: 12px; font-weight: 750; margin-left: -58px; min-height: 32px; padding: 0 10px; position: relative; }
+.studioLoginRecoveryLink { align-self: end; background: transparent; border: 0; color: var(--ias-accent-strong); cursor: pointer; font-size: 12px; font-weight: 750; justify-self: end; margin: -5px 0 0; padding: 0; }
+.studioLoginRecoveryLink:hover { color: var(--ias-ink); text-decoration: underline; }
+.studioLoginSubmit { min-height: 46px; width: 100%; }
+.studioLoginStatus { color: var(--ias-muted); font-size: 12px; line-height: 1.5; margin: 0; min-height: 19px; }
+.studioLoginStatus[data-state="error"] { color: var(--ias-danger); }
+.studioLoginStatus[data-state="success"] { color: var(--ias-success); }
 
-.studioLoginStatus[data-state="error"] {
-  color: var(--ias-danger);
-}
-
-.studioLoginStatus[data-state="success"] {
-  color: var(--ias-success);
-}
-
-.studioLoginFootnote {
-  margin: 18px 0 0;
-  color: var(--ias-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-@media (max-width: 480px) {
-  .studioLoginShell {
-    align-items: start;
-    padding-top: 14vh;
-  }
-
-  .studioLoginPanel {
-    padding: 26px 22px;
-  }
+@media (max-width: 680px) {
+  .studioLoginShell { align-items: start; padding: 18px 12px; }
+  .studioLoginPanel { grid-template-columns: 1fr; max-width: 470px; }
+  .studioLoginAside { min-height: 0; padding: 25px 24px 23px; }
+  .studioLoginAside::after { height: 180px; right: -90px; top: -98px; width: 180px; }
+  .studioLoginIntro { margin-top: 42px; }
+  .studioLoginIntro strong { font-size: 24px; }
+  .studioLoginAsideMeta { margin-top: 25px; }
+  .studioLoginContent { padding: 24px 22px 25px; }
 }

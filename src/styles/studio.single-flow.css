@@ -53,7 +53,36 @@ body:has(.singleGenerationWorkspace),
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--studio-primary) 54%, var(--studio-border)) transparent;
+}
+
+.singleGenerationControlColumn::-webkit-scrollbar {
+  width: 7px;
+}
+
+.singleGenerationControlColumn::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.singleGenerationControlColumn::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-primary) 54%, var(--studio-border));
+  background-clip: padding-box;
+}
+
+.singleGenerationControlColumn::-webkit-scrollbar-thumb:hover {
+  background: var(--studio-primary);
+  background-clip: padding-box;
+}
+
+.singleGenerationControlColumn::-webkit-scrollbar-button,
+.singleGenerationControlColumn::-webkit-scrollbar-corner {
+  display: none;
+  height: 0;
+  width: 0;
 }
 
 .singleGenerationControlColumn > * {
@@ -213,13 +242,13 @@ body:has(.singleGenerationWorkspace),
   padding: 12px 13px;
   line-height: 1.55;
   resize: vertical;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--studio-muted) 58%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--studio-primary) 54%, var(--studio-border)) transparent;
 }
 
 .singlePromptBox textarea::-webkit-scrollbar {
-  width: 10px;
+  width: 7px;
 }
 
 .singlePromptBox textarea::-webkit-scrollbar-track {
@@ -228,9 +257,9 @@ body:has(.singleGenerationWorkspace),
 
 .singlePromptBox textarea::-webkit-scrollbar-thumb {
   min-height: 34px;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--studio-muted) 58%, transparent);
+  background: color-mix(in srgb, var(--studio-primary) 54%, var(--studio-border));
   background-clip: padding-box;
 }
 

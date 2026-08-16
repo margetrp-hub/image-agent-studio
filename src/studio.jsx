@@ -263,6 +263,7 @@ import {
   findDuplicateActiveGenerationTask,
   firstQueuedGenerationTask,
   generationErrorMessage,
+  generationTaskFingerprint,
   hasRestorableLocalQueueTask,
   isActiveServerJobStatus,
   isFinalServerJobStatus,
@@ -759,6 +760,7 @@ function CreationDesk({
   const initialParameters = restoredSession?.parameters || draftRef.current || {};
   const restoredMode = restoredSession?.mode || (activeWorkspace === 'video' ? 'video' : 'image');
   const generationRef = useRef({ id: 0, controller: null });
+  const batchTaskResultsRef = useRef(new Map());
   const resolvingCaseRef = useRef({ id: 0 });
   const appliedCasePromptRef = useRef({ key: '', prompt: '' });
   const maskEditorRef = useRef(null);
@@ -2774,6 +2776,52 @@ function CreationDesk({
     return enqueueGenerationTask(buildGenerationTask(overrides));
   }
 
+  function enqueueIndependentImageBatch(task) {
+    const total = Math.max(1, normalizeCount(task?.count));
+    if (task?.mode === 'video' || total <= 1) return enqueueGenerationTask(task);
+    const batchId = createGenerationTaskId();
+    batchTaskResultsRef.current.clear();
+    setResults([]);
+    setResultBatchMeta({ ...task, batchId, batchTotal: total, count: total });
+    let accepted = 0;
+    for (let index = 0; index < total; index += 1) {
+      const batchTask = {
+        ...task,
+        id: `${batchId}-${index + 1}`,
+        status: 'queued',
+        createdAt: Date.now() + index,
+        count: 1,
+        batchId,
+        batchIndex: index,
+        batchTotal: total,
+        fingerprint: generationTaskFingerprint({
+          sessionId,
+          mode: task.mode,
+          route: task.mode === 'edit' || task.mode === 'mask' ? 'edits' : 'generations',
+          providerId: providerSettings.providerId,
+          apiKeySource: providerSettings.apiKeySource,
+          model: task.model,
+          prompt: task.prompt,
+          size: task.size,
+          quality: task.quality,
+          resolutionTier: task.resolutionTier,
+          outputFormat: task.outputFormat,
+          moderation: task.moderation,
+          count: 1,
+          batchKey: `${batchId}:${index}`,
+          selectedCanvasNodeId: task.selectedCanvasNodeId,
+          referenceCount: task.referenceItems?.length || 0,
+          hasMask: Boolean(task.maskFile)
+        })
+      };
+      if (enqueueGenerationTask(batchTask)) accepted += 1;
+    }
+    if (accepted > 1) {
+      setMessage(t('statusMessages.batchStarted', '已拆分为 {count} 个独立任务，正在批量生成。', { count: accepted }));
+    }
+    return accepted > 0;
+  }
+
   function runGenerationQueue() {
     if (generationQueueRunnerRef.current) return;
     generationQueueRunnerRef.current = true;
@@ -2836,6 +2884,16 @@ function CreationDesk({
       onMessage: setMessage,
       onTiming: (job) => setTiming((current) => serverJobTimingPatch(job, current))
     });
+  }
+
+  function publishImageResults(urls, task) {
+    const nextUrls = Array.isArray(urls) ? urls : [];
+    if (!task?.batchId) {
+      setResults(nextUrls);
+      return;
+    }
+    batchTaskResultsRef.current.set(task.id, nextUrls);
+    setResults([...batchTaskResultsRef.current.values()].flat());
   }
 
   async function generate(options = {}) {
@@ -2995,7 +3053,10 @@ function CreationDesk({
       resolutionTier: activeResolutionTier,
       outputFormat: activeOutputFormat,
       sessionId,
-      id: generationId
+      id: generationId,
+      batchId: task?.batchId || '',
+      batchIndex: Number(task?.batchIndex || 0),
+      batchTotal: Number(task?.batchTotal || 1)
     };
     let firstByteAt = null;
     let timeoutReached = false;
@@ -3302,6 +3363,8 @@ function CreationDesk({
             outputFormat: normalizedActiveOutputFormat,
             moderation: normalizedActiveModeration,
             count: activeCount,
+            batchId: task?.batchId || '',
+            batchIndex: task?.batchIndex || 0,
             referenceCount: editReferenceFiles.length,
             hasMask: Boolean(maskFile),
             workflow: activeWorkflow
@@ -3377,7 +3440,7 @@ function CreationDesk({
               firstByteAt = Date.now();
               setTiming((current) => current ? { ...current, firstByteAt } : current);
             }
-            setResults(partialUrls);
+            publishImageResults(partialUrls, task);
             if (partialUrls.length) {
               appendCanvasNodes(partialUrls, {
                 kind: 'image',
@@ -3410,7 +3473,7 @@ function CreationDesk({
       if (!urls.length) {
         throw new Error(t('statusMessages.noImagesReturned', '请求完成，但没有返回图片。'));
       }
-      setResults(urls);
+      publishImageResults(urls, task);
       appendCanvasNodes(urls, {
         kind: 'image',
         parentId: lineageParentId,
@@ -3609,7 +3672,7 @@ function CreationDesk({
   const confirmGenerationAction = () => {
     const task = generationConfirmTask;
     closeGenerationConfirm();
-    if (task) enqueueGenerationTask(task);
+    if (task) enqueueIndependentImageBatch(task);
   };
   const adjustGenerationParams = () => {
     closeGenerationConfirm();

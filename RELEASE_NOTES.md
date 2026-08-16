@@ -1,5 +1,29 @@
 ﻿# Release Notes
 
+## 1.0.9
+
+This release completes the standalone account recovery surface and makes image
+batch generation a set of independent queue jobs.
+
+### What Changed
+
+- Added a redesigned login page with login, registration, and password recovery
+  modes. Admin-generated reset codes are single-use, expiring, hashed in the
+  database, and revoke previous sessions after a successful reset.
+- A batch of four images now creates four independent image tasks with their
+  own queue state, server job, billing reservation, history record, and dedupe
+  fingerprint. The result panel still aggregates the batch for review.
+- Removed the persistent left-column scrollbar gutter and unified the outer
+  control and prompt scrollbars into compact, arrow-free tracks.
+
+### Verification
+
+- `npm run check:generation-executor`
+- `npm run check:standalone-auth`
+- `npm run smoke:standalone:frontend`
+- `STUDIO_JOB_CONCURRENCY=1 npm run smoke:standalone:service`
+- `npm run build`
+
 ## 1.0.8
 
 This release publishes the provider-library correction and starts the standalone

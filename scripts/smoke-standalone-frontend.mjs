@@ -93,6 +93,8 @@ try {
         expiresAt: '2030-01-01T00:00:00.000Z',
         user: creatorUser
       };
+    } else if (path.endsWith('/auth/password/reset')) {
+      body = { ok: true, user: adminUser };
     } else if (path.endsWith('/auth/me')) {
       body = {
         ok: true,
@@ -155,6 +157,19 @@ try {
   assert.equal(await page.locator('#studio-login-identifier-field').isVisible(), true, 'Login mode should show the account field.');
   assert.equal(await page.locator('#studio-login-email-field').isVisible(), false, 'Login mode should hide the registration email field.');
   assert.equal(await page.locator('#studio-login-username-field').isVisible(), false, 'Login mode should hide the registration username field.');
+  await page.locator('#studio-login-recovery-link').click();
+  assert.equal(await page.locator('#studio-login-recovery-heading').isVisible(), true, 'Password recovery heading should be visible.');
+  assert.equal(await page.locator('#studio-login-reset-token-field').isVisible(), true, 'Password recovery should show the reset token field.');
+  assert.equal(await page.locator('#studio-login-password-confirm-field').isVisible(), true, 'Password recovery should show password confirmation.');
+  await page.locator('#studio-login-identifier').fill('admin@example.test');
+  await page.locator('#studio-login-reset-token').fill('admin-reset-token');
+  await page.locator('#studio-login-password').fill('reset-password');
+  await page.locator('#studio-login-password-confirm').fill('reset-password');
+  await page.locator('#studio-login-submit').click();
+  await page.waitForFunction(() => document.querySelector('#studio-login-status')?.textContent?.includes('密码已更新'));
+  assert.equal(await page.locator('#studio-login-identifier').inputValue(), 'admin@example.test', 'Password recovery should retain the account identifier.');
+  assert.ok(requests.some((item) => item.path.endsWith('/auth/password/reset') && item.method === 'POST'), 'Password recovery did not call the reset API.');
+  assert.equal(await page.locator('#studio-login-recovery-heading').isVisible(), false, 'Password recovery should return to login mode after success.');
   await page.locator('#studio-login-mode-register').click();
   assert.equal(await page.locator('#studio-login-identifier-field').isVisible(), false, 'Registration mode should hide the login account field.');
   assert.equal(await page.locator('#studio-login-email-field').isVisible(), true, 'Registration mode should show the email field.');

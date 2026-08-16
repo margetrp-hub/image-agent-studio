@@ -10,6 +10,7 @@ const PASSWORD_KEY_BYTES = 32;
 const PASSWORD_SALT_BYTES = 16;
 const DEFAULT_PASSWORD_ITERATIONS = 600_000;
 const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
 
 export class StandaloneAuthError extends Error {
   constructor(code, message, { status = 400, retryAfterMs } = {}) {
@@ -199,6 +200,19 @@ export class StandaloneAuthStore {
       CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
       CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
 
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        used_at INTEGER
+      );
+
+      CREATE INDEX IF NOT EXISTS password_reset_tokens_user_id_idx ON password_reset_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS password_reset_tokens_expiry_idx ON password_reset_tokens(expires_at, used_at);
+
       CREATE TABLE IF NOT EXISTS legacy_identity_map (
         source TEXT NOT NULL,
         legacy_identity TEXT NOT NULL,
@@ -219,7 +233,7 @@ export class StandaloneAuthStore {
       );
 
       CREATE INDEX IF NOT EXISTS provider_links_user_id_idx ON provider_links(user_id);
-      PRAGMA user_version = 1;
+      PRAGMA user_version = 2;
     `);
   }
 
@@ -273,6 +287,94 @@ export class StandaloneAuthStore {
     this.billing.ensureAccount(userId);
 
     return this.getUserById(userId);
+  }
+
+  createPasswordResetToken({ userId, actorUserId, ttlMs = DEFAULT_PASSWORD_RESET_TTL_MS } = {}) {
+    const targetId = normalizeOpaqueId(userId, 'userId');
+    const actorId = normalizeOpaqueId(actorUserId, 'actorUserId');
+    if (!Number.isFinite(ttlMs) || ttlMs < 60_000 || ttlMs > 24 * 60 * 60 * 1000) {
+      throw new StandaloneAuthError('INVALID_RESET_TTL', 'The reset token lifetime is invalid.');
+    }
+    const actor = this.database.prepare('SELECT id, role FROM users WHERE id = ?').get(actorId);
+    if (!actor || actor.role !== 'admin') {
+      throw new StandaloneAuthError('ADMIN_REQUIRED', 'Administrator access is required.', { status: 403 });
+    }
+    const target = this.database.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
+    if (!target) throw new StandaloneAuthError('USER_NOT_FOUND', 'User not found.', { status: 404 });
+    if (!Boolean(target.active)) throw new StandaloneAuthError('ACCOUNT_DISABLED', 'This account is disabled.', { status: 403 });
+
+    const token = randomBytes(24).toString('base64url');
+    const createdAt = this.now();
+    const expiresAt = createdAt + ttlMs;
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      this.database.prepare(`
+        UPDATE password_reset_tokens
+        SET used_at = COALESCE(used_at, ?)
+        WHERE user_id = ? AND used_at IS NULL
+      `).run(createdAt, targetId);
+      this.database.prepare(`
+        INSERT INTO password_reset_tokens (id, user_id, token_hash, created_by, created_at, expires_at, used_at)
+        VALUES (?, ?, ?, ?, ?, ?, NULL)
+      `).run(randomUUID(), targetId, hashToken(token), actorId, createdAt, expiresAt);
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+    this.secureDatabaseFiles();
+    return { token, expiresAt: toIso(expiresAt), user: toPublicUser(target) };
+  }
+
+  resetPassword({ identifier, token, password } = {}) {
+    const loginIdentifier = normalizeLoginIdentifier(identifier);
+    const resetToken = normalizeResetToken(token);
+    const normalizedPassword = validateNewPassword(password, this.minimumPasswordLength);
+    const currentTime = this.now();
+    const row = this.database.prepare(`
+      SELECT t.id AS token_id, t.user_id, u.*
+      FROM password_reset_tokens t
+      JOIN users u ON u.id = t.user_id
+      WHERE t.token_hash = ?
+        AND t.used_at IS NULL
+        AND t.expires_at > ?
+        AND (u.email = ? OR u.username = ?)
+    `).get(hashToken(resetToken), currentTime, loginIdentifier, loginIdentifier);
+    if (!row || !Boolean(row.active)) {
+      throw new StandaloneAuthError('RESET_TOKEN_INVALID', 'The password reset token is invalid or expired.', { status: 400 });
+    }
+
+    const salt = randomBytes(PASSWORD_SALT_BYTES);
+    const passwordHash = pbkdf2Sync(
+      normalizedPassword,
+      salt,
+      this.passwordIterations,
+      PASSWORD_KEY_BYTES,
+      'sha256'
+    );
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const updated = this.database.prepare(`
+        UPDATE password_reset_tokens
+        SET used_at = ?
+        WHERE id = ? AND used_at IS NULL AND expires_at > ?
+      `).run(currentTime, row.token_id, currentTime);
+      if (Number(updated.changes) !== 1) {
+        throw new StandaloneAuthError('RESET_TOKEN_INVALID', 'The password reset token is invalid or expired.', { status: 400 });
+      }
+      this.database.prepare(`
+        UPDATE users
+        SET password_algorithm = ?, password_hash = ?, password_salt = ?, password_iterations = ?, updated_at = ?
+        WHERE id = ?
+      `).run(PASSWORD_ALGORITHM, passwordHash, salt, this.passwordIterations, currentTime, row.user_id);
+      this.database.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id);
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+    this.secureDatabaseFiles();
+    return this.getUserWithBilling(row.user_id);
   }
 
   getUserWithBilling(userId) {
@@ -625,6 +727,14 @@ function normalizeLoginIdentifier(value) {
     throw new StandaloneAuthError('INVALID_CREDENTIALS', 'Invalid login credentials.', { status: 401 });
   }
   return identifier;
+}
+
+function normalizeResetToken(value) {
+  const token = String(value || '').trim();
+  if (!token || token.length > 512) {
+    throw new StandaloneAuthError('RESET_TOKEN_INVALID', 'The password reset token is invalid or expired.', { status: 400 });
+  }
+  return token;
 }
 
 function normalizeRole(value) {

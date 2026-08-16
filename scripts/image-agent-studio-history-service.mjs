@@ -2547,6 +2547,17 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
     });
   }
 
+  if (req.method === 'POST' && parts.length === 4 && parts[2] === 'password' && parts[3] === 'reset') {
+    const body = await readJsonBody(req, Math.max(1024, Number(AUTH_LOGIN_MAX_BODY_BYTES) || 16 * 1024));
+    const user = standaloneAuthStore.resetPassword({
+      identifier: body.identifier,
+      token: body.token,
+      password: body.password
+    });
+    standaloneAuthStore.secureDatabaseFiles();
+    return sendJson(res, 200, { ok: true, user });
+  }
+
   if (req.method === 'POST' && parts.length === 3 && parts[2] === 'register') {
     const settings = standaloneAuthStore.getBillingSettings();
     if (AUTH_REGISTRATION_MODE !== 'open' || !settings.registrationEnabled) {
@@ -2720,6 +2731,13 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
   if (req.method === 'POST' && parts.length === 6 && parts[5] === 'disable') {
     const user = standaloneAuthStore.disableUser(decodeRoutePart(parts[4]));
     return sendJson(res, 200, { ok: true, user });
+  }
+  if (req.method === 'POST' && parts.length === 6 && parts[5] === 'password-reset') {
+    const result = standaloneAuthStore.createPasswordResetToken({
+      userId: decodeRoutePart(parts[4]),
+      actorUserId: auth.user.id
+    });
+    return sendJson(res, 200, { ok: true, ...result });
   }
   if (req.method === 'POST' && parts.length === 6 && parts[5] === 'credits') {
     const userId = decodeRoutePart(parts[4]);

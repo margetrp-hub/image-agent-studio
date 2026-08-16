@@ -47,7 +47,10 @@ export function buildGenerationTask(params, overrides = {}) {
     providerSettings,
     layoutSectionsReferences,
     maskFile,
-    fallbackPrompt
+    fallbackPrompt,
+    batchId = '',
+    batchIndex = 0,
+    batchTotal = 1
   } = params;
 
   const basePrompt = typeof overrides.prompt === 'string'
@@ -92,6 +95,9 @@ export function buildGenerationTask(params, overrides = {}) {
     referenceItems: taskReferenceItems,
     videoReferenceFiles,
     maskFile: taskMode === 'mask' ? (maskFile || null) : null,
+    batchId: String(overrides.batchId || batchId || ''),
+    batchIndex: Number.isInteger(overrides.batchIndex) ? overrides.batchIndex : batchIndex,
+    batchTotal: Number(overrides.batchTotal || batchTotal) || 1,
     selectedCanvasNodeId: overrides.selectedCanvasNodeId ?? selectedCanvasNodeId,
     selectedCanvasNodeSnapshot: taskSelectedCanvasNode,
     referencesOpen: overrides.referencesOpen ?? layoutSectionsReferences,
@@ -109,6 +115,7 @@ export function buildGenerationTask(params, overrides = {}) {
       outputFormat,
       moderation,
       count: countValue,
+      batchKey: overrides.batchId ? `${overrides.batchId}:${overrides.batchIndex}` : batchId ? `${batchId}:${batchIndex}` : '',
       selectedCanvasNodeId: overrides.selectedCanvasNodeId ?? selectedCanvasNodeId,
       referenceCount: taskReferenceItems.length,
       hasMask: taskMode === 'mask'

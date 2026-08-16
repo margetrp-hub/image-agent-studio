@@ -5,6 +5,7 @@ import {
   endpointForGenerationTask,
   imageGenerationRouteForMode
 } from '../src/studio/generation/executor.js';
+import { generationTaskFingerprint } from '../src/studio/util/generationJobs.js';
 import { buildCanvasContinuationPlan } from '../src/studio/generation/promptComposition.js';
 
 const endpoints = {
@@ -68,6 +69,46 @@ assert.equal(payload.request.n, 1);
 assert.equal(payload.request.workflow.rootPrompt, 'original prompt');
 assert.ok(payload.request.fingerprint.includes('edits'));
 assert.ok(!payload.request.fingerprint.includes('session-secret'));
+
+const batchZero = buildServerImageGenerationJobPayload({
+  serverManaged: true,
+  generationMeta: { id: 'batch-job-1' },
+  sessionId: 'batch-session',
+  providerId: 'gateway-account',
+  apiKeySource: 'gateway',
+  mode: 'image',
+  route: 'generations',
+  model: 'gpt-image-2',
+  prompt: 'batch prompt',
+  generationPrompt: 'batch prompt',
+  count: 1,
+  batchId: 'batch-1',
+  batchIndex: 0
+});
+const batchOne = buildServerImageGenerationJobPayload({
+  serverManaged: true,
+  generationMeta: { id: 'batch-job-2' },
+  sessionId: 'batch-session',
+  providerId: 'gateway-account',
+  apiKeySource: 'gateway',
+  mode: 'image',
+  route: 'generations',
+  model: 'gpt-image-2',
+  prompt: 'batch prompt',
+  generationPrompt: 'batch prompt',
+  count: 1,
+  batchId: 'batch-1',
+  batchIndex: 1
+});
+assert.equal(batchZero.request.count, 1);
+assert.equal(batchZero.request.n, 1);
+assert.equal(batchZero.request.batchId, 'batch-1');
+assert.equal(batchZero.request.batchIndex, 0);
+assert.notEqual(batchZero.request.fingerprint, batchOne.request.fingerprint);
+assert.notEqual(
+  generationTaskFingerprint({ prompt: 'batch prompt', count: 1, batchKey: 'batch-1:0' }),
+  generationTaskFingerprint({ prompt: 'batch prompt', count: 1, batchKey: 'batch-1:1' })
+);
 
 const standalonePayload = buildServerImageGenerationJobPayload({
   serverManaged: true,

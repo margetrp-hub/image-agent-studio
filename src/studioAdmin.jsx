@@ -8,6 +8,7 @@ import {
   Coins,
   ExternalLink,
   Gauge,
+  KeyRound,
   LogOut,
   Moon,
   Plus,
@@ -210,7 +211,7 @@ function RechargePanel({ settings, onChange, codes, onCreateCode, onDisableCode,
   );
 }
 
-function UserTable({ users, query, onQueryChange, onAdjust, onDisable }) {
+function UserTable({ users, query, onQueryChange, onAdjust, onDisable, onReset }) {
   const filteredUsers = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return users;
@@ -238,7 +239,7 @@ function UserTable({ users, query, onQueryChange, onAdjust, onDisable }) {
                 <td><span className={`iasStatusDot ${user.active ? 'isActive' : 'isDisabled'}`}><i />{user.active ? '正常' : '已禁用'}</span></td>
                 <td><strong className="iasBalanceValue">{formatNumber(user.credits?.balance)}</strong><small className="iasTableSubtext">已用 {formatNumber(user.credits?.lifetimeSpent)}</small></td>
                 <td className="iasDateCell">{formatDate(user.createdAt)}</td>
-                <td><div className="iasTableActions"><Button size="small" onClick={() => onAdjust(user)}><Coins size={14} /> 调账</Button>{user.active ? <IconButton tone="danger" title="禁用账号" aria-label="禁用账号" onClick={() => onDisable(user)}><UserX size={16} /></IconButton> : null}</div></td>
+                <td><div className="iasTableActions"><Button size="small" onClick={() => onAdjust(user)}><Coins size={14} /> 调账</Button>{user.active ? <IconButton title="生成密码重置码" aria-label="生成密码重置码" onClick={() => onReset(user)}><KeyRound size={16} /></IconButton> : null}{user.active ? <IconButton tone="danger" title="禁用账号" aria-label="禁用账号" onClick={() => onDisable(user)}><UserX size={16} /></IconButton> : null}</div></td>
               </tr>
             )) : <tr><td colSpan="6" className="iasEmptyCell">没有匹配的用户。</td></tr>}
           </tbody>
@@ -285,6 +286,7 @@ function AdminApp() {
   const [codes, setCodes] = useState([]);
   const [query, setQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [passwordReset, setPasswordReset] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
@@ -345,6 +347,17 @@ function AdminApp() {
     catch (disableError) { setError(getErrorMessage(disableError)); }
   }
 
+  async function resetUserPassword(target) {
+    if (!window.confirm(`为 ${target.username} 生成一次性密码重置码吗？`)) return;
+    setSaving(true); setError(''); setPasswordReset(null);
+    try {
+      const result = await client.createAdminPasswordReset(target.id);
+      setPasswordReset({ ...result, username: target.username });
+      setStatus('密码重置码已生成，请仅发送给账号本人。');
+    } catch (resetError) { setError(getErrorMessage(resetError)); }
+    finally { setSaving(false); }
+  }
+
   async function createCode(input) {
     setSaving(true); setError('');
     try { const created = await client.createAdminCreditCode(input); setStatus('CDK 已创建。'); await refresh(); return created; }
@@ -376,7 +389,8 @@ function AdminApp() {
         <section className="iasStatsGrid"><StatCard icon={UserRound} label="注册用户" value={formatNumber(stats.users)} detail={`${formatNumber(stats.activeUsers)} 个账号正常使用`} /><StatCard icon={WalletCards} label="当前余额" value={formatNumber(stats.balance)} detail="所有用户可用积分" tone="isTeal" /><StatCard icon={Activity} label="累计消耗" value={formatNumber(stats.spent)} detail={`${formatNumber(stats.transactions)} 条账务流水`} tone="isWarm" /><StatCard icon={Gauge} label="运行策略" value={settings.creditsEnabled ? '积分计费' : '自由试用'} detail={`注册奖励 ${formatNumber(settings.registrationBonusCredits)} 积分`} /></section>
         <div className="iasAdminColumns"><SettingsPanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : Math.max(0, Number(value) || 0) }))} onSave={saveSettings} saving={saving} message={status} /><section className="iasAdminSection iasLedgerSection"><div className="iasSectionHeader"><div><span className="iasSectionKicker">LEDGER</span><h2>最近流水</h2><p>积分变动。</p></div><Coins size={20} className="iasSectionHeaderIcon" /></div><div className="iasLedgerList">{transactions.length ? transactions.slice(0, 8).map((item) => <div className="iasLedgerItem" key={item.id}><span className={`iasLedgerSign ${item.delta >= 0 ? 'isPlus' : 'isMinus'}`}>{item.delta >= 0 ? '+' : ''}{formatNumber(item.delta)}</span><span><strong>{item.kind === 'registration_bonus' ? '注册奖励' : item.kind === 'generation_charge' ? '生成扣除' : item.kind === 'generation_refund' ? '生成退回' : item.kind === 'credit_code_redeem' ? 'CDK 兑换' : '管理员调账'}</strong><small>{formatDate(item.createdAt)}</small></span><b>{formatNumber(item.balanceAfter)}</b></div>) : <div className="iasEmptyState">还没有账务流水。</div>}</div></section></div>
         <RechargePanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : key === 'rechargeShopUrl' ? String(value) : Math.max(0, Number(value) || 0) }))} codes={codes} onCreateCode={createCode} onDisableCode={disableCode} saving={saving} />
-        <UserTable users={users} query={query} onQueryChange={setQuery} onAdjust={setSelectedUser} onDisable={disableUser} />
+        <UserTable users={users} query={query} onQueryChange={setQuery} onAdjust={setSelectedUser} onDisable={disableUser} onReset={resetUserPassword} />
+        {passwordReset ? <section className="iasResetTokenPanel" role="status"><div><span className="iasSectionKicker">ONE-TIME TOKEN</span><h2>{passwordReset.username} 的密码重置码</h2><p>30 分钟内有效，只显示在当前页面。用户在登录页点“忘记密码？”后输入此码。</p></div><code>{passwordReset.token}</code><Button variant="quiet" onClick={() => setPasswordReset(null)}>关闭</Button></section> : null}
       </div>
       {selectedUser ? <AdjustmentDialog user={selectedUser} onClose={() => setSelectedUser(null)} onSubmit={adjustUser} saving={saving} /> : null}
     </main>

@@ -189,7 +189,7 @@ check('sqlite stores only the SHA-256 session token', () => {
   const tableNames = db.prepare(`
     SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name
   `).all().map((row) => row.name);
-  for (const tableName of ['users', 'sessions', 'legacy_identity_map', 'provider_links']) {
+  for (const tableName of ['users', 'sessions', 'password_reset_tokens', 'legacy_identity_map', 'provider_links']) {
     assert(tableNames.includes(tableName));
   }
   const sessionRow = db.prepare('SELECT token_hash FROM sessions WHERE user_id = ?').get(admin.id);
@@ -210,6 +210,37 @@ check('credentials and tokens do not appear raw in the database', () => {
   assert.equal(databaseBytes.includes(Buffer.from(password)), false);
   assert.equal(databaseBytes.includes(Buffer.from(login.token)), false);
 });
+
+await (async () => {
+  const adminSession = await store.login({ identifier: 'Admin', password });
+  const reset = store.createPasswordResetToken({ userId: admin.id, actorUserId: admin.id });
+  assert.match(reset.token, /^[A-Za-z0-9_-]{32}$/);
+  const resetRow = new DatabaseSync(databasePath, { readOnly: true }).prepare(
+    'SELECT token_hash, used_at FROM password_reset_tokens WHERE user_id = ?'
+  ).get(admin.id);
+  assert.equal(resetRow.token_hash, createHash('sha256').update(reset.token).digest('hex'));
+  assert.equal(resetRow.used_at, null);
+  assert.equal(fs.readFileSync(databasePath).includes(Buffer.from(reset.token)), false);
+  const changed = store.resetPassword({
+    identifier: 'ADMIN@YHOO.LOL',
+    token: reset.token,
+    password: 'New Admin Password 123'
+  });
+  assert.equal(changed.id, admin.id);
+  expectAuthError(() => store.verifySession(adminSession.token), 'INVALID_SESSION');
+  await expectAuthRejection(
+    () => store.login({ identifier: 'admin@yhoo.lol', password, rateLimitKey: 'admin-reset-old' }),
+    'INVALID_CREDENTIALS'
+  );
+  const newSession = await store.login({ identifier: 'admin@yhoo.lol', password: 'New Admin Password 123' });
+  assert.equal(store.verifySession(newSession.token).user.id, admin.id);
+  expectAuthError(() => store.resetPassword({
+    identifier: 'admin@yhoo.lol',
+    token: reset.token,
+    password: 'Another Admin Password 123'
+  }), 'RESET_TOKEN_INVALID');
+  checks.push('admin reset codes are hashed, single-use, expiring, and revoke old sessions');
+})();
 
 check('legacy identities and providers resolve to local users', () => {
   assert.deepEqual(
@@ -295,5 +326,5 @@ console.log(JSON.stringify({
   ok: true,
   checks,
   databasePath,
-  tables: ['users', 'sessions', 'legacy_identity_map', 'provider_links']
+  tables: ['users', 'sessions', 'password_reset_tokens', 'legacy_identity_map', 'provider_links']
 }, null, 2));

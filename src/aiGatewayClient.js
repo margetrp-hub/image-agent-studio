@@ -1051,6 +1051,16 @@ export class AiGatewayClient {
     return session;
   }
 
+  async resetPassword({ identifier, token, password }) {
+    if (!STUDIO_STANDALONE) throw new Error('STANDALONE_PASSWORD_RESET_UNSUPPORTED');
+    return this.request('/auth/password/reset', {
+      method: 'POST',
+      skipAuth: true,
+      skipRefresh: true,
+      body: JSON.stringify({ identifier, token, password })
+    });
+  }
+
   async getStandaloneConfig() {
     if (!STUDIO_STANDALONE) throw new Error('STANDALONE_CONFIG_UNSUPPORTED');
     return this.request('/auth/config', { skipAuth: true, skipRefresh: true });
@@ -1162,6 +1172,17 @@ export class AiGatewayClient {
       method: 'POST'
     });
     return payload.user || null;
+  }
+
+  async createAdminPasswordReset(userId) {
+    const payload = await this.request(`/auth/admin/users/${encodeURIComponent(userId)}/password-reset`, {
+      method: 'POST'
+    });
+    return {
+      token: payload.token || '',
+      expiresAt: payload.expiresAt || '',
+      user: payload.user || null
+    };
   }
 
   async login2FA({ tempToken, totpCode }) {

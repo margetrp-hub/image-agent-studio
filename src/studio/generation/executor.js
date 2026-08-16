@@ -37,6 +37,8 @@ export function buildServerImageGenerationJobPayload({
   outputFormat,
   moderation,
   count,
+  batchId = '',
+  batchIndex = 0,
   referenceCount = 0,
   hasMask = false,
   workflow = null
@@ -73,6 +75,7 @@ export function buildServerImageGenerationJobPayload({
         outputFormat,
         moderation,
         count: safeCount,
+        batchKey: batchId ? `${batchId}:${batchIndex}` : '',
         parentCanvasNodeId,
         referenceCount,
         hasMask
@@ -87,6 +90,7 @@ export function buildServerImageGenerationJobPayload({
       moderation,
       n: safeCount,
       count: safeCount,
+      ...(batchId ? { batchId, batchIndex } : {}),
       ...(workflow ? { workflow } : {})
     }
   };

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.0.9 - 2026-08-16
+
+- Added a redesigned standalone login and account-recovery flow with one-time
+  admin reset codes and a shorter 8-character minimum password policy.
+- Changed image batch generation to fan out into independent queue jobs so each
+  image has its own status, billing, history record, and server-side dedupe key.
+- Polished the single-flow control column and prompt scrollbar so the left rail
+  no longer reserves a large visible track or native arrow controls.
+- Added frontend and executor regression coverage for password recovery and
+  independent batch requests.
+
 ## 1.0.8 - 2026-08-16
 
 - Made the saved provider library list-first in the standalone settings panel.

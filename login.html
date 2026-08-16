@@ -10,50 +10,69 @@
   <body>
     <main class="studioLoginShell">
       <section class="studioLoginPanel" aria-labelledby="studio-login-title">
-        <div class="studioLoginBrand">
-          <span class="studioLoginMark" aria-hidden="true">I</span>
-          <div>
-            <h1 id="studio-login-title">Image Agent Studio</h1>
-            <p>独立创作工作台</p>
+        <aside class="studioLoginAside">
+          <div class="studioLoginBrand">
+            <span class="studioLoginMark" aria-hidden="true">I</span>
+            <div>
+              <h1 id="studio-login-title">Image Agent Studio</h1>
+              <p>独立创作工作台</p>
+            </div>
           </div>
+          <div class="studioLoginIntro">
+            <span class="studioLoginKicker">CREATE WITH CONTROL</span>
+            <strong>登录你的创作工作区。</strong>
+            <p>会话、历史图库和生成资产按账号独立保存。</p>
+          </div>
+          <div class="studioLoginAsideMeta"><span>01</span><span>PRIVATE WORKSPACE</span></div>
+        </aside>
+        <div class="studioLoginContent">
+          <div class="studioLoginMode" id="studio-login-mode-tabs" role="tablist" aria-label="账号操作">
+            <button class="is-active" id="studio-login-mode-login" type="button" data-mode="login" role="tab" aria-selected="true">登录</button>
+            <button id="studio-login-mode-register" type="button" data-mode="register" role="tab" aria-selected="false">创建账号</button>
+          </div>
+          <div class="studioLoginRecoveryHeading" id="studio-login-recovery-heading" hidden>
+            <span class="studioLoginKicker">ACCOUNT RECOVERY</span>
+            <h2>找回你的账号</h2>
+            <p>向管理员获取一次性重置码，在这里设置新密码。</p>
+          </div>
+          <div class="studioLoginReward" id="studio-login-reward" role="status" hidden>
+            <span class="studioLoginRewardMark" aria-hidden="true">+</span>
+            <span><strong id="studio-login-reward-amount">200</strong> 积分注册即到账</span>
+          </div>
+          <form class="studioLoginForm" id="studio-login-form" novalidate>
+            <label class="studioLoginField" id="studio-login-identifier-field" for="studio-login-identifier">
+              <span id="studio-login-identifier-label">账号</span>
+              <input class="iasInput" id="studio-login-identifier" name="identifier" type="text" autocomplete="username" maxlength="254" required autofocus />
+            </label>
+            <label class="studioLoginField" id="studio-login-email-field" for="studio-login-email" hidden>
+              <span>邮箱</span>
+              <input class="iasInput" id="studio-login-email" name="email" type="email" autocomplete="email" maxlength="254" />
+            </label>
+            <label class="studioLoginField" id="studio-login-username-field" for="studio-login-username" hidden>
+              <span>用户名</span>
+              <input class="iasInput" id="studio-login-username" name="username" type="text" autocomplete="username" maxlength="80" />
+            </label>
+            <label class="studioLoginField" id="studio-login-reset-token-field" for="studio-login-reset-token" hidden>
+              <span>一次性重置码</span>
+              <input class="iasInput" id="studio-login-reset-token" name="resetToken" type="text" autocomplete="one-time-code" maxlength="128" />
+            </label>
+            <label class="studioLoginField" for="studio-login-password">
+              <span id="studio-login-password-label">密码</span>
+              <span class="studioLoginPasswordWrap">
+                <input class="iasInput" id="studio-login-password" name="password" type="password" autocomplete="current-password" maxlength="4096" required aria-describedby="studio-login-password-hint" />
+                <button type="button" class="studioLoginPasswordToggle" id="studio-login-password-toggle" aria-label="显示密码">显示</button>
+              </span>
+              <small class="studioLoginFieldHint" id="studio-login-password-hint">使用独立账号密码登录。</small>
+            </label>
+            <label class="studioLoginField" id="studio-login-password-confirm-field" for="studio-login-password-confirm" hidden>
+              <span>确认新密码</span>
+              <input class="iasInput" id="studio-login-password-confirm" name="passwordConfirm" type="password" autocomplete="new-password" maxlength="4096" />
+            </label>
+            <button class="studioLoginRecoveryLink" id="studio-login-recovery-link" type="button">忘记密码？</button>
+            <button class="studioLoginSubmit iasButton iasButtonPrimary" id="studio-login-submit" type="submit">登录</button>
+            <p class="studioLoginStatus" id="studio-login-status" role="status" aria-live="polite"></p>
+          </form>
         </div>
-        <div class="studioLoginIntro">
-          <span class="studioLoginKicker">CREATE WITH CONTROL</span>
-          <strong>把灵感留在自己的工作区。</strong>
-          <p>会话、历史图库和生成资产按账号独立保存。</p>
-        </div>
-        <div class="studioLoginMode" role="tablist" aria-label="账号操作">
-          <button class="is-active" id="studio-login-mode-login" type="button" data-mode="login" role="tab" aria-selected="true">登录</button>
-          <button id="studio-login-mode-register" type="button" data-mode="register" role="tab" aria-selected="false">创建账号</button>
-        </div>
-        <div class="studioLoginReward" id="studio-login-reward" role="status" hidden>
-          <span class="studioLoginRewardMark" aria-hidden="true">+</span>
-          <span><strong id="studio-login-reward-amount">200</strong> 积分注册即到账</span>
-        </div>
-        <form class="studioLoginForm" id="studio-login-form" novalidate>
-          <label class="studioLoginField" id="studio-login-identifier-field" for="studio-login-identifier">
-            <span>账号</span>
-            <input class="iasInput" id="studio-login-identifier" name="identifier" type="text" autocomplete="username" maxlength="254" required autofocus />
-          </label>
-          <label class="studioLoginField" id="studio-login-email-field" for="studio-login-email" hidden>
-            <span>邮箱</span>
-            <input class="iasInput" id="studio-login-email" name="email" type="email" autocomplete="email" maxlength="254" />
-          </label>
-          <label class="studioLoginField" id="studio-login-username-field" for="studio-login-username" hidden>
-            <span>用户名</span>
-            <input class="iasInput" id="studio-login-username" name="username" type="text" autocomplete="username" maxlength="80" />
-          </label>
-          <label class="studioLoginField" for="studio-login-password">
-            <span>密码</span>
-            <span class="studioLoginPasswordWrap">
-              <input class="iasInput" id="studio-login-password" name="password" type="password" autocomplete="current-password" maxlength="4096" required aria-describedby="studio-login-password-hint" />
-              <button type="button" class="studioLoginPasswordToggle" id="studio-login-password-toggle" aria-label="显示密码">显示</button>
-            </span>
-            <small class="studioLoginFieldHint" id="studio-login-password-hint">创建账号时，密码至少 8 位。</small>
-          </label>
-          <button class="studioLoginSubmit iasButton iasButtonPrimary" id="studio-login-submit" type="submit">登录</button>
-          <p class="studioLoginStatus" id="studio-login-status" role="status" aria-live="polite"></p>
-        </form>
       </section>
     </main>
     <script type="module" src="/src/studioLogin.js"></script>

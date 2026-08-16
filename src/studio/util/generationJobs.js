@@ -48,6 +48,7 @@ export function generationTaskFingerprint(value = {}) {
     compactFingerprintValue(value.outputFormat),
     compactFingerprintValue(value.moderation),
     String(Number(value.count || value.n || 1) || 1),
+    compactFingerprintValue(value.batchKey),
     selectedNodeId,
     String(referenceCount),
     hasMask ? 'mask' : ''
