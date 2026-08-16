@@ -1,8 +1,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
-const screenshotPath = `${screenshotDir}/provider-settings-security.png`;
+const screenshotPath = 'output/playwright/provider-settings-security.png';
 const storageKey = 'image-sub2api-studio:provider-settings:v1';
 const libraryStorageKey = 'image-sub2api-studio:provider-library:v1';
 const legacyStorageKey = 'ohlaoo-studio:provider-settings:v1';
@@ -96,11 +95,12 @@ try {
   });
   assert(clickedSettings, 'No visible provider settings button was available.');
   await page.waitForSelector('.settingsDialog', { timeout: 8000 });
-  assert(await page.locator('.providerEditorHead').count() === 0, 'Opening provider settings should show the saved provider library before an editor.', {
-    editorVisible: await page.locator('.providerEditorHead').count()
+  assert(await page.locator('.providerTypeSelect').count() === 0, 'Opening provider settings should show the saved provider library before an editor.', {
+    editorVisible: await page.locator('.providerTypeSelect').count()
   });
   await page.locator('.providerLibraryItemMain').first().click();
-  await page.waitForSelector('.providerEditorHead');
+  await page.waitForSelector('.providerTypeSelect');
+  assert(await page.locator('.providerLibrary').count() === 0, 'Editing a provider should replace the library instead of stacking below it.');
   const inputsBefore = await page.evaluate(() => [...document.querySelectorAll('.settingsDialog input')].map((input) => ({
     type: input.type,
     value: input.value,
@@ -112,7 +112,7 @@ try {
   await gatewayInput.fill('https://manual.example/v1');
   await page.locator('.settingsDialog input[type="password"]').first().fill('test-key-provider-security-smoke-updated');
   await page.locator('.settingsActions .primaryAction').click();
-  await page.screenshot({ path: screenshotPath, fullPage: true });
+  await page.waitForSelector('.providerLibrary');
 
   const updated = await page.evaluate(({ storageKey, libraryStorageKey, legacyStorageKey, sessionSecretKey }) => ({
     persisted: localStorage.getItem(storageKey) || '',
@@ -128,6 +128,21 @@ try {
   assert(updated.persisted.includes('https://manual.example/v1'), 'Manual gateway URL should remain persistent configuration.', updated);
 
   await page.locator('.providerLibraryNewButton').click();
+  await page.waitForSelector('.providerTypeSelect');
+  assert(await page.locator('.providerLibrary').count() === 0, 'New-provider mode should replace the library instead of stacking below it.');
+  await page.locator('.providerTypeSelect').selectOption('nano-banana-compatible');
+  const nanoFields = await page.evaluate(() => ({
+    imageModels: document.querySelectorAll('.providerImageGenerationModelField').length,
+    videoModels: document.querySelectorAll('.providerVideoModelField').length,
+    videoGateways: document.querySelectorAll('.providerVideoGatewayField').length,
+    imageModelValue: document.querySelector('.providerImageGenerationModelField input')?.value || ''
+  }));
+  assert(nanoFields.imageModels === 1 && nanoFields.videoModels === 0 && nanoFields.videoGateways === 0, 'Image-only providers should not show video settings.', nanoFields);
+  assert(nanoFields.imageModelValue === 'nano-banana', 'Changing provider type should load that provider\'s model defaults.', nanoFields);
+  await page.locator('.providerTypeSelect').selectOption('xai-compatible');
+  assert(await page.locator('.providerVideoModelField').count() === 1 && await page.locator('.providerVideoGatewayField').count() === 1, 'Video-capable providers should expose their video settings.');
+  await page.screenshot({ path: screenshotPath });
+  await page.locator('.providerTypeSelect').selectOption('openai-compatible');
   const blankNewProvider = await page.evaluate(() => ({
     name: document.querySelector('.providerNameField input')?.value || '',
     gateway: document.querySelector('.providerGatewayInput')?.value || '',

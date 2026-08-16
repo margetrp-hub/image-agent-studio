@@ -50,6 +50,33 @@
   margin-bottom: 12px;
 }
 
+.settingsTitleText {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settingsTitle > .iconButton {
+  flex: 0 0 auto;
+}
+
+.providerEditorBack {
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-control, 11px);
+  background: var(--studio-surface-soft);
+  color: var(--studio-text);
+}
+
+.providerEditorBack:hover {
+  border-color: var(--studio-border-strong);
+  color: var(--studio-primary);
+}
+
 .settingsDialog h2 {
   margin: 0;
   font-size: 21px;
@@ -98,61 +125,6 @@
 html[lang="en"] .settingsDialog .settingsGroup:first-of-type > span::after,
 html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
   content: "Provider type";
-}
-
-.providerSummary {
-  min-height: 52px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
-  align-items: center;
-  margin: 8px 0 !important;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
-  border-radius: var(--studio-radius-control, 13px);
-  background: color-mix(in srgb, var(--studio-surface-soft) 76%, transparent);
-}
-
-.providerSummary span,
-.providerSummary strong,
-.providerSummary em,
-.providerSummary small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.providerSummary span {
-  grid-column: 1 / -1;
-  color: var(--studio-muted);
-  font-size: 10.5px;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.providerSummary strong {
-  color: var(--studio-text-strong);
-  font-size: 13px;
-  font-weight: 950;
-}
-
-.providerSummary em {
-  justify-self: end;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--studio-primary) 10%, transparent);
-  color: var(--studio-primary);
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 900;
-}
-
-.providerSummary small {
-  grid-column: 1 / -1;
-  color: var(--studio-muted);
-  font-size: 11px;
-  font-weight: 760;
 }
 
 .settingsDialog .manualFields {

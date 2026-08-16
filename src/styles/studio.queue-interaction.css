@@ -50,7 +50,7 @@
 }
 
 .singleGenerationWorkspace > .singleGenerationShell {
-  align-content: start;
+  align-content: stretch;
   min-height: 0;
 }
 

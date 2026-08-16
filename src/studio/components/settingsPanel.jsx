@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, KeyRound, Link2, Pencil, Plus, RefreshCw, Save, Search, Server, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, KeyRound, Link2, Pencil, Plus, RefreshCw, Save, Search, Server, Trash2, X } from 'lucide-react';
 import '../../styles/studio.provider-settings.css';
 import '../../styles/studio.provider-settings-responsive.css';
 import '../../styles/studio.provider-settings-sync.css';
@@ -7,7 +7,16 @@ import '../../styles/studio.provider-library.css';
 import '../../styles/studio.provider-connections.css';
 
 import { getConfiguredBaseUrls, STUDIO_STANDALONE } from '../../aiGatewayClient';
-import { getImageProvider, orderedImageProviders } from '../providers/index.js';
+import {
+  DEFAULT_IMAGE_PROVIDER_ID,
+  DEFAULT_MANUAL_IMAGE_PROVIDER_ID,
+  DEFAULT_PROVIDER_CONNECTION_TYPE,
+  getImageProvider,
+  orderedImageProviders,
+  providerAccountBindingTypes,
+  providerConnectionTypeLabel,
+  providerForConnectionType
+} from '../providers/index.js';
 import {
   apiKeyDisplay,
   apiKeyMeta,
@@ -62,18 +71,29 @@ function ModelSettingControl({ value, options, placeholder, onChange, t }) {
   );
 }
 
-function blankProviderSettings() {
-  return {
-    providerProfileId: '',
-    providerId: 'openai-compatible',
-    apiKeySource: 'manual',
-    manualApiKey: '',
-    manualGatewayBaseUrl: '',
+function providerModelDefaults(provider) {
+  const defaults = {
     imageGenerationModel: '',
     imageEditModel: '',
     videoModel: '',
     videoGatewayBaseUrl: '',
-    responsesModel: '',
+    responsesModel: ''
+  };
+  for (const slot of provider?.descriptor?.modelSlots || []) {
+    if (slot.key in defaults) defaults[slot.key] = slot.defaultModel || '';
+  }
+  return defaults;
+}
+
+function blankProviderSettings(providerId = DEFAULT_MANUAL_IMAGE_PROVIDER_ID) {
+  const provider = getImageProvider(providerId, 'manual');
+  return {
+    providerProfileId: '',
+    providerId: provider?.id || providerId,
+    apiKeySource: 'manual',
+    manualApiKey: '',
+    manualGatewayBaseUrl: '',
+    ...providerModelDefaults(provider),
     partialImages: 2
   };
 }
@@ -114,7 +134,7 @@ export function SettingsPanel({
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [bindingProviderType, setBindingProviderType] = useState('sub2api-compatible');
+  const [bindingProviderType, setBindingProviderType] = useState(DEFAULT_PROVIDER_CONNECTION_TYPE);
   const [bindingBaseUrl, setBindingBaseUrl] = useState('');
   const [bindingIdentifier, setBindingIdentifier] = useState('');
   const [bindingPassword, setBindingPassword] = useState('');
@@ -128,10 +148,17 @@ export function SettingsPanel({
   const providerChoices = orderedImageProviders()
     .filter((provider) => !STUDIO_STANDALONE || provider.authMode === 'manual')
     .map((provider) => ({ ...provider, nextApiKeySource: provider.authMode }));
-  const selectedModels = selectedProfileId && selectedProfileId !== activeId
-    ? modelOptionsForProfile(selectedProfile)
-    : modelOptions;
+  const selectedModels = selectedProfileId
+    ? selectedProfileId !== activeId
+      ? modelOptionsForProfile(selectedProfile)
+      : modelOptions
+    : { image: [], responses: [], video: [] };
   const baseUrlPlaceholder = providerDescriptor.baseUrlExample || defaultProviderGatewayBaseUrl(draft);
+  const providerModelSlots = new Set((providerDescriptor.modelSlots || []).map((slot) => slot.key));
+  const accountBindingTypes = STUDIO_STANDALONE ? providerAccountBindingTypes(currentProvider) : [];
+  const supportsAccountBinding = accountBindingTypes.length > 0;
+  const usesLinkedProvider = draft.apiKeySource === 'linked';
+  const compatibleProviderConnections = providerConnections.filter((connection) => accountBindingTypes.includes(connection.providerType));
   const filteredProfiles = useMemo(() => {
     const query = String(search || '').trim().toLowerCase();
     if (!query) return providerProfiles;
@@ -156,7 +183,7 @@ export function SettingsPanel({
     setDraftName('');
     setEditing(false);
     setFeedback('');
-    setBindingProviderType('sub2api-compatible');
+    setBindingProviderType(DEFAULT_PROVIDER_CONNECTION_TYPE);
     setBindingBaseUrl('');
     setBindingIdentifier('');
     setBindingPassword('');
@@ -199,6 +226,19 @@ export function SettingsPanel({
     setEditing(true);
   };
 
+  const handleProviderTypeChange = (providerId) => {
+    const nextProvider = providerChoices.find((provider) => provider.id === providerId) || providerChoices[0];
+    setBindingProviderType(providerAccountBindingTypes(nextProvider)[0] || DEFAULT_PROVIDER_CONNECTION_TYPE);
+    updateDraft({
+      providerProfileId: '',
+      providerId: nextProvider.id,
+      apiKeySource: nextProvider.nextApiKeySource,
+      manualApiKey: '',
+      manualGatewayBaseUrl: '',
+      ...providerModelDefaults(nextProvider)
+    });
+  };
+
   const selectProfileForEditing = (profile) => {
     setSelectedProfileId(profile.id);
     setDraft(providerSettingsFromProfile(profile));
@@ -219,7 +259,7 @@ export function SettingsPanel({
   const selectBoundConnection = (connection) => {
     updateDraft({
       providerProfileId: connection.id,
-      providerId: 'openai-compatible',
+      providerId: providerForConnectionType(connection.providerType)?.id || currentProvider?.id || DEFAULT_MANUAL_IMAGE_PROVIDER_ID,
       apiKeySource: 'linked',
       providerName: connection.externalUsername || connection.baseUrl,
       manualApiKey: '',
@@ -259,7 +299,7 @@ export function SettingsPanel({
     try {
       await onDeleteProviderConnection?.(connection.id);
       if (draft.providerProfileId === connection.id) {
-        updateDraft({ providerProfileId: '', apiKeySource: 'manual', providerId: 'openai-compatible' });
+        updateDraft({ providerProfileId: '', apiKeySource: 'manual', providerId: DEFAULT_MANUAL_IMAGE_PROVIDER_ID });
       }
     } catch (error) {
       setBindingFeedback(String(error?.message || 'PROVIDER_UNBIND_FAILED'));
@@ -336,15 +376,32 @@ export function SettingsPanel({
       if (event.target === event.currentTarget) onClose();
     }}>
       <section className="settingsDialog">
-        <div className="settingsTitle">
-          <div>
-            <h2>{STUDIO_STANDALONE ? t('settings.serviceTitle', '生成服务') : t('settings.title', '连接')}</h2>
-            <p className="settingsDialogSubtitle">{t('settings.libraryHint', '保存供应商连接，生成时直接选择。')}</p>
+        <div className={`settingsTitle ${editing ? 'isEditing' : ''}`}>
+          {editing ? (
+            <button type="button" className="providerEditorBack" onClick={handleCancelEditing} aria-label={t('settings.backToLibrary', '返回供应商库')} title={t('settings.backToLibrary', '返回供应商库')}>
+              <ArrowLeft size={17} />
+            </button>
+          ) : null}
+          <div className="settingsTitleText">
+            <h2>{editing
+              ? selectedProfile
+                ? t('settings.providerEditor', '编辑供应商')
+                : t('settings.providerEditorNew', '新增供应商')
+              : STUDIO_STANDALONE
+                ? t('settings.serviceTitle', '生成服务')
+                : t('settings.title', '连接')}</h2>
+            <p className="settingsDialogSubtitle">{editing
+              ? selectedProfile
+                ? isActiveDraft
+                  ? t('settings.activeProviderHint', '当前生成会使用这套配置')
+                  : t('settings.inactiveProviderHint', '保存后可在生成区切换使用')
+                : t('settings.providerCreateHint', '选择接口类型，只填写该类型需要的配置。')
+              : t('settings.libraryHint', '保存供应商连接，生成时直接选择。')}</p>
           </div>
           <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')} title={t('settings.close', '关闭')}><X size={17} /></button>
         </div>
 
-        <section className="providerLibrary" aria-label={t('settings.libraryTitle', '供应商库')}>
+        {!editing ? <section className="providerLibrary" aria-label={t('settings.libraryTitle', '供应商库')}>
           <div className="providerLibraryHead">
             <div>
               <strong>{t('settings.libraryTitle', '供应商库')}</strong>
@@ -384,38 +441,23 @@ export function SettingsPanel({
               <div className="providerLibraryEmpty">{t('settings.noProviders', '还没有保存的供应商。')}</div>
             )}
           </div>
-        </section>
+        </section> : null}
 
         {!editing && feedback ? <div className="providerLibraryFeedback" role="status">{feedback}</div> : null}
 
         {editing ? <>
-        <div className="providerEditorHead">
-          <div>
-            <strong>{editing || !selectedProfile ? t('settings.providerEditorNew', '配置供应商') : t('settings.providerEditor', '供应商配置')}</strong>
-            <span>{isActiveDraft ? t('settings.activeProviderHint', '当前生成会使用这套配置') : t('settings.inactiveProviderHint', '保存后可在生成区切换使用')}</span>
-          </div>
-          {feedback ? <em className="providerEditorFeedback">{feedback}</em> : null}
-        </div>
-
+        {feedback ? <div className="providerEditorFeedback" role="status">{feedback}</div> : null}
         <div className="settingsGroup providerSettingsGroup">
           <label className="settingsSelectField">
             <small>{t('settings.providerFamily', '接口类型')}</small>
             <select
+              className="providerTypeSelect"
               value={currentProvider?.id || draft.providerId}
-              onChange={(event) => {
-                const nextProvider = providerChoices.find((provider) => provider.id === event.target.value) || providerChoices[0];
-                updateDraft({ providerId: nextProvider.id, apiKeySource: nextProvider.nextApiKeySource });
-              }}
+              onChange={(event) => handleProviderTypeChange(event.target.value)}
             >
               {providerChoices.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
             </select>
           </label>
-        </div>
-
-        <div className="providerSummary">
-          <span>{t('settings.provider', '供应商')}</span>
-          <strong>{draftName || currentProvider?.label || draft.providerId || 'Custom API'}</strong>
-          <em>{draft.apiKeySource !== 'manual' ? t('settings.studioManagedProvider', '服务端托管') : t('settings.providerManual', '手动密钥')}</em>
         </div>
 
         <div className="manualFields providerIdentityFields">
@@ -425,7 +467,21 @@ export function SettingsPanel({
           </label>
         </div>
 
-        {STUDIO_STANDALONE ? (
+        {supportsAccountBinding ? (
+          <div className="providerAuthMode">
+            <span>{t('settings.providerAuthMode', '认证方式')}</span>
+            <div role="group" aria-label={t('settings.providerAuthMode', '认证方式')}>
+              <button type="button" className={!usesLinkedProvider ? 'isActive' : ''} onClick={() => updateDraft({ apiKeySource: 'manual', providerProfileId: '' })}>
+                <KeyRound size={14} />{t('settings.providerManual', '手动密钥')}
+              </button>
+              <button type="button" className={usesLinkedProvider ? 'isActive' : ''} onClick={() => updateDraft({ apiKeySource: 'linked', manualApiKey: '', manualGatewayBaseUrl: '' })} disabled={!providerConnectionsEnabled}>
+                <Link2 size={14} />{t('settings.providerConnections', '账号绑定')}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {supportsAccountBinding && usesLinkedProvider ? (
           <section className="providerConnectionBox">
             <div className="providerConnectionBoxHead">
               <div>
@@ -434,13 +490,13 @@ export function SettingsPanel({
               </div>
               <em className={providerConnectionsEnabled ? 'isReady' : ''}>{providerConnectionsEnabled ? t('settings.providerConnectionsReady', '已启用') : t('settings.providerConnectionsUnavailable', '未配置')}</em>
             </div>
-            {providerConnections.length ? (
+            {compatibleProviderConnections.length ? (
               <div className="providerConnectionList">
-                {providerConnections.map((connection) => (
+                {compatibleProviderConnections.map((connection) => (
                   <div className={`providerConnectionRow ${draft.providerProfileId === connection.id ? 'isSelected' : ''}`} key={connection.id}>
                     <button type="button" className="providerConnectionPick" onClick={() => selectBoundConnection(connection)}>
                       <strong>{connection.externalUsername || connection.baseUrl}</strong>
-                      <small>{connection.providerType === 'newapi-compatible' ? 'NewAPI' : 'Sub2API'} · {connection.baseUrl}</small>
+                      <small>{providerConnectionTypeLabel(connection.providerType)} · {connection.baseUrl}</small>
                     </button>
                     <div className="providerConnectionActions">
                       <button type="button" onClick={() => handleTestBoundConnection(connection)} aria-label={t('settings.testProviderConnection', '测试连接')} title={t('settings.testProviderConnection', '测试连接')}><RefreshCw size={13} /></button>
@@ -454,8 +510,7 @@ export function SettingsPanel({
               <label>
                 <span>{t('settings.bindingProviderType', '平台')}</span>
                 <select value={bindingProviderType} onChange={(event) => setBindingProviderType(event.target.value)} disabled={!providerConnectionsEnabled || bindingBusy}>
-                  <option value="sub2api-compatible">Sub2API</option>
-                  <option value="newapi-compatible">NewAPI</option>
+                  {accountBindingTypes.map((providerType) => <option key={providerType} value={providerType}>{providerConnectionTypeLabel(providerType)}</option>)}
                 </select>
               </label>
               <label>
@@ -478,7 +533,7 @@ export function SettingsPanel({
           </section>
         ) : null}
 
-        {draft.apiKeySource === 'linked' && STUDIO_STANDALONE ? (
+        {usesLinkedProvider && STUDIO_STANDALONE ? (
           <div className="settingsEmpty providerLinkedState">{t('settings.providerLinked', '已使用绑定账号，保存后生成时直接选择。')}</div>
         ) : draft.apiKeySource !== 'manual' && STUDIO_STANDALONE ? (
           <div className="settingsEmpty">{t('settings.noBrowserSecrets', '浏览器不保存服务密钥或调用地址。')}</div>
@@ -513,31 +568,31 @@ export function SettingsPanel({
         )}
 
         <div className="manualFields">
-          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') ? <div className="settingsCallConfig">
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && providerModelSlots.size ? <div className="settingsCallConfig">
             <div className="settingsCallConfigHead">
               <strong>{t('settings.modelCallSettings', '模型')}</strong>
               <span>{t('settings.modelSelectionHint', '保存后生成时可直接选择')}</span>
             </div>
             <div className="settingsCallGrid">
-              <label>
+              {providerModelSlots.has('imageGenerationModel') ? <label className="providerImageGenerationModelField">
                 <span>{t('settings.imageGenerationModel', '生图模型')}</span>
                 <ModelSettingControl value={draft.imageGenerationModel} options={selectedModels.image} onChange={(value) => updateDraft({ imageGenerationModel: value })} placeholder="gpt-image-2 / nano-banana" t={t} />
-              </label>
-              <label>
+              </label> : null}
+              {providerModelSlots.has('imageEditModel') ? <label className="providerImageEditModelField">
                 <span>{t('settings.imageEditModel', '编辑 / Mask 模型')}</span>
                 <ModelSettingControl value={draft.imageEditModel} options={selectedModels.image} onChange={(value) => updateDraft({ imageEditModel: value })} placeholder={draft.imageGenerationModel || 'gpt-image-2'} t={t} />
-              </label>
-              <label>
+              </label> : null}
+              {providerModelSlots.has('videoModel') ? <label className="providerVideoModelField">
                 <span>{t('settings.videoModel', '视频模型')}</span>
                 <ModelSettingControl value={draft.videoModel} options={selectedModels.video} onChange={(value) => updateDraft({ videoModel: value })} placeholder="veo3 / grok-imagine-video / runway" t={t} />
-              </label>
-              <label>
+              </label> : null}
+              {providerModelSlots.has('videoModel') ? <label className="providerVideoGatewayField">
                 <span>{t('settings.videoGateway', '视频接口 URL')}</span>
                 <input value={draft.videoGatewayBaseUrl || ''} onChange={(event) => updateDraft({ videoGatewayBaseUrl: event.target.value })} placeholder={draft.manualGatewayBaseUrl || getConfiguredBaseUrls().gatewayBaseUrl} />
-              </label>
+              </label> : null}
             </div>
           </div> : null}
-          <div className={`settingsModelSync ${modelsStatus}`}>
+          {providerDescriptor.modelSync?.supported ? <div className={`settingsModelSync ${modelsStatus}`}>
             <div className="settingsModelSyncText">
               <span>{modelSyncLabel}</span>
               <em>{modelSyncMeta}</em>
@@ -549,19 +604,19 @@ export function SettingsPanel({
                 <span>{t('settings.modelsSyncNow', '同步')}</span>
               </button>
             ) : null}
-          </div>
-          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') ? <label>
+          </div> : null}
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && providerModelSlots.has('responsesModel') ? <label className="providerAssistantModelField">
             <span>{t('settings.assistantModel', '助手模型')}</span>
             <ModelSettingControl value={draft.responsesModel} options={selectedModels.responses} onChange={(value) => updateDraft({ responsesModel: value })} placeholder="gpt-5.5" t={t} />
           </label> : null}
-          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') ? <label>
+          {(!STUDIO_STANDALONE || draft.apiKeySource !== 'gateway') && providerModelSlots.has('imageGenerationModel') ? <label>
             <span>{t('settings.previewFrames', '预览帧')}</span>
             <input type="number" min="0" max="3" value={draft.partialImages} onChange={(event) => updateDraft({ partialImages: event.target.value })} />
           </label> : null}
         </div>
 
         <div className="settingsActions">
-          {!STUDIO_STANDALONE ? <button type="button" className="secondaryAction" onClick={() => updateDraft({ manualApiKey: '', manualGatewayBaseUrl: '', apiKeySource: gatewayAccountDisabled ? 'manual' : 'gateway', providerId: gatewayAccountDisabled ? 'openai-compatible' : 'gateway-account' })}>{t('settings.clear', '清除')}</button> : null}
+          {!STUDIO_STANDALONE ? <button type="button" className="secondaryAction" onClick={() => updateDraft({ manualApiKey: '', manualGatewayBaseUrl: '', apiKeySource: gatewayAccountDisabled ? 'manual' : 'gateway', providerId: gatewayAccountDisabled ? DEFAULT_MANUAL_IMAGE_PROVIDER_ID : DEFAULT_IMAGE_PROVIDER_ID })}>{t('settings.clear', '清除')}</button> : null}
           <button type="button" className="secondaryAction" onClick={handleCancelEditing}>{t('settings.cancel', '取消')}</button>
           <button type="button" className="primaryAction" onClick={handleSave}><Save size={14} />{t('settings.saveProvider', '保存供应商')}</button>
         </div>

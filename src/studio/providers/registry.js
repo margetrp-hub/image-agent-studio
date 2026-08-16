@@ -3,6 +3,13 @@ export const PROVIDER_AUTH_MODES = Object.freeze({
   GATEWAY: 'gateway'
 });
 
+export const PROVIDER_CONNECTION_TYPES = Object.freeze({
+  SUB2API: 'sub2api-compatible',
+  NEWAPI: 'newapi-compatible'
+});
+
+export const DEFAULT_PROVIDER_CONNECTION_TYPE = PROVIDER_CONNECTION_TYPES.SUB2API;
+
 export const PROVIDER_ROUTE_MODES = Object.freeze({
   IMAGES: 'images',
   RESPONSES: 'responses',
@@ -109,6 +116,7 @@ function providerDescriptor({
   docsUrl = '',
   modelSync = false,
   modelSlots = [],
+  accountBindingTypes = [],
   setupHint = '',
   notes = []
 } = {}) {
@@ -123,6 +131,7 @@ function providerDescriptor({
       endpoint: modelSync ? OPENAI_COMPATIBLE_ROUTES.models : ''
     }),
     modelSlots: freezeModelSlots(modelSlots),
+    accountBindingTypes: Object.freeze([...accountBindingTypes]),
     setupHint,
     notes: Object.freeze([...notes])
   });
@@ -176,6 +185,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
       authFields: MANUAL_AUTH_FIELDS,
       baseUrlExample: 'https://gateway.example.com/v1',
       modelSync: true,
+      accountBindingTypes: [PROVIDER_CONNECTION_TYPES.SUB2API, PROVIDER_CONNECTION_TYPES.NEWAPI],
       workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
       modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, OPENAI_VIDEO_MODEL_SLOT]),
       notes: ['Custom OpenAI-compatible endpoint with /v1/images, /v1/videos, and /v1/models support.']
@@ -238,6 +248,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
       baseUrlExample: 'https://newapi.example.com/v1',
       docsUrl: 'https://github.com/QuantumNous/new-api',
       modelSync: true,
+      accountBindingTypes: [PROVIDER_CONNECTION_TYPES.NEWAPI],
       workspaces: [PROVIDER_WORKSPACES.IMAGE, PROVIDER_WORKSPACES.VIDEO, PROVIDER_WORKSPACES.ASSISTANT],
       modelSlots: freezeModelSlots([...OPENAI_IMAGE_MODEL_SLOTS, TASK_VIDEO_MODEL_SLOT]),
       setupHint: 'Enter the NewAPI public endpoint root or /v1 endpoint. The studio normalizes both to /v1, syncs models, sends image jobs to /v1/images/generations, and sends video jobs to /v1/video/generations when a video model is selected.',
@@ -337,6 +348,7 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
 ]);
 
 export const DEFAULT_IMAGE_PROVIDER_ID = 'gateway-account';
+export const DEFAULT_MANUAL_IMAGE_PROVIDER_ID = 'openai-compatible';
 const PROVIDER_DISPLAY_ORDER = Object.freeze([
   'official-openai',
   'openai-compatible',
@@ -350,7 +362,7 @@ const PROVIDER_DISPLAY_ORDER = Object.freeze([
 export function normalizeProviderId(id, authMode = '') {
   const value = String(id || '').trim();
   if (findImageProvider(value)) return value;
-  if (authMode === PROVIDER_AUTH_MODES.MANUAL) return 'openai-compatible';
+  if (authMode === PROVIDER_AUTH_MODES.MANUAL) return DEFAULT_MANUAL_IMAGE_PROVIDER_ID;
   return DEFAULT_IMAGE_PROVIDER_ID;
 }
 
@@ -400,6 +412,23 @@ export function providerUpscaleRoute(providerOrId) {
 export function providerCapabilityDescriptor(providerOrId) {
   const provider = typeof providerOrId === 'string' ? getImageProvider(providerOrId) : providerOrId;
   return provider?.descriptor || providerDescriptor();
+}
+
+export function providerAccountBindingTypes(providerOrId) {
+  const descriptor = providerCapabilityDescriptor(providerOrId);
+  return [...(descriptor.accountBindingTypes || [])];
+}
+
+export function providerConnectionTypeLabel(providerType) {
+  if (providerType === PROVIDER_CONNECTION_TYPES.NEWAPI) return 'NewAPI';
+  if (providerType === PROVIDER_CONNECTION_TYPES.SUB2API) return 'Sub2API';
+  return String(providerType || 'Provider');
+}
+
+export function providerForConnectionType(providerType) {
+  return providerType === PROVIDER_CONNECTION_TYPES.NEWAPI
+    ? findImageProvider('newapi-compatible')
+    : findImageProvider(DEFAULT_MANUAL_IMAGE_PROVIDER_ID);
 }
 
 export function providerModelSlots(providerOrId) {

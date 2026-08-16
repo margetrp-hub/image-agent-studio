@@ -3,6 +3,7 @@ import { createServer } from 'vite';
 import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
 const screenshotPath = 'output/playwright/image-generation-route.png';
+const idleScreenshotPath = 'output/playwright/single-idle-layout.png';
 const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';
 const manualSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
 const fakeSecret = 'test-key-image-route-smoke-session-only';
@@ -137,6 +138,20 @@ try {
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 12000 });
+  await page.setViewportSize({ width: 1716, height: 923 });
+  const idleLayout = await page.evaluate(() => {
+    const shell = document.querySelector('.singleGenerationShell')?.getBoundingClientRect();
+    const control = document.querySelector('.singleGenerationControlColumn')?.getBoundingClientRect();
+    const result = document.querySelector('.singleLatestResult')?.getBoundingClientRect();
+    const status = document.querySelector('.singleStatusPanel')?.getBoundingClientRect();
+    return {
+      resultBottomGap: shell && result ? shell.bottom - result.bottom : 999,
+      controlBottomGap: shell && control ? shell.bottom - control.bottom : 999,
+      statusHeight: status?.height || 999
+    };
+  });
+  await page.screenshot({ path: idleScreenshotPath });
+  await page.setViewportSize({ width: 1440, height: 980 });
   await fillGenerationPrompt(page, 'A tiny route smoke test image, simple product icon on clean background.');
   await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
@@ -244,6 +259,8 @@ try {
   assert(!singleLayout.hasTipsPanel, 'The redundant single-generation tips panel should not consume workspace height.', singleLayout);
   assert(singleLayout.resultSidePanels === 1, 'The right side should contain only the result panel.', singleLayout);
   assert(!singleLayout.workspaceScrolls, 'Desktop single-generation workspace should fit without whole-page vertical scrolling.', singleLayout);
+  assert(Math.abs(idleLayout.resultBottomGap) <= 2 && Math.abs(idleLayout.controlBottomGap) <= 2, 'Idle single-generation columns should fill the workspace instead of leaving a blank footer.', idleLayout);
+  assert(idleLayout.statusHeight < 100, 'The idle status panel should stay content-sized instead of becoming an empty filler card.', idleLayout);
   assert(!singleLayout.controlColumnScrolls, 'Desktop single-generation controls should fit without an internal scrollbar at the reference viewport.', singleLayout);
   assert(singleLayout.formHeight >= singleLayout.formScrollHeight - 1, 'The single-generation form clipped its own content.', singleLayout);
   assert(singleLayout.statusTop >= singleLayout.formBottom, 'The generation status overlapped the single-generation form.', singleLayout);
@@ -258,6 +275,8 @@ try {
   console.log(JSON.stringify({
     ok: true,
     screenshotPath,
+    idleScreenshotPath,
+    idleLayout,
     requests,
     result
   }, null, 2));

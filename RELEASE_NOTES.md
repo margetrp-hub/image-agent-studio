@@ -1,5 +1,29 @@
 ﻿# Release Notes
 
+## 1.0.11
+
+This patch removes the remaining idle workspace gap and turns provider setup into
+a focused, type-aware flow.
+
+### What Changed
+
+- The result panel now reaches the bottom of the single-generation workspace,
+  while the idle status panel remains content-sized.
+- Opening a new or existing provider replaces the provider library instead of
+  stacking an editor below it.
+- Manual API credentials and Sub2API/NewAPI account binding are explicit,
+  mutually exclusive choices.
+- Provider model fields and defaults follow the selected provider type, so
+  image-only providers do not show video settings.
+
+### Verification
+
+- `npm run smoke:image:route`
+- `npm run smoke:provider:security`
+- `npm run smoke:standalone:frontend`
+- `npm run check:i18n`
+- `npm run build`
+
 ## 1.0.10
 
 This patch tightens the single-generation workspace and removes the empty areas

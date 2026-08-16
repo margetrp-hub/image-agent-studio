@@ -77,7 +77,8 @@ try {
       body = {
         ok: true,
         registration: { enabled: true, bonusCredits: 200, passwordMinLength: 8 },
-        credits: { enabled: true }
+        credits: { enabled: true },
+        providerConnections: { enabled: true }
       };
     } else if (path.endsWith('/auth/login')) {
       body = {
@@ -233,6 +234,21 @@ try {
   }
   await page.waitForSelector('.settingsDialog');
   await page.locator('.providerLibraryNewButton').click();
+  await page.waitForSelector('.providerTypeSelect');
+  assert.equal(await page.locator('.providerLibrary').count(), 0, 'Standalone new-provider mode should replace the provider library.');
+  assert.equal(await page.locator('.providerAuthMode').count(), 1, 'Standalone compatible providers should expose an authentication choice.');
+  assert.equal(await page.locator('.providerConnectionBox').count(), 0, 'Manual provider setup should not stack account-binding fields.');
+  await page.locator('.providerAuthMode button').nth(1).click();
+  assert.equal(await page.locator('.providerConnectionBox').count(), 1, 'Account-binding mode should show its own provider form.');
+  assert.equal(await page.locator('.providerGatewayInput').count(), 0, 'Account-binding mode should hide manual provider credentials.');
+  await page.locator('.providerAuthMode button').first().click();
+  assert.equal(await page.locator('.providerConnectionBox').count(), 0, 'Manual-key mode should remove the account-binding form.');
+  assert.equal(await page.locator('.providerGatewayInput').count(), 1, 'Manual-key mode should restore provider credentials.');
+  await page.screenshot({ path: 'output/playwright/standalone-provider-create.png' });
+  await page.locator('.providerTypeSelect').selectOption('nano-banana-compatible');
+  assert.equal(await page.locator('.providerVideoModelField').count(), 0, 'Image-only standalone providers should hide video fields.');
+  await page.locator('.providerTypeSelect').selectOption('xai-compatible');
+  assert.equal(await page.locator('.providerVideoModelField').count(), 1, 'Video-capable standalone providers should show video fields.');
 
   const state = await page.evaluate(() => ({
     currentPath: window.location.pathname,

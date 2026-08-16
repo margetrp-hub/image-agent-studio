@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.0.11 - 2026-08-16
+
+- Removed the blank footer below the idle single-generation workspace by making
+  both columns fill the available viewport height.
+- Split provider settings into mutually exclusive library and editor views, with
+  a dedicated back action for new and existing provider drafts.
+- Made manual credentials and account binding mutually exclusive, and now render
+  model fields and defaults from the selected provider type.
+- Added desktop layout, provider workflow, and standalone authentication-mode
+  browser regressions.
+
 ## 1.0.10 - 2026-08-16
 
 - Compacted the single-generation control column so the form and status panels

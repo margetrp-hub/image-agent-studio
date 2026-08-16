@@ -14,30 +14,26 @@
   background: color-mix(in srgb, var(--studio-surface-soft) 78%, transparent);
 }
 
-.providerLibraryHead,
-.providerEditorHead {
+.providerLibraryHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.providerLibraryHead > div,
-.providerEditorHead > div {
+.providerLibraryHead > div {
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.providerLibraryHead strong,
-.providerEditorHead strong {
+.providerLibraryHead strong {
   color: var(--studio-text-strong);
   font-size: 14px;
   font-weight: 950;
 }
 
-.providerLibraryHead span,
-.providerEditorHead span {
+.providerLibraryHead span {
   color: var(--studio-muted);
   font-size: 11px;
   font-weight: 760;
@@ -248,17 +244,15 @@
   font-weight: 820;
 }
 
-.providerEditorHead {
-  margin: 12px 0 8px;
-}
-
 .providerEditorFeedback {
-  max-width: 48%;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--studio-primary) 30%, var(--studio-border));
+  border-radius: var(--studio-radius-control, 11px);
+  background: color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-soft));
   color: var(--studio-primary);
   font-size: 11px;
-  font-style: normal;
   font-weight: 850;
-  text-align: right;
 }
 
 .providerIdentityFields {
@@ -267,6 +261,55 @@
 
 .providerNameField {
   grid-column: 1 / -1;
+}
+
+.providerAuthMode {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.providerAuthMode > span {
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.providerAuthMode > div {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-control, 11px);
+  background: var(--studio-surface-soft);
+}
+
+.providerAuthMode button {
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--studio-muted) !important;
+  font-size: 11px;
+  font-weight: 850;
+  transform: none !important;
+}
+
+.providerAuthMode button.isActive {
+  background: var(--studio-surface-strong) !important;
+  color: var(--studio-primary) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.providerAuthMode button:disabled {
+  opacity: 0.45;
 }
 
 :root[data-theme="dark"] .settingsOverlay {
@@ -329,7 +372,6 @@
   color: #5eead4 !important;
 }
 
-:root[data-theme="dark"] .providerSummary,
 :root[data-theme="dark"] .keyList button,
 :root[data-theme="dark"] .settingsEmpty {
   border-color: rgba(148, 163, 184, 0.22) !important;

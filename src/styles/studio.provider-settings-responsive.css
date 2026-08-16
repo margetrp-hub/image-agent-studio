@@ -46,8 +46,7 @@
     text-align: left !important;
   }
 
-  .providerLibraryHead,
-  .providerEditorHead {
+  .providerLibraryHead {
     align-items: stretch;
     flex-direction: column;
   }
@@ -57,8 +56,11 @@
   }
 
   .providerEditorFeedback {
-    max-width: none;
     text-align: left;
+  }
+
+  .providerAuthMode > div {
+    width: 100%;
   }
 
   .providerLibraryItemMain {
