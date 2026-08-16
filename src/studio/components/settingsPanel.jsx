@@ -125,7 +125,7 @@ export function SettingsPanel({
     if (!query) return providerProfiles;
     return providerProfiles.filter((profile) => `${profile.name} ${profile.manualGatewayBaseUrl} ${profile.providerId}`.toLowerCase().includes(query));
   }, [providerProfiles, search]);
-  const isActiveDraft = selectedProfileId === activeId;
+  const isActiveDraft = Boolean(editing && selectedProfileId && selectedProfileId === activeId);
   const gatewayAccountDisabled = draft.apiKeySource === 'manual';
 
   useEffect(() => {
@@ -139,14 +139,12 @@ export function SettingsPanel({
 
   useEffect(() => {
     if (!open) return;
-    const initialId = activeId;
-    const profile = providerProfiles.find((item) => item.id === initialId);
-    setSelectedProfileId(initialId);
-    setDraft(profile ? providerSettingsFromProfile(profile) : providerSettings);
-    setDraftName(profile?.name || '');
+    setSelectedProfileId('');
+    setDraft(blankProviderSettings());
+    setDraftName('');
     setEditing(false);
     setFeedback('');
-  }, [open, activeId]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -222,9 +220,9 @@ export function SettingsPanel({
 
   const handleActivate = (profile) => {
     onSelectProvider?.(profile.id);
-    setSelectedProfileId(profile.id);
-    setDraft(providerSettingsFromProfile(profile));
-    setDraftName(profile.name);
+    setSelectedProfileId('');
+    setDraft(blankProviderSettings());
+    setDraftName('');
     setFeedback(t('settings.providerActivated', '已切换到该供应商。'));
     setEditing(false);
   };
@@ -236,12 +234,18 @@ export function SettingsPanel({
     }
     if (!window.confirm(t('settings.deleteProviderConfirm', `确定删除“${profile.name}”？`))) return;
     onDeleteProvider?.(profile.id);
-    const nextProfile = providerProfiles.find((item) => item.id !== profile.id);
-    if (nextProfile) {
-      setSelectedProfileId(nextProfile.id);
-      setDraft(providerSettingsFromProfile(nextProfile));
-      setDraftName(nextProfile.name);
-    }
+    setSelectedProfileId('');
+    setDraft(blankProviderSettings());
+    setDraftName('');
+    setEditing(false);
+  };
+
+  const handleCancelEditing = () => {
+    setSelectedProfileId('');
+    setDraft(blankProviderSettings());
+    setDraftName('');
+    setFeedback('');
+    setEditing(false);
   };
 
   return (
@@ -299,6 +303,9 @@ export function SettingsPanel({
           </div>
         </section>
 
+        {!editing && feedback ? <div className="providerLibraryFeedback" role="status">{feedback}</div> : null}
+
+        {editing ? <>
         <div className="providerEditorHead">
           <div>
             <strong>{editing || !selectedProfile ? t('settings.providerEditorNew', '配置供应商') : t('settings.providerEditor', '供应商配置')}</strong>
@@ -417,9 +424,10 @@ export function SettingsPanel({
 
         <div className="settingsActions">
           {!STUDIO_STANDALONE ? <button type="button" className="secondaryAction" onClick={() => updateDraft({ manualApiKey: '', manualGatewayBaseUrl: '', apiKeySource: gatewayAccountDisabled ? 'manual' : 'gateway', providerId: gatewayAccountDisabled ? 'openai-compatible' : 'gateway-account' })}>{t('settings.clear', '清除')}</button> : null}
-          <button type="button" className="secondaryAction" onClick={onClose}>{t('settings.cancel', '取消')}</button>
+          <button type="button" className="secondaryAction" onClick={handleCancelEditing}>{t('settings.cancel', '取消')}</button>
           <button type="button" className="primaryAction" onClick={handleSave}><Save size={14} />{t('settings.saveProvider', '保存供应商')}</button>
         </div>
+        </> : null}
       </section>
     </div>
   );

@@ -96,6 +96,11 @@ try {
   });
   assert(clickedSettings, 'No visible provider settings button was available.');
   await page.waitForSelector('.settingsDialog', { timeout: 8000 });
+  assert(await page.locator('.providerEditorHead').count() === 0, 'Opening provider settings should show the saved provider library before an editor.', {
+    editorVisible: await page.locator('.providerEditorHead').count()
+  });
+  await page.locator('.providerLibraryItemMain').first().click();
+  await page.waitForSelector('.providerEditorHead');
   const inputsBefore = await page.evaluate(() => [...document.querySelectorAll('.settingsDialog input')].map((input) => ({
     type: input.type,
     value: input.value,
