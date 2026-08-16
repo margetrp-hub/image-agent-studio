@@ -18,7 +18,7 @@ body:has(.singleGenerationWorkspace),
   min-height: 100%;
   margin: auto;
   display: grid;
-  grid-template-columns: minmax(410px, 500px) minmax(620px, 1fr);
+  grid-template-columns: minmax(390px, 440px) minmax(620px, 1fr);
   gap: clamp(14px, 1.6vw, 22px);
   align-items: stretch;
 }
@@ -49,6 +49,7 @@ body:has(.singleGenerationWorkspace),
 .singleGenerationControlColumn {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   min-height: 0;
   overflow-y: auto;
@@ -87,6 +88,8 @@ body:has(.singleGenerationWorkspace),
 
 .singleGenerationControlColumn > * {
   flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .singleGenerationSide {
@@ -95,11 +98,12 @@ body:has(.singleGenerationWorkspace),
   min-height: 0;
 }
 
-.singleGenerationFormPanel {
+.singleGenerationWorkspace .singleGenerationFormPanel {
   display: grid;
   gap: 6px;
+  width: 100%;
   padding: 10px !important;
-  align-self: start;
+  align-self: stretch;
   align-content: start;
 }
 
@@ -166,7 +170,7 @@ body:has(.singleGenerationWorkspace),
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  align-items: end;
+  align-items: start;
 }
 
 .singleParamsGrid {
@@ -227,15 +231,6 @@ body:has(.singleGenerationWorkspace),
   padding-right: 108px;
 }
 
-.singleField:has(.singleKeyButton) em {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  max-width: 94px;
-  margin: 0;
-  white-space: nowrap;
-}
-
 .singlePromptBox textarea {
   min-height: clamp(78px, 9vh, 98px);
   max-height: 150px;
@@ -275,23 +270,11 @@ body:has(.singleGenerationWorkspace),
   height: 0;
 }
 
-.singleKeyButton strong,
-.singleField em {
+.singleKeyButton strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.singleField em {
-  width: fit-content;
-  max-width: 100%;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: var(--studio-surface-soft);
-  color: var(--studio-muted);
-  font-size: 11px;
-  font-style: normal;
 }
 
 .singleUploadDrop {
@@ -527,6 +510,8 @@ body:has(.singleGenerationWorkspace),
 /* Keep the status readable while removing the repeated vertical padding. */
 .singleGenerationWorkspace .singleStatusPanel {
   gap: 5px;
+  width: 100%;
+  min-width: 0;
   padding: 8px 10px;
 }
 
@@ -535,8 +520,16 @@ body:has(.singleGenerationWorkspace),
   flex-wrap: nowrap;
 }
 
+.singleStatusPanel .singleGenerationHead > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .singleStatusPanel .singleGenerationHead span {
-  margin-top: 2px;
+  margin-top: 0;
+  white-space: nowrap;
 }
 
 .singleStatusPanel .generationProgress {
@@ -569,11 +562,14 @@ body:has(.singleGenerationWorkspace),
 }
 
 .singleStatusPanel .generationTimingPanel dl {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
 .singleStatusPanel .generationTimingPanel dl div {
+  flex: 1 1 56px;
+  min-width: 0;
   padding: 5px 6px;
   border-radius: 8px;
 }
@@ -636,9 +632,6 @@ body:has(.singleGenerationWorkspace),
     grid-template-rows: auto;
   }
 
-  .singleStatusPanel .generationTimingPanel dl {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 760px) {
@@ -708,9 +701,8 @@ body:has(.singleGenerationWorkspace),
     padding-right: 11px;
   }
 
-  .singleField:has(.singleKeyButton) em {
-    position: static;
-    max-width: 100%;
+  .singleStatusPanel .generationTimingPanel dl div {
+    flex-basis: calc(33.333% - 4px);
   }
 
   .singleLatestResult .resultCarouselButton {

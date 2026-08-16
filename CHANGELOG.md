@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.0.10 - 2026-08-16
+
+- Compacted the single-generation control column so the form and status panels
+  fill the available width without an unused vertical gutter.
+- Aligned the provider and model fields, removed redundant helper text, and made
+  status metrics expand to fill their final row.
+- Added visual regression checks for panel alignment, batch-count persistence,
+  and independent four-image generation jobs.
+
 ## 1.0.9 - 2026-08-16
 
 - Added a redesigned standalone login and account-recovery flow with one-time

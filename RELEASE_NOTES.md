@@ -1,5 +1,28 @@
 ﻿# Release Notes
 
+## 1.0.10
+
+This patch tightens the single-generation workspace and removes the empty areas
+that made the control column look fragmented.
+
+### What Changed
+
+- The form and status panels now occupy the full control-column width with no
+  unused gutter beside them.
+- Provider and model controls share the same top alignment, while redundant
+  explanatory copy has been removed.
+- Timing metrics flex across the complete status row instead of leaving empty
+  cells, and the batch selector remains at the requested count while jobs run
+  independently.
+
+### Verification
+
+- `npm run smoke:image:route`
+- `npm run check:generation-executor`
+- `npm run check:ui`
+- `npm run check:css`
+- `npm run build`
+
 ## 1.0.9
 
 This release completes the standalone account recovery surface and makes image

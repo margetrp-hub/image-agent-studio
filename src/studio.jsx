@@ -1193,7 +1193,7 @@ function CreationDesk({
     setResolutionTier(normalizeResolutionTier(task.resolutionTier));
     setOutputFormat(normalizeOutputFormat(task.outputFormat));
     setModeration(normalizeModeration(task.moderation));
-    setCount(normalizeCount(task.count));
+    setCount(normalizeCount(task.batchId ? task.batchTotal : task.count));
     setVideoModel(task.videoModel || VIDEO_MODELS[0]);
     setVideoAspect(normalizeVideoAspect(task.videoAspect || task.videoAspectRatio));
     setVideoDuration(normalizeVideoDuration(task.videoDuration || task.duration));
@@ -4051,7 +4051,6 @@ function CreationDesk({
                 <div className="singleGenerationHead">
                   <div>
                     <strong>{t('single.title', '单次生图')}</strong>
-                    <span>{t('single.subtitle', '填好提示词、参考图和输出参数后，一次确认生成。')}</span>
                   </div>
                   <button type="button" onClick={() => onOpenWorkspace?.('inspiration')}>
                     <Sparkles size={15} />
@@ -4077,7 +4076,6 @@ function CreationDesk({
                           : providerLabel(providerSettings, apiKey)}</strong>
                       </button>
                     )}
-                    <em>{t('settings.manageProviders', '在设置中管理供应商')}</em>
                   </label>
                   {isVideoSingleMode ? (
                     <label className="singleField">

@@ -2,8 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
-const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
-const screenshotPath = `${screenshotDir}/image-generation-route.png`;
+const screenshotPath = 'output/playwright/image-generation-route.png';
 const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';
 const manualSecretKey = 'image-sub2api-studio:manual-provider-secret:v1';
 const fakeSecret = 'test-key-image-route-smoke-session-only';
@@ -120,6 +119,7 @@ try {
   await page.addInitScript(({ providerSettingsKey, manualSecretKey, fakeSecret }) => {
     localStorage.clear();
     sessionStorage.clear();
+    localStorage.setItem('image-sub2api-studio:theme:v1', 'dark');
     localStorage.setItem('image-sub2api-studio-language', 'en');
     localStorage.setItem(providerSettingsKey, JSON.stringify({
       providerId: 'openai-compatible',
@@ -140,7 +140,7 @@ try {
   await fillGenerationPrompt(page, 'A tiny route smoke test image, simple product icon on clean background.');
   await clickGenerate(page);
   await page.locator('.generationConfirmPrimary').click();
-  await page.waitForFunction(() => document.querySelectorAll('.resultGrid img, .canvasNode img').length >= 1, null, { timeout: 12000 });
+  await page.waitForFunction(() => document.querySelector('.resultCarouselPosition')?.textContent?.includes('4 / 4'), null, { timeout: 12000 });
   const carouselBefore = await page.evaluate(() => ({
     figures: document.querySelectorAll('.singleLatestResult .resultGridCarousel figure').length,
     images: document.querySelectorAll('.singleLatestResult .resultGridCarousel img').length,
@@ -157,6 +157,12 @@ try {
     const statusPanel = controlColumn?.querySelector(':scope > .singleStatusPanel');
     const formRect = formPanel?.getBoundingClientRect();
     const statusRect = statusPanel?.getBoundingClientRect();
+    const controlRect = controlColumn?.getBoundingClientRect();
+    const providerRect = formPanel?.querySelector('.singleFieldGrid > .singleField:first-child')?.getBoundingClientRect();
+    const modelRect = formPanel?.querySelector('.singleFieldGrid > .singleField:nth-child(2)')?.getBoundingClientRect();
+    const timingListRect = statusPanel?.querySelector('.generationTimingPanel dl')?.getBoundingClientRect();
+    const timingItems = [...(statusPanel?.querySelectorAll('.generationTimingPanel dl > div') || [])];
+    const timingLastRect = timingItems.at(-1)?.getBoundingClientRect();
     return {
       statusInControlColumn: Boolean(controlColumn?.querySelector(':scope > .singleStatusPanel')),
       hasTipsPanel: Boolean(controlColumn?.querySelector(':scope > .singleTipsPanel')),
@@ -167,7 +173,12 @@ try {
       formScrollHeight: formPanel?.scrollHeight || 0,
       formBottom: formRect?.bottom || 0,
       statusTop: statusRect?.top || 0,
-      statusHeight: statusRect?.height || 0
+      statusHeight: statusRect?.height || 0,
+      formRightGap: controlRect && formRect ? controlRect.right - formRect.right : 999,
+      statusRightGap: controlRect && statusRect ? controlRect.right - statusRect.right : 999,
+      fieldTopDelta: providerRect && modelRect ? Math.abs(providerRect.top - modelRect.top) : 999,
+      timingLastRightGap: timingListRect && timingLastRect ? timingListRect.right - timingLastRect.right : 999,
+      batchInputValue: Number(formPanel?.querySelector('input[type="number"]')?.value || 0)
     };
   });
   await page.locator('.singleLatestResult .resultCarouselPrevious').click();
@@ -202,11 +213,16 @@ try {
   }), { providerSettingsKey, manualSecretKey, fakeSecret });
 
   assert(requests.jobs.length >= 1, 'The page did not try the restorable generation queue before fallback.', { requests, result });
-  const createdJobRequest = requests.jobs.find((request) => request.method === 'POST');
-  assert(createdJobRequest?.body?.request?.size === '1024x1024', 'Server generation job did not receive the provider-normalized size.', { requests, result });
-  assert(createdJobRequest?.body?.request?.quality === 'medium', 'Server generation job did not receive the provider-normalized quality.', { requests, result });
-  assert(createdJobRequest?.body?.request?.resolutionTier === '1k', 'Server generation job did not receive the provider-normalized resolution tier.', { requests, result });
-  assert(createdJobRequest?.body?.request?.count === 4, 'Server generation job count was not clamped to the provider countRange.', { requests, result });
+  const createdJobRequests = requests.jobs.filter((request) => request.method === 'POST');
+  const batchRequests = createdJobRequests.map((request) => request.body?.request || {});
+  assert(createdJobRequests.length === 4, 'A four-image batch should create four independent server jobs.', { requests, result });
+  assert(batchRequests.every((request) => request.size === '1024x1024'), 'Server generation jobs did not receive the provider-normalized size.', { requests, result });
+  assert(batchRequests.every((request) => request.quality === 'medium'), 'Server generation jobs did not receive the provider-normalized quality.', { requests, result });
+  assert(batchRequests.every((request) => request.resolutionTier === '1k'), 'Server generation jobs did not receive the normalized resolution tier.', { requests, result });
+  assert(batchRequests.every((request) => request.count === 1 && request.n === 1), 'Each independent batch job must request exactly one image.', { requests, result });
+  assert(new Set(batchRequests.map((request) => request.batchId)).size === 1 && batchRequests[0]?.batchId, 'Independent batch jobs should share one batch id.', { requests, result });
+  assert(new Set(batchRequests.map((request) => request.batchIndex)).size === 4, 'Independent batch jobs should carry unique batch indexes.', { requests, result });
+  assert(new Set(batchRequests.map((request) => request.fingerprint)).size === 4, 'Independent batch jobs should carry unique dedupe fingerprints.', { requests, result });
   assert(requests.generations.length === 4, 'Text-to-image count must be clamped to the provider countRange before dispatch.', { requests, result });
   assert(requests.generations[0].body?.model === 'gpt-image-2', 'Text-to-image did not use the image model in the generations payload.', { requests, result });
   assert(requests.generations.every((request) => request.body?.n === 1), 'Legacy images generation should dispatch one image per upstream request.', { requests, result });
@@ -231,6 +247,10 @@ try {
   assert(!singleLayout.controlColumnScrolls, 'Desktop single-generation controls should fit without an internal scrollbar at the reference viewport.', singleLayout);
   assert(singleLayout.formHeight >= singleLayout.formScrollHeight - 1, 'The single-generation form clipped its own content.', singleLayout);
   assert(singleLayout.statusTop >= singleLayout.formBottom, 'The generation status overlapped the single-generation form.', singleLayout);
+  assert(Math.abs(singleLayout.formRightGap) <= 2 && Math.abs(singleLayout.statusRightGap) <= 2, 'Left-column panels should align to the control-column edge.', singleLayout);
+  assert(singleLayout.fieldTopDelta <= 1, 'Provider and model controls should start on the same row.', singleLayout);
+  assert(singleLayout.timingLastRightGap <= 8, 'Generation timing metrics should fill the final row without a blank tail.', singleLayout);
+  assert(singleLayout.batchInputValue === 4, 'The batch control should retain the requested batch size while independent jobs run.', singleLayout);
   assert(!widescreenLayout.workspaceScrolls && !widescreenLayout.controlColumnScrolls, 'Widescreen single-generation mode should fit without vertical scrolling.', widescreenLayout);
   assert(!result.composerHasResultStrip, 'Generation results should stay on canvas/history, not inside the bottom chat composer.', result);
   assert(!result.composerHasThread, 'A successful result alone should not expand the bottom composer thread.', result);
