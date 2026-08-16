@@ -77,6 +77,20 @@ button, input, textarea, select { font: inherit; }
 .iasAdminLinkButton { align-items: center; border: 1px solid var(--ias-line-strong); border-radius: 9px; color: var(--ias-accent-strong); display: inline-flex; font-size: 11px; gap: 6px; padding: 8px 10px; text-decoration: none; }
 .iasAdminLinkButton:hover { border-color: var(--ias-accent); background: var(--ias-accent-soft); }
 .iasRechargeSection { margin-bottom: 14px; }
+.iasUpdateSection { margin-bottom: 14px; }
+.iasUpdateBadge { align-items: center; background: var(--ias-surface-muted); border: 1px solid var(--ias-line); border-radius: 999px; color: var(--ias-copy); display: inline-flex; font-size: 11px; font-weight: 800; gap: 7px; padding: 7px 10px; white-space: nowrap; }
+.iasUpdateBadge > span { background: var(--ias-muted); border-radius: 50%; height: 7px; width: 7px; }
+.iasUpdateBadge.is-success, .iasUpdateBadge.is-current { background: var(--ias-accent-soft); border-color: color-mix(in srgb, var(--ias-accent) 45%, var(--ias-line)); color: var(--ias-accent-strong); }
+.iasUpdateBadge.is-success > span, .iasUpdateBadge.is-current > span { background: var(--ias-success); }
+.iasUpdateBadge.is-upgrading, .iasUpdateBadge.is-checking, .iasUpdateBadge.is-queued { color: var(--ias-accent-strong); }
+.iasUpdateBadge.is-upgrading > span, .iasUpdateBadge.is-checking > span, .iasUpdateBadge.is-queued > span { background: var(--ias-accent); }
+.iasUpdateBadge.is-failed, .iasUpdateBadge.is-rollback { color: var(--ias-danger); }
+.iasUpdateBadge.is-failed > span, .iasUpdateBadge.is-rollback > span { background: var(--ias-danger); }
+.iasUpdateGrid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.iasUpdateGrid > div { background: var(--ias-surface-raised); border: 1px solid var(--ias-line); border-radius: 11px; display: grid; gap: 5px; min-width: 0; padding: 12px; }
+.iasUpdateGrid span { color: var(--ias-muted); font-size: 10px; }
+.iasUpdateGrid strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iasUpdateActions { align-items: center; display: flex; gap: 8px; }
 .iasRechargeUrlField { margin-bottom: 16px; }
 .iasCodeForm { align-items: end; border-top: 1px solid var(--ias-line); display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; padding-top: 16px; }
 .iasCodeForm .iasButton { min-height: 38px; white-space: nowrap; }
@@ -104,6 +118,6 @@ button, input, textarea, select { font: inherit; }
 .iasResetTokenPanel h2 { font-size: 16px; margin: 0; }
 .iasResetTokenPanel p { color: var(--ias-copy); font-size: 11px; line-height: 1.5; margin: 6px 0 0; }
 .iasResetTokenPanel code { background: var(--ias-surface); border: 1px solid var(--ias-line-strong); border-radius: 8px; color: var(--ias-accent-strong); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 800; letter-spacing: .06em; padding: 10px 12px; }
-@media (max-width: 980px) { .iasStatsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .iasAdminColumns { grid-template-columns: 1fr; } }
-@media (max-width: 640px) { .iasAdminTopbar { align-items: flex-start; flex-direction: column; gap: 12px; padding: 14px 18px; } .iasAdminTopActions { width: 100%; justify-content: space-between; } .iasAdminHeading { align-items: flex-start; flex-direction: column; gap: 16px; } .iasSettingGrid, .iasCostGrid { grid-template-columns: 1fr 1fr; } .iasCodeForm { grid-template-columns: 1fr 1fr; } .iasCodeForm .iasButton { grid-column: 1 / -1; } .iasSectionHeaderRow { align-items: stretch; flex-direction: column; } .iasSearchBox { max-width: none; } .iasResetTokenPanel { align-items: stretch; grid-template-columns: 1fr; } .iasResetTokenPanel code { overflow-wrap: anywhere; } }
+@media (max-width: 980px) { .iasStatsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .iasAdminColumns { grid-template-columns: 1fr; } .iasUpdateGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .iasAdminTopbar { align-items: flex-start; flex-direction: column; gap: 12px; padding: 14px 18px; } .iasAdminTopActions { width: 100%; justify-content: space-between; } .iasAdminHeading { align-items: flex-start; flex-direction: column; gap: 16px; } .iasSettingGrid, .iasCostGrid { grid-template-columns: 1fr 1fr; } .iasCodeForm { grid-template-columns: 1fr 1fr; } .iasCodeForm .iasButton { grid-column: 1 / -1; } .iasSectionHeaderRow { align-items: stretch; flex-direction: column; } .iasSearchBox { max-width: none; } .iasResetTokenPanel { align-items: stretch; grid-template-columns: 1fr; } .iasResetTokenPanel code { overflow-wrap: anywhere; } .iasUpdateGrid { grid-template-columns: 1fr 1fr; } .iasSectionFooter { align-items: stretch; flex-direction: column; } .iasUpdateActions { justify-content: flex-end; } }
 @media (max-width: 420px) { .iasStatsGrid, .iasSettingGrid, .iasCostGrid { grid-template-columns: 1fr; } .iasAdminBody { padding-inline: 12px; } .iasAdminSection { padding: 16px; } .iasAdminIdentity { max-width: 150px; } }

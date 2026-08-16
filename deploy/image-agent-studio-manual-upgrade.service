@@ -1,0 +1,10 @@
+[Unit]
+Description=Image Agent Studio administrator-triggered upgrade
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/opt/image-agent-studio-repo/.git
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/image-agent-studio-manual-upgrade
+User=root

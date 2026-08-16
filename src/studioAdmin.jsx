@@ -6,6 +6,7 @@ import {
   Check,
   CircleAlert,
   Coins,
+  Download,
   ExternalLink,
   Gauge,
   KeyRound,
@@ -66,6 +67,14 @@ const EMPTY_STATS = {
   transactions: 0
 };
 
+const EMPTY_UPDATE = {
+  state: 'idle',
+  currentVersion: '',
+  targetVersion: '',
+  message: '尚未检查更新。',
+  updatedAt: ''
+};
+
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('zh-CN');
 }
@@ -86,6 +95,8 @@ function getErrorMessage(error) {
   if (code === 'CREDIT_CODE_EXISTS') return '这个 CDK 已经存在。';
   if (code === 'INVALID_CREDIT_CODE') return 'CDK 需要 8 到 64 位字母或数字。';
   if (code === 'INVALID_RECHARGE_URL') return '购买链接必须是 http(s) 地址。';
+  if (code === 'UPDATE_ALREADY_RUNNING') return '更新正在执行，请稍候查看状态。';
+  if (code === 'UPDATE_SERVICE_UNAVAILABLE') return 'VPS 更新服务尚未安装，请先完成一次服务器部署。';
   return '请求没有完成，请稍后重试。';
 }
 
@@ -249,6 +260,48 @@ function UserTable({ users, query, onQueryChange, onAdjust, onDisable, onReset }
   );
 }
 
+const UPDATE_STATE_LABELS = {
+  idle: '等待操作',
+  queued: '已提交',
+  checking: '检查版本',
+  current: '已是最新',
+  upgrading: '更新中',
+  success: '更新完成',
+  failed: '更新失败',
+  rollback: '已回滚'
+};
+
+function UpdatePanel({ update, busy, onRequest, onRefresh }) {
+  const state = update?.state || 'idle';
+  const isActive = busy || ['queued', 'checking', 'upgrading'].includes(state);
+  const stateLabel = UPDATE_STATE_LABELS[state] || state;
+  return (
+    <section className="iasAdminSection iasUpdateSection">
+      <div className="iasSectionHeader iasSectionHeaderRow">
+        <div>
+          <span className="iasSectionKicker">RELEASE CONTROL</span>
+          <h2>系统更新</h2>
+          <p>仅在管理员点击后检查 GitHub Release，并在 VPS 上执行更新。</p>
+        </div>
+        <div className={`iasUpdateBadge is-${state}`}><span />{stateLabel}</div>
+      </div>
+      <div className="iasUpdateGrid">
+        <div><span>当前版本</span><strong>{update?.currentVersion ? `v${update.currentVersion.replace(/^v/, '')}` : '读取中'}</strong></div>
+        <div><span>目标版本</span><strong>{update?.targetVersion ? `v${update.targetVersion.replace(/^v/, '')}` : '未检查'}</strong></div>
+        <div><span>最近状态</span><strong>{update?.message || '暂无状态'}</strong></div>
+        <div><span>更新时间</span><strong>{formatDate(update?.updatedAt)}</strong></div>
+      </div>
+      <div className="iasSectionFooter">
+        <span className="iasInlineMessage">更新过程会重启历史服务，数据目录和用户账务保持不变。</span>
+        <div className="iasUpdateActions">
+          <Button variant="quiet" onClick={onRefresh} disabled={isActive}><RefreshCw size={15} className={isActive ? 'iasSpin' : ''} /> 刷新状态</Button>
+          <Button variant="primary" onClick={onRequest} disabled={isActive}><Download size={15} /> {isActive ? '更新处理中...' : '检查并更新'}</Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function AdjustmentDialog({ user, onClose, onSubmit, saving }) {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -284,6 +337,8 @@ function AdminApp() {
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [codes, setCodes] = useState([]);
+  const [update, setUpdate] = useState(EMPTY_UPDATE);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [passwordReset, setPasswordReset] = useState(null);
@@ -303,13 +358,14 @@ function AdminApp() {
     nextClient.me().then((nextUser) => {
       if (nextUser?.role !== 'admin') throw Object.assign(new Error('ADMIN_REQUIRED'), { payload: { error: 'ADMIN_REQUIRED' } });
       setUser(nextUser);
-      return Promise.all([nextClient.getAdminBillingStats(), nextClient.getAdminBillingSettings(), nextClient.listAdminUsers(), nextClient.listCreditTransactions(80), nextClient.listAdminCreditCodes()]);
-    }).then(([nextStats, nextSettings, nextUsers, ledger, nextCodes]) => {
+      return Promise.all([nextClient.getAdminBillingStats(), nextClient.getAdminBillingSettings(), nextClient.listAdminUsers(), nextClient.listCreditTransactions(80), nextClient.listAdminCreditCodes(), nextClient.getAdminUpdateStatus()]);
+    }).then(([nextStats, nextSettings, nextUsers, ledger, nextCodes, nextUpdate]) => {
       setStats(nextStats);
       setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
       setUsers(nextUsers);
       setTransactions(ledger.transactions || []);
       setCodes(nextCodes);
+      setUpdate({ ...EMPTY_UPDATE, ...nextUpdate });
     }).catch((loadError) => {
       if (loadError?.payload?.error === 'ADMIN_REQUIRED') setError('当前账号没有管理员权限，请返回工作台。');
       else { clearSession(); window.location.replace(getLoginUrl()); }
@@ -320,8 +376,8 @@ function AdminApp() {
     if (!client) return;
     setLoading(true); setError('');
     try {
-      const [nextStats, nextSettings, nextUsers, ledger, nextUser, nextCodes] = await Promise.all([client.getAdminBillingStats(), client.getAdminBillingSettings(), client.listAdminUsers(), client.listCreditTransactions(80), client.me(), client.listAdminCreditCodes()]);
-      setStats(nextStats); setSettings({ ...DEFAULT_SETTINGS, ...nextSettings }); setUsers(nextUsers); setTransactions(ledger.transactions || []); setUser(nextUser); setCodes(nextCodes); setStatus('数据已更新。');
+      const [nextStats, nextSettings, nextUsers, ledger, nextUser, nextCodes, nextUpdate] = await Promise.all([client.getAdminBillingStats(), client.getAdminBillingSettings(), client.listAdminUsers(), client.listCreditTransactions(80), client.me(), client.listAdminCreditCodes(), client.getAdminUpdateStatus()]);
+      setStats(nextStats); setSettings({ ...DEFAULT_SETTINGS, ...nextSettings }); setUsers(nextUsers); setTransactions(ledger.transactions || []); setUser(nextUser); setCodes(nextCodes); setUpdate({ ...EMPTY_UPDATE, ...nextUpdate }); setStatus('数据已更新。');
     } catch (refreshError) { setError(getErrorMessage(refreshError)); }
     finally { setLoading(false); }
   }
@@ -373,6 +429,30 @@ function AdminApp() {
     finally { setSaving(false); }
   }
 
+  async function refreshUpdateStatus() {
+    if (!client) return;
+    try { setUpdate({ ...EMPTY_UPDATE, ...(await client.getAdminUpdateStatus()) }); }
+    catch (updateError) { setError(getErrorMessage(updateError)); }
+  }
+
+  async function requestUpdate() {
+    if (!client) return;
+    setUpdateBusy(true); setError('');
+    try {
+      setUpdate({ ...EMPTY_UPDATE, ...(await client.requestAdminUpdate()) });
+      setStatus('更新请求已提交，VPS 正在检查 GitHub Release。');
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        try {
+          const nextUpdate = await client.getAdminUpdateStatus();
+          setUpdate({ ...EMPTY_UPDATE, ...nextUpdate });
+          if (['current', 'success', 'failed', 'rollback'].includes(nextUpdate?.state)) break;
+        } catch { /* the service may be restarting; the next poll will reconnect */ }
+      }
+    } catch (updateError) { setError(getErrorMessage(updateError)); }
+    finally { setUpdateBusy(false); }
+  }
+
   if (error && !user) return <main className="iasAdminGate"><ShieldCheck size={28} /><h1>管理员权限</h1><p>{error}</p><a className="iasButton iasButtonSecondary" href="./studio.html"><ArrowLeft size={15} /> 返回工作台</a></main>;
   if (loading && !user) return <main className="iasAdminGate"><LoadingState /></main>;
 
@@ -387,6 +467,7 @@ function AdminApp() {
         {error ? <Notice className="iasAdminNotice iasAlertError" tone="danger" icon={CircleAlert}>{error}</Notice> : null}
         {status ? <Notice className="iasAdminNotice iasAlertSuccess" tone="success" icon={Check}>{status}</Notice> : null}
         <section className="iasStatsGrid"><StatCard icon={UserRound} label="注册用户" value={formatNumber(stats.users)} detail={`${formatNumber(stats.activeUsers)} 个账号正常使用`} /><StatCard icon={WalletCards} label="当前余额" value={formatNumber(stats.balance)} detail="所有用户可用积分" tone="isTeal" /><StatCard icon={Activity} label="累计消耗" value={formatNumber(stats.spent)} detail={`${formatNumber(stats.transactions)} 条账务流水`} tone="isWarm" /><StatCard icon={Gauge} label="运行策略" value={settings.creditsEnabled ? '积分计费' : '自由试用'} detail={`注册奖励 ${formatNumber(settings.registrationBonusCredits)} 积分`} /></section>
+        <UpdatePanel update={update} busy={updateBusy} onRequest={requestUpdate} onRefresh={refreshUpdateStatus} />
         <div className="iasAdminColumns"><SettingsPanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : Math.max(0, Number(value) || 0) }))} onSave={saveSettings} saving={saving} message={status} /><section className="iasAdminSection iasLedgerSection"><div className="iasSectionHeader"><div><span className="iasSectionKicker">LEDGER</span><h2>最近流水</h2><p>积分变动。</p></div><Coins size={20} className="iasSectionHeaderIcon" /></div><div className="iasLedgerList">{transactions.length ? transactions.slice(0, 8).map((item) => <div className="iasLedgerItem" key={item.id}><span className={`iasLedgerSign ${item.delta >= 0 ? 'isPlus' : 'isMinus'}`}>{item.delta >= 0 ? '+' : ''}{formatNumber(item.delta)}</span><span><strong>{item.kind === 'registration_bonus' ? '注册奖励' : item.kind === 'generation_charge' ? '生成扣除' : item.kind === 'generation_refund' ? '生成退回' : item.kind === 'credit_code_redeem' ? 'CDK 兑换' : '管理员调账'}</strong><small>{formatDate(item.createdAt)}</small></span><b>{formatNumber(item.balanceAfter)}</b></div>) : <div className="iasEmptyState">还没有账务流水。</div>}</div></section></div>
         <RechargePanel settings={settings} onChange={(key, value) => setSettings((current) => ({ ...current, [key]: typeof current[key] === 'boolean' ? Boolean(value) : key === 'rechargeShopUrl' ? String(value) : Math.max(0, Number(value) || 0) }))} codes={codes} onCreateCode={createCode} onDisableCode={disableCode} saving={saving} />
         <UserTable users={users} query={query} onQueryChange={setQuery} onAdjust={setSelectedUser} onDisable={disableUser} onReset={resetUserPassword} />

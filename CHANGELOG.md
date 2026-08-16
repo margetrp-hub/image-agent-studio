@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.14 - 2026-08-16
+
+- Made the assistant route visibly independent from individual provider editors;
+  the library now chooses a saved provider first and then its assistant model.
+- Added an administrator-triggered GitHub Release VPS updater with a protected
+  update request, pre-upgrade data backup, tag/version checks, and rollback to
+  the previous deployed commit. No timer or silent background upgrade is enabled.
+
 ## 1.0.13 - 2026-08-16
 
 - Split the history service into a one-package runtime manifest so VPS, Docker,

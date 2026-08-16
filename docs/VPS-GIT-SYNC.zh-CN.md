@@ -54,6 +54,20 @@ sudo bash deploy/upgrade.sh
 
 `deploy/upgrade.sh` 默认会先备份 `/var/lib/image-agent-studio`，再同步代码、构建前端、更新服务、重启 systemd，并运行 `deploy/self-check.sh`。
 
+## 管理员后台手动更新
+
+标准安装会安装 `image-agent-studio-manual-upgrade.path`，但不会定时检查或自动覆盖线上版本。
+管理员登录 `/admin/` 后点击“检查并更新”，后台写入固定的更新请求，VPS 才会检查最新 GitHub Release，
+备份数据并部署对应版本。更新结果会回写到管理员页面，失败时会尝试回滚到更新前的提交。
+
+```bash
+sudo systemctl is-enabled image-agent-studio-manual-upgrade.path
+sudo systemctl is-active image-agent-studio-manual-upgrade.path
+sudo systemctl is-active image-agent-studio-manual-upgrade.service
+```
+
+没有管理员点击时，`path` 应为 `active`，一次性 `service` 应为 `inactive`。不要启用任何更新 `timer`。
+
 如果服务器曾经手工添加过 `10-runtime.conf`、`20-staging.conf`、`90-public-runtime.conf`，或保留了旧 `image-sub2api-studio-history` 服务目录，先用一次显式清理模式收敛运行配置。脚本会把旧覆盖文件和旧服务 drop-in 移动到 `/var/backups/image-agent-studio/`，不会删除历史数据：
 
 ```bash

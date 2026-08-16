@@ -71,6 +71,10 @@ const {
   ALLOWED_ORIGINS
 } = createServiceConfig({ scriptsDir: __dirname });
 
+const MANUAL_UPDATE_DIR = process.env.STUDIO_MANUAL_UPDATE_DIR || path.join(DATA_DIR, 'manual-update');
+const MANUAL_UPDATE_REQUEST_FILE = process.env.STUDIO_MANUAL_UPDATE_REQUEST_FILE || path.join(MANUAL_UPDATE_DIR, 'request');
+const MANUAL_UPDATE_STATUS_FILE = process.env.STUDIO_MANUAL_UPDATE_STATUS_FILE || path.join(MANUAL_UPDATE_DIR, 'status.json');
+
 const standaloneAuthStore = AUTH_MODE === 'standalone'
   ? createStandaloneAuthStore({
     databasePath: AUTH_DATABASE_PATH,
@@ -460,6 +464,50 @@ function requireAdmin(auth) {
     error.status = 403;
     throw error;
   }
+}
+
+async function readManualUpdateStatus() {
+  try {
+    const payload = JSON.parse(await fs.readFile(MANUAL_UPDATE_STATUS_FILE, 'utf8'));
+    if (payload && typeof payload === 'object') return payload;
+  } catch {
+    // The root updater may not have been installed yet.
+  }
+  return {
+    state: 'idle',
+    currentVersion: SERVICE_VERSION,
+    targetVersion: '',
+    message: '尚未检查更新。',
+    updatedAt: ''
+  };
+}
+
+async function requestManualUpdate() {
+  await fs.mkdir(MANUAL_UPDATE_DIR, { recursive: true });
+  let handle;
+  try {
+    handle = await fs.open(MANUAL_UPDATE_REQUEST_FILE, 'wx', 0o640);
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      const busy = new Error('UPDATE_ALREADY_RUNNING');
+      busy.status = 409;
+      throw busy;
+    }
+    const unavailable = new Error('UPDATE_SERVICE_UNAVAILABLE');
+    unavailable.status = 503;
+    throw unavailable;
+  }
+  try {
+    await handle.writeFile(JSON.stringify({ requestedAt: new Date().toISOString() }), 'utf8');
+  } finally {
+    await handle.close();
+  }
+  return {
+    ...(await readManualUpdateStatus()),
+    state: 'queued',
+    message: '更新请求已提交，等待 VPS 更新服务执行。',
+    updatedAt: new Date().toISOString()
+  };
 }
 
 async function readJsonBody(req, maxBytes = MAX_BODY_BYTES) {
@@ -2676,6 +2724,13 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
   requireAdmin(auth);
+
+  if (req.method === 'GET' && parts.length === 5 && parts[3] === 'update' && parts[4] === 'status') {
+    return sendJson(res, 200, { ok: true, update: await readManualUpdateStatus() });
+  }
+  if (req.method === 'POST' && parts.length === 4 && parts[3] === 'update') {
+    return sendJson(res, 202, { ok: true, update: await requestManualUpdate() });
+  }
 
   if (req.method === 'GET' && parts.length === 5 && parts[3] === 'billing' && parts[4] === 'settings') {
     return sendJson(res, 200, { ok: true, settings: standaloneAuthStore.getBillingSettings() });

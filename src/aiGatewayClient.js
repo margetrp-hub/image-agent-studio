@@ -1135,6 +1135,16 @@ export class AiGatewayClient {
     return payload.stats || {};
   }
 
+  async getAdminUpdateStatus() {
+    const payload = await this.request('/auth/admin/update/status');
+    return payload.update || {};
+  }
+
+  async requestAdminUpdate() {
+    const payload = await this.request('/auth/admin/update', { method: 'POST' });
+    return payload.update || {};
+  }
+
   async listAdminCreditCodes(limit = 200) {
     const payload = await this.request(`/auth/admin/billing/codes?limit=${encodeURIComponent(limit)}`);
     return Array.isArray(payload.codes) ? payload.codes : [];

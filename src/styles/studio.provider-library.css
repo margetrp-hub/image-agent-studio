@@ -306,6 +306,19 @@
   font-weight: 900;
 }
 
+.providerAssistantRouteHeadText {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.providerAssistantRouteHeadText small {
+  color: var(--studio-muted);
+  font-size: 10px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .providerAssistantRouteFields {
   min-width: 0;
   display: grid;
@@ -335,6 +348,18 @@
 
 .providerAssistantRouteFields select + input {
   margin-top: 5px;
+}
+
+.providerAssistantRouteEmpty {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px dashed var(--studio-border);
+  border-radius: var(--studio-radius-control, 11px);
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 760;
 }
 
 .providerLibraryFeedback {

@@ -1,5 +1,31 @@
 ﻿# Release Notes
 
+## 1.0.14
+
+This release makes assistant routing explicit in the provider library and adds
+a manual GitHub Release upgrade action to the administrator console.
+
+### What Changed
+
+- The provider library displays an independent assistant configuration.
+- The assistant provider is selected from saved providers, and its model comes
+  from that provider's synced response models or manual model entry.
+- Provider editors never persist assistant model fields.
+- Administrators can click "检查并更新" in the backend. The authenticated
+  service queues a fixed request, and a root-owned systemd path/service checks
+  the latest stable GitHub Release only for that request.
+- The updater backs up data, deploys the exact tag, runs the existing checks,
+  and rolls back to the previous commit on failure. No timer or silent update
+  is installed.
+
+### Verification
+
+- `npm run smoke:provider:security`
+- `npm run check:i18n`
+- `npm run check:source`
+- `npm run check:studio-build`
+- `npm run check:release`
+
 ## 1.0.13
 
 This patch reduces the production service install to its actual runtime

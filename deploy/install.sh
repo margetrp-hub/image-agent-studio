@@ -9,6 +9,7 @@ SERVICE_DIR="${SERVICE_DIR:-/opt/image-agent-studio}"
 DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"
 SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"
 STUDIO_AUTH_MODE="${STUDIO_AUTH_MODE:-standalone}"
+INSTALL_MANUAL_UPGRADE="${INSTALL_MANUAL_UPGRADE:-1}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "ERROR: run with sudo because install writes /opt, /var/www, /var/lib, and systemd." >&2
@@ -29,4 +30,5 @@ DATA_DIR="$DATA_DIR" \
 SERVICE_NAME="$SERVICE_NAME" \
 STUDIO_AUTH_MODE="$STUDIO_AUTH_MODE" \
 INSTALL_SYSTEMD_UNIT=1 \
+INSTALL_MANUAL_UPGRADE="$INSTALL_MANUAL_UPGRADE" \
 bash "$REPO_DIR/deploy/sync-from-git.sh"

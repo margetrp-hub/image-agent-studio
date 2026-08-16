@@ -91,6 +91,11 @@ mustInclude('deploy/sync-from-git.sh', 'STUDIO_AUTH_REGISTRATION_MODE', 'Git syn
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_PROVIDER_TYPE', 'Git sync must keep the server provider family explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_PROVIDER_BASE_URL', 'Git sync must keep the server provider endpoint explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_VERSION', 'Git sync must keep the service version visible in health responses');
+mustInclude('deploy/sync-from-git.sh', 'INSTALL_MANUAL_UPGRADE', 'Git sync must install the administrator-triggered updater without enabling a timer');
+mustNotInclude('deploy/sync-from-git.sh', 'INSTALL_AUTO_UPGRADE', 'Git sync must not retain the silent auto-upgrade switch');
+mustInclude('deploy/manual-upgrade.sh', 'REQUEST_FILE', 'Manual updater must consume the fixed administrator request file');
+mustInclude('deploy/image-agent-studio-manual-upgrade.path', 'PathExists=/var/lib/image-agent-studio/manual-update/request', 'Systemd must wait for the administrator request file');
+mustNotInclude('deploy/image-agent-studio-manual-upgrade.path', 'OnUnitActiveSec', 'Manual updater must not use a timer interval');
 mustInclude('deploy/sync-from-git.sh', 'curl -fsS "$HEALTH_URL"', 'Git sync must verify the local history service health endpoint');
 mustInclude('deploy/sync-from-git.sh', 'scripts/image-agent-studio-history-service.mjs', 'Git sync must deploy the standard service wrapper');
 mustInclude('deploy/sync-from-git.sh', 'deploy/image-agent-studio-history.service', 'Git sync must deploy the standard systemd unit');

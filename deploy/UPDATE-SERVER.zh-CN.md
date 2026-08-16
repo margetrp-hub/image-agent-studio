@@ -64,6 +64,23 @@ sudo BRANCH=main \
 
 在网关后台看到文生图入站和上游都是 `/v1/images/generations`，才说明走的是正式图片模型链路。
 
+## 管理员后台手动更新
+
+标准安装会安装一个 root 权限的 `systemd.path` 监听器，但不会定时检查或自动覆盖线上版本。
+管理员登录 `/admin/` 后点击“检查并更新”，后台只写入固定的更新请求；VPS 随后检查最新 GitHub Release，
+备份数据并部署对应版本。更新状态会回写到管理员页面，失败时会尝试回滚到更新前的提交。
+
+检查安装状态：
+
+```bash
+sudo systemctl is-enabled image-agent-studio-manual-upgrade.path
+sudo systemctl is-active image-agent-studio-manual-upgrade.path
+sudo systemctl is-active image-agent-studio-manual-upgrade.service
+```
+
+其中 `path` 应为 `active`，`service` 在没有管理员点击时应为 `inactive`。如果需要手工重试，
+从管理员后台再次点击即可，不要启用任何 `timer` 单元。
+
 ## 构建 zip 包
 
 ```bash

@@ -41,6 +41,13 @@ let billingSettings = {
   videoGenerationCost: 50
 };
 let firstRunJobInput = null;
+let updateStatus = {
+  state: 'idle',
+  currentVersion: '1.0.14',
+  targetVersion: '',
+  message: '尚未检查更新。',
+  updatedAt: ''
+};
 
 let browser;
 try {
@@ -126,6 +133,11 @@ try {
         ok: true,
         stats: { users: 2, activeUsers: 2, balance: 640 + creatorBalance, spent: 160, transactions: 3 }
       };
+    } else if (path.endsWith('/auth/admin/update/status')) {
+      body = { ok: true, update: updateStatus };
+    } else if (path.endsWith('/auth/admin/update')) {
+      updateStatus = { ...updateStatus, state: 'success', targetVersion: '1.0.14', message: '更新完成。', updatedAt: '2026-08-16T00:00:00.000Z' };
+      body = { ok: true, update: { ...updateStatus, state: 'queued', message: '更新请求已提交。' } };
     } else if (path.endsWith('/auth/admin/users')) {
       body = {
         ok: true,
@@ -317,6 +329,10 @@ try {
   assert.match(await page.locator('.iasAdminHeading').innerText(), /运营概览/, 'Admin dashboard did not render.');
   assert.match(await page.locator('.iasStatsGrid').innerText(), /注册用户[\s\S]*2/, 'Admin stats were not rendered.');
   assert.match(await page.locator('.iasUsersSection').innerText(), /studio-creator[\s\S]*200/, 'Admin user credits were not rendered.');
+  assert.match(await page.locator('.iasUpdateSection').innerText(), /系统更新[\s\S]*v1\.0\.14/, 'Admin update panel was not rendered.');
+  await page.getByRole('button', { name: '检查并更新' }).click();
+  await page.waitForFunction(() => document.querySelector('.iasUpdateSection')?.textContent?.includes('更新完成'));
+  assert.ok(requests.some((item) => item.path.endsWith('/auth/admin/update') && item.method === 'POST'), 'Admin manual update was not requested.');
 
   const bonusInput = page.locator('.iasCostGrid .iasField').filter({ hasText: '注册奖励' }).locator('input');
   await bonusInput.fill('250');

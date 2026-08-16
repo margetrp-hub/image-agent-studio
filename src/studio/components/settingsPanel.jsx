@@ -171,9 +171,10 @@ export function SettingsPanel({
     if (!query) return providerProfiles;
     return providerProfiles.filter((profile) => `${profile.name} ${profile.manualGatewayBaseUrl} ${profile.providerId}`.toLowerCase().includes(query));
   }, [providerProfiles, search]);
-  const assistantProfiles = useMemo(() => providerProfiles.filter((profile) => (
-    providerModelSlotDefinitions(profile.providerId).some((slot) => slot.key === 'responsesModel')
-  )), [providerProfiles]);
+  // Assistant routing is a library-level choice. Every saved provider can be
+  // selected here; the selected provider's synced response models remain the
+  // source for the model control, with manual entry as the fallback.
+  const assistantProfiles = providerProfiles;
   const assistantProfile = assistantProfiles.find((profile) => profile.id === assistantProviderProfileId)
     || assistantProfiles[0]
     || null;
@@ -469,19 +470,22 @@ export function SettingsPanel({
               <div className="providerLibraryEmpty">{t('settings.noProviders', '还没有保存的供应商。')}</div>
             )}
           </div>
-          {assistantProfile ? <section className="providerAssistantRoute" aria-label={t('settings.assistantRoute', '助手配置')}>
+          <section className="providerAssistantRoute" aria-label={t('settings.assistantRoute', '助手配置（独立）')}>
             <div className="providerAssistantRouteHead">
               <span><Bot size={15} /></span>
-              <strong>{t('settings.assistantRoute', '助手配置')}</strong>
+              <div className="providerAssistantRouteHeadText">
+                <strong>{t('settings.assistantRoute', '助手配置（独立）')}</strong>
+                <small>{t('settings.assistantRouteHint', '从已保存供应商中选择')}</small>
+              </div>
             </div>
-            <div className="providerAssistantRouteFields">
-              <label>
+            {assistantProfile ? <div className="providerAssistantRouteFields">
+              <label className="providerAssistantProviderField">
                 <span>{t('settings.assistantProvider', '助手供应商')}</span>
                 <select value={assistantProfile.id} onChange={(event) => handleAssistantProviderChange(event.target.value)}>
                   {assistantProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
                 </select>
               </label>
-              <label>
+              <label className="providerAssistantModelField">
                 <span>{t('settings.assistantModel', '助手模型')}</span>
                 <ModelSettingControl
                   value={assistantModel || assistantModelDefault}
@@ -494,8 +498,8 @@ export function SettingsPanel({
                   t={t}
                 />
               </label>
-            </div>
-          </section> : null}
+            </div> : <div className="providerAssistantRouteEmpty">{t('settings.assistantRouteEmpty', '请先保存一个供应商')}</div>}
+          </section>
         </section> : null}
 
         {!editing && feedback ? <div className="providerLibraryFeedback" role="status">{feedback}</div> : null}

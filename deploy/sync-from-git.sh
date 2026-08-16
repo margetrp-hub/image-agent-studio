@@ -29,6 +29,7 @@ PUBLIC_STUDIO_URL="${PUBLIC_STUDIO_URL:-}"
 STUDIO_ALLOWED_ORIGINS="${STUDIO_ALLOWED_ORIGINS:-}"
 REQUIRE_LIBRARY="${REQUIRE_LIBRARY:-0}"
 INSTALL_SYSTEMD_UNIT="${INSTALL_SYSTEMD_UNIT:-0}"
+INSTALL_MANUAL_UPGRADE="${INSTALL_MANUAL_UPGRADE:-0}"
 RUN_NGINX_TEST="${RUN_NGINX_TEST:-1}"
 
 die() {
@@ -170,10 +171,29 @@ mkdir -p "$(dirname "$REPO_DIR")"
 if [ -d "$REPO_DIR/.git" ]; then
   git config --global --add safe.directory "$REPO_DIR" >/dev/null 2>&1 || true
   git -C "$REPO_DIR" fetch --prune origin "$BRANCH"
-  git -C "$REPO_DIR" checkout "$BRANCH"
-  git -C "$REPO_DIR" reset --hard "origin/$BRANCH"
+  if [ -n "${DEPLOY_REF:-}" ]; then
+    if [[ "$DEPLOY_REF" == refs/tags/* ]]; then
+      git -C "$REPO_DIR" fetch --force origin "refs/tags/${DEPLOY_REF#refs/tags/}:refs/tags/${DEPLOY_REF#refs/tags/}"
+    elif ! git -C "$REPO_DIR" cat-file -e "$DEPLOY_REF^{commit}" 2>/dev/null; then
+      git -C "$REPO_DIR" fetch origin "$DEPLOY_REF"
+    fi
+    git -C "$REPO_DIR" checkout --detach "$DEPLOY_REF"
+    git -C "$REPO_DIR" reset --hard "$DEPLOY_REF"
+  else
+    git -C "$REPO_DIR" checkout "$BRANCH"
+    git -C "$REPO_DIR" reset --hard "origin/$BRANCH"
+  fi
 else
   git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$REPO_DIR"
+  if [ -n "${DEPLOY_REF:-}" ]; then
+    if [[ "$DEPLOY_REF" == refs/tags/* ]]; then
+      git -C "$REPO_DIR" fetch --force origin "refs/tags/${DEPLOY_REF#refs/tags/}:refs/tags/${DEPLOY_REF#refs/tags/}"
+    else
+      git -C "$REPO_DIR" fetch origin "$DEPLOY_REF"
+    fi
+    git -C "$REPO_DIR" checkout --detach "$DEPLOY_REF"
+    git -C "$REPO_DIR" reset --hard "$DEPLOY_REF"
+  fi
 fi
 
 REVISION="$(git -C "$REPO_DIR" rev-parse --short HEAD)"
@@ -207,6 +227,37 @@ cp -a "$REPO_DIR/deploy/image-sub2api-studio-history.service" "$SERVICE_DIR/depl
 cp -a "$REPO_DIR/deploy/nginx-image-agent-studio.conf" "$SERVICE_DIR/deploy/"
 cp -a "$REPO_DIR/deploy/nginx-sub2api-studio.conf" "$SERVICE_DIR/deploy/"
 cp -a "$REPO_DIR/deploy/UPDATE-SERVER.zh-CN.md" "$SERVICE_DIR/deploy/"
+
+if [ "$INSTALL_MANUAL_UPGRADE" = "1" ]; then
+  info "Install administrator-triggered GitHub Release upgrade"
+  install -m 755 "$REPO_DIR/deploy/manual-upgrade.sh" /usr/local/sbin/image-agent-studio-manual-upgrade
+  install -m 644 "$REPO_DIR/deploy/image-agent-studio-manual-upgrade.service" /etc/systemd/system/image-agent-studio-manual-upgrade.service
+  install -m 644 "$REPO_DIR/deploy/image-agent-studio-manual-upgrade.path" /etc/systemd/system/image-agent-studio-manual-upgrade.path
+  MANUAL_UPGRADE_ENV_FILE="/etc/image-agent-studio-manual-upgrade.env"
+  if [ ! -f "$MANUAL_UPGRADE_ENV_FILE" ]; then
+    cat > "$MANUAL_UPGRADE_ENV_FILE" <<EOF
+REPO_URL=$REPO_URL
+REPO_DIR=$REPO_DIR
+STATIC_DIR=$STATIC_DIR
+SERVICE_DIR=$SERVICE_DIR
+DATA_DIR=$DATA_DIR
+SERVICE_NAME=$SERVICE_NAME
+BASE_PATH=$BASE_PATH
+PUBLIC_STUDIO_URL=$PUBLIC_STUDIO_URL
+HEALTH_URL=$HEALTH_URL
+UPDATE_DIR=$DATA_DIR/manual-update
+REQUEST_FILE=$DATA_DIR/manual-update/request
+STATUS_FILE=$DATA_DIR/manual-update/status.json
+EOF
+    chmod 600 "$MANUAL_UPGRADE_ENV_FILE"
+  fi
+  mkdir -p "$DATA_DIR/manual-update"
+  chown www-data:www-data "$DATA_DIR/manual-update"
+  chmod 700 "$DATA_DIR/manual-update"
+  systemctl daemon-reload
+  systemctl enable image-agent-studio-manual-upgrade.path
+  systemctl restart image-agent-studio-manual-upgrade.path || systemctl start image-agent-studio-manual-upgrade.path
+fi
 
 cd "$SERVICE_DIR"
 npm ci --omit=dev

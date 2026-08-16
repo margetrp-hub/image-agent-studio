@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for Image Agent Studio administrator update requests
+
+[Path]
+PathExists=/var/lib/image-agent-studio/manual-update/request
+Unit=image-agent-studio-manual-upgrade.service
+
+[Install]
+WantedBy=multi-user.target

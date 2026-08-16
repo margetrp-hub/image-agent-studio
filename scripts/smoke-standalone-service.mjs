@@ -204,6 +204,13 @@ try {
   const billingStats = await request(servicePort, '/studio-api/auth/admin/billing/stats', { token: adminToken });
   assert.equal(billingStats.status, 200);
   assert.equal(billingStats.payload.stats.users, 2);
+  const updateStatus = await request(servicePort, '/studio-api/auth/admin/update/status', { token: adminToken });
+  assert.equal(updateStatus.status, 200);
+  assert.equal(updateStatus.payload.update.state, 'idle');
+  const updateRequest = await request(servicePort, '/studio-api/auth/admin/update', { method: 'POST', token: adminToken });
+  assert.equal(updateRequest.status, 202);
+  assert.equal(updateRequest.payload.update.state, 'queued');
+  assert.equal(await fs.stat(path.join(dataDir, 'manual-update', 'request')).then(() => true).catch(() => false), true);
 
   const duplicateRegister = await request(servicePort, '/studio-api/auth/register', {
     method: 'POST',
@@ -233,6 +240,9 @@ try {
   const forbidden = await request(servicePort, '/studio-api/auth/admin/users', { token: memberToken });
   assert.equal(forbidden.status, 403);
   assert.equal(forbidden.payload.error, 'ADMIN_REQUIRED');
+  const memberUpdate = await request(servicePort, '/studio-api/auth/admin/update', { method: 'POST', token: memberToken });
+  assert.equal(memberUpdate.status, 403);
+  assert.equal(memberUpdate.payload.error, 'ADMIN_REQUIRED');
 
   const adminSession = await request(servicePort, '/studio-api/session?sessionId=shared_session', {
     method: 'POST',
