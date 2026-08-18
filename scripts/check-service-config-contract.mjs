@@ -48,6 +48,8 @@ const explicit = createServiceConfig({
     STUDIO_PROVIDER_TYPE: 'xai-compatible',
     STUDIO_PROVIDER_API_KEY: 'server-secret',
     STUDIO_PROVIDER_CHAT_MODEL: 'chat-model',
+    STUDIO_EMBED_GATEWAY_BASE_URL: 'https://ohlao.cfd/',
+    STUDIO_EMBED_ORIGINS: 'https://ohlao.cfd/, https://www.ohlao.cfd/',
     STUDIO_CREDITS_ENABLED: 'true',
     STUDIO_USER_PROVIDER_ONLY: 'false',
     STUDIO_JOB_CONCURRENCY: '0'
@@ -64,6 +66,8 @@ assert.equal(explicit.AUTH_LOGIN_MAX_CONCURRENCY, 2);
   assert.equal(explicit.PROVIDER_TYPE, 'xai-compatible');
 assert.equal(explicit.PROVIDER_API_KEY, 'server-secret');
 assert.equal(explicit.PROVIDER_CHAT_MODEL, 'chat-model');
+assert.equal(explicit.STUDIO_EMBED_GATEWAY_BASE_URL, 'https://ohlao.cfd');
+assert.deepEqual(explicit.STUDIO_EMBED_ORIGINS, ['https://ohlao.cfd', 'https://www.ohlao.cfd']);
 assert.equal(explicit.CREDITS_ENABLED, true);
 assert.equal(explicit.USER_PROVIDER_ONLY, false);
 assert.equal(explicit.JOB_CONCURRENCY, 0);

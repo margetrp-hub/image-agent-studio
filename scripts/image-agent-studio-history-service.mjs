@@ -46,6 +46,8 @@ const {
   STUDIO_MASTER_KEY,
   ALLOW_PRIVATE_PROVIDER_URLS,
   AI_GATEWAY_BASE_URL,
+  STUDIO_EMBED_GATEWAY_BASE_URL,
+  STUDIO_EMBED_ORIGINS,
   PROVIDER_BASE_URL,
   PROVIDER_API_KEY,
   PROVIDER_TYPE,
@@ -578,8 +580,13 @@ function normalizeGatewayAccountPayload(payload) {
   return payload;
 }
 
-async function gatewayAccountRequest(pathname, token) {
-  const response = await fetch(`${AI_GATEWAY_BASE_URL}${pathname}`, {
+async function gatewayAccountRequest(pathname, token, baseUrl = AI_GATEWAY_BASE_URL) {
+  if (!baseUrl) {
+    const error = new Error('GATEWAY_AUTH_NOT_CONFIGURED');
+    error.status = 503;
+    throw error;
+  }
+  const response = await fetch(`${baseUrl}${pathname}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   const payload = await response.json().catch(() => ({}));
@@ -589,6 +596,59 @@ async function gatewayAccountRequest(pathname, token) {
     throw error;
   }
   return normalizeGatewayAccountPayload(payload);
+}
+
+async function embeddedGatewayUser(token) {
+  let user;
+  try {
+    user = await gatewayAccountRequest('/api/v1/auth/me', token, STUDIO_EMBED_GATEWAY_BASE_URL);
+  } catch (firstError) {
+    try {
+      user = await gatewayAccountRequest('/api/v1/user/profile', token, STUDIO_EMBED_GATEWAY_BASE_URL);
+    } catch (secondError) {
+      const unauthorized = firstError?.status === 401 || secondError?.status === 401;
+      const error = new Error(unauthorized ? 'EMBED_AUTH_INVALID' : 'EMBED_AUTH_UNAVAILABLE');
+      error.status = unauthorized ? 401 : 503;
+      throw error;
+    }
+  }
+
+  const userId = user?.id || user?.user?.id || user?.email || user?.username;
+  if (!userId) {
+    const error = new Error('EMBED_USER_ID_MISSING');
+    error.status = 401;
+    throw error;
+  }
+  return { userId: String(userId) };
+}
+
+async function handleEmbeddedAuthRoute(req, res, parts) {
+  if (AUTH_MODE !== 'standalone' || !standaloneAuthStore) {
+    return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+  }
+
+  const body = await readJsonBody(req, Math.max(1024, Number(AUTH_LOGIN_MAX_BODY_BYTES) || 16 * 1024));
+  const parentOrigin = String(body.parentOrigin || '').trim().replace(/\/+$/, '');
+  if (STUDIO_EMBED_ORIGINS.length && !STUDIO_EMBED_ORIGINS.includes(parentOrigin)) {
+    const error = new Error('EMBED_ORIGIN_NOT_ALLOWED');
+    error.status = 403;
+    throw error;
+  }
+  const token = text(body.token, 512);
+  if (!token) {
+    const error = new Error('EMBED_TOKEN_REQUIRED');
+    error.status = 401;
+    throw error;
+  }
+
+  const external = await embeddedGatewayUser(token);
+  const user = standaloneAuthStore.ensureExternalUser({
+    provider: 'embedded-gateway',
+    providerUserId: external.userId
+  });
+  const session = standaloneAuthStore.createSessionForUser(user.id);
+  standaloneAuthStore.secureDatabaseFiles();
+  return sendJson(res, 200, { ok: true, ...session });
 }
 
 async function authenticate(req) {
@@ -2858,6 +2918,9 @@ async function handler(req, res) {
     const hasAuthHeader = Boolean(String(req.headers.authorization || '').trim());
 
     if (parts[1] === 'auth') {
+      if (req.method === 'POST' && parts.length === 3 && parts[2] === 'embedded') {
+        return await handleEmbeddedAuthRoute(req, res, parts);
+      }
       return await handleStandaloneAuthRoute(req, res, parts, url);
     }
 

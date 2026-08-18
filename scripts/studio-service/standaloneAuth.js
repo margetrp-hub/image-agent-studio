@@ -289,6 +289,59 @@ export class StandaloneAuthStore {
     return this.getUserById(userId);
   }
 
+  ensureExternalUser({ provider = 'embedded-gateway', providerUserId } = {}) {
+    const normalizedProvider = normalizeProvider(provider, 'provider');
+    const externalId = normalizeOpaqueId(providerUserId, 'providerUserId');
+    const existing = this.resolveProviderLink({
+      provider: normalizedProvider,
+      providerUserId: externalId
+    });
+    if (existing) return this.getUserWithBilling(existing.id);
+
+    const identityHash = createHash('sha256')
+      .update(`${normalizedProvider}:${externalId}`)
+      .digest('hex')
+      .slice(0, 32);
+    const syntheticEmail = `${normalizedProvider}-${identityHash}@embedded.invalid`;
+    const syntheticUsername = `${normalizedProvider}-${identityHash}`;
+    let user;
+    let created = false;
+    try {
+      user = this.createUser({
+        email: syntheticEmail,
+        username: syntheticUsername,
+        password: randomBytes(32).toString('base64url'),
+        role: 'user'
+      });
+      created = true;
+    } catch (error) {
+      if (error?.code !== 'USER_EXISTS') throw error;
+      const existingRow = this.findCredentialRow(syntheticEmail);
+      if (!existingRow) throw error;
+      user = this.getUserById(existingRow.id);
+    }
+
+    try {
+      this.linkProvider({
+        userId: user.id,
+        provider: normalizedProvider,
+        providerUserId: externalId
+      });
+    } catch (error) {
+      if (error?.code !== 'PROVIDER_IDENTITY_ALREADY_LINKED') throw error;
+      const linked = this.resolveProviderLink({
+        provider: normalizedProvider,
+        providerUserId: externalId
+      });
+      if (!linked) throw error;
+      user = linked;
+      created = false;
+    }
+    if (created) this.billing.grantRegistrationBonus(user.id);
+
+    return this.getUserWithBilling(user.id);
+  }
+
   createPasswordResetToken({ userId, actorUserId, ttlMs = DEFAULT_PASSWORD_RESET_TTL_MS } = {}) {
     const targetId = normalizeOpaqueId(userId, 'userId');
     const actorId = normalizeOpaqueId(actorUserId, 'actorUserId');
@@ -490,6 +543,18 @@ export class StandaloneAuthStore {
     this.loginLimiter.reset(limiterKey);
     this.deleteExpiredSessions();
 
+    return this.createSessionForUser(row.id);
+  }
+
+  createSessionForUser(userId) {
+    const id = normalizeOpaqueId(userId, 'userId');
+    const row = this.database.prepare('SELECT id, active FROM users WHERE id = ?').get(id);
+    if (!row) throw new StandaloneAuthError('USER_NOT_FOUND', 'User not found.', { status: 404 });
+    if (!Boolean(row.active)) {
+      throw new StandaloneAuthError('ACCOUNT_DISABLED', 'This account is disabled.', { status: 403 });
+    }
+
+    this.deleteExpiredSessions();
     const token = randomBytes(32).toString('base64url');
     const sessionId = randomUUID();
     const createdAt = this.now();
@@ -497,13 +562,13 @@ export class StandaloneAuthStore {
     this.database.prepare(`
       INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at)
       VALUES (?, ?, ?, ?, ?)
-    `).run(sessionId, row.id, hashToken(token), createdAt, expiresAt);
+    `).run(sessionId, id, hashToken(token), createdAt, expiresAt);
 
     return {
       token,
       tokenType: 'Bearer',
       expiresAt: toIso(expiresAt),
-      user: this.getUserWithBilling(row.id)
+      user: this.getUserWithBilling(id)
     };
   }
 

@@ -17,6 +17,11 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     throw new TypeError(`Unsupported STUDIO_AUTH_REGISTRATION_MODE: ${authRegistrationMode || '<empty>'}`);
   }
   const providerBaseUrl = String(env.STUDIO_PROVIDER_BASE_URL || '').trim().replace(/\/+$/, '');
+  const embedGatewayBaseUrl = String(env.STUDIO_EMBED_GATEWAY_BASE_URL || '').trim().replace(/\/+$/, '');
+  const embedOrigins = String(env.STUDIO_EMBED_ORIGINS || '')
+    .split(',')
+    .map((item) => item.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
   const creditsEnabled = String(env.STUDIO_CREDITS_ENABLED ?? 'false').trim().toLowerCase() === 'true';
   const userProviderOnly = String(env.STUDIO_USER_PROVIDER_ONLY ?? 'true').trim().toLowerCase() === 'true';
   const allowPrivateProviderUrls = String(env.STUDIO_ALLOW_PRIVATE_PROVIDER_URLS ?? 'false').trim().toLowerCase() === 'true';
@@ -45,6 +50,8 @@ export function createServiceConfig({ scriptsDir, env = process.env, startedAt =
     STUDIO_MASTER_KEY: String(env.STUDIO_MASTER_KEY || '').trim(),
     ALLOW_PRIVATE_PROVIDER_URLS: allowPrivateProviderUrls,
     AI_GATEWAY_BASE_URL: String(env.AI_GATEWAY_BASE_URL || env.SUB2API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, ''),
+    STUDIO_EMBED_GATEWAY_BASE_URL: embedGatewayBaseUrl,
+    STUDIO_EMBED_ORIGINS: embedOrigins,
     PROVIDER_BASE_URL: providerBaseUrl,
     PROVIDER_API_KEY: String(env.STUDIO_PROVIDER_API_KEY || ''),
     PROVIDER_TYPE: String(env.STUDIO_PROVIDER_TYPE || 'openai-compatible').trim().toLowerCase(),

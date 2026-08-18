@@ -15,6 +15,7 @@ const clientProviderKey = 'client-provider-secret-must-be-ignored';
 const adminPassword = 'Admin Password 123!';
 const memberPassword = 'Member Password 123!';
 const creatorPassword = 'Creator Password 123!';
+const embeddedGatewayToken = 'embedded-gateway-token-for-smoke';
 const tinyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
 const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
 let videoPollAttempts = 0;
@@ -48,6 +49,15 @@ const provider = http.createServer(async (req, res) => {
   const clientRequestId = req.headers['x-client-request-id'];
   providerHits.push({ method: req.method, url: req.url, authorization: req.headers.authorization, clientRequestId, rawBody });
   res.setHeader('Content-Type', 'application/json');
+  if (req.method === 'GET' && req.url === '/api/v1/auth/me') {
+    if (req.headers.authorization !== `Bearer ${embeddedGatewayToken}`) {
+      res.statusCode = 401;
+      res.end(JSON.stringify({ message: 'Unauthorized' }));
+      return;
+    }
+    res.end(JSON.stringify({ code: 0, data: { id: 'gateway-user-879' } }));
+    return;
+  }
   if (req.method === 'GET' && req.url === '/v1/models') {
     res.end(JSON.stringify({ object: 'list', data: [{ id: 'grok-imagine-image' }, { id: 'unknown-image-model' }], debug: serverProviderKey }));
     return;
@@ -215,6 +225,29 @@ try {
   const billingStats = await request(servicePort, '/studio-api/auth/admin/billing/stats', { token: adminToken });
   assert.equal(billingStats.status, 200);
   assert.equal(billingStats.payload.stats.users, 2);
+
+  const blockedEmbeddedOrigin = await request(servicePort, '/studio-api/auth/embedded', {
+    method: 'POST',
+    body: { token: embeddedGatewayToken, parentOrigin: 'https://attacker.example' }
+  });
+  assert.equal(blockedEmbeddedOrigin.status, 403);
+  assert.equal(blockedEmbeddedOrigin.payload.error, 'EMBED_ORIGIN_NOT_ALLOWED');
+  const embeddedLogin = await request(servicePort, '/studio-api/auth/embedded', {
+    method: 'POST',
+    body: { token: embeddedGatewayToken, parentOrigin: 'https://ohlao.cfd' }
+  });
+  assert.equal(embeddedLogin.status, 200, embeddedLogin.raw);
+  assert.match(embeddedLogin.payload.token, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(embeddedLogin.payload.user.credits.balance, 200);
+  const embeddedMe = await request(servicePort, '/studio-api/auth/me', { token: embeddedLogin.payload.token });
+  assert.equal(embeddedMe.status, 200);
+  const repeatedEmbeddedLogin = await request(servicePort, '/studio-api/auth/embedded', {
+    method: 'POST',
+    body: { token: embeddedGatewayToken, parentOrigin: 'https://ohlao.cfd' }
+  });
+  assert.equal(repeatedEmbeddedLogin.status, 200, repeatedEmbeddedLogin.raw);
+  assert.equal(repeatedEmbeddedLogin.payload.user.id, embeddedLogin.payload.user.id);
+  assert.equal(repeatedEmbeddedLogin.payload.user.credits.balance, 200);
   const updateStatus = await request(servicePort, '/studio-api/auth/admin/update/status', { token: adminToken });
   assert.equal(updateStatus.status, 200);
   assert.equal(updateStatus.payload.update.state, 'idle');
@@ -670,6 +703,8 @@ function startService(port, providerEnv) {
       STUDIO_CREDITS_ENABLED: 'true',
       STUDIO_JOB_CONCURRENCY: '1',
       STUDIO_ALLOWED_ORIGINS: 'http://127.0.0.1',
+      STUDIO_EMBED_GATEWAY_BASE_URL: `http://127.0.0.1:${providerPort}`,
+      STUDIO_EMBED_ORIGINS: 'https://ohlao.cfd',
       ...providerEnv
     },
     stdio: ['ignore', 'pipe', 'pipe']

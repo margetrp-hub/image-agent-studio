@@ -253,6 +253,23 @@ check('legacy identities and providers resolve to local users', () => {
   assert.equal(store.resolveProviderLink({ provider: 'GROK2API', providerUserId: 'external-250' }).id, member.id);
 });
 
+check('embedded gateway identities reuse one local account and receive local sessions', () => {
+  const embedded = store.ensureExternalUser({
+    provider: 'embedded-gateway',
+    providerUserId: 'gateway-user-879'
+  });
+  const repeated = store.ensureExternalUser({
+    provider: 'embedded-gateway',
+    providerUserId: 'gateway-user-879'
+  });
+  assert.equal(repeated.id, embedded.id);
+  assert.equal(embedded.role, 'user');
+  assert.equal(embedded.credits.balance, 200);
+  const embeddedSession = store.createSessionForUser(embedded.id);
+  assert.match(embeddedSession.token, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(store.verifySession(embeddedSession.token).user.id, embedded.id);
+});
+
 await (async () => {
   const input = { identifier: 'member@yhoo.lol', password: 'wrong password', rateLimitKey: 'rate-test' };
   await expectAuthRejection(() => store.login(input), 'INVALID_CREDENTIALS');
@@ -288,9 +305,9 @@ await (async () => {
     () => store.login({ identifier: 'Member', password: 'Member Password 123', rateLimitKey: 'disabled-member' }),
     'ACCOUNT_DISABLED'
   );
-  assert.equal(store.listUsers().length, 3);
+  assert.equal(store.listUsers().length, 4);
   const activeUsers = store.listUsers({ includeDisabled: false });
-  assert.equal(activeUsers.length, 2);
+  assert.equal(activeUsers.length, 3);
   assert(activeUsers.some((user) => user.id === admin.id));
   assert(activeUsers.every((user) => user.id !== member.id));
   checks.push('disabling a user revokes sessions and prevents login');

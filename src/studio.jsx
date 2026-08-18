@@ -81,11 +81,13 @@ import './styles/studio.composer-state-polish.css';
 import './styles/studio.canvas-composer-refinement.css';
 import './styles/studio.typography.css';
 import {
+  bootstrapEmbeddedSession,
   clearSession,
   getImageUrls,
   getVideoUrls,
   getConfiguredBaseUrls,
   getLoginUrl,
+  isEmbeddedStudioLaunch,
   loadProviderSettings,
   loadSession,
   saveProviderSettings,
@@ -5402,6 +5404,9 @@ function StudioApp() {
   const [activeWorkspace, setActiveWorkspace] = useState(() => initialCurrentSession?.mode === 'video' ? 'video' : 'image');
   const [appendTemplateRequest, setAppendTemplateRequest] = useState(null);
   const [remoteSession, setRemoteSession] = useState(null);
+  const [embeddedAuthStatus, setEmbeddedAuthStatus] = useState(() => (
+    STUDIO_STANDALONE && isEmbeddedStudioLaunch() ? 'pending' : 'idle'
+  ));
   const [remoteSessionReady, setRemoteSessionReady] = useState(() => !initialSession?.accessToken);
   const [currentSessionSnapshot, setCurrentSessionSnapshot] = useState(() => initialCurrentSession);
   const [deskSessionId, setDeskSessionId] = useState(() => initialCurrentSession?.sessionId || `desk-${Date.now()}`);
@@ -5652,10 +5657,32 @@ function StudioApp() {
   }, [language, t]);
 
   useEffect(() => {
+    if (!STUDIO_STANDALONE || embeddedAuthStatus !== 'pending') return;
+    let active = true;
+    bootstrapEmbeddedSession()
+      .then((nextSession) => {
+        if (!active) return;
+        if (nextSession?.accessToken) {
+          setSession(nextSession);
+          setProfile(nextSession.user || null);
+          setClient(createGatewayClient({ session: nextSession, providerSettings }));
+        }
+        setEmbeddedAuthStatus(nextSession?.accessToken ? 'ready' : 'failed');
+      })
+      .catch(() => {
+        if (active) setEmbeddedAuthStatus('failed');
+      });
+    return () => {
+      active = false;
+    };
+  }, [embeddedAuthStatus, providerSettings]);
+
+  useEffect(() => {
     if (STUDIO_STANDALONE && !session?.accessToken) {
+      if (embeddedAuthStatus === 'pending') return;
       window.location.replace(getLoginUrl());
     }
-  }, [session?.accessToken]);
+  }, [session?.accessToken, embeddedAuthStatus]);
 
   useEffect(() => {
     if (!STUDIO_STANDALONE || firstRunOpen) return;

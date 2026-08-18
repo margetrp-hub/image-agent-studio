@@ -104,6 +104,13 @@ try {
         expiresAt: '2030-01-01T00:00:00.000Z',
         user: creatorUser
       };
+    } else if (path.endsWith('/auth/embedded')) {
+      body = {
+        ok: true,
+        token: 'standalone-embedded-token',
+        expiresAt: '2030-01-01T00:00:00.000Z',
+        user: creatorUser
+      };
     } else if (path.endsWith('/auth/password/reset')) {
       body = { ok: true, user: adminUser };
     } else if (path.endsWith('/auth/me')) {
@@ -189,6 +196,30 @@ try {
     }
 
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+
+  const embeddedUrl = new URL('studio.html', baseUrl);
+  embeddedUrl.searchParams.set('ui_mode', 'embedded');
+  embeddedUrl.searchParams.set('src_host', 'https://ohlao.cfd');
+  embeddedUrl.searchParams.set('user_id', '879');
+  embeddedUrl.searchParams.set('token', 'parent-gateway-token-must-not-persist');
+  await page.goto(embeddedUrl.toString(), { waitUntil: 'networkidle' });
+  await page.waitForSelector('.creationDesk', { timeout: 10000 });
+  const embeddedState = await page.evaluate(() => ({
+    href: window.location.href,
+    session: localStorage.getItem('image-agent-studio:session:v1') || '',
+    legacyToken: localStorage.getItem('auth_token') || ''
+  }));
+  const embeddedRequest = requests.find((item) => item.path.endsWith('/auth/embedded'));
+  assert.ok(embeddedRequest, 'Embedded launch did not exchange the parent token.');
+  assert.match(embeddedRequest.postData, /parent-gateway-token-must-not-persist/);
+  assert.equal(embeddedState.href.includes('token='), false, 'Embedded token remained in the browser URL.');
+  assert.match(embeddedState.session, /standalone-embedded-token/, 'Embedded launch did not store the local Studio session.');
+  assert.equal(embeddedState.session.includes('parent-gateway-token-must-not-persist'), false);
+  assert.equal(embeddedState.legacyToken, 'legacy-sub2-token-must-not-be-used');
+  await page.evaluate(() => {
+    localStorage.removeItem('image-agent-studio:session:v1');
+    sessionStorage.clear();
   });
 
   const loginUrl = new URL('login.html?redirect=https%3A%2F%2Fevil.example%2Fsteal', baseUrl).toString();

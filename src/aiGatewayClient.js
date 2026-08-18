@@ -386,7 +386,11 @@ export function getLoginUrl() {
     const basePath = configuredBase && configuredBase !== '/' ? configuredBase : inferredBase;
     const appBase = new URL(basePath.endsWith('/') ? basePath : `${basePath}/`, window.location.origin);
     const loginUrl = new URL('login.html', appBase);
-    loginUrl.searchParams.set('redirect', `${window.location.pathname}${window.location.search || ''}${window.location.hash || ''}`);
+    const safeUrl = new URL(window.location.href);
+    for (const key of ['token', 'access_token', 'refresh_token', 'user_id', 'ui_mode', 'src_host', 'src_url']) {
+      safeUrl.searchParams.delete(key);
+    }
+    loginUrl.searchParams.set('redirect', `${safeUrl.pathname}${safeUrl.search}${safeUrl.hash}`);
     return loginUrl.toString();
   }
   const loginBase = envLoginUrl || `${trimTrailingSlash(envBaseUrl || defaultDevSub2ApiOrigin() || window.location.origin)}/login`;
@@ -410,7 +414,7 @@ function persistUrlTokens() {
   const params = new URLSearchParams(window.location.search);
   const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
   const hashParams = new URLSearchParams(hash);
-  const accessToken = params.get('access_token') || hashParams.get('access_token');
+  const accessToken = params.get('access_token') || params.get('token') || hashParams.get('access_token') || hashParams.get('token');
   if (!accessToken) return false;
 
   const refreshToken = params.get('refresh_token') || hashParams.get('refresh_token') || '';
@@ -425,9 +429,49 @@ function persistUrlTokens() {
 
   const nextUrl = redirect && redirect.startsWith('/')
     ? redirect
-    : `${window.location.pathname}${window.location.search ? window.location.search.replace(/[?&](access_token|refresh_token|expires_in|token_type|redirect)=[^&]*/g, '').replace(/^&/, '?') : ''}`;
+    : `${window.location.pathname}${window.location.search ? window.location.search.replace(/[?&](access_token|token|refresh_token|expires_in|token_type|user_id|ui_mode|src_host|src_url|redirect)=[^&]*/g, '').replace(/^&/, '?') : ''}`;
   window.history.replaceState(null, '', nextUrl || window.location.pathname);
   return true;
+}
+
+function embeddedLaunchParams() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('ui_mode') !== 'embedded') return null;
+  const token = params.get('token') || params.get('access_token') || '';
+  if (!token) return null;
+  return {
+    token,
+    parentOrigin: params.get('src_host') || ''
+  };
+}
+
+function clearEmbeddedLaunchParams() {
+  const next = new URL(window.location.href);
+  for (const key of ['token', 'access_token', 'user_id', 'ui_mode', 'src_host', 'src_url']) {
+    next.searchParams.delete(key);
+  }
+  window.history.replaceState(null, '', `${next.pathname}${next.search}${next.hash}`);
+}
+
+export function isEmbeddedStudioLaunch() {
+  return Boolean(embeddedLaunchParams());
+}
+
+export async function bootstrapEmbeddedSession() {
+  if (!STUDIO_STANDALONE) return null;
+  const launch = embeddedLaunchParams();
+  if (!launch) return null;
+  clearEmbeddedLaunchParams();
+  const response = await fetch(`${trimTrailingSlash(window.location.origin)}/studio-api/auth/embedded`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(launch)
+  });
+  const data = await readJsonResponse(response);
+  const session = sessionFromAuthResponse(data);
+  if (!session.accessToken) throw new Error('EMBED_SESSION_TOKEN_MISSING');
+  saveSession(session);
+  return session;
 }
 
 function loadSub2ApiSession() {
