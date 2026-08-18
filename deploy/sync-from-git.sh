@@ -129,6 +129,8 @@ allowed_origins() {
 const publicUrl = String(process.argv[2] || '').trim();
 const configured = String(process.argv[3] || '').trim();
 const origins = new Set([
+  'https://studio.ohlaoo.com',
+  'https://studio.ohlao.cfd',
   'http://127.0.0.1:5173',
   'http://localhost:5173',
   'http://127.0.0.1:5174',

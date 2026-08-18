@@ -3466,11 +3466,7 @@ function CreationDesk({
         } catch (error) {
           if (requestContext.remoteJobId) throw error;
           if (!canUseClientGenerationFallback()) {
-            const queueError = new Error('SERVICE_QUEUE_UNAVAILABLE');
-            queueError.code = 'SERVICE_QUEUE_UNAVAILABLE';
-            queueError.cause = error;
-            queueError.payload = error?.payload;
-            throw queueError;
+            throw error;
           }
           setMessage(t('statusMessages.serviceQueueFallback', '服务端队列暂不可用，已切换为本页直连生成。'));
         }

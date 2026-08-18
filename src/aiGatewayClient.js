@@ -2108,7 +2108,23 @@ export class StudioHistoryClient {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.ok === false) {
-      throw new Error(payload?.error || `HTTP_${response.status}`);
+      const rawError = payload?.error;
+      const errorCode = typeof rawError === 'string'
+        ? rawError
+        : rawError?.code || payload?.code || `HTTP_${response.status}`;
+      const errorMessage = typeof rawError === 'object'
+        ? rawError?.message || rawError?.code
+        : rawError || payload?.message || `HTTP_${response.status}`;
+      const error = new Error(String(errorMessage));
+      error.code = String(errorCode);
+      error.status = response.status;
+      error.payload = payload;
+      error.requestId = payload?.request_id
+        || payload?.requestId
+        || rawError?.request_id
+        || rawError?.requestId
+        || '';
+      throw error;
     }
     return payload;
   }
