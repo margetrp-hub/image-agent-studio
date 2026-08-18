@@ -328,6 +328,9 @@ export function generationErrorMessage(error, t = defaultTranslate, compactText 
   if (error?.status === 403 || lowered.includes('forbidden') || lowered.includes('permission') || lowered.includes('not allowed') || lowered.includes('model_not_found')) {
     return t('errors.forbidden', '当前账号没有调用该模型或接口的权限，生成已停止。');
   }
+  if (lowered.includes('video request not found') || lowered.includes('video task not found')) {
+    return `${t('errors.videoRequestNotFound', '上游视频任务已找不到，可能是网关没有保留任务状态或接口协议不匹配。请检查视频供应商类型和网关地址后重试。')}${requestSuffix}`;
+  }
   if (error?.status === 404 || lowered.includes('not found')) {
     return `${t('errors.notFound', '接口或模型不存在。请确认网关地址、接口类型和模型名称是否正确。')}${requestSuffix}`;
   }

@@ -18,6 +18,7 @@ const creatorPassword = 'Creator Password 123!';
 const tinyJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
 const tinyMp4 = Buffer.from('fake-mp4-for-service-smoke');
 let videoPollAttempts = 0;
+let missingVideoPollAttempts = 0;
 let videoAffinityId = '';
 let slowImageRequests = 0;
 
@@ -65,8 +66,18 @@ const provider = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'POST' && req.url === '/v1/videos/generations') {
+    const payload = JSON.parse(rawBody || '{}');
     videoAffinityId = clientRequestId || '';
-    res.end(JSON.stringify({ request_id: 'grok-video-smoke-1', status: 'queued' }));
+    res.end(JSON.stringify({
+      request_id: payload.prompt === 'missing video task smoke' ? 'grok-video-missing-1' : 'grok-video-smoke-1',
+      status: 'queued'
+    }));
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/v1/videos/grok-video-missing-1') {
+    missingVideoPollAttempts += 1;
+    res.statusCode = 404;
+    res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
     return;
   }
   if (req.method === 'GET' && req.url === '/v1/videos/grok-video-smoke-1') {
@@ -76,12 +87,12 @@ const provider = http.createServer(async (req, res) => {
       return;
     }
     videoPollAttempts += 1;
-    if (videoPollAttempts <= 151) {
+    if (videoPollAttempts <= 3) {
       res.statusCode = 404;
       res.end(JSON.stringify({ error: { message: 'Video request not found' } }));
       return;
     }
-    if (videoPollAttempts === 152) {
+    if (videoPollAttempts === 4) {
       res.statusCode = 503;
       res.end(JSON.stringify({ error: { message: 'Service temporarily unavailable' } }));
       return;
@@ -536,11 +547,42 @@ try {
   assert.equal(videoBody.duration, 5);
   assert.equal('width' in videoBody, false);
   assert.equal('fps' in videoBody, false);
-  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 153);
+  assert.equal(providerHits.filter((hit) => hit.url === '/v1/videos/grok-video-smoke-1').length, 5);
   assert(providerHits.some((hit) => hit.url === '/v1/videos/grok-video-smoke-1/content'));
   assert(providerHits
     .filter((hit) => hit.url.startsWith('/v1/videos/'))
     .every((hit) => hit.clientRequestId === 'client-video-request-123'));
+
+  const missingVideoJobId = 'job-grok-video-missing-123';
+  const missingVideoGeneration = await request(servicePort, '/studio-api/generation-jobs', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      request: {
+        id: missingVideoJobId,
+        clientRequestId: 'client-video-missing-123',
+        sessionId: 'shared_session',
+        mode: 'video',
+        route: 'video',
+        providerId: 'gateway-account',
+        providerFamily: 'gateway-account',
+        model: 'grok-imagine-video-1.5',
+        prompt: 'missing video task smoke',
+        duration: 5,
+        width: 1280,
+        height: 720,
+        fps: 24,
+        n: 1
+      }
+    }
+  });
+  assert.equal(missingVideoGeneration.status, 202);
+  const missingVideoJob = await waitForJob(servicePort, adminToken, missingVideoJobId);
+  assert.equal(missingVideoJob.status, 'failed');
+  assert.equal(missingVideoJob.error.code, 'HTTP_404');
+  assert.equal(missingVideoJob.error.message, 'Video request not found');
+  assert.equal(missingVideoJob.timing.pollRetryCount, 3);
+  assert.equal(missingVideoPollAttempts, 4);
 
   const jobsRaw = await fs.readFile(path.join(dataDir, 'users', admin.id, 'jobs.json'), 'utf8');
   assert.equal(jobsRaw.includes(serverProviderKey), false);

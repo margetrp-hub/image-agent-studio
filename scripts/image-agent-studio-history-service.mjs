@@ -71,6 +71,11 @@ const {
   ALLOWED_ORIGINS
 } = createServiceConfig({ scriptsDir: __dirname });
 
+// A provider may briefly return 404 while an async video task becomes visible.
+// Once that window is exhausted, keep the request ID and fail instead of polling
+// a missing task for the full provider timeout.
+const VIDEO_POLL_NOT_FOUND_MAX_RETRIES = 3;
+
 const MANUAL_UPDATE_DIR = process.env.STUDIO_MANUAL_UPDATE_DIR || path.join(DATA_DIR, 'manual-update');
 const MANUAL_UPDATE_REQUEST_FILE = process.env.STUDIO_MANUAL_UPDATE_REQUEST_FILE || path.join(MANUAL_UPDATE_DIR, 'request');
 const MANUAL_UPDATE_STATUS_FILE = process.env.STUDIO_MANUAL_UPDATE_STATUS_FILE || path.join(MANUAL_UPDATE_DIR, 'status.json');
@@ -1814,8 +1819,10 @@ function waitForProviderPoll(ms, signal) {
   });
 }
 
-function isTransientVideoPollError(error) {
-  return [404, 408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error?.status || 0));
+function isTransientVideoPollError(error, consecutiveFailures = 0) {
+  const status = Number(error?.status || 0);
+  if (status === 404) return consecutiveFailures <= VIDEO_POLL_NOT_FOUND_MAX_RETRIES;
+  return [408, 409, 425, 429, 500, 502, 503, 504].includes(status);
 }
 
 function pollFailureDetails(error) {
@@ -1901,7 +1908,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskI
       }) || currentJob;
     } catch (error) {
       transientPollFailures += 1;
-      if (!isTransientVideoPollError(error) || transientPollFailures > VIDEO_POLL_MAX_TRANSIENT_FAILURES) throw error;
+      if (!isTransientVideoPollError(error, transientPollFailures) || transientPollFailures > VIDEO_POLL_MAX_TRANSIENT_FAILURES) throw error;
       const failure = pollFailureDetails(error);
       currentJob = await updateJob(auth, job.id, {
         status: 'upstream',
