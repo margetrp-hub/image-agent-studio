@@ -33,7 +33,7 @@ const ERROR_RULES = [
   {
     category: ERROR_CATEGORIES.SAFETY,
     retryable: true,
-    match: ({ code, message }) => code.includes('policy') || message.includes('safety') || message.includes('content policy') || message.includes('policy_violation') || message.includes('rejected by the safety system'),
+    match: ({ code, message }) => code.includes('policy') || code.includes('moderation') || message.includes('safety') || message.includes('content policy') || message.includes('content moderation') || message.includes('content_moderation') || message.includes('moderation') || message.includes('policy_violation') || message.includes('rejected by the safety system'),
     userMessage: '内容安全策略拒绝',
     technicalReason: 'The upstream model rejected the prompt or reference image by safety policy.',
     nextAction: '弱化敏感描述，移除真实人物、未成年人、暴力色情、仿冒名人等高风险内容后重试。'

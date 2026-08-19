@@ -302,9 +302,15 @@ export function generationErrorMessage(error, t = defaultTranslate, compactText 
     || lowered.includes('rejected by the safety system')
     || lowered.includes('safety system')
     || lowered.includes('content policy')
+    || lowered.includes('content moderation')
+    || lowered.includes('content_moderation')
+    || lowered.includes('moderation')
     || lowered.includes('safety policy')
     || lowered.includes('policy_violation')
   ) {
+    if (lowered.includes('content moderation') || lowered.includes('content_moderation') || lowered.includes('moderation')) {
+      return `${t('errors.contentModeration', '上游内容审核拒绝了这次请求，生成已停止。请换一版更中性的提示词或参考图后重试。')}${requestSuffix}`;
+    }
     return `${t('errors.safety', '提示词或参考图触发了上游安全策略，生成已被拒绝。请弱化敏感描述，去掉真实人物、未成年人、暴力色情、仿冒名人等高风险内容后重试。')}${requestSuffix}`;
   }
   if (lowered.includes('no images') || lowered.includes('returned_no_images') || lowered.includes('没有返回图片')) {
