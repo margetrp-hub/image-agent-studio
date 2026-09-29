@@ -16,7 +16,8 @@ The current Go server includes:
 - authenticated content-addressed asset upload, listing, and reads;
 - shared admin provider links that refer to server environment secrets;
 - per-user provider connections with encrypted API-key or access-token envelopes;
-- server-side model synchronization for configured provider links and connections.
+- server-side model synchronization for configured provider links and connections;
+- native Gemini image dispatch through `gemini-compatible`, including `/v1beta/models` discovery and `generateContent` image responses.
 - an opt-in OpenAI-compatible image executor with bounded responses, durable job transitions, SSE state events, cancellation, and base64 result persistence.
 
 Still pending:
@@ -108,7 +109,17 @@ Personal connections support server-side `/models` sync, sanitized generation di
 
 Personal model sync and execution reject `localhost`, `.localhost`, `metadata.google.internal`, and resolved private, loopback, link-local, multicast-link-local, or unspecified addresses by default. Set `STUDIO_ALLOW_PRIVATE_PROVIDER_URLS=true` only when the deployment intentionally needs a private Provider endpoint. Pair this override with a trusted network and controlled provider configuration.
 
-Provider types such as `newapi-compatible`, `sub2api-compatible`, `openai-compatible`, and `xai-compatible` are adapter identifiers. Image Agent Studio does not inherit their account, billing, pool, or routing semantics.
+Provider types such as `newapi-compatible`, `sub2api-compatible`, `openai-compatible`, `xai-compatible`, and `gemini-compatible` are adapter identifiers. Image Agent Studio does not inherit their account, billing, pool, or routing semantics.
+
+Native Gemini connections are deliberately separate from OpenAI-compatible connections:
+
+- set the provider type to `gemini-compatible`;
+- enter the service root, for example `https://generativelanguage.googleapis.com` or a compatible gateway root;
+- model sync uses `GET /v1beta/models`;
+- image generation uses `POST /v1beta/models/{model}:generateContent` with `responseModalities: ["TEXT", "IMAGE"]`;
+- requests send both `Authorization: Bearer ...` and `X-Goog-Api-Key: ...` so official Gemini API keys and compatible gateways are supported.
+
+Do not configure a native Gemini endpoint as `openai-compatible` merely because it also exposes a model list. That profile sends image requests through OpenAI routes and cannot reliably generate Gemini image models.
 
 ## Current Persistence
 

@@ -93,6 +93,18 @@ function normalizeGatewayBaseUrl(value) {
   return `${raw}/v1`;
 }
 
+function normalizeGeminiGatewayBaseUrl(value) {
+  return trimTrailingSlash(value || envGatewayBaseUrl || envBaseUrl || defaultDevSub2ApiOrigin() || window.location.origin)
+    .replace(/\/v1(?:beta)?$/i, '');
+}
+
+function imageAspectRatioFromSize(size) {
+  if (size === '1024x1024') return '1:1';
+  if (size === '1536x1024' || size === '1792x1024') return '3:2';
+  if (size === '1024x1536' || size === '1024x1792') return '2:3';
+  return '';
+}
+
 function gatewayEndpointUrl(baseUrl, endpoint) {
   const base = normalizeGatewayBaseUrl(baseUrl);
   const path = String(endpoint || '').trim();
@@ -1363,6 +1375,40 @@ export class AiGatewayClient {
     };
   }
 
+  async generateImageViaGemini({ apiKey, model, prompt, size, referenceImages = [], gatewayBaseUrl, endpoint = '/v1beta/models/{model}:generateContent', onProgress, signal }) {
+    if (STUDIO_STANDALONE) throw new Error('STUDIO_SERVER_QUEUE_REQUIRED');
+    const requestUrl = `${normalizeGeminiGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl)}${applyEndpointTemplate(endpoint, { model })}`;
+    const parts = [{ text: prompt }];
+    for (const file of (referenceImages || []).slice(0, 4)) {
+      const dataUrl = await fileToDataUrl(file);
+      const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/i);
+      if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2].replace(/\s+/g, '') } });
+    }
+    const generationConfig = { responseModalities: ['TEXT', 'IMAGE'] };
+    const aspectRatio = imageAspectRatioFromSize(size);
+    if (aspectRatio) generationConfig.imageConfig = { aspectRatio };
+    onProgress?.({ stage: 'request', completed: 0, total: 1, percent: 12 });
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'X-Goog-Api-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig }),
+      ...(signal ? { signal } : {})
+    });
+    const payload = await readJsonResponse(response);
+    const data = (payload?.candidates || []).flatMap((candidate) => (candidate?.content?.parts || [])
+      .map((part) => part?.inlineData || part?.inline_data)
+      .filter((inline) => inline?.data)
+      .map((inline) => ({ b64_json: String(inline.data).replace(/\s+/g, '') })));
+    if (!response.ok) throw Object.assign(new Error('GEMINI_IMAGE_REQUEST_FAILED'), { status: response.status, payload });
+    if (!data.length) throw new Error('GEMINI_IMAGE_GENERATION_RETURNED_NO_IMAGES');
+    onProgress?.({ stage: 'completed', completed: data.length, total: 1, percent: 100 });
+    return { ...payload, data };
+  }
+
   async optimizePrompt({ apiKey, prompt, instruction = '', size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
     if (STUDIO_STANDALONE) {
       const providerRequest = this.providerSettings.apiKeySource === 'manual'
@@ -2006,6 +2052,19 @@ export class AiGatewayClient {
       providerSettings: this.providerSettings,
       provider: adapter.provider
     });
+    if (plan.transport === 'gemini-images') {
+      return this.generateImageViaGemini({
+        apiKey,
+        model: imageModel,
+        prompt,
+        size: normalizedParameters.size,
+        referenceImages,
+        gatewayBaseUrl,
+        endpoint: plan.endpoint,
+        onProgress,
+        signal
+      });
+    }
     if (plan.transport === 'responses') {
       try {
         return await this.generateImageViaResponses({
@@ -2068,6 +2127,24 @@ export class AiGatewayClient {
       total: normalizedParameters.n,
       percent: 12
     });
+    const editModel = selectImageEditModel({
+      requestedModel: model,
+      providerSettings: this.providerSettings,
+      provider: adapter.provider
+    });
+    if (plan.transport === 'gemini-images') {
+      return this.generateImageViaGemini({
+        apiKey,
+        model: editModel,
+        prompt,
+        size: normalizedParameters.size,
+        referenceImages: images,
+        gatewayBaseUrl,
+        endpoint: plan.endpoint,
+        onProgress,
+        signal
+      });
+    }
     const form = createImageEditForm({
       model: selectImageEditModel({
         requestedModel: model,

@@ -42,6 +42,13 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   const videoPlan = adapter.buildVideoPlan();
   const parameters = provider.parameters || {};
   const descriptor = provider.descriptor || {};
+  const isGeminiNative = descriptor.endpointStyle === 'gemini-native';
+  const expectedGenerationEndpoint = isGeminiNative
+    ? '/v1beta/models/{model}:generateContent'
+    : EXPECTED_GENERATION_ENDPOINT;
+  const expectedEditEndpoint = isGeminiNative
+    ? '/v1beta/models/{model}:generateContent'
+    : EXPECTED_EDIT_ENDPOINT;
 
   rows.push({
     provider: provider.id,
@@ -61,26 +68,27 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   if (generation.transport !== PROVIDER_ROUTE_MODES.IMAGES) {
     failures.push(`${provider.id}: auto generation transport must be images, got ${generation.transport}`);
   }
-  if (generation.endpoint !== EXPECTED_GENERATION_ENDPOINT) {
-    failures.push(`${provider.id}: auto generation endpoint must be ${EXPECTED_GENERATION_ENDPOINT}, got ${generation.endpoint}`);
+  if (generation.endpoint !== expectedGenerationEndpoint) {
+    failures.push(`${provider.id}: auto generation endpoint must be ${expectedGenerationEndpoint}, got ${generation.endpoint}`);
   }
   if (edit.transport !== PROVIDER_ROUTE_MODES.IMAGES) {
     failures.push(`${provider.id}: edit transport must be images, got ${edit.transport}`);
   }
-  if (edit.endpoint !== EXPECTED_EDIT_ENDPOINT) {
-    failures.push(`${provider.id}: edit endpoint must be ${EXPECTED_EDIT_ENDPOINT}, got ${edit.endpoint}`);
+  if (edit.endpoint !== expectedEditEndpoint) {
+    failures.push(`${provider.id}: edit endpoint must be ${expectedEditEndpoint}, got ${edit.endpoint}`);
   }
-  if (generationPlan.transport !== PROVIDER_ROUTE_MODES.IMAGES) {
+  const expectedGenerationTransport = isGeminiNative ? 'gemini-images' : PROVIDER_ROUTE_MODES.IMAGES;
+  if (generationPlan.transport !== expectedGenerationTransport) {
     failures.push(`${provider.id}: adapter auto generation transport must be images, got ${generationPlan.transport}`);
   }
-  if (generationPlan.endpoint !== EXPECTED_GENERATION_ENDPOINT) {
-    failures.push(`${provider.id}: adapter auto generation endpoint must be ${EXPECTED_GENERATION_ENDPOINT}, got ${generationPlan.endpoint}`);
+  if (generationPlan.endpoint !== expectedGenerationEndpoint) {
+    failures.push(`${provider.id}: adapter auto generation endpoint must be ${expectedGenerationEndpoint}, got ${generationPlan.endpoint}`);
   }
-  if (editPlan.transport !== PROVIDER_ROUTE_MODES.IMAGES) {
+  if (editPlan.transport !== expectedGenerationTransport) {
     failures.push(`${provider.id}: adapter edit transport must be images, got ${editPlan.transport}`);
   }
-  if (editPlan.endpoint !== EXPECTED_EDIT_ENDPOINT) {
-    failures.push(`${provider.id}: adapter edit endpoint must be ${EXPECTED_EDIT_ENDPOINT}, got ${editPlan.endpoint}`);
+  if (editPlan.endpoint !== expectedEditEndpoint) {
+    failures.push(`${provider.id}: adapter edit endpoint must be ${expectedEditEndpoint}, got ${editPlan.endpoint}`);
   }
   if (!Object.values(PROVIDER_VIDEO_TRANSPORTS).includes(video.transport)) {
     failures.push(`${provider.id}: video transport is not registered: ${video.transport}`);
@@ -139,8 +147,9 @@ for (const provider of IMAGE_PROVIDER_REGISTRY) {
   if (!descriptor.modelSlots?.some((slot) => slot?.key === 'imageEditModel' && slot?.route === 'edits')) {
     failures.push(`${provider.id}: descriptor must include an imageEditModel slot for edits`);
   }
-  if (provider.capabilities?.modelSync && descriptor.modelSync?.endpoint !== '/v1/models') {
-    failures.push(`${provider.id}: modelSync providers must declare /v1/models as the sync endpoint`);
+  const expectedModelSyncEndpoint = isGeminiNative ? '/v1beta/models' : '/v1/models';
+  if (provider.capabilities?.modelSync && descriptor.modelSync?.endpoint !== expectedModelSyncEndpoint) {
+    failures.push(`${provider.id}: modelSync providers must declare ${expectedModelSyncEndpoint} as the sync endpoint`);
   }
   if (provider.capabilities?.videoGeneration && !descriptor.workspaces.includes(PROVIDER_WORKSPACES.VIDEO)) {
     failures.push(`${provider.id}: videoGeneration capability must include the video workspace`);

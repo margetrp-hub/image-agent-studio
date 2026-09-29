@@ -85,6 +85,35 @@ func TestExecuteParsesChatImageMarkdown(t *testing.T) {
 	}
 }
 
+func TestExecuteParsesNativeGeminiInlineImage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1beta/models/gemini-3.1-flash-image:generateContent" {
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
+		if r.Header.Get("X-Goog-Api-Key") != "server-secret" {
+			t.Fatalf("missing Gemini API key header")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"candidates": []map[string]any{{"content": map[string]any{
+				"parts": []map[string]any{{"inlineData": map[string]string{"mimeType": "image/png", "data": "aW1hZ2U="}}},
+			}}},
+		})
+	}))
+	defer server.Close()
+
+	plan := allowedPlan(server.URL)
+	plan.Endpoint = server.URL + "/v1beta/models/gemini-3.1-flash-image:generateContent"
+	plan.Transport = provider.AdapterGeminiImages
+	plan.InvocationAdapter = provider.AdapterGeminiImages
+	result, err := Execute(context.Background(), plan, "server-secret", server.Client())
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+	if len(result.Images) != 1 || result.Images[0].B64JSON != "aW1hZ2U=" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
 func TestExecuteReturnsSafeUpstreamError(t *testing.T) {
 	const token = "server-secret-never-log"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

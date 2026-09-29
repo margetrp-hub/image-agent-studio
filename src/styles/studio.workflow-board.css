@@ -1,0 +1,538 @@
+.studioLayout .creationDesk .workflowViewSwitch {
+  min-height: 40px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(14px);
+}
+
+.studioLayout .creationDesk .workflowViewSwitch button {
+  min-height: 30px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 780;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.studioLayout .creationDesk .workflowViewSwitch button:hover {
+  color: var(--studio-text);
+}
+
+.studioLayout .creationDesk .workflowViewSwitch button.active {
+  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong));
+  color: var(--studio-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--studio-primary) 24%, transparent);
+}
+
+.studioLayout .creationDesk.workflowBoardMode .workPreview.workflowBoardPreview {
+  cursor: default;
+  touch-action: auto;
+  user-select: text;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 7%, transparent), transparent 180px),
+    var(--studio-bg);
+}
+
+/* The recoverable queue is draggable, but its default anchor must leave the
+   workflow mode switch usable when both are visible. */
+.studioLayout .creationDesk.workflowBoardMode .canvasQueueDock {
+  top: 88px !important;
+}
+
+.studioLayout .workflowStoryboard {
+  position: absolute;
+  inset: 78px 18px 176px;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  color: var(--studio-text);
+}
+
+.studioLayout .creationDesk:not(.composerOpen) .workflowStoryboard {
+  bottom: 18px;
+}
+
+.studioLayout .creationDesk.composerFolded .workflowStoryboard {
+  bottom: 76px;
+}
+
+.workflowStoryboardHead {
+  min-height: 54px;
+  padding: 0 4px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.workflowStoryboardHead > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.workflowStoryboardHead strong {
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflowEyebrow {
+  color: var(--studio-primary);
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.workflowStats,
+.workflowPrimaryActions,
+.workflowShotActions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.workflowStats span {
+  min-height: 28px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 66%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 76%, transparent);
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.workflowStats span.isActive {
+  border-color: color-mix(in srgb, var(--studio-primary) 36%, transparent);
+  color: var(--studio-primary);
+}
+
+.workflowPrimaryActions button,
+.workflowEmpty button,
+.workflowBatchDialog button {
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.workflowPrimaryActions button.primary,
+.workflowBatchDialog button.primary {
+  border-color: var(--studio-primary);
+  background: var(--studio-primary);
+  color: #fff;
+}
+
+.workflowPrimaryActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.workflowStageTrack {
+  min-height: 34px;
+  padding: 0 10px;
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr) auto minmax(24px, 1fr) auto minmax(24px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-block: 1px solid color-mix(in srgb, var(--studio-border) 60%, transparent);
+}
+
+.workflowStageTrack span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.workflowStageTrack span.done {
+  color: var(--studio-primary);
+}
+
+.workflowStageTrack i {
+  height: 1px;
+  background: var(--studio-border);
+}
+
+.workflowScenes {
+  min-height: 0;
+  padding: 0 5px 18px 2px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.workflowScene {
+  padding: 14px 0 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 62%, transparent);
+}
+
+.workflowScene:first-child {
+  padding-top: 4px;
+}
+
+.workflowSceneHead {
+  min-height: 40px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workflowSceneHead > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.workflowSceneHead span,
+.workflowSceneHead em {
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 740;
+}
+
+.workflowSceneHead strong {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflowShotRail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.workflowShot {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 132px minmax(68px, auto) 38px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 76%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.workflowShot:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--studio-primary) 34%, var(--studio-border));
+}
+
+.workflowShot.selected {
+  border-color: var(--studio-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--studio-primary) 14%, transparent);
+}
+
+.workflowShotMedia {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--studio-bg) 72%, #111827);
+  cursor: pointer;
+}
+
+.workflowShotMedia img,
+.workflowShotMedia video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.workflowShotMedia > span,
+.workflowShotMedia > em {
+  position: absolute;
+  top: 8px;
+  min-height: 22px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.76);
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 820;
+  backdrop-filter: blur(8px);
+}
+
+.workflowShotMedia > span {
+  left: 8px;
+}
+
+.workflowShotMedia > em {
+  right: 8px;
+}
+
+.workflowShotCheck {
+  position: absolute;
+  top: 103px;
+  right: 8px;
+  z-index: 2;
+  width: 25px !important;
+  min-width: 25px !important;
+  max-width: 25px !important;
+  height: 25px !important;
+  min-height: 25px !important;
+  max-height: 25px !important;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  color: transparent;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(6px);
+}
+
+.workflowShotCheck.checked {
+  border-color: var(--studio-primary);
+  background: var(--studio-primary);
+  color: #fff;
+}
+
+.workflowShotBody {
+  min-width: 0;
+  padding: 10px 11px 6px;
+}
+
+.workflowShotBody strong {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflowShotBody p {
+  margin: 5px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.workflowShotActions {
+  padding: 5px 8px 7px;
+  justify-content: flex-end;
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 48%, transparent);
+}
+
+.workflowShotActions button {
+  min-height: 27px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.workflowShotActions button:hover {
+  background: var(--studio-surface-hover);
+  color: var(--studio-text);
+}
+
+.workflowShotActions button.primary {
+  background: color-mix(in srgb, var(--studio-primary) 12%, transparent);
+  color: var(--studio-primary);
+}
+
+.workflowEmpty {
+  min-height: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: var(--studio-muted);
+  text-align: center;
+}
+
+.workflowEmpty > span {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 50%;
+  background: var(--studio-surface-strong);
+  color: var(--studio-primary);
+}
+
+.workflowEmpty strong {
+  color: var(--studio-text);
+  font-size: 15px;
+}
+
+.workflowBatchBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.34);
+  backdrop-filter: blur(8px);
+}
+
+.workflowBatchDialog {
+  width: min(460px, 100%);
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-strong);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.workflowBatchDialog > div:first-child {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.workflowBatchDialog > div:first-child > span {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-primary) 14%, transparent);
+  color: var(--studio-primary);
+}
+
+.workflowBatchDialog p {
+  margin: 4px 0 0;
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.workflowBatchDialog dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.workflowBatchDialog dl div {
+  padding: 10px;
+  border-radius: 7px;
+  background: var(--studio-surface-soft);
+}
+
+.workflowBatchDialog dt {
+  color: var(--studio-muted);
+  font-size: 10px;
+}
+
+.workflowBatchDialog dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.workflowBatchDialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 980px) {
+  .studioLayout .workflowStoryboard {
+    inset-inline: 12px;
+  }
+
+  .workflowStoryboardHead {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .workflowStats {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .studioLayout .workflowStoryboard {
+    top: 124px;
+    bottom: 150px;
+  }
+
+  .workflowStoryboardHead {
+    min-height: 86px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .workflowPrimaryActions {
+    width: 100%;
+  }
+
+  .workflowPrimaryActions button {
+    flex: 1 1 0;
+  }
+
+  .workflowStageTrack {
+    display: none;
+  }
+
+  .workflowShotRail {
+    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  }
+}

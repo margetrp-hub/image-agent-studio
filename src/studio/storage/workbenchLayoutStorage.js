@@ -14,7 +14,8 @@ const DEFAULT_LAYOUT = Object.freeze({
   bottomComposer: true,
   composerParameters: false,
   composerFolded: false,
-  flowMode: 'single'
+  flowMode: 'single',
+  workflowView: 'board'
 });
 
 export function loadWorkbenchLayout() {
@@ -31,7 +32,11 @@ export function loadWorkbenchLayout() {
       bottomComposer: stored?.bottomComposer !== false,
       composerParameters: false,
       composerFolded: stored?.composerFolded === true,
-      flowMode: stored?.flowMode === 'canvas' ? 'canvas' : 'single'
+      flowMode: stored?.flowMode === 'canvas' ? 'canvas' : 'single',
+      workflowView: stored?.workflowView === 'canvas'
+        || (stored?.flowMode === 'canvas' && stored?.workflowView == null)
+        ? 'canvas'
+        : 'board'
     };
   } catch {
     return { ...DEFAULT_LAYOUT };

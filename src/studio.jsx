@@ -14,10 +14,12 @@ import {
   Images,
   KeyRound,
   LoaderCircle,
+  LayoutList,
   LogOut,
   Languages,
   MessageSquareText,
   Moon,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -79,6 +81,7 @@ import './styles/studio.playground-polish.css';
 import './styles/studio.flow-modes.css';
 import './styles/studio.composer-state-polish.css';
 import './styles/studio.canvas-composer-refinement.css';
+import './styles/studio.workflow-board.css';
 import './styles/studio.typography.css';
 import {
   bootstrapEmbeddedSession,
@@ -222,6 +225,7 @@ import {
 import { Topbar } from './studio/components/topbar.jsx';
 import { AccountBillingDialog } from './studio/components/accountBillingDialog.jsx';
 import { CanvasNodeCard } from './studio/components/canvasNodeCard.jsx';
+import { WorkflowStoryboard } from './studio/components/workflowStoryboard.jsx';
 import {
   CreativeRecipeBar,
   PromptSectionList
@@ -248,6 +252,7 @@ import {
   resultExtension,
   resultVideoExtension
 } from './studio/util/resultFiles.js';
+import { shareGenerationResult } from './studio/util/share.js';
 import {
   currentSessionProject,
   groupHistorySessions,
@@ -690,8 +695,13 @@ function WorkbenchModeSwitch({ activeWorkspace, onChange, t }) {
 
 function WorkflowModeSwitch({ activeMode, onChange, t }) {
   const items = [
-    { value: 'single', label: t('workspace.singleGeneration', '单次生图'), icon: Sparkles },
-    { value: 'canvas', label: t('workspace.infiniteCanvas', '无限画布'), icon: SquarePen }
+    { value: 'single', label: t('workspace.quickGeneration', '快速生成'), icon: Sparkles },
+    {
+      value: 'canvas',
+      label: t('workspace.creativeWorkflow', '创作工作流'),
+      ariaLabel: t('workspace.creativeWorkflowAria', '创作工作流（无限画布）'),
+      icon: SquarePen
+    }
   ];
 
   return (
@@ -704,12 +714,43 @@ function WorkflowModeSwitch({ activeMode, onChange, t }) {
             type="button"
             className={active ? 'active' : ''}
             key={item.value}
+            aria-label={item.ariaLabel || item.label}
             onClick={() => {
               if (!active) onChange(item.value);
             }}
             aria-pressed={active}
           >
             <Icon size={15} />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WorkflowViewSwitch({ activeView, onChange, t }) {
+  const items = [
+    { value: 'board', label: t('workspace.storyboardView', '分镜'), icon: LayoutList },
+    { value: 'canvas', label: t('workspace.canvasView', '画布'), icon: Network }
+  ];
+
+  return (
+    <div className="workflowViewSwitch" role="group" aria-label={t('workspace.workflowView', '工作流视图')}>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = activeView === item.value;
+        return (
+          <button
+            type="button"
+            className={active ? 'active' : ''}
+            key={item.value}
+            onClick={() => {
+              if (!active) onChange(item.value);
+            }}
+            aria-pressed={active}
+          >
+            <Icon size={14} />
             <span>{item.label}</span>
           </button>
         );
@@ -917,9 +958,15 @@ function CreationDesk({
     composerParameters: false
   });
   const workspaceFlowMode = layoutSections.flowMode === 'single' ? 'single' : 'canvas';
+  const workflowView = layoutSections.workflowView === 'canvas' ? 'canvas' : 'board';
+  const workflowCanvasActive = workspaceFlowMode === 'canvas' && workflowView === 'canvas';
   const switchWorkflowMode = (nextMode) => {
     if (nextMode === workspaceFlowMode) return;
     updateLayoutSections({ flowMode: nextMode });
+  };
+  const switchWorkflowView = (nextView) => {
+    if (nextView === workflowView) return;
+    updateLayoutSections({ workflowView: nextView });
   };
 
   useEffect(() => {
@@ -1064,6 +1111,40 @@ function CreationDesk({
     outputFormat,
     id: timing?.startedAt || selectedHistory?.id || selectedCase?.id || ''
   };
+
+  async function handleShareResult(url, index = 0, shareMeta = currentDownloadMeta) {
+    if (!url && !shareMeta?.prompt) return;
+    try {
+      const result = await shareGenerationResult({
+        url,
+        index,
+        outputFormat: shareMeta?.outputFormat || outputFormat,
+        meta: {
+          ...currentDownloadMeta,
+          ...(shareMeta || {}),
+          model: shareMeta?.model || shareMeta?.providerId || model,
+          aspectRatio: shareMeta?.aspectRatio || shareMeta?.aspect || aspect,
+          size: shareMeta?.size || size,
+          quality: shareMeta?.quality || quality,
+          resolutionTier: shareMeta?.resolutionTier || resolutionTier,
+          outputFormat: shareMeta?.outputFormat || outputFormat,
+          count: shareMeta?.count ?? countValue,
+          referenceCount: shareMeta?.referenceCount ?? referenceItems.length
+        },
+        title: t('canvas.shareTitle', 'AI 生图')
+      });
+      if (result === 'unavailable') return;
+      setStatus('success');
+      setMessage(result === 'shared'
+        ? t('statusMessages.resultShared', '已打开系统分享。')
+        : t('statusMessages.resultShareCopied', '分享内容已复制到剪贴板。'));
+      window.setTimeout(() => setStatus((current) => current === 'success' ? 'idle' : current), 1600);
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      setStatus('error');
+      setMessage(t('statusMessages.resultShareFailed', '分享失败，请重试。'));
+    }
+  }
   const visiblePromptPresets = (promptPresets || PROMPT_PRESETS).filter((item) => item.mode === mode);
   const referenceFiles = referenceItems.map((item) => item.file);
   const isImageEditMode = mode === 'edit' || mode === 'mask';
@@ -3100,12 +3181,18 @@ function CreationDesk({
       providerId: activeMode === 'video'
         ? activeVideoModel
         : activeModel,
+      model: activeMode === 'video' ? activeVideoModel : activeModel,
       createdAt: new Date(startedAt).toISOString(),
       prompt: basePrompt,
+      generationPrompt: basePrompt,
       size: activeSize,
       quality: activeQuality,
       resolutionTier: activeResolutionTier,
       outputFormat: activeOutputFormat,
+      aspectRatio: activeMode === 'video' ? activeVideoAspect : (task?.aspectRatio || task?.aspect || aspect),
+      moderation: normalizedActiveModeration,
+      count: activeCount,
+      referenceCount: activeReferenceFiles.length,
       sessionId,
       id: generationId,
       batchId: task?.batchId || '',
@@ -3180,9 +3267,14 @@ function CreationDesk({
         let payload = null;
         let urls = [];
         let persistedResultUrls = [];
+        let activeVideoInputFiles = activeVideoReferenceFiles;
+        if (!activeVideoInputFiles.length && activeSelectedNode?.kind !== 'video' && activeSelectedNode?.url) {
+          activeVideoInputFiles = await selectedCanvasReferenceFiles(activeSelectedNode);
+          if (!isCurrentRequest()) return false;
+        }
         if (STUDIO_STANDALONE) {
           const historyClient = createHistoryClient({ session: loadSession() });
-          const jobImages = await generationFilesForJob(activeVideoReferenceFiles, 1);
+          const jobImages = await generationFilesForJob(activeVideoInputFiles, 1);
           const job = await historyClient.createGenerationJob(buildServerVideoGenerationJobPayload({
             serverManaged: STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual',
             apiKey: providerRequest.apiKey,
@@ -3250,8 +3342,8 @@ function CreationDesk({
             setTiming((current) => current ? { ...current, firstByteAt } : current);
           }
         } else {
-          const referenceImage = activeVideoReferenceFiles[0]
-            ? await fileToDataUrl(activeVideoReferenceFiles[0])
+          const referenceImage = activeVideoInputFiles[0]
+            ? await fileToDataUrl(activeVideoInputFiles[0])
             : '';
           if (!isCurrentRequest()) return false;
           payload = await client.generateVideo({
@@ -3376,6 +3468,11 @@ function CreationDesk({
         ? withReferenceRoleHint(basePrompt, activeReferenceItems, t)
         : basePrompt;
       const effectivePrompt = withResolutionHint(promptWithRoleHint, normalizedActiveResolutionTier, t);
+      generationMeta.generationPrompt = effectivePrompt;
+      generationMeta.referenceCount = editReferenceFiles.length;
+      setResultBatchMeta((current) => current?.id === generationMeta.id
+        ? { ...current, generationPrompt: effectivePrompt, referenceCount: editReferenceFiles.length }
+        : current);
       let payload = null;
       let urls = [];
       let persistedResultUrls = [];
@@ -3933,9 +4030,61 @@ function CreationDesk({
   const singleReferenceLimit = isVideoSingleMode ? 1 : IMAGE_REFERENCE_LIMIT;
   const singleReferenceDropActive = isVideoSingleMode ? videoDropActive : referenceDropActive;
   const singleResultCount = isVideoSingleMode ? videoResults.length : results.length;
+  const openWorkflowComposerForNode = (node, nextMode = node?.kind === 'video' ? 'video' : 'image') => {
+    if (!node) return;
+    setSelectedCanvasNodeId(node.id);
+    setMode(nextMode);
+    setPrompt(nextMode === 'video'
+      ? t('workflow.defaultVideoInstruction', '基于这个关键帧生成连贯镜头，保持人物、场景、光线和构图一致。')
+      : '');
+    updateLayoutSections({
+      bottomComposer: true,
+      composerFolded: false,
+      composerParameters: false
+    });
+  };
+  const prepareWorkflowImageBatch = () => {
+    setSelectedCanvasNodeId('');
+    setMode('image');
+    setCount(clampCountForProvider(4, currentImageProvider, normalizeCount));
+    updateLayoutSections({
+      bottomComposer: true,
+      composerFolded: false,
+      composerParameters: false
+    });
+    setStatus('idle');
+    setMessage(t('workflow.imageBatchReady', '已切到批量图片设置，填写提示词后可一次生成多张关键帧。'));
+  };
+  const enqueueWorkflowVideoBatch = (nodes) => {
+    const targets = (Array.isArray(nodes) ? nodes : []).filter((node) => node?.kind !== 'video' && node?.url);
+    if (!targets.length) return;
+    const instruction = t('workflow.defaultVideoInstruction', '基于这个关键帧生成连贯镜头，保持人物、场景、光线和构图一致。');
+    const batchId = createGenerationTaskId();
+    let accepted = 0;
+    targets.forEach((node, index) => {
+      const plan = buildCanvasContinuationPlan(node, instruction, { mode: 'video' });
+      const task = buildGenerationTask({
+        mode: 'video',
+        prompt: plan.generationPrompt,
+        rawPrompt: instruction,
+        workflow: plan.workflow,
+        selectedCanvasNodeId: node.id,
+        selectedCanvasNodeSnapshot: { ...node },
+        videoReferenceFiles: [],
+        batchId,
+        batchIndex: index,
+        batchTotal: targets.length
+      });
+      if (enqueueGenerationTask(task)) accepted += 1;
+    });
+    if (accepted) {
+      setMode('video');
+      setMessage(t('workflow.batchQueued', '已提交 {count} 个图生视频任务。', { count: accepted }));
+    }
+  };
 
   return (
-    <section className={`creationDesk ${workspaceFlowMode === 'single' ? 'singleFlowMode' : 'canvasFlowMode'} ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
+    <section className={`creationDesk ${workspaceFlowMode === 'single' ? 'singleFlowMode' : `canvasFlowMode ${workflowCanvasActive ? 'workflowCanvasMode' : 'workflowBoardMode'}`} ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
       <GenerationQueueDock
         items={activeGenerationQueueItems}
         t={t}
@@ -3947,11 +4096,11 @@ function CreationDesk({
       />
       <div
         ref={workPreviewRef}
-        className={`workPreview infiniteCanvas ${workspaceFlowMode === 'single' ? 'singleGenerationPreview' : 'canvasGenerationPreview'} ${hasPrimaryResult ? 'hasResult' : ''} ${canvasPerformanceMode ? 'performanceMode' : ''}`}
-        onPointerDown={workspaceFlowMode === 'canvas' ? startCanvasPan : undefined}
-        onPointerMove={workspaceFlowMode === 'canvas' ? moveCanvasPan : undefined}
-        onPointerUp={workspaceFlowMode === 'canvas' ? endCanvasPan : undefined}
-        onPointerCancel={workspaceFlowMode === 'canvas' ? endCanvasPan : undefined}
+        className={`workPreview infiniteCanvas ${workspaceFlowMode === 'single' ? 'singleGenerationPreview' : workflowCanvasActive ? 'canvasGenerationPreview' : 'workflowBoardPreview'} ${hasPrimaryResult ? 'hasResult' : ''} ${canvasPerformanceMode ? 'performanceMode' : ''}`}
+        onPointerDown={workflowCanvasActive ? startCanvasPan : undefined}
+        onPointerMove={workflowCanvasActive ? moveCanvasPan : undefined}
+        onPointerUp={workflowCanvasActive ? endCanvasPan : undefined}
+        onPointerCancel={workflowCanvasActive ? endCanvasPan : undefined}
       >
         <div className="workbenchTopControls">
           <WorkflowModeSwitch
@@ -3959,13 +4108,18 @@ function CreationDesk({
             onChange={switchWorkflowMode}
             t={t}
           />
-        <WorkbenchModeSwitch
-          activeWorkspace={activeWorkspace === 'video' ? 'video' : 'image'}
-          onChange={switchWorkbenchMode}
-          t={t}
-        />
+          {workspaceFlowMode === 'canvas' ? (
+            <WorkflowViewSwitch activeView={workflowView} onChange={switchWorkflowView} t={t} />
+          ) : (
+            <WorkbenchModeSwitch
+              activeWorkspace={activeWorkspace === 'video' ? 'video' : 'image'}
+              onChange={switchWorkbenchMode}
+              t={t}
+            />
+          )}
         </div>
         {workspaceFlowMode === 'canvas' ? (
+          workflowCanvasActive ? (
           <>
         <div className="canvasToolbar" aria-label={t('canvas.toolbar', '画布工具')}>
           <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label={t('canvas.zoomOut', '缩小画布')} title={`${t('canvas.zoomOut', '缩小画布')} Ctrl/Cmd + -`}>-</button>
@@ -4052,6 +4206,7 @@ function CreationDesk({
               onEditorPromptChange={setCanvasEditorPrompt}
               onEditorModeChange={changeCanvasEditorMode}
               onPreview={previewCanvasNode}
+              onShare={handleShareResult}
               onSetAsReference={setCanvasNodeAsReference}
               onCopyPrompt={copyCanvasNodePrompt}
               onDelete={deleteCanvasNode}
@@ -4093,6 +4248,23 @@ function CreationDesk({
           )}
         </div>
           </>
+          ) : (
+            <WorkflowStoryboard
+              nodes={canvasNodes}
+              queueItems={activeGenerationQueueItems}
+              selectedNodeId={selectedCanvasNodeId}
+              videoModel={videoModel}
+              videoAspect={videoAspect}
+              videoDuration={`${videoDuration}s`}
+              t={t}
+              onSelect={(node) => setSelectedCanvasNodeId(node.id)}
+              onPreview={previewCanvasNode}
+              onContinue={(node) => openWorkflowComposerForNode(node)}
+              onPrepareVideo={(node) => openWorkflowComposerForNode(node, 'video')}
+              onStartImageBatch={prepareWorkflowImageBatch}
+              onBatchVideo={enqueueWorkflowVideoBatch}
+            />
+          )
         ) : (
           <div className="singleGenerationWorkspace">
             <div className="singleGenerationShell">
@@ -4394,9 +4566,9 @@ function CreationDesk({
                     </div>
                   </div>
                   {isVideoSingleMode ? (
-                    <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} t={t} />
+                    <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} onShare={handleShareResult} t={t} />
                   ) : (
-                    <ResultGrid urls={results} featured carousel outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
+                    <ResultGrid urls={results} featured carousel outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} onShare={handleShareResult} t={t} />
                   )}
                 </section>
               </div>
@@ -5142,9 +5314,9 @@ function CreationDesk({
           <span>{hasPrimaryResult ? t('composer.resultCount', '共 {count} 张', { count: mode === 'video' ? videoResults.length : results.length }) : t('composer.pending', '待生成')}</span>
         </div>
         {mode === 'video' ? (
-          <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} t={t} />
+          <VideoResultGrid urls={videoResults} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewVideo({ url, index })} onShare={handleShareResult} t={t} />
         ) : (
-          <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} t={t} />
+          <ResultGrid urls={results} outputFormat={outputFormat} downloadMeta={currentDownloadMeta} onPreview={(url, index) => setPreviewImage({ url, index })} onShare={handleShareResult} t={t} />
         )}
       </section>
       <BottomComposerPanel
@@ -5333,6 +5505,7 @@ function CreationDesk({
         outputFormat={outputFormat}
         downloadMeta={previewImage?.downloadMeta || currentDownloadMeta}
         t={t}
+        onShare={handleShareResult}
         onClose={() => setPreviewImage(null)}
       />
       <VideoLightbox

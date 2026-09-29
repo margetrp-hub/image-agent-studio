@@ -40,23 +40,33 @@ type Server struct {
 	startedAt        time.Time
 	executionMu      sync.Mutex
 	executionCancels map[string]context.CancelFunc
+	recoveredJobs    int
 }
 
 func NewServer(cfg config.Config, studioStore *store.Store) *Server {
 	server := &Server{cfg: cfg, store: studioStore, events: jobevents.New(64, 16), startedAt: time.Now().UTC(), executionCancels: make(map[string]context.CancelFunc)}
+	recovered, recoveryErr := studioStore.RecoverInterruptedJobs()
+	server.recoveredJobs = len(recovered)
+	if recoveryErr != nil {
+		server.initErr = recoveryErr
+	}
 	if strings.TrimSpace(cfg.DataDir) != "" {
 		assetStore, err := assets.New(filepath.Join(cfg.DataDir, "studio-go", "assets"), cfg.AssetMaxBytes)
 		server.assets = assetStore
-		server.initErr = err
+		if err != nil && server.initErr == nil {
+			server.initErr = err
+		}
 	}
 	if strings.TrimSpace(cfg.MasterKey) != "" {
 		key, err := cfg.MasterKeyBytes()
 		if err != nil {
-			server.initErr = err
+			if server.initErr == nil {
+				server.initErr = err
+			}
 		} else {
 			vault, vaultErr := secrets.New(key, cfg.MasterKeyVersion)
 			server.vault = vault
-			if server.initErr == nil {
+			if vaultErr != nil && server.initErr == nil {
 				server.initErr = vaultErr
 			}
 		}
@@ -124,6 +134,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/studio-api/generation-jobs/") && strings.HasSuffix(path, "/execute"):
 		jobID := strings.TrimSuffix(strings.TrimPrefix(path, "/studio-api/generation-jobs/"), "/execute")
 		s.handleGenerationJobExecute(w, r, jobID)
+	case strings.HasPrefix(path, "/studio-api/generation-jobs/") && strings.HasSuffix(path, "/retry"):
+		jobID := strings.TrimSuffix(strings.TrimPrefix(path, "/studio-api/generation-jobs/"), "/retry")
+		s.handleGenerationJobRetry(w, r, jobID)
 	case strings.HasPrefix(path, "/studio-api/generation-jobs/"):
 		s.handleGenerationJob(w, r, strings.TrimPrefix(path, "/studio-api/generation-jobs/"))
 	case path == "/studio-api/providers":
@@ -367,6 +380,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"assetStoreReady":                 s.assets != nil,
 		"personalProviderEncryptionReady": s.vault != nil,
 		"providerMode":                    "admin-provider-links",
+		"recoveredInterruptedJobs":        s.recoveredJobs,
 	})
 }
 
@@ -647,6 +661,37 @@ func (s *Server) handleGenerationJob(w http.ResponseWriter, r *http.Request, job
 	}
 }
 
+func (s *Server) handleGenerationJobRetry(w http.ResponseWriter, r *http.Request, jobID string) {
+	user, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "METHOD_NOT_ALLOWED"})
+		return
+	}
+	retry, found, err := s.store.RetryJob(user, jobID, 120)
+	if err != nil {
+		status := http.StatusConflict
+		if errors.Is(err, store.ErrJobNotRetryable) {
+			writeJSON(w, status, map[string]any{"ok": false, "error": "JOB_NOT_RETRYABLE"})
+			return
+		}
+		if errors.Is(err, store.ErrJobRetryActive) {
+			writeJSON(w, status, map[string]any{"ok": false, "error": "JOB_RETRY_ALREADY_ACTIVE", "job": retry})
+			return
+		}
+		writeError(w, err)
+		return
+	}
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "GENERATION_JOB_NOT_FOUND"})
+		return
+	}
+	s.events.Publish(user.ID, retry.ID, jobevents.EventType(store.JobStatusQueued), retry)
+	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "job": retry})
+}
+
 func (s *Server) handleGenerationJobEvents(w http.ResponseWriter, r *http.Request, jobID string) {
 	user, ok := s.requireUser(w, r)
 	if !ok {
@@ -780,13 +825,24 @@ func (s *Server) handleGenerationJobExecute(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	job, found, err = s.store.TransitionJob(user, job.ID, store.JobStatusDispatching, nil, nil)
+	job, found, claimed, err := s.store.ClaimJob(user, job.ID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	if !found {
 		writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "GENERATION_JOB_NOT_FOUND"})
+		return
+	}
+	if !claimed {
+		switch job.Status {
+		case store.JobStatusCompleted:
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "job": job, "duplicate": true})
+		case store.JobStatusDispatching, store.JobStatusUpstream, store.JobStatusSaving:
+			writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "job": job, "duplicate": true})
+		default:
+			writeJSON(w, http.StatusConflict, map[string]any{"ok": false, "error": "JOB_NOT_EXECUTABLE", "job": job})
+		}
 		return
 	}
 	s.events.Publish(user.ID, job.ID, jobevents.EventType(store.JobStatusDispatching), job)
@@ -1319,16 +1375,17 @@ func (s *Server) handleProviderConnectionModels(w http.ResponseWriter, r *http.R
 	if token == "" {
 		token = credentials.AccessToken
 	}
-	endpoint := strings.TrimRight(connection.ModelBaseURL, "/")
-	if !strings.HasSuffix(endpoint, "/models") {
-		endpoint += "/models"
-	}
+	endpoint := providerModelsEndpoint(store.ProviderLink{
+		ProviderType: connection.ProviderType,
+		BaseURL:      connection.BaseURL,
+		ModelBaseURL: connection.ModelBaseURL,
+	})
 	client, err := newPersonalProviderHTTPClient(r.Context(), endpoint, s.cfg.AllowPrivateProviderURLs)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "PROVIDER_URL_NOT_ALLOWED"})
 		return
 	}
-	models, upstreamStatus, upstreamBody, err := fetchProviderModels(r.Context(), endpoint, token, client)
+	models, upstreamStatus, upstreamBody, err := fetchProviderModels(r.Context(), endpoint, connection.ProviderType, token, client)
 	if err != nil {
 		if upstreamStatus != 0 {
 			writeJSON(w, http.StatusBadGateway, map[string]any{
@@ -1347,7 +1404,7 @@ func (s *Server) handleProviderConnectionModels(w http.ResponseWriter, r *http.R
 	})
 }
 
-func fetchProviderModels(parent context.Context, endpoint, token string, client *http.Client) ([]map[string]any, int, string, error) {
+func fetchProviderModels(parent context.Context, endpoint, providerType, token string, client *http.Client) ([]map[string]any, int, string, error) {
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" || token == "" {
 		return nil, 0, "", errors.New("provider model configuration invalid")
@@ -1359,7 +1416,7 @@ func fetchProviderModels(parent context.Context, endpoint, token string, client 
 		return nil, 0, "", err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
+	setProviderAuthHeaders(req.Header, providerType, token)
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -1424,7 +1481,7 @@ func (s *Server) handleProviderModels(w http.ResponseWriter, r *http.Request, pr
 		return
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
+	setProviderAuthHeaders(req.Header, link.ProviderType, token)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1559,10 +1616,27 @@ func providerModelsEndpoint(link store.ProviderLink) string {
 	if base == "" {
 		return ""
 	}
+	if strings.EqualFold(strings.TrimSpace(link.ProviderType), "gemini-compatible") {
+		if strings.HasSuffix(base, "/models") {
+			return base
+		}
+		if strings.HasSuffix(base, "/v1beta") {
+			return base + "/models"
+		}
+		base = strings.TrimSuffix(base, "/v1")
+		return base + "/v1beta/models"
+	}
 	if strings.HasSuffix(base, "/models") {
 		return base
 	}
 	return base + "/models"
+}
+
+func setProviderAuthHeaders(headers http.Header, providerType, token string) {
+	headers.Set("Authorization", "Bearer "+token)
+	if strings.EqualFold(strings.TrimSpace(providerType), "gemini-compatible") {
+		headers.Set("X-Goog-Api-Key", token)
+	}
 }
 
 func providerAuthToken(link store.ProviderLink) string {
@@ -1578,14 +1652,24 @@ func providerAuthToken(link store.ProviderLink) string {
 
 func parseProviderModels(body []byte) ([]map[string]any, error) {
 	var payload struct {
-		Data []map[string]any `json:"data"`
+		Data   []map[string]any `json:"data"`
+		Models []map[string]any `json:"models"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, err
 	}
-	models := make([]map[string]any, 0, len(payload.Data))
-	for _, item := range payload.Data {
+	sources := payload.Data
+	if len(sources) == 0 {
+		sources = payload.Models
+	}
+	models := make([]map[string]any, 0, len(sources))
+	for _, item := range sources {
 		id, _ := item["id"].(string)
+		if strings.TrimSpace(id) == "" {
+			if name, ok := item["name"].(string); ok {
+				id = strings.TrimPrefix(name, "models/")
+			}
+		}
 		id = strings.TrimSpace(id)
 		if id == "" {
 			continue
@@ -1593,7 +1677,7 @@ func parseProviderModels(body []byte) ([]map[string]any, error) {
 		model := map[string]any{"id": id}
 		for _, key := range []string{
 			"name", "label", "model", "object", "type", "category", "mode", "modality", "endpoint",
-			"capabilities", "capability", "features", "supported_generation_types", "supportedGenerationTypes", "created",
+			"capabilities", "capability", "features", "supported_generation_types", "supportedGenerationTypes", "supportedGenerationMethods", "created",
 		} {
 			if value, ok := item[key]; ok {
 				model[key] = value

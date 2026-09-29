@@ -32,6 +32,9 @@ func TestResolveInvocationUsesProviderAndModelProtocol(t *testing.T) {
 		adapter  string
 	}{
 		{provider: "openai-compatible", model: "gpt-image-2", mode: "image", adapter: AdapterOpenAIImages},
+		{provider: "openai-compatible", model: "gemini-2.5-flash-image", mode: "image", adapter: AdapterOpenAIChatImage},
+		{provider: "sub2api-compatible", model: "nano-banana", mode: "image", adapter: AdapterOpenAIChatImage},
+		{provider: "gemini-compatible", model: "gemini-3.1-flash-image", mode: "image", adapter: AdapterGeminiImages},
 		{provider: "xai-compatible", model: "grok-imagine-image", mode: "image", adapter: AdapterXAIImages},
 		{provider: "xai-compatible", model: "grok-imagine-video", mode: "video", adapter: AdapterXAIVideos},
 		{provider: "newapi-compatible", model: "veo-3.1-generate-preview", mode: "video", adapter: AdapterNewAPITaskVideo},
@@ -41,6 +44,13 @@ func TestResolveInvocationUsesProviderAndModelProtocol(t *testing.T) {
 		if decision.Status != "verified" || decision.Adapter != item.adapter {
 			t.Fatalf("unexpected decision for %#v: %#v", item, decision)
 		}
+	}
+}
+
+func TestResolveInvocationKeepsChatImageProtocolOutOfXAI(t *testing.T) {
+	decision := ResolveInvocation("xai-compatible", "gemini-2.5-flash-image", "image", nil)
+	if decision.Status != "unsupported" || decision.Adapter != "" {
+		t.Fatalf("unexpected decision: %#v", decision)
 	}
 }
 

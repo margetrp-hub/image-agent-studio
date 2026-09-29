@@ -517,6 +517,9 @@ export function SettingsPanel({
               {providerChoices.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
             </select>
           </label>
+          <p className="settingsHint providerTypeHint">
+            {t(`settings.providerSetupHint.${currentProvider?.id || 'default'}`, t('settings.providerSetupHint.default', '填写接口地址和密钥后同步模型。'))}
+          </p>
         </div>
 
         <div className="manualFields providerIdentityFields">

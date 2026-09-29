@@ -5,6 +5,7 @@ import "strings"
 const (
 	AdapterOpenAIImages    = "openai-images"
 	AdapterOpenAIChatImage = "openai-chat-images"
+	AdapterGeminiImages    = "gemini-images"
 	AdapterXAIImages       = "xai-images"
 	AdapterOpenAIVideos    = "openai-videos"
 	AdapterXAIVideos       = "xai-videos"
@@ -50,7 +51,10 @@ func ResolveInvocation(providerType, modelID, mode string, _ map[string]any) Inv
 		if providerType == "xai-compatible" && isXAIImageModel(model) {
 			return verifiedInvocation(AdapterXAIImages)
 		}
-		if providerType == "newapi-compatible" && isChatImageModel(model) {
+		if providerType == "gemini-compatible" && isGeminiImageModel(model) {
+			return verifiedInvocation(AdapterGeminiImages)
+		}
+		if supportsOpenAIChatImageRoute(providerType) && isChatImageModel(model) {
 			return verifiedInvocation(AdapterOpenAIChatImage)
 		}
 		if supportsOpenAIImageRoute(providerType) && isDirectImageModel(model) {
@@ -90,6 +94,15 @@ func supportsOpenAIImageRoute(providerType string) bool {
 	}
 }
 
+func supportsOpenAIChatImageRoute(providerType string) bool {
+	switch providerType {
+	case "openai-compatible", "newapi-compatible", "sub2api-compatible":
+		return true
+	default:
+		return false
+	}
+}
+
 func supportsOpenAIVideoRoute(providerType string) bool {
 	switch providerType {
 	case "openai-compatible", "newapi-compatible", "sub2api-compatible":
@@ -104,7 +117,7 @@ func supportsNewAPITaskRoute(providerType string) bool {
 }
 
 func isDirectImageModel(model string) bool {
-  return containsAny(model,
+	return containsAny(model,
 		"gpt-image", "dall-e", "dall_e", "grok-imagine-image", "imagen-",
 		"seedream", "flux", "ideogram", "recraft", "stable-diffusion", "stable_diffusion",
 		"sdxl", "sd3", "doubao-image", "doubao_image", "qwen-image", "qwen_image",
@@ -115,6 +128,10 @@ func isDirectImageModel(model string) bool {
 func isChatImageModel(model string) bool {
 	return strings.Contains(model, "nano-banana") || strings.Contains(model, "nano_banana") ||
 		(strings.Contains(model, "gemini") && strings.Contains(model, "image"))
+}
+
+func isGeminiImageModel(model string) bool {
+	return strings.Contains(model, "gemini") && strings.Contains(model, "image")
 }
 
 func isXAIImageModel(model string) bool {

@@ -43,6 +43,7 @@ const expectedCssImports = [
   './styles/studio.flow-modes.css',
   './styles/studio.composer-state-polish.css',
   './styles/studio.canvas-composer-refinement.css',
+  './styles/studio.workflow-board.css',
   './styles/studio.typography.css'
 ];
 const lazyCssImports = [
@@ -233,6 +234,10 @@ const cssBudgets = {
   'src/styles/studio.canvas-composer-refinement.css': {
     lines: 220,
     important: 90
+  },
+  'src/styles/studio.workflow-board.css': {
+    lines: 539,
+    important: 7
   },
   'src/styles/studio.typography.css': {
     lines: 80,

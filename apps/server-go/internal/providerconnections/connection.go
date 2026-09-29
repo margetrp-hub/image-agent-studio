@@ -195,7 +195,7 @@ func Public(connection Connection) PublicConnection {
 
 func ProviderTypeAllowed(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "newapi-compatible", "sub2api-compatible", "openai-compatible", "xai-compatible":
+	case "newapi-compatible", "sub2api-compatible", "openai-compatible", "xai-compatible", "gemini-compatible":
 		return true
 	default:
 		return false

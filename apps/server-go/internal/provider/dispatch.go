@@ -3,6 +3,7 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/margetrp-hub/image-agent-studio/apps/server-go/internal/store"
@@ -94,6 +95,21 @@ func BuildImageGenerationPlan(link store.ProviderLink, job store.GenerationJob, 
 			}
 		}
 	}
+	if decision.Adapter == AdapterGeminiImages {
+		endpoint = geminiGenerateContentEndpoint(baseURL, model)
+		generationConfig := map[string]any{
+			"responseModalities": []string{"TEXT", "IMAGE"},
+		}
+		if aspectRatio := aspectRatioFromJob(job); aspectRatio != "" {
+			generationConfig["imageConfig"] = map[string]any{"aspectRatio": aspectRatio}
+		}
+		body = map[string]any{
+			"contents": []map[string]any{{
+				"parts": []map[string]any{{"text": prompt}},
+			}},
+			"generationConfig": generationConfig,
+		}
+	}
 	if decision.Adapter == AdapterXAIImages {
 		body["response_format"] = "b64_json"
 		if aspectRatio := aspectRatioFromJob(job); aspectRatio != "" {
@@ -112,6 +128,14 @@ func BuildImageGenerationPlan(link store.ProviderLink, job store.GenerationJob, 
 		SecretConfigured:  secretConfigured,
 		Body:              body,
 	}, nil
+}
+
+func geminiGenerateContentEndpoint(baseURL, model string) string {
+	base := strings.TrimRight(baseURL, "/")
+	if strings.HasSuffix(base, "/v1beta") {
+		return base + "/models/" + url.PathEscape(model) + ":generateContent"
+	}
+	return base + "/v1beta/models/" + url.PathEscape(model) + ":generateContent"
 }
 
 func BuildVideoGenerationPlan(link store.ProviderLink, job store.GenerationJob, secretConfigured bool) (DispatchPlan, error) {

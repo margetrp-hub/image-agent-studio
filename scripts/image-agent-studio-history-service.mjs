@@ -1471,8 +1471,11 @@ function sanitizeWorkflow(workflow) {
   return { rootPrompt, lineage };
 }
 
-function normalizeGatewayBaseUrl(value) {
+function normalizeGatewayBaseUrl(value, providerType = '') {
   const raw = String(value || AI_GATEWAY_BASE_URL).replace(/\/+$/, '');
+  if (providerType === 'gemini-compatible') {
+    return raw.replace(/\/v1(?:beta)?$/i, '');
+  }
   if (raw.endsWith('/v1')) return raw;
   return `${raw}/v1`;
 }
@@ -1491,12 +1494,14 @@ function standaloneProviderRuntime(request = {}, userId = '') {
       error.status = 403;
       throw error;
     }
+    const providerType = request.providerType || request.providerId || 'openai-compatible';
+    const profile = providerProfile(providerType);
     const connection = standaloneAuthStore.getProviderConnectionRuntime(userId, connectionId);
     return {
       apiKey: connection.apiKey,
-      gatewayBaseUrl: connection.gatewayBaseUrl,
+      gatewayBaseUrl: normalizeGatewayBaseUrl(connection.gatewayBaseUrl, profile.type),
       connectionId: connection.connectionId,
-      profile: providerProfile(request.providerType || request.providerId || 'openai-compatible')
+      profile
     };
   }
   const manual = AUTH_MODE === 'standalone' && (USER_PROVIDER_ONLY || request.apiKeySource === 'manual');
@@ -1507,7 +1512,9 @@ function standaloneProviderRuntime(request = {}, userId = '') {
     error.status = 503;
     throw error;
   }
-  const gatewayBaseUrl = normalizeGatewayBaseUrl(configuredBaseUrl);
+  const providerType = manual ? request.providerType || request.providerId : PROVIDER_TYPE;
+  const profile = providerProfile(providerType);
+  const gatewayBaseUrl = normalizeGatewayBaseUrl(configuredBaseUrl, profile.type);
   let url;
   try {
     url = new URL(gatewayBaseUrl);
@@ -1524,12 +1531,12 @@ function standaloneProviderRuntime(request = {}, userId = '') {
   return {
     apiKey,
     gatewayBaseUrl: url.toString().replace(/\/+$/, ''),
-    profile: providerProfile(manual ? request.providerType || request.providerId : PROVIDER_TYPE)
+    profile
   };
 }
 
-function modelSyncEndpointUrl(gatewayBaseUrl) {
-  const base = normalizeGatewayBaseUrl(gatewayBaseUrl);
+function modelSyncEndpointUrl(gatewayBaseUrl, providerType = '') {
+  const base = normalizeGatewayBaseUrl(gatewayBaseUrl, providerType);
   let url;
   try {
     url = new URL(`${base}/models`);
@@ -1543,13 +1550,16 @@ function modelSyncEndpointUrl(gatewayBaseUrl) {
     error.status = 400;
     throw error;
   }
-  return url.toString();
+  if (providerType === 'gemini-compatible') {
+    return new URL(`${base}/v1beta/models`).toString();
+  }
+  return new URL(`${base}/models`).toString();
 }
 
-async function fetchGatewayModels(apiKey, gatewayBaseUrl, signal) {
-  const response = await undiciFetch(modelSyncEndpointUrl(gatewayBaseUrl), {
+async function fetchGatewayModels(apiKey, gatewayBaseUrl, providerType, signal) {
+  const response = await undiciFetch(modelSyncEndpointUrl(gatewayBaseUrl, providerType), {
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      ...providerAuthHeaders(apiKey, providerType),
       'Content-Type': 'application/json'
     },
     dispatcher: gatewayFetchAgent,
@@ -2119,7 +2129,9 @@ function buildJobInvocationPlan(job, runtime) {
 
 function providerPublicEndpoint(endpoint) {
   const value = String(endpoint || '');
-  return value.startsWith('/v1/') ? value : `/v1/${value.replace(/^\/+/, '')}`;
+  return value.startsWith('/v1/') || value.startsWith('/v1beta/')
+    ? value
+    : `/v1/${value.replace(/^\/+/, '')}`;
 }
 
 function buildProviderMultipartForm(plan, runtime, { includeVideoReference = false } = {}) {
@@ -2185,11 +2197,17 @@ async function writeHistoryRecordForJob(auth, job) {
   await writeRecords(auth, [record, ...records.filter((item) => item.id !== record.id)].slice(0, HISTORY_LIMIT));
 }
 
-async function postJsonToGateway(url, apiKey, body, clientRequestId, signal) {
+function providerAuthHeaders(apiKey, providerType = '') {
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  if (providerType === 'gemini-compatible') headers['X-Goog-Api-Key'] = apiKey;
+  return headers;
+}
+
+async function postJsonToGateway(url, apiKey, body, clientRequestId, signal, providerType = '') {
   const response = await undiciFetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      ...providerAuthHeaders(apiKey, providerType),
       'Content-Type': 'application/json',
       'X-Client-Request-ID': clientRequestId,
       'X-Request-ID': clientRequestId
@@ -2307,7 +2325,8 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       runtime.apiKey,
       plan.body,
       clientRequestId,
-      signal
+      signal,
+      runtime.profile?.type
     );
     const items = normalizeProviderImageItems(plan.adapter, payload);
     if (!items.length) {
@@ -2956,11 +2975,11 @@ async function handler(req, res) {
         ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime(body, auth.user.id));
       } else {
         apiKey = text(body.apiKey, 4000);
-        gatewayBaseUrl = body.gatewayBaseUrl || AI_GATEWAY_BASE_URL;
         profile = providerProfile(body.providerType || body.providerId);
+        gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || AI_GATEWAY_BASE_URL, profile.type);
       }
       if (!apiKey) return sendJson(res, 400, { ok: false, error: 'MODEL_SYNC_API_KEY_REQUIRED' });
-      const models = await fetchGatewayModels(apiKey, gatewayBaseUrl, req.signal);
+      const models = await fetchGatewayModels(apiKey, gatewayBaseUrl, profile.type, req.signal);
       return sendJson(res, 200, { ok: true, models: annotateProviderModels(models, profile.type) });
     }
 

@@ -165,6 +165,7 @@ function startService(port, providerPort) {
       STUDIO_PROVIDER_BASE_URL: `http://127.0.0.1:${providerPort}`,
       STUDIO_PROVIDER_API_KEY: providerKey,
       STUDIO_PROVIDER_TYPE: 'newapi-compatible',
+      STUDIO_USER_PROVIDER_ONLY: 'false',
       STUDIO_VIDEO_POLL_INTERVAL_MS: '100',
       STUDIO_ALLOWED_ORIGINS: 'http://127.0.0.1'
     },

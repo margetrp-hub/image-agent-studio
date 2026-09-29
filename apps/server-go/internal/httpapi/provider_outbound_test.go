@@ -104,7 +104,7 @@ func TestPersonalProviderModelSyncDoesNotFollowRedirects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("private provider opt-in was not preserved: %v", err)
 	}
-	_, status, _, err := fetchProviderModels(context.Background(), redirect.URL+"/models", "provider-secret", client)
+	_, status, _, err := fetchProviderModels(context.Background(), redirect.URL+"/models", "openai-compatible", "provider-secret", client)
 	if err == nil || status != http.StatusTemporaryRedirect {
 		t.Fatalf("expected redirect response to remain upstream failure, status=%d err=%v", status, err)
 	}

@@ -114,22 +114,25 @@ type HistoryPage struct {
 }
 
 type GenerationJob struct {
-	ID          string         `json:"id"`
-	SessionID   string         `json:"sessionId"`
-	Status      string         `json:"status"`
-	Stage       string         `json:"stage"`
-	Mode        string         `json:"mode"`
-	Route       string         `json:"route"`
-	ProviderID  string         `json:"providerId"`
-	Model       string         `json:"model"`
-	Prompt      string         `json:"prompt"`
-	Fingerprint string         `json:"fingerprint"`
-	Request     map[string]any `json:"request,omitempty"`
-	Error       map[string]any `json:"error,omitempty"`
-	ResultURLs  []string       `json:"resultUrls"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	CompletedAt *time.Time     `json:"completedAt,omitempty"`
+	ID            string         `json:"id"`
+	SessionID     string         `json:"sessionId"`
+	Attempt       int            `json:"attempt"`
+	RetryOf       string         `json:"retryOf,omitempty"`
+	RecoveryCount int            `json:"recoveryCount,omitempty"`
+	Status        string         `json:"status"`
+	Stage         string         `json:"stage"`
+	Mode          string         `json:"mode"`
+	Route         string         `json:"route"`
+	ProviderID    string         `json:"providerId"`
+	Model         string         `json:"model"`
+	Prompt        string         `json:"prompt"`
+	Fingerprint   string         `json:"fingerprint"`
+	Request       map[string]any `json:"request,omitempty"`
+	Error         map[string]any `json:"error,omitempty"`
+	ResultURLs    []string       `json:"resultUrls"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	CompletedAt   *time.Time     `json:"completedAt,omitempty"`
 }
 
 type JobPage struct {
@@ -1174,7 +1177,7 @@ func normalizeProviderLink(link ProviderLink) ProviderLink {
 
 func providerTypeAllowed(value string) bool {
 	switch value {
-	case "newapi-compatible", "sub2api-compatible", "openai-compatible", "xai-compatible":
+	case "newapi-compatible", "sub2api-compatible", "openai-compatible", "xai-compatible", "gemini-compatible":
 		return true
 	default:
 		return false
@@ -1213,9 +1216,15 @@ func stripSecretList(items []any) []any {
 }
 
 func generationJobFromRequest(request map[string]any) GenerationJob {
+	attempt := intFromMap(request, "attempt")
+	if attempt < 1 {
+		attempt = 1
+	}
 	return GenerationJob{
 		ID:          cleanID(stringFromMap(request, "id")),
 		SessionID:   cleanID(stringFromMap(request, "sessionId")),
+		Attempt:     attempt,
+		RetryOf:     cleanID(stringFromMap(request, "retryOf")),
 		Mode:        stringFromMap(request, "mode"),
 		Route:       stringFromMap(request, "route"),
 		ProviderID:  stringFromMap(request, "providerId"),
@@ -1223,6 +1232,19 @@ func generationJobFromRequest(request map[string]any) GenerationJob {
 		Prompt:      stringFromMap(request, "prompt"),
 		Fingerprint: stringFromMap(request, "fingerprint"),
 		ResultURLs:  []string{},
+	}
+}
+
+func intFromMap(source map[string]any, key string) int {
+	switch value := source[key].(type) {
+	case int:
+		return value
+	case int64:
+		return int(value)
+	case float64:
+		return int(value)
+	default:
+		return 0
 	}
 }
 

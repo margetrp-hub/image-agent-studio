@@ -77,6 +77,7 @@ try {
   await page.locator('.sideProjectOpen').first().click();
   await page.waitForTimeout(600);
   await page.getByRole('button', { name: /无限画布/ }).click();
+  await page.locator('.workflowViewSwitch').getByRole('button', { name: '画布' }).click();
   await page.waitForTimeout(400);
 
   const canvasResult = await page.evaluate(() => {
@@ -124,6 +125,23 @@ try {
   await queuePage.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await queuePage.waitForSelector('.sideProjectList', { timeout: 8000 });
   await queuePage.getByRole('button', { name: /无限画布/ }).click();
+  const queueSwitchBounds = await queuePage.evaluate(() => {
+    const queue = document.querySelector('.canvasQueueDock');
+    const viewSwitch = document.querySelector('.workflowViewSwitch');
+    const rect = (node) => {
+      const bounds = node?.getBoundingClientRect();
+      return bounds ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height } : null;
+    };
+    return { queue: rect(queue), viewSwitch: rect(viewSwitch) };
+  });
+  const queueOverlapsSwitch = queueSwitchBounds.queue && queueSwitchBounds.viewSwitch
+    ? queueSwitchBounds.queue.x < queueSwitchBounds.viewSwitch.x + queueSwitchBounds.viewSwitch.width
+      && queueSwitchBounds.queue.x + queueSwitchBounds.queue.width > queueSwitchBounds.viewSwitch.x
+      && queueSwitchBounds.queue.y < queueSwitchBounds.viewSwitch.y + queueSwitchBounds.viewSwitch.height
+      && queueSwitchBounds.queue.y + queueSwitchBounds.queue.height > queueSwitchBounds.viewSwitch.y
+    : false;
+  assert(!queueOverlapsSwitch, 'Recoverable queue must not cover the workflow view switch.', queueSwitchBounds);
+  await queuePage.locator('.workflowViewSwitch').getByRole('button', { name: '画布' }).click();
   await queuePage.waitForTimeout(400);
   const queueProjectResult = await queuePage.evaluate(() => ({
     projectItems: document.querySelectorAll('.sideProjectItem').length,
@@ -143,7 +161,8 @@ try {
     screenshotPath,
     sidebarResult,
     canvasResult,
-    queueProjectResult
+    queueProjectResult,
+    queueSwitchBounds
   }, null, 2));
 } finally {
   if (browser) await browser.close();

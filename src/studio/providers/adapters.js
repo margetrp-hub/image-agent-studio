@@ -73,11 +73,13 @@ export function resolveProviderAdapter({ providerId, authMode } = {}) {
         adapterType: adapterTypeForProvider(provider),
         mode: 'generation',
         method: 'POST',
-        transport: dispatch.transport,
+        transport: provider?.id === 'gemini-compatible' ? 'gemini-images' : dispatch.transport,
         routeMode: dispatch.routeMode,
         endpoint: dispatch.endpoint,
         allowImagesFallback: dispatch.allowImagesFallback,
-        payloadFormat: dispatch.transport === PROVIDER_ROUTE_MODES.RESPONSES
+        payloadFormat: provider?.id === 'gemini-compatible'
+          ? 'gemini-json'
+          : dispatch.transport === PROVIDER_ROUTE_MODES.RESPONSES
           ? 'responses-json'
           : provider?.parameters?.imageGenerationPayload || 'images-json'
       };
@@ -92,11 +94,11 @@ export function resolveProviderAdapter({ providerId, authMode } = {}) {
         adapterType: adapterTypeForProvider(provider),
         mode: 'edit',
         method: 'POST',
-        transport: dispatch.transport,
+        transport: provider?.id === 'gemini-compatible' ? 'gemini-images' : dispatch.transport,
         routeMode: dispatch.routeMode,
         endpoint: dispatch.endpoint,
         allowImagesFallback: false,
-        payloadFormat: 'multipart'
+        payloadFormat: provider?.id === 'gemini-compatible' ? 'gemini-json' : 'multipart'
       };
     },
     buildVideoPlan() {

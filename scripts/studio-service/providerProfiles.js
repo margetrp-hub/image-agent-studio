@@ -2,6 +2,7 @@ const PROVIDER_TYPES = new Set([
   'openai-compatible',
   'newapi-compatible',
   'sub2api-compatible',
+  'gemini-compatible',
   'xai-compatible',
   'video-compatible'
 ]);
@@ -9,6 +10,7 @@ const PROVIDER_TYPES = new Set([
 export const PROVIDER_INVOCATION_ADAPTERS = Object.freeze({
   OPENAI_IMAGES: 'openai-images',
   OPENAI_CHAT_IMAGES: 'openai-chat-images',
+  GEMINI_IMAGES: 'gemini-images',
   XAI_IMAGES: 'xai-images',
   OPENAI_VIDEOS: 'openai-videos',
   XAI_VIDEOS: 'xai-videos',
@@ -34,10 +36,13 @@ export function resolveProviderInvocation(providerType, modelId, mode) {
     if (['xai-compatible', 'video-compatible'].includes(type) && model.includes('grok') && model.includes('image')) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.XAI_IMAGES);
     }
+    if (type === 'gemini-compatible' && isGeminiImageModel(model)) {
+      return verified(PROVIDER_INVOCATION_ADAPTERS.GEMINI_IMAGES);
+    }
     if (type === 'video-compatible' && isDirectImageModel(model)) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.OPENAI_IMAGES);
     }
-    if (type === 'newapi-compatible' && isChatImageModel(model)) {
+    if (supportsOpenAIChatImageRoute(type) && isChatImageModel(model)) {
       return verified(PROVIDER_INVOCATION_ADAPTERS.OPENAI_CHAT_IMAGES);
     }
     if (['openai-compatible', 'newapi-compatible', 'sub2api-compatible'].includes(type) && isDirectImageModel(model)) {
@@ -69,9 +74,10 @@ export function resolveProviderInvocation(providerType, modelId, mode) {
 export function annotateProviderModels(payload, providerType) {
   const annotate = (item) => {
     const model = typeof item === 'string' ? { id: item } : { ...item };
-    const id = model.id || model.name || model.model || '';
+    const id = String(model.id || model.name || model.model || '').replace(/^models\//, '');
     return {
       ...model,
+      id,
       discoveryStatus: 'discovered',
       invocations: {
         image: resolveProviderInvocation(providerType, id, 'image'),
@@ -81,12 +87,30 @@ export function annotateProviderModels(payload, providerType) {
   };
   if (Array.isArray(payload)) return payload.map(annotate);
   if (Array.isArray(payload?.data)) return { ...payload, data: payload.data.map(annotate) };
+  if (Array.isArray(payload?.models)) return { ...payload, models: payload.models.map(annotate) };
   return payload;
 }
 
 export function buildProviderImageGenerationPlan(profile, job, imageDataUrls = []) {
   const decision = requireVerifiedInvocation(profile, job, 'image');
   const prompt = job.generationPrompt || job.prompt;
+  if (decision.adapter === PROVIDER_INVOCATION_ADAPTERS.GEMINI_IMAGES) {
+    const parts = [{ text: prompt }, ...imageDataUrls.filter(Boolean).map(dataUrlToInlineData).filter(Boolean)];
+    const body = {
+      contents: [{ parts }],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE']
+      }
+    };
+    const aspectRatio = imageAspectRatio(job.size);
+    if (aspectRatio) body.generationConfig.imageConfig = { aspectRatio };
+    return {
+      ...decision,
+      endpoint: `/v1beta/models/${encodeURIComponent(job.model)}:generateContent`,
+      payloadFormat: 'json',
+      body
+    };
+  }
   if (decision.adapter === PROVIDER_INVOCATION_ADAPTERS.OPENAI_CHAT_IMAGES) {
     const references = imageDataUrls.filter(Boolean);
     const body = {
@@ -135,7 +159,7 @@ export function buildProviderImageGenerationPlan(profile, job, imageDataUrls = [
 
 export function buildProviderImageEditPlan(profile, job, imageDataUrls = []) {
   const decision = requireVerifiedInvocation(profile, job, 'image');
-  if (decision.adapter === PROVIDER_INVOCATION_ADAPTERS.OPENAI_CHAT_IMAGES) {
+  if ([PROVIDER_INVOCATION_ADAPTERS.OPENAI_CHAT_IMAGES, PROVIDER_INVOCATION_ADAPTERS.GEMINI_IMAGES].includes(decision.adapter)) {
     return buildProviderImageGenerationPlan(profile, job, imageDataUrls);
   }
   const model = String(job.model || '').toLowerCase();
@@ -220,6 +244,16 @@ export function buildProviderVideoGenerationPlan(profile, job, imageDataUrl = ''
 }
 
 export function normalizeProviderImageItems(adapter, payload) {
+  if (adapter === PROVIDER_INVOCATION_ADAPTERS.GEMINI_IMAGES) {
+    const items = [];
+    for (const candidate of payload?.candidates || []) {
+      for (const part of candidate?.content?.parts || []) {
+        const inline = part?.inlineData || part?.inline_data;
+        if (inline?.data) items.push({ b64_json: String(inline.data).replace(/\s+/g, '') });
+      }
+    }
+    return items;
+  }
   if (adapter !== PROVIDER_INVOCATION_ADAPTERS.OPENAI_CHAT_IMAGES) {
     return Array.isArray(payload?.data) ? payload.data : [];
   }
@@ -317,6 +351,10 @@ function containsAny(value, needles) {
   return needles.some((needle) => value.includes(needle));
 }
 
+function supportsOpenAIChatImageRoute(type) {
+  return ['openai-compatible', 'newapi-compatible', 'sub2api-compatible'].includes(type);
+}
+
 function isDirectImageModel(model) {
   return containsAny(model, [
     'gpt-image', 'dall-e', 'dall_e', 'grok-imagine-image', 'imagen-', 'seedream', 'flux',
@@ -328,6 +366,16 @@ function isDirectImageModel(model) {
 
 function isChatImageModel(model) {
   return model.includes('nano-banana') || model.includes('nano_banana') || (model.includes('gemini') && model.includes('image'));
+}
+
+function isGeminiImageModel(model) {
+  return model.includes('gemini') && model.includes('image');
+}
+
+function dataUrlToInlineData(value) {
+  const match = String(value || '').match(/^data:([^;,]+);base64,(.+)$/i);
+  if (!match) return null;
+  return { inlineData: { mimeType: match[1], data: match[2].replace(/\s+/g, '') } };
 }
 
 function isTaskVideoModel(model) {

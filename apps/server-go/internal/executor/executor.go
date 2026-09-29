@@ -68,6 +68,9 @@ func Execute(ctx context.Context, plan provider.DispatchPlan, bearerToken string
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	if plan.Transport == provider.AdapterGeminiImages {
+		req.Header.Set("X-Goog-Api-Key", bearerToken)
+	}
 
 	if client == nil {
 		client = http.DefaultClient
@@ -107,6 +110,15 @@ func Execute(ctx context.Context, plan provider.DispatchPlan, bearerToken string
 				Content any `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					InlineData struct {
+						Data string `json:"data"`
+					} `json:"inlineData"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
 	}
 	if err := json.Unmarshal(responseBody, &payload); err != nil {
 		return Result{}, &Error{Code: "EXECUTOR_UPSTREAM_RESPONSE_INVALID", cause: err}
@@ -121,6 +133,16 @@ func Execute(ctx context.Context, plan provider.DispatchPlan, bearerToken string
 	if plan.Transport == provider.AdapterOpenAIChatImage {
 		for _, choice := range payload.Choices {
 			result.Images = append(result.Images, imagesFromChatContent(choice.Message.Content)...)
+		}
+	}
+	if plan.Transport == provider.AdapterGeminiImages {
+		for _, candidate := range payload.Candidates {
+			for _, part := range candidate.Content.Parts {
+				data := strings.Join(strings.Fields(part.InlineData.Data), "")
+				if data != "" {
+					result.Images = append(result.Images, Image{B64JSON: data})
+				}
+			}
 		}
 	}
 	if len(result.Images) == 0 {
@@ -139,6 +161,11 @@ func validatePlan(plan provider.DispatchPlan) error {
 		allowedSuffix = "/images/generations"
 	case provider.AdapterOpenAIChatImage:
 		allowedSuffix = "/chat/completions"
+	case provider.AdapterGeminiImages:
+		endpoint, err := url.Parse(plan.Endpoint)
+		if err != nil || !strings.HasPrefix(endpoint.EscapedPath(), "/v1beta/models/") || !strings.HasSuffix(endpoint.EscapedPath(), ":generateContent") {
+			return &Error{Code: "EXECUTOR_PLAN_NOT_ALLOWED"}
+		}
 	default:
 		return &Error{Code: "EXECUTOR_PLAN_NOT_ALLOWED"}
 	}
@@ -149,7 +176,7 @@ func validatePlan(plan provider.DispatchPlan) error {
 	if err != nil || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return &Error{Code: "EXECUTOR_ENDPOINT_INVALID"}
 	}
-	if !strings.HasSuffix(strings.TrimRight(endpoint.EscapedPath(), "/"), allowedSuffix) {
+	if allowedSuffix != "" && !strings.HasSuffix(strings.TrimRight(endpoint.EscapedPath(), "/"), allowedSuffix) {
 		return &Error{Code: "EXECUTOR_PLAN_NOT_ALLOWED"}
 	}
 	return nil

@@ -125,6 +125,29 @@ func TestBuildImageGenerationPlanForNewAPIChatImage(t *testing.T) {
 	}
 }
 
+func TestBuildImageGenerationPlanForNativeGemini(t *testing.T) {
+	plan, err := BuildImageGenerationPlan(store.ProviderLink{
+		ID: "gemini", ProviderType: "gemini-compatible", BaseURL: "https://fast.example",
+	}, store.GenerationJob{
+		Mode: "image", Route: "generations", Model: "gemini-3.1-flash-image", Prompt: "Draw a cat",
+		Request: map[string]any{"size": "1024x1024"},
+	}, true)
+	if err != nil {
+		t.Fatalf("BuildImageGenerationPlan failed: %v", err)
+	}
+	if plan.Endpoint != "https://fast.example/v1beta/models/gemini-3.1-flash-image:generateContent" || plan.Transport != AdapterGeminiImages {
+		t.Fatalf("unexpected native Gemini plan: %#v", plan)
+	}
+	contents, ok := plan.Body["contents"].([]map[string]any)
+	if !ok || len(contents) != 1 {
+		t.Fatalf("unexpected native Gemini contents: %#v", plan.Body)
+	}
+	config, ok := plan.Body["generationConfig"].(map[string]any)
+	if !ok || config["responseModalities"].([]string)[1] != "IMAGE" {
+		t.Fatalf("unexpected native Gemini generation config: %#v", plan.Body)
+	}
+}
+
 func TestBuildVideoGenerationPlanForXAI(t *testing.T) {
 	plan, err := BuildGenerationPlan(store.ProviderLink{
 		ID: "xai-video", ProviderType: "xai-compatible", BaseURL: "https://fast.example/v1/",

@@ -60,6 +60,9 @@ export function buildGenerationTask(params, overrides = {}) {
   const taskReferenceItems = Array.isArray(overrides.referenceItems)
     ? overrides.referenceItems
     : referenceItems;
+  const taskVideoReferenceFiles = Array.isArray(overrides.videoReferenceFiles)
+    ? overrides.videoReferenceFiles
+    : videoReferenceFiles;
   const taskSelectedCanvasNode = overrides.selectedCanvasNodeSnapshot
     || (selectedCanvasNode ? { ...selectedCanvasNode } : null);
 
@@ -93,7 +96,7 @@ export function buildGenerationTask(params, overrides = {}) {
     videoQuality,
     negativePrompt,
     referenceItems: taskReferenceItems,
-    videoReferenceFiles,
+    videoReferenceFiles: taskVideoReferenceFiles,
     maskFile: taskMode === 'mask' ? (maskFile || null) : null,
     batchId: String(overrides.batchId || batchId || ''),
     batchIndex: Number.isInteger(overrides.batchIndex) ? overrides.batchIndex : batchIndex,

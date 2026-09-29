@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   annotateProviderModels,
   buildProviderImageEditPlan,
@@ -9,6 +10,9 @@ import {
 } from './studio-service/providerProfiles.js';
 
 const newApi = providerProfile('newapi-compatible');
+const customOpenAI = providerProfile('openai-compatible');
+const sub2api = providerProfile('sub2api-compatible');
+const gemini = providerProfile('gemini-compatible');
 const videoGateway = providerProfile('video-compatible');
 const annotated = annotateProviderModels({
   object: 'list',
@@ -31,6 +35,25 @@ assert.equal(annotated.data[3].invocations.video.adapter, 'openai-videos');
 assert.equal(annotated.data[4].invocations.video.adapter, 'newapi-task-video');
 assert.equal(annotated.data[5].discoveryStatus, 'discovered');
 assert.equal(annotated.data[5].invocations.image.status, 'unsupported');
+
+const customGemini = annotateProviderModels({
+  data: [{ id: 'gemini-2.5-flash-image' }]
+}, customOpenAI.type);
+assert.equal(customGemini.data[0].invocations.image.adapter, 'openai-chat-images');
+
+const sub2apiNano = annotateProviderModels({
+  data: [{ id: 'nano-banana' }]
+}, sub2api.type);
+assert.equal(sub2apiNano.data[0].invocations.image.adapter, 'openai-chat-images');
+
+const nativeGemini = annotateProviderModels({
+  models: [{ name: 'models/gemini-3.1-flash-image', supportedGenerationMethods: ['generateContent'] }]
+}, gemini.type);
+assert.equal(nativeGemini.models[0].id, 'gemini-3.1-flash-image');
+assert.equal(nativeGemini.models[0].invocations.image.adapter, 'gemini-images');
+
+assert.equal(annotateProviderModels({ data: [{ id: 'gemini-2.5-flash-image' }] }, 'xai-compatible')
+  .data[0].invocations.image.status, 'unsupported');
 
 const genericVideoGatewayModels = annotateProviderModels({
   data: [{ id: 'grok-imagine-image' }, { id: 'grok-imagine-video' }, { id: 'veo3' }]
@@ -58,6 +81,27 @@ assert.equal(nanoPlan.adapter, 'openai-chat-images');
 assert.equal(nanoPlan.body.stream, false);
 assert.equal(nanoPlan.body.messages[0].content[1].image_url.url, 'data:image/png;base64,aW1hZ2U=');
 assert.equal(nanoPlan.body.extra_body.google.image_config.aspect_ratio, '3:2');
+
+const customGeminiPlan = buildProviderImageGenerationPlan(customOpenAI, {
+  model: 'gemini-2.5-flash-image',
+  prompt: 'Generate a simple blue square.',
+  size: '1024x1024'
+});
+assert.equal(customGeminiPlan.endpoint, '/chat/completions');
+assert.equal(customGeminiPlan.adapter, 'openai-chat-images');
+
+const nativeGeminiPlan = buildProviderImageGenerationPlan(gemini, {
+  model: 'gemini-3.1-flash-image',
+  prompt: 'Generate a simple blue square.',
+  size: '1024x1024'
+});
+assert.equal(nativeGeminiPlan.endpoint, '/v1beta/models/gemini-3.1-flash-image:generateContent');
+assert.equal(nativeGeminiPlan.adapter, 'gemini-images');
+assert.deepEqual(nativeGeminiPlan.body.generationConfig.responseModalities, ['TEXT', 'IMAGE']);
+
+const historyServiceSource = readFileSync(new URL('./image-agent-studio-history-service.mjs', import.meta.url), 'utf8');
+assert.ok(historyServiceSource.includes("headers['X-Goog-Api-Key'] = apiKey"), 'native Gemini requests must include X-Goog-Api-Key');
+assert.ok(historyServiceSource.includes('runtime.profile?.type'), 'generation requests must pass provider type to auth header shaping');
 
 const nanoEditPlan = buildProviderImageEditPlan(newApi, {
   model: 'nano-banana-pro-preview',
@@ -126,5 +170,9 @@ assert.deepEqual(chatImages, [
   { b64_json: 'aW1hZ2Uy' },
   { b64_json: 'aW1hZ2Ux' }
 ]);
+
+assert.deepEqual(normalizeProviderImageItems('gemini-images', {
+  candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' } }] } }]
+}), [{ b64_json: 'aW1hZ2U=' }]);
 
 console.log('provider protocol contract passed');

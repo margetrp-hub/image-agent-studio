@@ -109,6 +109,7 @@ try {
   await page.locator('.historyWorkspaceHero .primaryAction').first().click();
   await page.waitForTimeout(600);
   await page.getByRole('button', { name: /无限画布/ }).click();
+  await page.locator('.workflowViewSwitch').getByRole('button', { name: '画布' }).click();
   await page.waitForTimeout(400);
   await page.screenshot({ path: afterPath, fullPage: true });
 

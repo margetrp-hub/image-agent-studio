@@ -33,7 +33,8 @@ export const PROVIDER_WORKSPACES = Object.freeze({
 });
 
 export const PROVIDER_ENDPOINT_STYLES = Object.freeze({
-  OPENAI_COMPATIBLE: 'openai-compatible'
+  OPENAI_COMPATIBLE: 'openai-compatible',
+  GEMINI_NATIVE: 'gemini-native'
 });
 
 const OPENAI_COMPATIBLE_ROUTES = Object.freeze({
@@ -63,6 +64,13 @@ const XAI_COMPATIBLE_ROUTES = Object.freeze({
   videoCreate: '/v1/videos/generations',
   videoRetrieve: '/v1/videos/{id}',
   videoContent: '/v1/videos/{id}/content'
+});
+
+const GEMINI_NATIVE_ROUTES = Object.freeze({
+  generations: '/v1beta/models/{model}:generateContent',
+  edits: '/v1beta/models/{model}:generateContent',
+  models: '/v1beta/models',
+  upscale: ''
 });
 
 const OPENAI_IMAGE_CAPABILITIES = Object.freeze({
@@ -115,6 +123,7 @@ function providerDescriptor({
   baseUrlExample = '',
   docsUrl = '',
   modelSync = false,
+  modelSyncEndpoint = '',
   modelSlots = [],
   accountBindingTypes = [],
   setupHint = '',
@@ -128,7 +137,7 @@ function providerDescriptor({
     docsUrl,
     modelSync: Object.freeze({
       supported: Boolean(modelSync),
-      endpoint: modelSync ? OPENAI_COMPATIBLE_ROUTES.models : ''
+      endpoint: modelSync ? modelSyncEndpoint || OPENAI_COMPATIBLE_ROUTES.models : ''
     }),
     modelSlots: freezeModelSlots(modelSlots),
     accountBindingTypes: Object.freeze([...accountBindingTypes]),
@@ -222,6 +231,39 @@ export const IMAGE_PROVIDER_REGISTRY = Object.freeze([
       ]),
       setupHint: 'Use a Grok-compatible /v1 endpoint. Images use /v1/images/generations; videos use /v1/videos/generations and are polled through /v1/videos/{id}.',
       notes: ['Grok-compatible image and asynchronous video routes with request_id and nested video.url responses.']
+    })
+  }),
+  Object.freeze({
+    id: 'gemini-compatible',
+    label: 'Google Gemini Image API',
+    authMode: PROVIDER_AUTH_MODES.MANUAL,
+    adapterType: PROVIDER_ADAPTER_TYPES.OPENAI_COMPATIBLE_HTTP,
+    routes: GEMINI_NATIVE_ROUTES,
+    capabilities: Object.freeze({
+      ...OPENAI_IMAGE_CAPABILITIES,
+      modelSync: true,
+      videoGeneration: false
+    }),
+    parameters: Object.freeze({
+      ...OPENAI_IMAGE_PARAMETERS,
+      defaultImageModel: 'gemini-3.1-flash-image',
+      defaultAssistantModel: 'gemini-3-flash',
+      imageGenerationPayload: 'gemini-json'
+    }),
+    descriptor: providerDescriptor({
+      endpointStyle: PROVIDER_ENDPOINT_STYLES.GEMINI_NATIVE,
+      authFields: MANUAL_AUTH_FIELDS,
+      baseUrlExample: 'https://generativelanguage.googleapis.com',
+      docsUrl: 'https://ai.google.dev/gemini-api/docs/image-generation',
+      modelSync: true,
+      modelSyncEndpoint: GEMINI_NATIVE_ROUTES.models,
+      workspaces: [PROVIDER_WORKSPACES.IMAGE],
+      modelSlots: freezeModelSlots([
+        { key: 'imageGenerationModel', label: 'Image generation', defaultModel: 'gemini-3.1-flash-image', route: 'generations' },
+        { key: 'imageEditModel', label: 'Image edit / reference', defaultModel: 'gemini-3.1-flash-image', route: 'edits' }
+      ]),
+      setupHint: 'Use a Gemini API endpoint root. The Studio calls /v1beta/models and /v1beta/models/{model}:generateContent.',
+      notes: ['Native Gemini generateContent transport with inline image parts; it is separate from OpenAI-compatible chat/completions.']
     })
   }),
   Object.freeze({
@@ -353,6 +395,7 @@ const PROVIDER_DISPLAY_ORDER = Object.freeze([
   'official-openai',
   'openai-compatible',
   'xai-compatible',
+  'gemini-compatible',
   'newapi-compatible',
   'gateway-account',
   'nano-banana-compatible',

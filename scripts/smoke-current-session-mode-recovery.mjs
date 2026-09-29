@@ -54,6 +54,7 @@ async function runScenario(browser, baseUrl, scenario) {
   await page.waitForTimeout(500);
   if (scenario.session.canvasNodes?.length || scenario.session.mode === 'mask') {
     await page.getByRole('button', { name: /无限画布/ }).click();
+    await page.locator('.workflowViewSwitch').getByRole('button', { name: '画布' }).click();
     await page.waitForTimeout(400);
   }
   await page.locator('.composerParamSummary').click().catch(() => {});
