@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, GripVertical, Redo2, X } from 'lucide-react';
+import { StudioModal, CopyTextButton } from './studioModal.jsx';
 
 const QUEUE_DOCK_STORAGE_KEY = 'image-agent-studio:generation-queue-dock:v1';
 
@@ -73,6 +74,7 @@ export function GenerationQueueDock({
 }) {
   const queueItems = Array.isArray(items) ? items : [];
   const [dockLayout, setDockLayout] = useState(loadDockLayout);
+  const [expandedErrorId, setExpandedErrorId] = useState(null);
   const [dragging, setDragging] = useState(false);
   const dockRef = useRef(null);
   const dragRef = useRef(null);
@@ -123,6 +125,14 @@ export function GenerationQueueDock({
   }, [dragging]);
 
   if (!queueItems.length) return null;
+  const errorItem = queueItems.find((item) => item.id === expandedErrorId);
+  const errorText = errorItem ? [...new Set([
+    queueSummary(errorItem, t, formatError),
+    errorItem.error?.message,
+    errorItem.error?.code,
+    errorItem.error?.status ? `HTTP ${errorItem.error.status}` : '',
+    errorItem.error?.requestId || errorItem.requestIds?.[0] || ''
+  ].filter(Boolean))].join('\n\n') : '';
 
   const handleDragStart = (event) => {
     if (event.button > 0 || event.target.closest('button')) return;
@@ -158,11 +168,24 @@ export function GenerationQueueDock({
       ? t('composer.cancelRunningTask', 'Stop this task')
       : t('composer.cancelQueuedTask', 'Cancel queued task');
 
+    const summary = queueSummary(item, t, formatError);
+    const isError = item.status === 'failed' || item.status === 'unknown';
+    const summaryNode = isError && summary ? (
+      <button
+        type="button"
+        className="canvasQueueErrorSummary"
+        onClick={() => setExpandedErrorId(item.id)}
+        aria-haspopup="dialog"
+        title={t('composer.viewErrorDetail', '查看错误详情')}
+      >
+        {t('composer.viewErrorDetail', '查看详情')}
+      </button>
+    ) : <p>{summary}</p>;
     return (
       <div className={`canvasQueueItem ${item.status}`} key={item.id}>
         <b>#{index + 1}</b>
         <span>{queueStatusLabel(item.status, t)}</span>
-        <p>{queueSummary(item, t, formatError)}</p>
+        {summaryNode}
         {canCancel ? (
           <button type="button" onClick={() => onCancel(item.id)} aria-label={cancelLabel} title={cancelLabel}>
             <X size={13} />
@@ -201,6 +224,7 @@ export function GenerationQueueDock({
     : undefined;
 
   return (
+    <>
     <div
       ref={dockRef}
       className={`canvasQueueDock ${dockLayout.position ? 'isPositioned' : ''} ${dragging ? 'isDragging' : ''}`}
@@ -233,5 +257,14 @@ export function GenerationQueueDock({
       </div>
       {!dockLayout.collapsed ? <div className="canvasQueueList">{renderQueueItems()}</div> : null}
     </div>
+    <StudioModal open={Boolean(errorItem)} onClose={() => setExpandedErrorId(null)} title={t('composer.viewErrorDetail', '查看错误详情')} className="studioErrorDialog">
+      <header>
+        <strong>{t('composer.viewErrorDetail', '查看错误详情')}</strong>
+        <CopyTextButton text={errorText} t={t} />
+        <button type="button" className="studioModalClose" onClick={() => setExpandedErrorId(null)} aria-label={t('settings.close', '关闭')}><X size={18} /></button>
+      </header>
+      <pre>{errorText}</pre>
+    </StudioModal>
+    </>
   );
 }

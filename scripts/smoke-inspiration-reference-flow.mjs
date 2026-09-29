@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
+const screenshotDir = 'output/playwright';
 const previewScreenshotPath = `${screenshotDir}/inspiration-reference-preview.png`;
 const referenceScreenshotPath = `${screenshotDir}/inspiration-reference-selected.png`;
 
@@ -96,8 +96,6 @@ try {
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.locator('[data-workspace="inspiration"]').first().click();
-  await page.waitForSelector('.categoryTile', { timeout: 8000 });
-  await page.locator('.categoryTile').first().click();
   await page.waitForSelector('.caseTile', { timeout: 8000 });
 
   await page.locator('.caseTileMain').first().click();
@@ -106,12 +104,14 @@ try {
 
   const previewResult = await page.evaluate(() => ({
     hasLightbox: Boolean(document.querySelector('.lightboxOverlay')),
+    overlayPosition: document.querySelector('.lightboxOverlay') ? getComputedStyle(document.querySelector('.lightboxOverlay')).position : '',
     activeWorkspace: document.querySelector('.sidePrimaryNav [data-workspace="inspiration"]')?.classList.contains('active'),
     hasReferencePanelSelection: Boolean(document.querySelector('.referenceSidePanel.isOpen .libraryReferencePreview')),
     lightboxImageSrc: document.querySelector('.lightboxOverlay .lightboxImageStage img')?.getAttribute('src') || '',
     body: document.body.innerText.slice(0, 1400)
   }));
   assert(previewResult.hasLightbox, 'Clicking an inspiration card should first open the preview lightbox.', previewResult);
+  assert(previewResult.overlayPosition === 'fixed', 'Inspiration preview should be an independent viewport overlay.', previewResult);
   assert(previewResult.activeWorkspace, 'Previewing an inspiration card should stay in the inspiration workspace.', previewResult);
   assert(!previewResult.hasReferencePanelSelection, 'Previewing should not immediately add the inspiration image to the right reference rail.', previewResult);
   assert(previewResult.lightboxImageSrc.includes('/images/reference-flow-full.png'), 'Preview lightbox should use the full-size inspiration image.', previewResult);

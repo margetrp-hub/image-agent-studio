@@ -82,6 +82,7 @@ import './styles/studio.flow-modes.css';
 import './styles/studio.composer-state-polish.css';
 import './styles/studio.canvas-composer-refinement.css';
 import './styles/studio.workflow-board.css';
+import './styles/studio.apple-refinement.css';
 import './styles/studio.typography.css';
 import {
   bootstrapEmbeddedSession,
@@ -252,7 +253,8 @@ import {
   resultExtension,
   resultVideoExtension
 } from './studio/util/resultFiles.js';
-import { shareGenerationResult } from './studio/util/share.js';
+import { buildCommunityInspirationDraft, prepareCommunityInspirationDraft, prepareShareImage } from './studio/util/share.js';
+import { PROMPT_MAX_LENGTH } from './studio/util/promptLimits.js';
 import {
   currentSessionProject,
   groupHistorySessions,
@@ -793,6 +795,7 @@ function CreationDesk({
   onOpenWorkspace,
   firstRunRequest,
   onFirstRunRequestConsumed,
+  onShareResult,
   focusSignal = 0,
   t
 }) {
@@ -1111,14 +1114,15 @@ function CreationDesk({
     outputFormat,
     id: timing?.startedAt || selectedHistory?.id || selectedCase?.id || ''
   };
-
   async function handleShareResult(url, index = 0, shareMeta = currentDownloadMeta) {
     if (!url && !shareMeta?.prompt) return;
     try {
-      const result = await shareGenerationResult({
-        url,
-        index,
-        outputFormat: shareMeta?.outputFormat || outputFormat,
+      const matchingNode = [...canvasNodesRef.current].reverse().find((node) => (
+        node?.url === url || node?.persistedUrl === url
+      ));
+      const draft = await prepareCommunityInspirationDraft({
+        url: matchingNode?.persistedUrl || url,
+       index,
         meta: {
           ...currentDownloadMeta,
           ...(shareMeta || {}),
@@ -1130,19 +1134,12 @@ function CreationDesk({
           outputFormat: shareMeta?.outputFormat || outputFormat,
           count: shareMeta?.count ?? countValue,
           referenceCount: shareMeta?.referenceCount ?? referenceItems.length
-        },
-        title: t('canvas.shareTitle', 'AI 生图')
+        }
       });
-      if (result === 'unavailable') return;
-      setStatus('success');
-      setMessage(result === 'shared'
-        ? t('statusMessages.resultShared', '已打开系统分享。')
-        : t('statusMessages.resultShareCopied', '分享内容已复制到剪贴板。'));
-      window.setTimeout(() => setStatus((current) => current === 'success' ? 'idle' : current), 1600);
+      await onShareResult?.(draft);
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       setStatus('error');
-      setMessage(t('statusMessages.resultShareFailed', '分享失败，请重试。'));
+      setMessage(t('statusMessages.resultShareFailed', '无法准备灵感投稿，请重试。'));
     }
   }
   const visiblePromptPresets = (promptPresets || PROMPT_PRESETS).filter((item) => item.mode === mode);
@@ -1163,8 +1160,8 @@ function CreationDesk({
   };
   const aspectLabel = (item) => (item.value === 'custom' ? t('params.manual', '手动') : item.label);
   const customSizeLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
-  const videoMotionLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
-  const videoStyleLabel = (item) => (item.value === 'auto' ? t('params.auto', '自动') : item.label);
+  const videoMotionLabel = (item) => t(`params.motionOptions.${item.value}`, item.label);
+  const videoStyleLabel = (item) => t(`params.styleOptions.${item.value}`, item.label);
   const moderationLabel = (value) => (value === 'auto' ? t('params.auto', '自动') : qualityLabel(value));
   const resolutionTierLabel = (item) => RESOLUTION_TIER_LABELS[item.value] || item.label;
   const imageCountSuffix = t('params.imageCountSuffix', '张');
@@ -2195,7 +2192,7 @@ function CreationDesk({
   useEffect(() => {
     if (!appendTemplateRequest?.prompt) return;
     setPrompt(appendTemplateRequest.prompt.trim());
-    updateLayoutSections({ bottomComposer: true });
+    updateLayoutSections({ bottomComposer: true, composerFolded: false });
     setStatus('success');
     setMessage(t('statusMessages.templateLoaded', '已载入独立提示词，可继续编辑。'));
     window.setTimeout(() => setStatus('idle'), 1200);
@@ -2839,6 +2836,11 @@ function CreationDesk({
   }
 
   function validateGenerationTask(task) {
+    if ([task.prompt, task.negativePrompt].some((value) => String(value || '').length > PROMPT_MAX_LENGTH)) {
+      setStatus('error');
+      setMessage(t('prompt.tooLong', '提示词超过 100,000 字符，请缩短后重试；原文未被截断。'));
+      return false;
+    }
     if (!task.prompt) {
       setStatus('error');
       setMessage(caseResolving
@@ -4086,7 +4088,9 @@ function CreationDesk({
   return (
     <section className={`creationDesk ${workspaceFlowMode === 'single' ? 'singleFlowMode' : `canvasFlowMode ${workflowCanvasActive ? 'workflowCanvasMode' : 'workflowBoardMode'}`} ${layoutSections.references ? 'referencesOpen' : ''} ${layoutSections.bottomComposer ? 'composerOpen' : ''} ${composerThreadHasContent ? 'composerHasThread' : ''} ${layoutSections.composerParameters === false ? 'composerParamsCollapsed' : ''} paramRailCollapsed ${composerFolded ? 'composerFolded' : ''}`}>
       <GenerationQueueDock
-        items={activeGenerationQueueItems}
+        items={workspaceFlowMode === 'single'
+          ? activeGenerationQueueItems.filter((item) => item.status !== 'done')
+          : activeGenerationQueueItems}
         t={t}
         formatError={generationErrorMessage}
         onAcknowledge={acknowledgeGenerationTask}
@@ -5512,6 +5516,8 @@ function CreationDesk({
         url={previewVideo?.url || previewVideo}
         index={previewVideo?.index || 0}
         downloadMeta={previewVideo?.downloadMeta || currentDownloadMeta}
+        onShare={handleShareResult}
+        t={t}
         onClose={() => setPreviewVideo('')}
       />
     </section>
@@ -5561,6 +5567,7 @@ function StudioApp() {
   const [firstRunOpen, setFirstRunOpen] = useState(false);
   const [firstRunRequest, setFirstRunRequest] = useState(null);
   const [inspirationUploadOpen, setInspirationUploadOpen] = useState(false);
+  const [inspirationUploadDraft, setInspirationUploadDraft] = useState(null);
   const [bootError, setBootError] = useState('');
   const [historyItems, setHistoryItems] = useState(() => loadHistory());
   const [historyStatus, setHistoryStatus] = useState('idle');
@@ -6251,36 +6258,70 @@ function StudioApp() {
 
   async function handleCreateCommunityPrompt(item) {
     const historyClient = createHistoryClient({ session });
-    const created = await historyClient.createCommunityPrompt(item);
+    let image = item.image;
+    if (/^\/studio-api\/(?:community-prompts|library-assets)\//.test(image || '')) {
+      const resolved = await historyClient.resolveAssetUrl(image);
+      try { image = await prepareShareImage(resolved); }
+      finally { if (resolved.startsWith('blob:')) URL.revokeObjectURL(resolved); }
+    }
+    const created = await historyClient.createCommunityPrompt({ ...item, image });
     if (!created) return;
     setSiteData((current) => ({
       ...(current || {}),
+      totalCases: Math.max(Number(current?.totalCases || 0) + 1, (current?.cases || []).length + 1),
+      categories: [...new Set([...(current?.categories || []), created.category].filter(Boolean))].sort(),
       cases: [created, ...((current?.cases || []).filter((caseItem) => String(caseItem.id) !== String(created.id)))]
     }));
     setCategory(created.category || 'Community Prompts');
     setActiveWorkspace('inspiration');
     setInspirationUploadOpen(false);
+    setInspirationUploadDraft(null);
+  }
+
+  async function handleOpenCommunityShare(draft) {
+    if (!session?.accessToken) {
+      await handleRequireLogin();
+      return;
+    }
+    setInspirationUploadDraft(draft || null);
+    setInspirationUploadOpen(true);
   }
 
   async function handleReactTemplate(item, action) {
-    if (action === 'copy') {
-      const prompt = item.prompt || item.promptPreview || item.summary || '';
-      if (prompt) await navigator.clipboard?.writeText(prompt).catch(() => {});
+    try {
+      if (action === 'copy' || action === 'share') {
+        const resolved = await resolveLibraryCase(item, { updateSelection: false });
+        if (action === 'share') {
+          await handleOpenCommunityShare(buildCommunityInspirationDraft({
+            url: resolved.image || '', title: resolved.title,
+            meta: { ...resolved.generation, ...resolved, prompt: resolved.prompt }
+          }));
+          return;
+        }
+        if (resolved.prompt) await navigator.clipboard.writeText(resolved.prompt);
+      }
+      if (!String(item?.id || '').startsWith('share-')) return;
+      const historyClient = createHistoryClient({ session });
+      if (action === 'withdraw') {
+        if (!window.confirm(t('gallery.withdrawConfirmation', '撤回这条公开分享？其他用户将无法继续查看，已下载或复制的内容无法收回。'))) return;
+        await historyClient.withdrawCommunityPrompt(item.id);
+        setSiteData((current) => current?.cases ? ({
+          ...current,
+          totalCases: Math.max(0, Number(current.totalCases || 0) - 1),
+          cases: current.cases.filter((entry) => String(entry.id) !== String(item.id))
+        }) : current);
+        setSelectedCase((current) => String(current?.id) === String(item.id) ? null : current);
+        return;
+      }
+      const updated = await historyClient.reactCommunityPrompt(item.id, action);
+      if (!updated) return;
+      setSiteData((current) => current?.cases ? ({
+        ...current,
+        cases: current.cases.map((caseItem) => String(caseItem.id) === String(updated.id) ? { ...caseItem, ...updated } : caseItem)
+      }) : current);
+    } catch (error) {
+      window.alert(`${t('gallery.actionFailed', '操作未完成，请重试。')}\n${error?.message || ''}`);
     }
-    if (action === 'share') {
-      const prompt = item.prompt || item.promptPreview || item.summary || '';
-      const shareText = `${item.title || 'Prompt'}\n\n${prompt}`;
-      if (navigator.share) await navigator.share({ title: item.title || 'Prompt', text: shareText }).catch(() => {});
-      else if (prompt) await navigator.clipboard?.writeText(shareText);
-    }
-    if (!String(item?.id || '').startsWith('share-')) return;
-    const historyClient = createHistoryClient({ session });
-    const updated = await historyClient.reactCommunityPrompt(item.id, action).catch(() => null);
-    if (!updated) return;
-    setSiteData((current) => current?.cases ? ({
-      ...current,
-      cases: current.cases.map((caseItem) => String(caseItem.id) === String(updated.id) ? { ...caseItem, ...updated } : caseItem)
-    }) : current);
   }
 
   function handleToggleTemplateFavorite(item) {
@@ -6543,6 +6584,7 @@ function StudioApp() {
             onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
             firstRunRequest={firstRunRequest}
             onFirstRunRequestConsumed={(requestId) => setFirstRunRequest((current) => current?.id === requestId ? null : current)}
+            onShareResult={handleOpenCommunityShare}
             focusSignal={canvasFocusSignal}
             t={t}
           />
@@ -6576,7 +6618,8 @@ function StudioApp() {
               onToggleTemplateFavorite={handleToggleTemplateFavorite}
               onReactTemplate={handleReactTemplate}
               onAppendTemplate={handleAppendTemplate}
-              onOpenUpload={() => setInspirationUploadOpen(true)}
+              onOpenUpload={() => { setInspirationUploadDraft(null); setInspirationUploadOpen(true); }}
+              onShareResult={handleOpenCommunityShare}
               licenseNotice={siteData?.license}
               onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
               t={t}
@@ -6612,7 +6655,8 @@ function StudioApp() {
               onToggleTemplateFavorite={handleToggleTemplateFavorite}
               onReactTemplate={handleReactTemplate}
               onAppendTemplate={handleAppendTemplate}
-              onOpenUpload={() => setInspirationUploadOpen(true)}
+              onOpenUpload={() => { setInspirationUploadDraft(null); setInspirationUploadOpen(true); }}
+              onShareResult={handleOpenCommunityShare}
               licenseNotice={siteData?.license}
               onOpenWorkspace={(workspace) => handleWorkspaceChange(workspace, { preserveHistory: true })}
               t={t}
@@ -6669,7 +6713,8 @@ function StudioApp() {
         <React.Suspense fallback={null}>
           <InspirationUploadDialog
             open={inspirationUploadOpen}
-            onClose={() => setInspirationUploadOpen(false)}
+            initialValue={inspirationUploadDraft}
+            onClose={() => { setInspirationUploadOpen(false); setInspirationUploadDraft(null); }}
             onSubmit={handleCreateCommunityPrompt}
             t={t}
           />

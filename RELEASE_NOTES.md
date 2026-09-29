@@ -1,5 +1,56 @@
 ﻿# Release Notes
 
+## 1.0.28
+
+This release makes inspiration publishing explicit and strengthens data durability.
+
+- Saves remain private by default. Confirmed public shares are visible across signed-in accounts, support per-user voting and author withdrawal, and never expose account identifiers.
+- Public media owns an independent copy. New remote links are converted to uploads when readable, with replacement uploads for expired links. Deleting old history preserves media used by existing private shares.
+- Main prompt fields preserve up to 100,000 JavaScript characters and reject larger inputs explicitly instead of truncating them at 12,000.
+- Task deduplication includes reference content, masks, provider settings, and video parameters; the service computes its own SHA-256 fingerprint instead of trusting the browser.
+- Backup restores use a staged journal and whole-operation rollback after failures or process interruption. Personal restores do not republish global shares.
+- Requests check cancellation before dispatch, avoiding a pre-aborted multipart upload crash.
+- Minimal development dependency updates address the reported xmldom and fast-uri audit findings.
+
+Verification coverage includes cross-account publication/access/withdrawal, concurrent voting,
+prompt boundaries, media lifetime, input-aware deduplication, mobile sharing controls, and
+restore failure/process-exit injection at all 11 file-switch positions. The file backend
+still requires a single writer. Restore is not an fsync/power-loss transaction; existing
+private shares are not automatically published. Real paid generation and Go compilation
+are outside this release's verification.
+
+## 1.0.27
+
+This release hardens persistence, shared media, backup validation, and preview dialogs.
+
+- Per-user in-process locks prevent concurrent history, session, job, and community writes from overwriting acknowledged changes.
+- Multiline prompts preserve their internal formatting, and saved/shared results retain image and video generation parameters, including zero reference counts.
+- New shares own copies of local result media, so deleting the source history does not break those shares.
+- Video sessions persist MP4/WebM assets correctly, with validated byte-range reads.
+- Backup payloads and asset paths are validated before existing data changes; restores are blocked while generation jobs are active.
+- Authenticated image/video sharing previews release temporary blob URLs on close, with consistent English and Chinese parameter labels.
+- Prompt lightbox styles are simplified, and the local regression suite now includes data integrity, backup, and modal hardening checks.
+
+Verification: the complete `check:local` suite passed before the release-only version bump,
+including all 10 data-integrity tests and browser regressions with local/mock data.
+The file backend still requires a single writer process; prompts remain limited to 12,000
+characters. Existing shares are not migrated, and backup restoration is not a crash-atomic
+transaction. Real paid upstream generation and Go compilation/tests were not run.
+
+## 1.0.26
+
+This release fixes preview readability and keeps shared creations tied to their original generation settings.
+
+- History previews and shares now use the selected result's prompt and parameters.
+- Full prompts and queue errors open in independent dialogs with internal scrolling and copy actions.
+- Pure text previews no longer reserve space for a missing image.
+- Image/video download, share, and close controls share a compact top-right toolbar.
+- Nested dialogs handle Escape and keyboard focus without closing the underlying preview.
+- Video sharing retains its media type, duration, and frame rate in the inspiration library.
+
+Verification: production build, source/i18n/UI checks, Studio modal flows, history lightbox/session/windowing,
+community prompt flow, inspiration prompt/reference flow, composer layout, and standalone service smoke checks.
+
 ## 1.0.14
 
 This release makes assistant routing explicit in the provider library and adds

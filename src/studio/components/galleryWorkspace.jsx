@@ -14,8 +14,10 @@ import {
   Check,
   Copy,
   Download,
+  Filter,
   History,
   ImageIcon,
+  Info,
   MessageSquareText,
   Search,
   Share2,
@@ -32,7 +34,7 @@ import '../../styles/studio.gallery-cards-responsive.css';
 
 import { compact, templateKey } from '../util/formatters.js';
 import { displayResultUrl } from '../util/assets.js';
-import { shareGenerationResult } from '../util/share.js';
+import { prepareCommunityInspirationDraft } from '../util/share.js';
 import { COMMUNITY_LICENSE_NOTICE } from '../util/library.js';
 import {
   groupHistorySessions,
@@ -61,12 +63,24 @@ import {
   templateThumbnail
 } from '../util/templates.js';
 
-import { ProtectedHistoryThumb, ProtectedStudioImage } from './media.jsx';
-import { Lightbox, ResultGrid, VideoResultGrid } from './resultDisplay.jsx';
-import { PromptSectionList } from './promptTools.jsx';
+import { ProtectedHistoryThumb, ProtectedStudioImage, ProtectedStudioVideo } from './media.jsx';
+import '../../styles/studio.gallery-filters.css';
+import { Lightbox, ResultGrid, VideoLightbox, VideoResultGrid } from './resultDisplay.jsx';
 
 const INITIAL_TEMPLATE_LIMIT = 12;
 const TEMPLATE_PAGE_SIZE = 12;
+
+function isUserSubmittedCase(item) {
+  const id = String(item?.id || '').toLowerCase();
+  const sourceName = String(item?.sourceName || '').toLowerCase();
+  return Boolean(
+    item?.kind === 'community-prompt'
+      || item?.userSubmitted
+      || id.startsWith('share-')
+      || sourceName === 'user shared'
+      || sourceName === '用户分享'
+  );
+}
 
 function CategoryCard({ group, selected, onSelect }) {
   const sampleFallback = (group.samples || []).map(libraryFallbackImage).find(Boolean) || libraryFallbackImage(group.featured);
@@ -92,12 +106,13 @@ function CategoryCard({ group, selected, onSelect }) {
   );
 }
 
-function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavorite, onAppend, t = (key, fallback) => fallback || key }) {
+function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavorite, onAppend, onReact, t = (key, fallback) => fallback || key }) {
   const image = templateThumbnail(item);
   const fallback = imageFallback(item);
   const hasPreviewImage = hasLibraryPreviewImage(item);
   const meta = caseCardMeta(item);
   const risks = Array.isArray(item.riskTags) ? item.riskTags.slice(0, 3) : [];
+  const promptPreview = item.promptPreview || item.prompt || item.summary || '';
   return (
     <div className={`caseTile ${selected ? 'selected' : ''}`}>
       <button
@@ -120,7 +135,7 @@ function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavor
             onPreview(item);
           }}
         >
-          {(image || fallback) ? (
+          {item.generation?.mode === 'video' ? <ProtectedStudioVideo src={item.image} muted playsInline preload="metadata" /> : (image || fallback) ? (
             <ProtectedStudioImage
               src={image || fallback}
               fallbackSrc={image && fallback !== image ? fallback : ''}
@@ -137,7 +152,31 @@ function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavor
           <small>{risks.map(riskLabel).join(' / ')}</small>
         ) : null}
       </button>
+      {promptPreview ? (
+        <button
+          type="button"
+          className="casePromptButton"
+          onClick={(event) => {
+            event.stopPropagation();
+            onPreview?.(item);
+          }}
+          aria-label={t('gallery.viewPrompt', '查看提示词')}
+          title={t('gallery.viewPrompt', '查看提示词')}
+        >
+          <Info size={12} />
+          <span>{t('gallery.promptOnly', '提示词')}</span>
+          <p>{compact(promptPreview, 112)}</p>
+        </button>
+      ) : null}
       <div className="caseTileActions">
+        {item.canWithdraw ? (
+          <button type="button" onClick={() => onReact?.(item, 'withdraw')} aria-label={t('gallery.withdrawPublication', '撤回公开分享')} title={t('gallery.withdrawPublication', '撤回公开分享')}>
+            <Trash2 size={13} />
+          </button>
+        ) : null}
+        <button type="button" onClick={() => onReact?.(item, 'share')} aria-label={t('gallery.shareToLibrary', '分享到灵感库')} title={t('gallery.shareToLibrary', '分享到灵感库')}>
+          <Share2 size={13} />
+        </button>
         {onAppend ? (
           <button
             type="button"
@@ -169,17 +208,22 @@ function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavor
   );
 }
 
-function PromptCaseCard({ item, selected, onSelect, favorite, onToggleFavorite, onAppend, onReact, t = (key, fallback) => fallback || key }) {
+function PromptCaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavorite, onAppend, onReact, t = (key, fallback) => fallback || key }) {
   const meta = caseCardMeta(item);
   const promptPreview = item.promptPreview || item.summary || item.prompt || '';
   return (
     <div className={`caseTile promptOnly ${selected ? 'selected' : ''}`}>
-      <button className="caseTileMain promptCaseMain" type="button" onClick={() => onSelect(item)}>
+      <button className="caseTileMain promptCaseMain" type="button" onClick={() => (onPreview ? onPreview(item) : onSelect(item))}>
         <strong>{item.title}</strong>
         <p className="casePromptExcerpt">{compact(promptPreview, 180) || t('gallery.promptOnlyHint', '这条灵感暂时没有可用图片，但提示词仍可预览和选用。')}</p>
         {meta ? <em>{meta}</em> : null}
       </button>
       <div className="communityPromptStats">
+        {item.canWithdraw ? (
+          <button type="button" onClick={() => onReact?.(item, 'withdraw')} aria-label={t('gallery.withdrawPublication', '撤回公开分享')} title={t('gallery.withdrawPublication', '撤回公开分享')}>
+            <Trash2 size={12} />
+          </button>
+        ) : null}
         <button type="button" aria-label={t('gallery.upvotePrompt', 'Upvote prompt')} className={item.userReaction === 'up' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'up'); }}>
           <ThumbsUp size={12} />
           {item.reactions?.up || 0}
@@ -251,16 +295,17 @@ function VideoInspirationCard({ item, selected, onSelect }) {
   );
 }
 
-function HistoryCard({ item, selected, onSelect, onDelete, t = (key, fallback) => fallback || key }) {
+function HistoryCard({ item, selected, onSelect, onDelete, onShare, t = (key, fallback) => fallback || key }) {
   const resultItems = historyResultItems(item);
   const resultUrl = resultItems[0]?.displayUrl || resultItems[0]?.url || item.displayResultUrls?.[0] || item.resultUrls?.[0] || '';
   const thumbnail = safeImageCandidate(resultUrl || item.case?.image || '');
   const resultCount = resultItems.length || (item.displayResultUrls?.length || item.resultUrls?.length || 0);
   const usage = item.usageSummary || item.costSummary || '';
   const isVideo = item.mode === 'video' || item.kind === 'video';
+  const firstResultMeta = downloadMetaFromHistoryItem(resultItems[0] || item, isVideo);
   const extension = isVideo ? resultVideoExtension(resultUrl) : resultExtension(resultUrl, item.outputFormat || 'png');
   const downloadName = buildStudioDownloadFilename({
-    ...downloadMetaFromHistoryItem(item, isVideo),
+    ...firstResultMeta,
     index: 0,
     extension
   });
@@ -293,6 +338,19 @@ function HistoryCard({ item, selected, onSelect, onDelete, t = (key, fallback) =
             <Download size={14} /> {t('canvas.download', '下载')}
           </a>
         ) : null}
+        {resultUrl && onShare ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onShare(resultUrl, 0, firstResultMeta);
+            }}
+            aria-label={t('lightbox.share', '分享到灵感库')}
+            title={t('lightbox.share', '分享到灵感库')}
+          >
+            <Share2 size={14} /> {t('lightbox.share', '分享')}
+          </button>
+        ) : null}
         <button type="button" onClick={() => onDelete(item)}>
           <Trash2 size={14} /> {t('canvas.delete', '删除')}
         </button>
@@ -301,7 +359,31 @@ function HistoryCard({ item, selected, onSelect, onDelete, t = (key, fallback) =
   );
 }
 
+function HistoryPromptDisclosure({ prompt, onPreview, t = (key, fallback) => fallback || key }) {
+  const value = String(prompt || '').trim();
+  if (!value) {
+    return <p className="promptEmptyText">{t('gallery.promptUnavailable', '暂无可用提示词')}</p>;
+  }
+  return (
+    <div className="historyPromptDisclosure">
+      <button
+        type="button"
+        className="historyPromptToggle"
+        aria-haspopup="dialog"
+        onClick={onPreview}
+      >
+        <span>{t('gallery.expandPrompt', '查看完整提示词')}</span>
+        <MessageSquareText size={14} />
+      </button>
+      <p className="historyPromptExcerpt">{compact(value, 280)}</p>
+    </div>
+  );
+}
+
 function HistoryDetailPanel({ item, onOpenWorkspace, onShare, t = (key, fallback) => fallback || key }) {
+  const [preview, setPreview] = useState(null);
+  useEffect(() => setPreview(null), [item?.id]);
+
   if (!item) {
     return (
       <section className="workspaceEmptyPanel">
@@ -316,10 +398,25 @@ function HistoryDetailPanel({ item, onOpenWorkspace, onShare, t = (key, fallback
   const resultItems = historyResultItems(item);
   const urls = resultItems.map((result) => result.displayUrl || result.url).filter(Boolean);
   const downloadMeta = downloadMetaFromHistoryItem(item, isVideo);
+  const resultMetadata = resultItems.map((result) => downloadMetaFromHistoryItem(result, isVideo));
+  const previewMeta = resultMetadata[preview?.index] || downloadMeta;
   const promptItems = resultItems.length ? resultItems : [{ id: item.id, prompt: item.prompt || item.generationPrompt || '' }];
   const meta = isVideo
     ? [item.model, item.aspectRatio || item.aspect, item.duration ? `${item.duration}s` : '', item.fps ? `${item.fps}fps` : ''].filter(Boolean)
     : [item.model, item.resolutionTier ? (RESOLUTION_TIER_LABELS[item.resolutionTier] || item.resolutionTier) : item.size, item.quality ? QUALITY_LABELS[item.quality] || item.quality : '', item.outputFormat ? OUTPUT_FORMAT_LABELS[item.outputFormat] || item.outputFormat : ''].filter(Boolean);
+  const openPreview = (url, index) => setPreview({ url, index });
+  const movePreview = (direction) => {
+    setPreview((current) => {
+      if (!current) return current;
+      const nextIndex = current.index + direction;
+      if (nextIndex < 0 || nextIndex >= urls.length) return current;
+      return {
+        ...current,
+        index: nextIndex,
+        url: urls[nextIndex]
+      };
+    });
+  };
 
   return (
     <section className="historyWorkspacePanel">
@@ -331,7 +428,7 @@ function HistoryDetailPanel({ item, onOpenWorkspace, onShare, t = (key, fallback
             {promptItems.slice(0, 6).map((result, index) => (
               <article className="historyPromptItem" key={result.id || `${result.displayUrl || result.url || 'prompt'}-${index}`}>
                 <strong>#{index + 1}</strong>
-                <PromptSectionList prompt={result.generationPrompt || result.prompt || item.generationPrompt || item.prompt} t={t} />
+                <HistoryPromptDisclosure prompt={result.generationPrompt || result.prompt || item.generationPrompt || item.prompt} onPreview={() => setPreview({ index, promptOnly: true })} t={t} />
               </article>
             ))}
           </div>
@@ -343,10 +440,39 @@ function HistoryDetailPanel({ item, onOpenWorkspace, onShare, t = (key, fallback
         </button>
       </div>
       {isVideo ? (
-        <VideoResultGrid urls={urls} downloadMeta={downloadMeta} onPreview={() => {}} onShare={onShare} t={t} />
+        <VideoResultGrid urls={urls} downloadMeta={downloadMeta} resultMetadata={resultMetadata} onPreview={openPreview} onShare={onShare} t={t} />
       ) : (
-        <ResultGrid urls={urls} outputFormat={item.outputFormat || 'png'} downloadMeta={downloadMeta} onPreview={() => {}} onShare={onShare} t={t} />
+        <ResultGrid urls={urls} outputFormat={item.outputFormat || 'png'} downloadMeta={downloadMeta} resultMetadata={resultMetadata} onPreview={openPreview} onShare={onShare} t={t} />
       )}
+      {preview ? (
+        isVideo && !preview.promptOnly ? (
+          <VideoLightbox
+            url={preview.url}
+            index={preview.index}
+            total={urls.length}
+            downloadMeta={previewMeta}
+            onShare={onShare}
+            onPrevious={preview.index > 0 ? () => movePreview(-1) : undefined}
+            onNext={preview.index < urls.length - 1 ? () => movePreview(1) : undefined}
+            onClose={() => setPreview(null)}
+            t={t}
+          />
+        ) : (
+          <Lightbox
+            url={preview.url}
+            promptOnly={preview.promptOnly}
+            index={preview.index}
+            total={urls.length}
+            outputFormat={previewMeta.outputFormat || item.outputFormat || 'png'}
+            downloadMeta={previewMeta}
+            onShare={onShare}
+            onPrevious={preview.index > 0 ? () => movePreview(-1) : undefined}
+            onNext={preview.index < urls.length - 1 ? () => movePreview(1) : undefined}
+            onClose={() => setPreview(null)}
+            t={t}
+          />
+        )
+      ) : null}
     </section>
   );
 }
@@ -380,18 +506,29 @@ export function GalleryWorkspacePanel({
   onReactTemplate,
   onAppendTemplate,
   onOpenUpload,
+  onShareResult,
   licenseNotice,
   onOpenWorkspace,
   t = (key, fallback) => fallback || key
 }) {
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_TEMPLATE_LIMIT);
   const [activeKind, setActiveKind] = useState('image');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [galleryPreview, setGalleryPreview] = useState(null);
   const isHistory = type === 'history';
   const isVideo = activeKind === 'video';
-  const browsingCategory = !isVideo && (category !== 'All' || query.trim());
-  const imageCases = cases.filter(hasLibraryPreviewImage);
-  const promptOnlyCases = cases.filter((item) => !hasLibraryPreviewImage(item));
+  const filteredSourceCases = useMemo(() => {
+    if (sourceFilter === 'all') return cases;
+    return cases.filter((item) => sourceFilter === 'user' ? isUserSubmittedCase(item) : !isUserSubmittedCase(item));
+  }, [cases, sourceFilter]);
+  const sourceCounts = useMemo(() => ({
+    all: cases.length,
+    original: cases.filter((item) => !isUserSubmittedCase(item)).length,
+    user: cases.filter(isUserSubmittedCase).length
+  }), [cases]);
+  const browsingCategory = !isVideo;
+  const imageCases = filteredSourceCases.filter(hasLibraryPreviewImage);
+  const promptOnlyCases = filteredSourceCases.filter((item) => !hasLibraryPreviewImage(item));
   const visibleCases = imageCases.slice(0, visibleLimit);
   const promptVisibleLimit = imageCases.length ? Math.max(6, Math.ceil(visibleLimit / 2)) : visibleLimit;
   const visiblePromptCases = promptOnlyCases.slice(0, promptVisibleLimit);
@@ -420,35 +557,23 @@ export function GalleryWorkspacePanel({
   }, [historySessionItems, isHistory, selectedHistoryId]);
 
   async function handleGalleryShare(url, index, meta) {
-    try {
-      await shareGenerationResult({
-        url,
-        index,
-        outputFormat: meta?.outputFormat || 'png',
-        meta,
-        title: t('canvas.shareTitle', 'AI 生图')
-      });
-    } catch {
-      // Share cancellation is a normal browser action; the gallery has no status rail.
-    }
+    if (!onShareResult) return;
+    const draft = await prepareCommunityInspirationDraft({ url, index, meta });
+    onShareResult(draft);
   }
 
   useEffect(() => {
     setVisibleLimit(INITIAL_TEMPLATE_LIMIT);
-  }, [category, query, activeKind, type]);
+  }, [category, query, activeKind, sourceFilter, type]);
 
   const useLibraryItem = (item) => {
     onSelect(item);
     onAppendTemplate?.(item);
-    onOpenWorkspace?.(item?.kind === 'video-inspiration' ? 'video' : 'image');
+    onOpenWorkspace?.(item?.kind === 'video-inspiration' || item?.generation?.mode === 'video' ? 'video' : 'image');
   };
   const selectLibraryItem = (item) => {
     if (isVideo) {
       onSelect(item);
-      return;
-    }
-    if (!hasLibraryPreviewImage(item)) {
-      useLibraryItem(item);
       return;
     }
     openTemplatePreview(item);
@@ -461,12 +586,15 @@ export function GalleryWorkspacePanel({
       setGalleryPreview({
         url: '',
         promptOnly: true,
+        item,
         index: typeof item?.id === 'number' ? Math.max(0, item.id - 1) : 0,
         downloadMeta: {
           mode: 'library-reference',
-          providerId: 'library',
+          providerId: item?.generation?.providerId || item?.generation?.model || 'library',
           title: item?.title || t('gallery.preview', '查看'),
           prompt: item?.prompt || item?.promptPreview || item?.summary || '',
+          generationPrompt: item?.generationPrompt || item?.generation?.generationPrompt || '',
+          ...(item?.generation || {}),
           createdAt: item?.createdAt || item?.updatedAt || ''
         }
       });
@@ -476,12 +604,15 @@ export function GalleryWorkspacePanel({
     setGalleryPreview({
       url,
       fallbackSrc: fallbackUrl,
+      item,
       index: typeof item?.id === 'number' ? Math.max(0, item.id - 1) : 0,
       downloadMeta: {
         mode: 'library-reference',
-        providerId: 'library',
+        providerId: item?.generation?.providerId || item?.generation?.model || 'library',
         title: item?.title || t('gallery.preview', '查看'),
         prompt: item?.prompt || item?.promptPreview || item?.summary || '',
+        generationPrompt: item?.generationPrompt || item?.generation?.generationPrompt || '',
+        ...(item?.generation || {}),
         createdAt: item?.createdAt || item?.updatedAt || ''
       }
     });
@@ -517,6 +648,7 @@ export function GalleryWorkspacePanel({
                 selected={selectedHistoryId === item.id || selectedHistoryId === item.sessionId}
                 onSelect={onSelectHistory}
                 onDelete={onDeleteHistory}
+                onShare={handleGalleryShare}
                 t={t}
                 key={item.id}
               />
@@ -556,9 +688,7 @@ export function GalleryWorkspacePanel({
     <section className="galleryWorkspacePanel inspirationWorkspace" aria-label={t('workspace.inspiration', '灵感库')}>
       <div className="galleryWorkspaceHead">
         <div>
-          <span>{t('workspace.inspiration', '灵感库')}</span>
-          <h2>{t('gallery.inspirationTitle', '选择分类，把提示词带入创作会话')}</h2>
-          <p>{t('gallery.inspirationHint', '上方是创作意图，下方是灵感推荐；点击模板会进入中间对话框继续调整。')}</p>
+          <h2>{t('gallery.inspirationSquare', '灵感广场')}</h2>
         </div>
         <div className="galleryWorkspaceActions">
           <div className="galleryKindSwitch" role="group" aria-label={t('gallery.inspirationType', '灵感类型')}>
@@ -584,6 +714,31 @@ export function GalleryWorkspacePanel({
         </label>
         {!isVideo ? (
           <>
+            <div className="gallerySourceSwitch" role="group" aria-label={t('gallery.sourceFilter', '灵感来源')}>
+              {[
+                ['all', t('gallery.sourceAll', '全部'), sourceCounts.all],
+                ['original', t('gallery.sourceOriginal', '原始灵感'), sourceCounts.original],
+                ['user', t('gallery.sourceUser', '用户上传'), sourceCounts.user]
+              ].map(([value, label, count]) => (
+                <button
+                  type="button"
+                  className={sourceFilter === value ? 'active' : ''}
+                  key={value}
+                  onClick={() => setSourceFilter(value)}
+                  aria-pressed={sourceFilter === value}
+                >
+                  {label}<em>{count}</em>
+                </button>
+              ))}
+            </div>
+            <label className="galleryCategoryFilter">
+              <Filter size={15} />
+              <span className="srOnly">{t('gallery.categoryFilter', '分类筛选')}</span>
+              <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label={t('gallery.categoryFilter', '分类筛选')}>
+                <option value="All">{t('gallery.allCategories', '全部分类')}</option>
+                {categoryGroups.map((group) => <option value={group.id} key={group.id}>{group.label} · {group.count}</option>)}
+              </select>
+            </label>
             <button
               type="button"
               className="galleryFilterButton uploadInspirationButton"
@@ -600,11 +755,6 @@ export function GalleryWorkspacePanel({
               <Star size={15} />
               {showFavoritesOnly ? t('gallery.favorited', '已收藏') : t('gallery.favoriteCount', '收藏 {count}', { count: favoriteTemplates.size })}
             </button>
-            {browsingCategory ? (
-              <button type="button" className="galleryFilterButton" onClick={() => { setCategory('All'); setQuery(''); }}>
-                {t('gallery.backToCategories', '返回分类')}
-              </button>
-            ) : null}
           </>
         ) : null}
       </div>
@@ -676,6 +826,7 @@ export function GalleryWorkspacePanel({
                 favorite={favoriteTemplates.has(templateKey(item))}
                 onToggleFavorite={onToggleTemplateFavorite}
                 onAppend={useLibraryItem}
+                onReact={onReactTemplate}
                 t={t}
                 key={item.id}
               />
@@ -695,6 +846,7 @@ export function GalleryWorkspacePanel({
                       item={item}
                       selected={selected?.id === item.id}
                       onSelect={selectLibraryItem}
+                      onPreview={openTemplatePreview}
                       favorite={favoriteTemplates.has(templateKey(item))}
                       onToggleFavorite={onToggleTemplateFavorite}
                       onReact={onReactTemplate}
@@ -732,6 +884,12 @@ export function GalleryWorkspacePanel({
         fallbackSrc={galleryPreview?.fallbackSrc || ''}
         index={galleryPreview?.index || 0}
         downloadMeta={galleryPreview?.downloadMeta}
+        onShare={handleGalleryShare}
+        onUse={galleryPreview?.item ? () => {
+          const item = galleryPreview.item;
+          setGalleryPreview(null);
+          useLibraryItem(item);
+        } : undefined}
         t={t}
         onClose={() => setGalleryPreview(null)}
       />

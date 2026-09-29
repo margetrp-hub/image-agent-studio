@@ -3,7 +3,7 @@ import { createServer } from 'vite';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const screenshotDir = 'D:/wiki/image-sub2api-studio/output/playwright';
+const screenshotDir = path.resolve('output/playwright');
 const fixtureDir = `${screenshotDir}/fixtures`;
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAWElEQVR42u3OQQ0AAAgDMMTrf2YKBhhoKrQydc1wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgOwQ0AAEEp43RAAAAAElFTkSuQmCC';
 const layoutKey = 'image-sub2api-studio:workbench-layout:v7';
@@ -196,6 +196,21 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
 
   await page.goto(new URL('studio.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.waitForSelector('.creationDesk.composerOpen', { timeout: 15000 });
+  if (!liveStatus) {
+    const errorSummary = page.locator('.canvasQueueErrorSummary').first();
+    if (await errorSummary.count()) {
+      await errorSummary.click();
+      await page.waitForSelector('.studioErrorDialog');
+      const expandedStyle = await page.locator('.studioErrorDialog pre').evaluate((node) => ({
+        display: getComputedStyle(node).display,
+        whiteSpace: getComputedStyle(node).whiteSpace,
+        height: node.getBoundingClientRect().height
+      }));
+      assert(expandedStyle.display !== 'none' && expandedStyle.whiteSpace === 'pre-wrap' && expandedStyle.height > 12, `${name}: error dialog should show readable wrapped text.`, expandedStyle);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.studioErrorDialog', { state: 'detached' });
+    }
+  }
   if (referencesOpen) {
     await page.locator('.referenceSidePanel input[type="file"]').first().setInputFiles(files);
     await page.waitForSelector('.referenceSideBody.hasReferenceItems .sideReferenceThumbs figure', { timeout: 8000 });
@@ -407,6 +422,9 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     assert(result.rects.canvasToolbar.right <= result.viewport.width + 1, `${name}: canvas zoom toolbar escaped the viewport.`, result);
     assert(result.toolbarComposerOverlap <= 4, `${name}: canvas zoom toolbar overlaps the composer panel.`, result);
     assert(result.toolbarQueueOverlap <= 4, `${name}: canvas zoom toolbar overlaps the generation queue.`, result);
+  }
+  if (result.rects.queueDock && result.rects.referencePanel) {
+    assert(result.referenceQueueOverlap <= 4, `${name}: generation queue overlaps the reference panel control.`, result);
   }
   if (result.viewport.width >= 1000) {
     assert(
