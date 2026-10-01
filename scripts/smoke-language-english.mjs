@@ -116,6 +116,7 @@ try {
     singleModeText
   });
 
+  await page.getByRole('button', { name: /^Creative workflow \(infinite canvas\)$/ }).click();
   await page.getByRole('button', { name: /^Canvas$/ }).click();
   await page.waitForSelector('.canvasGenerationPreview', { timeout: 8000 });
   await page.waitForTimeout(400);

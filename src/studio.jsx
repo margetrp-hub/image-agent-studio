@@ -81,7 +81,6 @@ import './styles/studio.playground-polish.css';
 import './styles/studio.flow-modes.css';
 import './styles/studio.composer-state-polish.css';
 import './styles/studio.canvas-composer-refinement.css';
-import './styles/studio.workflow-board.css';
 import './styles/studio.apple-refinement.css';
 import './styles/studio.typography.css';
 import {
@@ -192,6 +191,9 @@ const FirstRunGuide = React.lazy(() => import('./studio/components/firstRunGuide
 const InspirationUploadDialog = React.lazy(() => import('./studio/components/inspirationUploadDialog.jsx').then((module) => ({
   default: module.InspirationUploadDialog
 })));
+const WorkflowStoryboard = React.lazy(() => import('./studio/components/workflowStoryboard.jsx').then((module) => ({
+  default: module.WorkflowStoryboard
+})));
 import { buildGenerationTask as buildGenerationTaskPure, generationFilesForJob as generationFilesForJobPure, waitForServerJob as waitForServerJobPure } from './studio/generation/taskBuilder.js';
 import { buildCanvasContinuationPlan, composeCanvasContinuationPrompt } from './studio/generation/promptComposition.js';
 import {
@@ -226,7 +228,6 @@ import {
 import { Topbar } from './studio/components/topbar.jsx';
 import { AccountBillingDialog } from './studio/components/accountBillingDialog.jsx';
 import { CanvasNodeCard } from './studio/components/canvasNodeCard.jsx';
-import { WorkflowStoryboard } from './studio/components/workflowStoryboard.jsx';
 import {
   CreativeRecipeBar,
   PromptSectionList
@@ -4253,21 +4254,23 @@ function CreationDesk({
         </div>
           </>
           ) : (
-            <WorkflowStoryboard
-              nodes={canvasNodes}
-              queueItems={activeGenerationQueueItems}
-              selectedNodeId={selectedCanvasNodeId}
-              videoModel={videoModel}
-              videoAspect={videoAspect}
-              videoDuration={`${videoDuration}s`}
-              t={t}
-              onSelect={(node) => setSelectedCanvasNodeId(node.id)}
-              onPreview={previewCanvasNode}
-              onContinue={(node) => openWorkflowComposerForNode(node)}
-              onPrepareVideo={(node) => openWorkflowComposerForNode(node, 'video')}
-              onStartImageBatch={prepareWorkflowImageBatch}
-              onBatchVideo={enqueueWorkflowVideoBatch}
-            />
+            <React.Suspense fallback={null}>
+              <WorkflowStoryboard
+                nodes={canvasNodes}
+                queueItems={activeGenerationQueueItems}
+                selectedNodeId={selectedCanvasNodeId}
+                videoModel={videoModel}
+                videoAspect={videoAspect}
+                videoDuration={`${videoDuration}s`}
+                t={t}
+                onSelect={(node) => setSelectedCanvasNodeId(node.id)}
+                onPreview={previewCanvasNode}
+                onContinue={(node) => openWorkflowComposerForNode(node)}
+                onPrepareVideo={(node) => openWorkflowComposerForNode(node, 'video')}
+                onStartImageBatch={prepareWorkflowImageBatch}
+                onBatchVideo={enqueueWorkflowVideoBatch}
+              />
+            </React.Suspense>
           )
         ) : (
           <div className="singleGenerationWorkspace">

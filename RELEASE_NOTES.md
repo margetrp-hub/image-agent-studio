@@ -1,5 +1,21 @@
 ﻿# Release Notes
 
+## 1.0.29
+
+This release adds provider-aware Gemini routing and a persistent image/video workflow board.
+
+- Provider profiles now keep explicit image and video protocol metadata, including Gemini-native generation routes alongside OpenAI-, NewAPI-, Sub2API-, and xAI-compatible adapters.
+- Model synchronization preserves protocol capabilities so selecting a synced Gemini model dispatches through the matching request contract instead of the generic image endpoint.
+- Infinite-canvas sessions can be organized as image or video workflow nodes, with prompt inheritance, branch links, per-node status, and saved result metadata.
+- Workflow jobs now expose durable lifecycle transitions in the Go service, making pending, running, completed, failed, and cancelled states recoverable after refresh.
+- Storyboard and workflow state stay scoped to the active session, preventing prompts and results from crossing between conversations.
+- Provider and workflow contract checks cover routing, model sync, job persistence, prompt inheritance, reference handling, and canvas cleanup.
+
+Verification includes the repository's complete local check suite, focused Go tests, production build,
+provider protocol smoke tests, and workflow storyboard browser coverage. Real paid upstream image and
+video generation remains dependent on each user's configured provider account and is not exercised by
+the release test suite.
+
 ## 1.0.28
 
 This release makes inspiration publishing explicit and strengthens data durability.

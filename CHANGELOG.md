@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.29 - 2026-10-01
+
+- Added protocol-aware Gemini image routing while preserving OpenAI-, NewAPI-, Sub2API-, and xAI-compatible provider paths.
+- Persisted provider model capabilities during synchronization so generation uses the selected model's declared protocol.
+- Added an image/video workflow board with prompt inheritance, thin branch links, per-node results, and session isolation.
+- Added durable Go job lifecycle transitions and recovery coverage for workflow execution.
+- Expanded provider, workflow, reference, and canvas regression checks.
+
 ## 1.0.26 - 2026-09-05
 
 - Keep each history result tied to its own prompt, model, size, and download/share metadata.

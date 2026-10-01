@@ -15,6 +15,7 @@ import { buildWorkflowScenes, workflowStats } from '../workflow/storyboard.js';
 import { ProtectedStudioImage } from './media.jsx';
 import { displayResultUrl } from '../util/assets.js';
 import { compact } from '../util/formatters.js';
+import '../../styles/studio.workflow-board.css';
 
 export function WorkflowStoryboard({
   nodes = [],

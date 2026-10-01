@@ -43,7 +43,6 @@ const expectedCssImports = [
   './styles/studio.flow-modes.css',
   './styles/studio.composer-state-polish.css',
   './styles/studio.canvas-composer-refinement.css',
-  './styles/studio.workflow-board.css',
   './styles/studio.apple-refinement.css',
   './styles/studio.typography.css'
 ];
@@ -55,7 +54,8 @@ const lazyCssImports = [
   './styles/studio.modal.css',
   './styles/studio.inspiration-share.css',
   './styles/studio.regenerate-dialog.css',
-  './styles/studio.generation-confirm-dialog.css'
+  './styles/studio.generation-confirm-dialog.css',
+  './styles/studio.workflow-board.css'
 ];
 const cssFiles = [...expectedCssImports, ...lazyCssImports].map((importPath) => (
   importPath === './studio.css'
@@ -297,6 +297,7 @@ function collectSelectors(body) {
 }
 
 const entryBody = readText('src/studio.jsx');
+const workflowStoryboardBody = readText('src/studio/components/workflowStoryboard.jsx');
 const cssImports = Array.from(entryBody.matchAll(/import\s+['"](.+?\.css)['"];?/g)).map((match) => match[1]);
 const baseImportIndex = cssImports.indexOf('./studio.css');
 const failures = [];
@@ -331,6 +332,10 @@ lazyCssImports.forEach((lazyImport) => {
     failures.push(`${lazyImport} should stay lazy-loaded with its owning component instead of the studio entry.`);
   }
 });
+
+if (!workflowStoryboardBody.includes("import '../../styles/studio.workflow-board.css';")) {
+  failures.push('WorkflowStoryboard must own the lazy-loaded workflow board stylesheet.');
+}
 
 const selectorCounts = new Map();
 const report = cssFiles.map((file) => {
