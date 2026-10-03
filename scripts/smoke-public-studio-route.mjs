@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { clickGenerate, fillGenerationPrompt } from './smoke-ui-helpers.mjs';
 
-const pageUrl = process.argv[2] || process.env.PUBLIC_STUDIO_URL || 'https://studio.ohlaoo.com/studio/';
+const pageUrl = process.argv[2] || process.env.PUBLIC_STUDIO_URL || 'https://studio.ohlao.cfd/studio/';
 const expectedJs = process.env.EXPECTED_STUDIO_JS || '';
 const expectedCss = process.env.EXPECTED_STUDIO_CSS || '';
 const providerSettingsKey = 'image-sub2api-studio:provider-settings:v1';

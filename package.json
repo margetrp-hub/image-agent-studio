@@ -1,7 +1,7 @@
 {
   "name": "image-agent-studio",
   "private": true,
-  "version": "1.0.29",
+  "version": "1.0.30",
   "type": "module",
   "scripts": {
     "check:deploy": "node scripts/check-deploy-config.mjs",
@@ -111,7 +111,7 @@
     "lucide-react": "^0.561.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "undici": "^7.29.0"
+    "undici": "7.29.1"
   },
   "overrides": {
     "node-gyp": {

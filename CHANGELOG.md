@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.0.30 - 2026-10-03
+
+- Updated the production Undici runtime to 7.29.1 to address the published security advisories affecting provider requests.
+- Hardened the systemd service with filesystem, device, capability, kernel, and privilege restrictions while preserving the configured data directory.
+- Added HSTS to the standalone Nginx guidance and moved production checks to `studio.ohlao.cfd`.
+- Removed the retired `studio.ohlaoo.com` origin from deployment defaults.
+
 ## 1.0.29 - 2026-10-01
 
 - Added protocol-aware Gemini image routing while preserving OpenAI-, NewAPI-, Sub2API-, and xAI-compatible provider paths.

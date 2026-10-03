@@ -129,7 +129,6 @@ allowed_origins() {
 const publicUrl = String(process.argv[2] || '').trim();
 const configured = String(process.argv[3] || '').trim();
 const origins = new Set([
-  'https://studio.ohlaoo.com',
   'https://studio.ohlao.cfd',
   'http://127.0.0.1:5173',
   'http://localhost:5173',
@@ -323,6 +322,29 @@ Environment="STUDIO_SESSION_QUEUE_LIMIT=$STUDIO_SESSION_QUEUE_LIMIT"
 Environment="STUDIO_JOB_LIMIT=$STUDIO_JOB_LIMIT"
 Environment="STUDIO_JOB_CONCURRENCY=$STUDIO_JOB_CONCURRENCY"
 Environment="STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES=$STUDIO_VIDEO_POLL_MAX_TRANSIENT_FAILURES"
+EOF
+
+cat > "$UNIT_DROPIN_DIR/40-hardening.conf" <<EOF
+[Service]
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=
+ReadWritePaths=$DATA_DIR
+UMask=0077
 EOF
 
 systemctl daemon-reload

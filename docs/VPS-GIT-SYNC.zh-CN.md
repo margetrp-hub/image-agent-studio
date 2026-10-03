@@ -75,7 +75,7 @@ cd /opt/image-agent-studio-repo
 sudo CLEAN_STALE_DROPINS=1 \
   INSTALL_SYSTEMD_UNIT=1 \
   STUDIO_HISTORY_PORT=8787 \
-  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlao.cfd/studio/ \
   bash deploy/sync-from-git.sh
 ```
 
@@ -102,7 +102,7 @@ sudo BRANCH=main \
   DATA_DIR=/var/lib/image-sub2api-studio \
   SERVICE_NAME=image-sub2api-studio-history \
   BASE_PATH=/studio/ \
-  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlao.cfd/studio/ \
   REQUIRE_LIBRARY=1 \
   bash deploy/sync-from-git.sh
 ```

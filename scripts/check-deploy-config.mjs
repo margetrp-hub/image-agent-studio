@@ -91,6 +91,8 @@ mustInclude('deploy/sync-from-git.sh', 'STUDIO_AUTH_REGISTRATION_MODE', 'Git syn
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_PROVIDER_TYPE', 'Git sync must keep the server provider family explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_PROVIDER_BASE_URL', 'Git sync must keep the server provider endpoint explicit');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_VERSION', 'Git sync must keep the service version visible in health responses');
+mustInclude('deploy/sync-from-git.sh', '40-hardening.conf', 'Git sync must install the service hardening drop-in');
+mustInclude('deploy/sync-from-git.sh', 'ReadWritePaths=$DATA_DIR', 'Service hardening must preserve the configured persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'INSTALL_MANUAL_UPGRADE', 'Git sync must install the administrator-triggered updater without enabling a timer');
 mustNotInclude('deploy/sync-from-git.sh', 'INSTALL_AUTO_UPGRADE', 'Git sync must not retain the silent auto-upgrade switch');
 mustInclude('deploy/manual-upgrade.sh', 'REQUEST_FILE', 'Manual updater must consume the fixed administrator request file');
@@ -108,6 +110,7 @@ mustInclude('deploy/self-check.sh', '/studio-api/health', 'Self-check helper mus
 mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/;', 'Standard Nginx static root must match Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/studio-assets/;', 'Standard Nginx asset root must match Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Standard Nginx must proxy the Studio persistence API to the local service');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'Strict-Transport-Security', 'Standard HTTPS deployment guidance must include HSTS');
 mustNotInclude('deploy/nginx-image-agent-studio.conf', 'location /v1/', 'Standard standalone Nginx must not expose a provider directly');
 mustNotInclude('deploy/nginx-image-agent-studio.conf', 'location /api/', 'Standard standalone Nginx must not expose a legacy account gateway');
 mustNotInclude('deploy/nginx-image-agent-studio.conf', 'location /login', 'Standard standalone Nginx must use the Studio-owned login page');

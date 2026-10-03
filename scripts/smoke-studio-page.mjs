@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const targetUrl = process.argv[2] || process.env.STUDIO_SMOKE_URL || 'https://studio.ohlaoo.com/studio/';
+const targetUrl = process.argv[2] || process.env.STUDIO_SMOKE_URL || 'https://studio.ohlao.cfd/studio/';
 const outputDir = path.resolve(process.cwd(), 'output');
 fs.mkdirSync(outputDir, { recursive: true });
 

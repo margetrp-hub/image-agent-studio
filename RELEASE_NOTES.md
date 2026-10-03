@@ -1,5 +1,16 @@
 ﻿# Release Notes
 
+## 1.0.30
+
+This security release updates the provider HTTP runtime and makes the VPS hardening applied in production reproducible.
+
+- Undici is pinned to 7.29.1 in both the full workspace and minimal service runtime.
+- The systemd service runs with no new privileges, private temporary and device namespaces, a read-only filesystem outside the Studio data directory, an empty capability set, and kernel/control-group protections.
+- The standalone Nginx guidance includes HSTS.
+- Production documentation and smoke-test defaults use `studio.ohlao.cfd`; the retired `studio.ohlaoo.com` origin is no longer allowed by default.
+
+Verification covers the complete local check suite, production-only dependency audits, deployment contracts, and public Studio health. Real paid image and video generation remains dependent on user-provided provider credentials.
+
 ## 1.0.29
 
 This release adds provider-aware Gemini routing and a persistent image/video workflow board.

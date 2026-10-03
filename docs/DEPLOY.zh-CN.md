@@ -137,7 +137,7 @@ sudo BRANCH=main \
   SERVICE_DIR=/opt/image-sub2api-studio \
   DATA_DIR=/var/lib/image-sub2api-studio \
   SERVICE_NAME=image-sub2api-studio-history \
-  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlao.cfd/studio/ \
   REQUIRE_LIBRARY=1 \
   bash deploy/sync-from-git.sh
 ```

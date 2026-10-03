@@ -1,12 +1,12 @@
 {
   "name": "image-agent-studio-service",
   "private": true,
-  "version": "1.0.29",
+  "version": "1.0.30",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
-    "undici": "^7.29.0"
+    "undici": "7.29.1"
   }
 }

@@ -8,7 +8,7 @@ The core project does **not** depend on Sub2API, NewAPI, or any single gateway. 
 
 Image Agent Studio is a standalone workstation. It is not the Image Agent Canvas Codex plugin, and it does not embed that plugin.
 
-Demo: [studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
+Demo: [studio.ohlao.cfd/studio/](https://studio.ohlao.cfd/studio/)
 
 Chinese README: [README.zh-CN.md](./README.zh-CN.md)
 
@@ -188,7 +188,7 @@ sudo BRANCH=main \
   DATA_DIR=/var/lib/image-sub2api-studio \
   SERVICE_NAME=image-sub2api-studio-history \
   BASE_PATH=/studio/ \
-  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlao.cfd/studio/ \
   REQUIRE_LIBRARY=1 \
   bash deploy/sync-from-git.sh
 ```

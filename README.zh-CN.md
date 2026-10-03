@@ -8,7 +8,7 @@
 
 Image Agent Studio 是独立的创作工作站。它不是 Image Agent Canvas Codex 插件，也不内置该插件。
 
-演示入口：[studio.ohlaoo.com/studio/](https://studio.ohlaoo.com/studio/)
+演示入口：[studio.ohlao.cfd/studio/](https://studio.ohlao.cfd/studio/)
 
 English README: [README.md](./README.md)
 
@@ -192,7 +192,7 @@ sudo BRANCH=main \
   DATA_DIR=/var/lib/image-sub2api-studio \
   SERVICE_NAME=image-sub2api-studio-history \
   BASE_PATH=/studio/ \
-  PUBLIC_STUDIO_URL=https://studio.ohlaoo.com/studio/ \
+  PUBLIC_STUDIO_URL=https://studio.ohlao.cfd/studio/ \
   REQUIRE_LIBRARY=1 \
   bash deploy/sync-from-git.sh
 ```

@@ -7,7 +7,7 @@
 在仓库目录执行：
 
 ```bash
-npm run smoke:public:route -- https://studio.ohlaoo.com/studio/
+npm run smoke:public:route -- https://studio.ohlao.cfd/studio/
 ```
 
 这个脚本会打开公网真实页面，注入一个测试用手动网关地址，并拦截上游请求返回 1px 假图片，不会消耗真实生图额度。
@@ -52,7 +52,7 @@ npm run smoke:public:route -- https://studio.ohlaoo.com/studio/
 ```bash
 cd /opt/ai-image-workbench-repo
 git rev-parse --short HEAD
-curl -s https://studio.ohlaoo.com/studio/ | grep 'studio-assets'
+curl -s https://studio.ohlao.cfd/studio/ | grep 'studio-assets'
 ```
 
 如果公网页面仍然是旧 hash，再检查 Nginx 是否读取 `/var/www/ohlaoo-studio`，以及 `deploy/sync-from-git.sh` 是否真的完成。
