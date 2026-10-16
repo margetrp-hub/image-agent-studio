@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, Image as ImageIcon, KeyRound, Link2, Spar
 import '../../styles/studio.first-run.css';
 
 import { orderedImageProviders, providerModelSlots } from '../providers/index.js';
+import { FirstRunPlatformChoice } from './firstRunPlatformChoice.jsx';
 
 function providerDefaults(providerId) {
   const slots = providerModelSlots(providerId);
@@ -21,11 +22,12 @@ function validEndpoint(value) {
   }
 }
 
-export function FirstRunGuide({ open, onClose, onComplete, t = (key, fallback) => fallback || key }) {
+export function FirstRunGuide({ open, onClose, onComplete, platformCatalog, onSelectPlatform, t = (key, fallback) => fallback || key }) {
   const providers = useMemo(() => orderedImageProviders().filter((provider) => provider.authMode === 'manual'), []);
   const initialProvider = providers.find((provider) => provider.id === 'openai-compatible') || providers[0];
   const initialModels = providerDefaults(initialProvider?.id);
   const [step, setStep] = useState(0);
+  const [source, setSource] = useState('manual');
   const [providerId, setProviderId] = useState(initialProvider?.id || 'openai-compatible');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -103,7 +105,12 @@ export function FirstRunGuide({ open, onClose, onComplete, t = (key, fallback) =
           <button type="button" className="firstRunClose" onClick={onClose} aria-label={t('settings.close', '关闭')} title={t('settings.close', '关闭')}><X size={17} /></button>
         </header>
 
-        {step === 0 ? (
+        {step === 0 && platformCatalog ? <div className="firstRunSource" role="group" aria-label="供应商来源">
+          <button type="button" aria-pressed={source === 'manual'} onClick={() => { setSource('manual'); setFeedback(''); }}>使用自己的 Key</button>
+          <button type="button" aria-pressed={source === 'platform'} onClick={() => { setSource('platform'); setFeedback(''); }}>使用平台模型</button>
+        </div> : null}
+
+        {source === 'platform' && platformCatalog ? <FirstRunPlatformChoice catalogState={platformCatalog} onSelect={onSelectPlatform} /> : step === 0 ? (
           <div className="firstRunBody">
             <div className="firstRunStepTitle">
               <span><Link2 size={16} /></span>
@@ -153,14 +160,14 @@ export function FirstRunGuide({ open, onClose, onComplete, t = (key, fallback) =
 
         {feedback ? <div className="firstRunFeedback" role="alert">{feedback}</div> : null}
 
-        <footer className="firstRunActions">
+        {source === 'manual' ? <footer className="firstRunActions">
           {step === 1 ? <button type="button" className="firstRunBack" onClick={() => { setStep(0); setFeedback(''); }} disabled={busy}><ArrowLeft size={15} />{t('onboarding.back', '返回')}</button> : <span />}
           {step === 0 ? <button type="button" className="firstRunPrimary" onClick={goToPrompt}>{t('onboarding.next', '下一步')}<ArrowRight size={15} /></button> : (
             <button type="button" className="firstRunPrimary" onClick={startGeneration} disabled={busy}>
               <Sparkles size={15} />{busy ? t('onboarding.starting', '正在开始') : t('onboarding.generateFirst', '生成第一张')}
             </button>
           )}
-        </footer>
+        </footer> : null}
       </section>
     </div>
   );

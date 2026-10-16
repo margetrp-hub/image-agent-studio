@@ -120,7 +120,7 @@ function normalizeImageRoute(value) {
 }
 
 function normalizeApiKeySource(value) {
-  return value === 'manual' || value === 'linked' ? value : 'gateway';
+  return value === 'manual' || value === 'linked' || value === 'platform' ? value : 'gateway';
 }
 
 function normalizeSettingsProviderId(value, apiKeySource) {
@@ -225,7 +225,7 @@ function keyIsUsable(apiKey) {
 
 function normalizeProviderSettings(value = {}) {
   if (STUDIO_STANDALONE) {
-    const apiKeySource = value.apiKeySource === 'linked' ? 'linked' : 'manual';
+    const apiKeySource = ['linked', 'platform'].includes(value.apiKeySource) ? value.apiKeySource : 'manual';
     const requestedProviderId = String(value.providerId || '').trim();
     const providerId = apiKeySource === 'manual' && requestedProviderId === 'gateway-account'
       ? 'openai-compatible'
@@ -234,6 +234,7 @@ function normalizeProviderSettings(value = {}) {
       ...providerDefaults,
       ...value,
       providerProfileId: String(value.providerProfileId || '').trim(),
+      platformProviderId: String(value.platformProviderId || '').trim(),
       providerId,
       apiKeySource,
       route: normalizeImageRoute(value.route || providerDefaults.route),
@@ -311,6 +312,8 @@ function providerSettingsForStorage(settings) {
     const normalized = normalizeProviderSettings(settings);
     return {
       providerProfileId: normalized.providerProfileId,
+      platformProviderId: normalized.platformProviderId,
+      providerName: normalized.providerName,
       providerId: normalized.providerId,
       apiKeySource: normalized.apiKeySource,
       route: normalized.route,
@@ -335,7 +338,7 @@ export function loadProviderSettings() {
       const sessionManualSecret = readManualProviderSecret();
       const nextSettings = normalizeProviderSettings({
         ...parsed,
-        apiKeySource: parsed.apiKeySource === 'linked' ? 'linked' : 'manual',
+        apiKeySource: ['linked', 'platform'].includes(parsed.apiKeySource) ? parsed.apiKeySource : 'manual',
         providerId: parsed.providerId === 'gateway-account' ? 'openai-compatible' : parsed.providerId,
         manualApiKey: sessionManualSecret
       });
@@ -373,7 +376,7 @@ export function saveProviderSettings(settings) {
     try {
       if (nextSettings.apiKeySource === 'manual') {
         writeManualProviderSecret(nextSettings.manualApiKey);
-      } else {
+      } else if (nextSettings.apiKeySource !== 'platform') {
         sessionStorage.removeItem(MANUAL_PROVIDER_SECRET_KEY);
       }
       localStorage.removeItem(LEGACY_PROVIDER_SETTINGS_KEY);
@@ -635,6 +638,8 @@ export function saveSelectedKeyId(keyId) {
 }
 
 function normalizeResponseData(payload) {
+  // Studio's successful CDK response has a code object, not a gateway status code.
+  if (payload?.ok === true) return payload;
   if (payload && typeof payload === 'object' && 'code' in payload) {
     if (payload.code === 0) return payload.data;
     const error = new Error(payload.message || 'SUB2API_REQUEST_FAILED');
@@ -1178,6 +1183,32 @@ export class AiGatewayClient {
     return payload.settings || {};
   }
 
+  async listAdminProviders() {
+    const payload = await this.request('/auth/admin/providers');
+    return Array.isArray(payload.providers) ? payload.providers : [];
+  }
+
+  async saveAdminProvider(id, settings) {
+    const payload = await this.request(`/auth/admin/providers${id ? `/${encodeURIComponent(id)}` : ''}`, {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
+    return payload.provider;
+  }
+
+  async deleteAdminProvider(id) {
+    return this.request(`/auth/admin/providers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  async syncAdminProviderModels(id) {
+    const payload = await this.request(`/auth/admin/providers/${encodeURIComponent(id)}/models`, { method: 'POST' });
+    return payload.provider;
+  }
+
+  async listPlatformModels({ signal } = {}) {
+    return this.request('/auth/platform-models', { signal });
+  }
+
   async updateAdminBillingSettings(settings) {
     const payload = await this.request('/auth/admin/billing/settings', {
       method: 'POST',
@@ -1410,6 +1441,7 @@ export class AiGatewayClient {
   }
 
   async optimizePrompt({ apiKey, prompt, instruction = '', size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
+    if (this.providerSettings.apiKeySource === 'platform') throw new Error('PLATFORM_PROMPT_UNSUPPORTED');
     if (STUDIO_STANDALONE) {
       const providerRequest = this.providerSettings.apiKeySource === 'manual'
         ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
@@ -1495,6 +1527,7 @@ export class AiGatewayClient {
   }
 
   async chatPromptAssistant({ apiKey, prompt, basePrompt = '', userInstruction = '', selectedCanvasLabel = '', messages = [], size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
+    if (this.providerSettings.apiKeySource === 'platform') throw new Error('PLATFORM_PROMPT_UNSUPPORTED');
     if (STUDIO_STANDALONE) {
       const providerRequest = this.providerSettings.apiKeySource === 'manual'
         ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
@@ -1600,6 +1633,11 @@ export class AiGatewayClient {
   }
 
   async listGatewayModels({ apiKey, gatewayBaseUrl, signal } = {}) {
+    if (STUDIO_STANDALONE && this.providerSettings.apiKeySource === 'platform') {
+      const catalog = await this.listPlatformModels({ signal });
+      const provider = catalog.creditsEnabled ? catalog.providers?.find((item) => item.id === this.providerSettings.platformProviderId) : null;
+      return normalizeModelItems(provider?.models || []);
+    }
     if (STUDIO_STANDALONE) {
       // The standalone service is the only supported upstream boundary. A browser
       // fallback would turn a provider error into a misleading CORS/Failed to fetch.

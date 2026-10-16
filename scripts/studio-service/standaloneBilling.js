@@ -180,11 +180,11 @@ export function createStandaloneBillingStore({
     }));
   }
 
-  function reserveCredits({ userId, amount, referenceId, metadata = {} } = {}) {
+  function reserveCredits({ userId, amount, referenceId, metadata = {}, recordZero = false } = {}) {
     const id = normalizeUserId(userId);
     const normalizedAmount = normalizeAmount(amount, 'amount');
     const reference = normalizeReference(referenceId);
-    if (normalizedAmount === 0) return { charged: 0, ...getSummary(id), referenceId: reference };
+    if (normalizedAmount === 0 && !recordZero) return { charged: 0, ...getSummary(id), referenceId: reference };
     const existing = database.prepare(`
       SELECT delta, balance_after FROM credit_transactions
       WHERE user_id = ? AND reference_id IN (?, ?)
@@ -211,13 +211,24 @@ export function createStandaloneBillingStore({
       delta: -normalizedAmount,
       kind: 'generation_charge',
       referenceId: reference,
-      metadata: { ...metadata, amount: normalizedAmount }
+      metadata: { ...metadata, amount: normalizedAmount, ...(metadata.source === 'platform' ? { settlement: 'reserved', deliveredOutputs: [] } : {}) }
     });
   }
 
-  function refundCredits({ userId, amount, referenceId, metadata = {} } = {}) {
+  function refundCredits({ userId, amount, referenceId, chargeReferenceId, metadata = {} } = {}) {
     const id = normalizeUserId(userId);
-    const normalizedAmount = normalizeAmount(amount, 'amount');
+    let normalizedAmount = normalizeAmount(amount, 'amount');
+    if (chargeReferenceId) {
+      const charge = database.prepare(`SELECT delta, metadata_json FROM credit_transactions WHERE user_id = ? AND kind = 'generation_charge' AND reference_id IN (?, ?)`)
+        .get(id, scopedReference(id, normalizeReference(chargeReferenceId)), chargeReferenceId);
+      normalizedAmount = charge ? Math.max(0, -Number(charge.delta)) : 0;
+      const chargeMetadata = parseMetadata(charge?.metadata_json);
+      if (chargeMetadata.source === 'platform') {
+        const delivered = Array.isArray(chargeMetadata.deliveredOutputs) ? chargeMetadata.deliveredOutputs.length : 0;
+        normalizedAmount = chargeMetadata.settlement === 'settled' ? 0
+          : Math.max(0, normalizedAmount - delivered * Number(chargeMetadata.unit || 0));
+      }
+    }
     if (normalizedAmount === 0) return getSummary(id);
     const reference = normalizeReference(referenceId);
     const existing = database.prepare(`
@@ -233,6 +244,48 @@ export function createStandaloneBillingStore({
       referenceId: reference,
       metadata: { ...metadata, amount: normalizedAmount }
     });
+  }
+
+  function getGenerationCharge(userId, jobId) {
+    const id = normalizeUserId(userId);
+    const reference = normalizeReference(`generation:${jobId}`);
+    const charge = database.prepare(`SELECT delta, metadata_json FROM credit_transactions WHERE user_id = ? AND kind = 'generation_charge' AND reference_id IN (?, ?)`)
+      .get(id, scopedReference(id, reference), reference);
+    if (!charge) return null;
+    const refundReference = `generation-refund:${jobId}`;
+    const refund = database.prepare(`SELECT delta FROM credit_transactions WHERE user_id = ? AND kind = 'generation_refund' AND reference_id IN (?, ?)`)
+      .get(id, scopedReference(id, refundReference), refundReference);
+    return { amount: Math.max(0, -Number(charge.delta)), metadata: parseMetadata(charge.metadata_json), refunded: Boolean(refund), refundedAmount: Number(refund?.delta || 0) };
+  }
+
+  function attachGenerationTask(userId, jobId, taskId) {
+    const charge = getGenerationCharge(userId, jobId);
+    if (!charge || charge.refunded || charge.metadata.source !== 'platform' || charge.metadata.settlement === 'settled'
+        || (charge.metadata.upstreamTaskId && charge.metadata.upstreamTaskId !== taskId)) {
+      throw new StandaloneBillingError('PLATFORM_RESERVATION_INVALID', 'Platform generation reservation is invalid.', { status: 409 });
+    }
+    database.prepare(`UPDATE credit_transactions SET metadata_json = ? WHERE user_id = ? AND reference_id = ?`)
+      .run(JSON.stringify({ ...charge.metadata, upstreamTaskId: String(taskId) }), userId, scopedReference(userId, `generation:${jobId}`));
+  }
+
+  function recordGenerationOutput(userId, jobId, output) {
+    const charge = getGenerationCharge(userId, jobId);
+    if (!charge || charge.refunded || charge.metadata.source !== 'platform' || charge.metadata.settlement === 'settled') {
+      throw new StandaloneBillingError('PLATFORM_RESERVATION_INVALID', 'Platform generation reservation is invalid.', { status: 409 });
+    }
+    const deliveredOutputs = [...new Set([...(charge.metadata.deliveredOutputs || []), String(output)])];
+    if (deliveredOutputs.length > Number(charge.metadata.quantity)) {
+      throw new StandaloneBillingError('PLATFORM_RESULT_COUNT_MISMATCH', 'Output count exceeds the reservation.', { status: 409 });
+    }
+    database.prepare('UPDATE credit_transactions SET metadata_json = ? WHERE user_id = ? AND reference_id = ?')
+      .run(JSON.stringify({ ...charge.metadata, deliveredOutputs }), userId, scopedReference(userId, `generation:${jobId}`));
+  }
+
+  function settleGenerationCharge(userId, jobId) {
+    const charge = getGenerationCharge(userId, jobId);
+    if (!charge || charge.metadata.source !== 'platform') return;
+    database.prepare('UPDATE credit_transactions SET metadata_json = ? WHERE user_id = ? AND reference_id = ?')
+      .run(JSON.stringify({ ...charge.metadata, settlement: 'settled' }), userId, scopedReference(userId, `generation:${jobId}`));
   }
 
   function adjustCredits({ userId, amount, reason, referenceId } = {}) {
@@ -400,18 +453,19 @@ export function createStandaloneBillingStore({
     const id = ensureAccount(userId);
     const reference = normalizeReference(referenceId);
     const storedReference = scopedReference(id, reference);
-    const existing = database.prepare(`
-      SELECT balance_after, delta FROM credit_transactions
-      WHERE user_id = ? AND reference_id IN (?, ?)
-      ORDER BY created_at DESC
-      LIMIT 1
-    `).get(id, storedReference, reference);
-    if (existing) {
-      return { charged: Math.max(0, -Number(existing.delta)), ...getSummary(id), referenceId: reference, duplicate: true };
-    }
     const timestamp = now();
     database.exec('BEGIN IMMEDIATE');
     try {
+      const existing = database.prepare(`
+        SELECT balance_after, delta FROM credit_transactions
+        WHERE user_id = ? AND reference_id IN (?, ?)
+        ORDER BY created_at DESC
+        LIMIT 1
+      `).get(id, storedReference, reference);
+      if (existing) {
+        database.exec('COMMIT');
+        return { charged: Math.max(0, -Number(existing.delta)), ...getSummary(id), referenceId: reference, duplicate: true };
+      }
       const account = database.prepare('SELECT * FROM credit_accounts WHERE user_id = ?').get(id);
       const currentBalance = Number(account.balance);
       const nextBalance = currentBalance + delta;
@@ -451,6 +505,10 @@ export function createStandaloneBillingStore({
     listTransactions,
     reserveCredits,
     refundCredits,
+    getGenerationCharge,
+    attachGenerationTask,
+    recordGenerationOutput,
+    settleGenerationCharge,
     adjustCredits,
     createCreditCode,
     listCreditCodes,

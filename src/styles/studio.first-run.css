@@ -12,7 +12,8 @@
 
 .firstRunDialog {
   width: min(620px, calc(100vw - 36px));
-  overflow: hidden;
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
   border: 1px solid var(--studio-border);
   border-radius: var(--ias-radius-sheet, 22px);
   background: var(--studio-surface-strong);
@@ -104,6 +105,10 @@
   gap: 16px;
   padding: 22px 22px 18px;
 }
+
+.firstRunSource { display: flex; gap: 4px; margin: 18px 22px 0; padding: 4px; border: 1px solid var(--studio-border); border-radius: 8px; }
+.firstRunSource button { flex: 1; min-width: 0; padding: 8px; border: 0; border-radius: 6px; font-size: 12px; background: transparent; color: var(--studio-muted); }
+.firstRunSource button[aria-pressed=true] { background: var(--studio-surface-soft); color: var(--studio-text-strong); }
 
 .firstRunStepTitle {
   display: flex;

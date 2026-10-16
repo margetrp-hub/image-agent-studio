@@ -10,6 +10,12 @@ Adapter-level notes now live under [`docs/adapters/`](./adapters/README.md):
 
 ## Current Runtime Contract
 
+The standalone admin console manages platform providers separately from personal connections. Administrators store encrypted keys, discover models, publish supported operations, and assign integer credit prices per output image or video task. The authenticated platform catalog contains no credential or upstream base URL. Disabled providers, unpublished models, unsupported operations and missing prices cannot be selected for execution.
+
+Platform jobs use `apiKeySource: "platform"` and a `platformProviderId`. The service resolves the real upstream, adapter, model availability and price from its database; caller-supplied prices and credentials do not override them. Credits must be enabled before platform calls are accepted. Personal manual/linked calls do not consume platform credits. Existing deployment-level provider defaults remain separate.
+
+See [the operations guide](./OPERATIONS.zh-CN.md#内置供应商与积分调用) for configuration ownership, publication steps and the current pricing limits. The active compatibility runtime owns this catalog; it does not make the staged Go provider-link store the production billing authority.
+
 `GET /v1/models` is discovery only. A discovered model becomes selectable for a mode only when the server has a verified invocation adapter for that provider/model combination.
 
 | Adapter | Typical models | Create endpoint | Transport |

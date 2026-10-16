@@ -110,6 +110,7 @@ export function buildGenerationTask(params, overrides = {}) {
       route: taskMode === 'edit' || taskMode === 'mask' ? 'edits' : 'generations',
       providerId: providerSettings.providerId,
       providerProfileId: providerSettings.providerProfileId,
+      platformProviderId: providerSettings.platformProviderId,
       apiKeySource: providerSettings.apiKeySource,
       model: taskMode === 'video' ? videoModel : model,
       prompt: basePrompt,

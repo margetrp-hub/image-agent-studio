@@ -53,7 +53,7 @@ export function Topbar({
       <div className="topbarActions">
         <button type="button" className="connectionPill" onClick={onOpenSettings}>
           <Server size={15} />
-          <span>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
+          <span>{STUDIO_STANDALONE && !['manual', 'platform'].includes(providerSettings.apiKeySource)
             ? t('settings.studioManagedProvider', '服务端托管')
             : providerLabel(providerSettings, apiKey)}</span>
           <strong>{STUDIO_STANDALONE

@@ -10,6 +10,7 @@ import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-se
 import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
 import { createKeyedLock } from './studio-service/keyedLock.js';
 import { serverJobFingerprint } from './studio-service/jobFingerprint.js';
+import { PlatformProviderError, redactPlatformValue } from './studio-service/platformProviders.js';
 import { createPublicPromptStore } from './studio-service/publicPrompts.js';
 import {
   annotateProviderModels,
@@ -726,27 +727,40 @@ function jobRefundReference(jobId) {
   return `generation-refund:${jobId}`;
 }
 
-function reserveJobCredits(auth, job) {
+function reserveJobCredits(auth, job, runtime) {
   if (!standaloneAuthStore || AUTH_MODE !== 'standalone') return null;
-  const cost = standaloneAuthStore.calculateJobCost(job);
+  if (!['platform', 'legacy-env'].includes(runtime.apiKeySource)) return null;
+  const cost = runtime.cost || standaloneAuthStore.calculateJobCost(job);
+  if (runtime.apiKeySource === 'legacy-env' && cost.unit !== undefined) {
+    cost.quantity = job.count;
+    cost.amount = cost.unit * job.count;
+  }
   const chargeReference = jobBillingReference(job.id);
   const reservation = standaloneAuthStore.reserveCredits({
     userId: auth.user.id,
     amount: cost.amount,
     referenceId: chargeReference,
+    recordZero: runtime.apiKeySource === 'platform',
     metadata: {
       jobId: job.id,
       mode: job.mode,
       route: job.route,
       model: job.model,
+      source: runtime.apiKeySource,
+      platformProviderId: runtime.platformProviderId || '',
+      connectionFingerprint: runtime.connectionFingerprint || '',
       unit: cost.unit || 0,
       quantity: cost.quantity || 1
     }
   });
+  // A retained ledger entry must not pay for a second dispatch after job pruning/restoration.
+  if (reservation.duplicate) throw new PlatformProviderError('GENERATION_RESERVATION_EXISTS', 409);
   return {
     amount: cost.amount,
     unit: cost.unit || 0,
     quantity: cost.quantity || 1,
+    source: runtime.apiKeySource,
+    platformProviderId: runtime.platformProviderId || '',
     status: cost.amount > 0 ? 'reserved' : 'disabled',
     chargeReference,
     refundReference: jobRefundReference(job.id),
@@ -759,6 +773,7 @@ function chargeJobCredits(auth, job) {
   const billing = job?.billing;
   if (!standaloneAuthStore || AUTH_MODE !== 'standalone' || !billing) return billing || null;
   if (['charged', 'refunded', 'unknown'].includes(billing.status)) return billing;
+  if (job.apiKeySource === 'platform') standaloneAuthStore.billing.settleGenerationCharge(auth.user.id, job.id);
   const amount = Math.max(0, Number(billing.amount || 0));
   if (!amount) return { ...billing, status: 'disabled' };
   const summary = standaloneAuthStore.getCreditSummary(auth.user.id);
@@ -775,22 +790,40 @@ function refundJobCredits(auth, job, reason) {
   if (!standaloneAuthStore || AUTH_MODE !== 'standalone' || !billing || billing.status === 'refunded') {
     return billing || null;
   }
+  const charge = standaloneAuthStore.billing.getGenerationCharge(auth.user.id, job.id);
+  if (charge?.metadata.source === 'platform') {
+    if (job.apiKeySource !== 'platform' || job.platformProviderId !== charge.metadata.platformProviderId
+        || job.model !== charge.metadata.model || charge.metadata.settlement === 'settled') return billing;
+  }
   const amount = Math.max(0, Number(billing.amount || 0));
   if (!amount) return { ...billing, status: 'disabled' };
-  const refundReference = billing.refundReference || jobRefundReference(job.id);
+  const refundReference = jobRefundReference(job.id);
   const refund = standaloneAuthStore.refundCredits({
     userId: auth.user.id,
     amount,
     referenceId: refundReference,
+    chargeReferenceId: jobBillingReference(job.id),
     metadata: {
       jobId: job.id,
       reason: text(reason || 'generation_failed', 120),
-      chargeReference: billing.chargeReference || jobBillingReference(job.id)
+      chargeReference: jobBillingReference(job.id)
     }
   });
+  let settlement = {};
+  if (charge?.metadata.source === 'platform') {
+    const settled = standaloneAuthStore.billing.getGenerationCharge(auth.user.id, job.id);
+    standaloneAuthStore.billing.settleGenerationCharge(auth.user.id, job.id);
+    settlement = {
+      amount: charge.amount, refundedAmount: settled.refundedAmount,
+      chargedAmount: charge.amount - settled.refundedAmount,
+      deliveredQuantity: charge.metadata.deliveredOutputs?.length || 0,
+      status: settled.refundedAmount === charge.amount ? 'refunded' : settled.refundedAmount ? 'partially_refunded' : 'charged'
+    };
+  }
   return {
     ...billing,
     status: 'refunded',
+    ...settlement,
     refundReference,
     balanceAfter: refund.balance,
     refundedAt: new Date().toISOString()
@@ -1487,6 +1520,7 @@ async function sanitizeRecord(auth, body) {
     providerId: text(body.providerId || body.provider || '', 160),
     providerFamily: text(body.providerFamily || body.providerId || body.provider || '', 160),
     apiKeySource: text(body.apiKeySource || '', 60),
+    platformProviderId: text(body.platformProviderId || '', 160),
     providerLabel: text(body.providerLabel || '', 160),
     prompt: promptText(body.prompt),
     generationPrompt: promptText(body.generationPrompt || body.prompt),
@@ -1552,6 +1586,9 @@ function normalizeGatewayBaseUrl(value, providerType = '') {
 }
 
 function standaloneProviderRuntime(request = {}, userId = '') {
+  if (AUTH_MODE === 'standalone' && request.apiKeySource === 'platform') {
+    return standaloneAuthStore.platformProviders.runtime(request, standaloneAuthStore.getBillingSettings().creditsEnabled);
+  }
   if (AUTH_MODE === 'standalone' && request.apiKeySource === 'linked') {
     const connectionId = text(request.providerConnectionId || request.providerProfileId, 160);
     if (!connectionId || !userId) {
@@ -1572,6 +1609,7 @@ function standaloneProviderRuntime(request = {}, userId = '') {
       apiKey: connection.apiKey,
       gatewayBaseUrl: normalizeGatewayBaseUrl(connection.gatewayBaseUrl, profile.type),
       connectionId: connection.connectionId,
+      apiKeySource: 'linked',
       profile
     };
   }
@@ -1601,6 +1639,7 @@ function standaloneProviderRuntime(request = {}, userId = '') {
   }
   return {
     apiKey,
+    apiKeySource: manual ? 'manual' : 'legacy-env',
     gatewayBaseUrl: url.toString().replace(/\/+$/, ''),
     profile
   };
@@ -1652,6 +1691,7 @@ function chatCompletionText(payload) {
 }
 
 async function providerChatCompletion({ model, messages, signal, request = {}, userId = '' }) {
+  if (request.apiKeySource === 'platform') throw new PlatformProviderError('PLATFORM_PROMPT_NOT_SUPPORTED');
   const runtime = standaloneProviderRuntime(request, userId);
   const selectedModel = text(request.apiKeySource === 'manual'
     ? model || 'gpt-4o-mini'
@@ -1784,23 +1824,23 @@ function gatewayRequestId(payload, headers) {
   ));
 }
 
-async function readGatewayResponse(response) {
-  const raw = await response.text();
+async function readGatewayResponse(response, apiKey = '') {
+  const raw = redactPlatformValue(await response.text(), apiKey);
   let payload = {};
   try {
     payload = raw ? parseJsonText(raw) : {};
   } catch {
     payload = { message: raw.slice(0, 1200) };
   }
-  const safePayload = redactProviderValue(payload);
+  const safePayload = redactPlatformValue(redactProviderValue(payload), apiKey);
   if (!response.ok) {
     const error = new Error(safePayload?.error?.message || safePayload?.message || `GATEWAY_HTTP_${response.status}`);
     error.status = response.status;
     error.payload = safePayload;
-    error.requestId = gatewayRequestId(safePayload, response.headers);
+    error.requestId = gatewayRequestId(safePayload, { get: (name) => redactPlatformValue(response.headers.get(name), apiKey) });
     throw error;
   }
-  const requestId = gatewayRequestId(safePayload, response.headers);
+  const requestId = gatewayRequestId(safePayload, { get: (name) => redactPlatformValue(response.headers.get(name), apiKey) });
   if (requestId && safePayload && typeof safePayload === 'object' && !safePayload.request_id) safePayload.request_id = requestId;
   return safePayload;
 }
@@ -1822,7 +1862,7 @@ async function persistRemoteImage(auth, recordId, rawUrl, index) {
   }
 }
 
-async function persistGatewayImage(auth, recordId, item, index, outputFormat = 'png') {
+async function persistGatewayImage(auth, recordId, item, index, outputFormat = 'png', runtime, signal) {
   const url = String(item?.url || item?.image_url || '').trim();
   if (item?.b64_json || item?.image_base64) {
     const fallbackMime = outputFormat === 'jpeg'
@@ -1838,6 +1878,14 @@ async function persistGatewayImage(auth, recordId, item, index, outputFormat = '
     return storeResultUrl(auth, recordId, url, index);
   }
   if (/^https?:\/\//i.test(url)) {
+    if (runtime?.apiKeySource === 'platform') {
+      const response = await runtime.fetch(url, { signal });
+      if (!response.ok) await readGatewayResponse(response, runtime.apiKey);
+      const mime = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!/^image\/(png|jpeg|webp)$/.test(mime)) throw new PlatformProviderError('IMAGE_ASSET_FORMAT_UNSUPPORTED', 502);
+      const buffer = await readLimitedResponseBuffer(response, MAX_IMAGE_BYTES);
+      return writeAssetBuffer(auth, recordId, buffer, mime, index);
+    }
     return persistRemoteImage(auth, recordId, url, index);
   }
   return '';
@@ -1875,8 +1923,8 @@ async function getJsonFromGateway(url, apiKey, clientRequestId, signal) {
   return readGatewayResponse(response);
 }
 
-async function getVideoTaskFromGateway(url, apiKey, clientRequestId, signal) {
-  const response = await undiciFetch(url, {
+async function getVideoTaskFromGateway(url, apiKey, clientRequestId, signal, fetchImpl = undiciFetch) {
+  const response = await fetchImpl(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -1885,7 +1933,7 @@ async function getVideoTaskFromGateway(url, apiKey, clientRequestId, signal) {
     dispatcher: videoPollAgent,
     signal
   });
-  return readGatewayResponse(response);
+  return readGatewayResponse(response, apiKey);
 }
 
 async function readLimitedResponseBuffer(response, maxBytes) {
@@ -1927,7 +1975,7 @@ async function persistGatewayVideo(auth, recordId, rawUrl, index, runtime, clien
   if (!url) return '';
   const gatewayOrigin = new URL(runtime.gatewayBaseUrl).origin;
   const assetOrigin = new URL(url).origin;
-  const response = await undiciFetch(url, {
+  const response = await (runtime.fetch || undiciFetch)(url, {
     headers: assetOrigin === gatewayOrigin ? {
       Authorization: `Bearer ${runtime.apiKey}`,
       ...(clientRequestId ? { 'X-Client-Request-ID': clientRequestId } : {})
@@ -1935,7 +1983,7 @@ async function persistGatewayVideo(auth, recordId, rawUrl, index, runtime, clien
     dispatcher: gatewayFetchAgent,
     signal
   });
-  if (!response.ok) await readGatewayResponse(response);
+  if (!response.ok) await readGatewayResponse(response, runtime.apiKey);
   const contentType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (contentType && !['video/mp4', 'application/octet-stream'].includes(contentType)) {
     const error = new Error('VIDEO_ASSET_FORMAT_UNSUPPORTED');
@@ -2005,15 +2053,19 @@ async function runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskI
           runtime.apiKey,
           buildProviderMultipartForm(plan, runtime, { includeVideoReference: true }),
           job.clientRequestId,
-          signal
+          signal,
+          runtime.fetch
         )
-      : await postJsonToGateway(createEndpoint, runtime.apiKey, plan.body, job.clientRequestId, signal);
+      : await postJsonToGateway(createEndpoint, runtime.apiKey, plan.body, job.clientRequestId, signal, runtime.profile?.type, runtime.fetch);
     task = normalizeProviderVideoTask(createPayload);
   }
   if (!task.id) {
     const error = new Error('VIDEO_TASK_ID_MISSING');
     error.payload = task.raw || null;
     throw error;
+  }
+  if (runtime.apiKeySource === 'platform' && !resumeTaskId) {
+    standaloneAuthStore.billing.attachGenerationTask(auth.user.id, job.id, task.id);
   }
   const requestIds = [task.id];
   currentJob = await updateJob(auth, job.id, {
@@ -2033,7 +2085,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskI
     await waitForProviderPoll(VIDEO_POLL_INTERVAL_MS, signal);
     const retrieveEndpoint = providerEndpointUrl(runtime.gatewayBaseUrl, applyProviderEndpoint(plan.retrieveEndpoint, { id: task.id }));
     try {
-      task = normalizeProviderVideoTask(await getVideoTaskFromGateway(retrieveEndpoint, runtime.apiKey, job.clientRequestId, signal));
+      task = normalizeProviderVideoTask(await getVideoTaskFromGateway(retrieveEndpoint, runtime.apiKey, job.clientRequestId, signal, runtime.fetch));
       transientPollFailures = 0;
       currentJob = await updateJob(auth, job.id, {
         status: task.status === 'completed' ? 'saving' : task.status === 'failed' ? 'failed' : 'upstream',
@@ -2083,6 +2135,7 @@ async function runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskI
   }
   const stored = await persistGatewayVideo(auth, job.id, contentPath, 0, runtime, job.clientRequestId, signal);
   if (!stored) throw new Error('VIDEO_ASSET_SAVE_FAILED');
+  if (runtime.apiKeySource === 'platform') standaloneAuthStore.billing.recordGenerationOutput(auth.user.id, job.id, stored);
   currentJob = await updateJob(auth, job.id, {
     status: 'video',
     stage: 'video',
@@ -2099,10 +2152,12 @@ async function runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskI
 }
 
 function buildJobRecord(body) {
-  const request = body?.request && typeof body.request === 'object' ? body.request : body;
+  const request = body?.request && typeof body.request === 'object' ? { ...body, ...body.request } : body;
   const mode = request.mode === 'video' ? 'video' : ['edit', 'mask'].includes(request.mode) ? request.mode : 'image';
   const route = mode === 'video' ? 'video' : mode === 'image' && request.route !== 'edits' ? 'generations' : 'edits';
-  const count = mode === 'video' ? 1 : Math.max(1, Math.min(10, Number(request.n || request.count || 1)));
+  const count = request.n ?? request.count ?? 1;
+  const maxCount = mode === 'video' ? 1 : request.apiKeySource === 'platform' ? 4 : 10;
+  if (!Number.isInteger(count) || count < 1 || count > maxCount) throw new PlatformProviderError('INVALID_GENERATION_COUNT');
   const now = new Date().toISOString();
   return {
     id: cleanJobId(request.id || body.id),
@@ -2123,6 +2178,7 @@ function buildJobRecord(body) {
     providerId: text(request.providerId || request.provider || '', 160),
     providerFamily: text(request.providerFamily || request.providerId || request.provider || '', 160),
     apiKeySource: text(request.apiKeySource || '', 60),
+    platformProviderId: text(request.platformProviderId || '', 160),
     providerLabel: text(request.providerLabel || '', 160),
     model: text(request.model, 160),
     prompt: promptText(request.prompt),
@@ -2162,13 +2218,17 @@ function buildJobRecord(body) {
   };
 }
 
-function buildJobRuntime(body, auth) {
+function buildJobRuntime(body, auth, job) {
   const request = body?.request && typeof body.request === 'object' ? body.request : body;
+  const images = (Array.isArray(body.images) ? body.images : []).slice(0, 4).map(normalizeImageInput).filter(Boolean);
+  if (job?.apiKeySource === 'platform' && job.mode !== 'video' && images.length) job.route = 'edits';
   let apiKey;
   let gatewayBaseUrl;
   let profile;
+  let providerRuntime = {};
   if (AUTH_MODE === 'standalone') {
-    ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime({ ...body, ...request }, auth?.user?.id));
+    providerRuntime = standaloneProviderRuntime({ ...body, ...request, ...(job ? { mode: job.mode, route: job.route, model: job.model, n: job.count } : {}) }, auth?.user?.id);
+    ({ apiKey, gatewayBaseUrl, profile } = providerRuntime);
   } else {
     apiKey = text(body.apiKey || request.apiKey, 4000);
     gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL);
@@ -2180,10 +2240,11 @@ function buildJobRuntime(body, auth) {
     throw error;
   }
   return {
+    ...providerRuntime,
     apiKey,
     gatewayBaseUrl,
     profile,
-    images: (Array.isArray(body.images) ? body.images : []).slice(0, 4).map(normalizeImageInput).filter(Boolean),
+    images,
     mask: body.mask ? normalizeImageInput(body.mask, 0) : null
   };
 }
@@ -2235,6 +2296,7 @@ async function writeHistoryRecordForJob(auth, job) {
     providerId: job.providerId,
     providerFamily: job.providerFamily,
     apiKeySource: job.apiKeySource,
+    platformProviderId: job.platformProviderId || '',
     providerLabel: job.providerLabel,
     prompt: job.prompt,
     generationPrompt: job.generationPrompt || job.prompt,
@@ -2279,9 +2341,9 @@ function providerAuthHeaders(apiKey, providerType = '') {
   return headers;
 }
 
-async function postJsonToGateway(url, apiKey, body, clientRequestId, signal, providerType = '') {
+async function postJsonToGateway(url, apiKey, body, clientRequestId, signal, providerType = '', fetchImpl = undiciFetch) {
   signal?.throwIfAborted();
-  const response = await undiciFetch(url, {
+  const response = await fetchImpl(url, {
     method: 'POST',
     headers: {
       ...providerAuthHeaders(apiKey, providerType),
@@ -2293,12 +2355,12 @@ async function postJsonToGateway(url, apiKey, body, clientRequestId, signal, pro
     dispatcher: gatewayFetchAgent,
     signal
   });
-  return readGatewayResponse(response);
+  return readGatewayResponse(response, apiKey);
 }
 
-async function postMultipartToGateway(url, apiKey, form, clientRequestId, signal) {
+async function postMultipartToGateway(url, apiKey, form, clientRequestId, signal, fetchImpl = undiciFetch) {
   signal?.throwIfAborted();
-  const response = await undiciFetch(url, {
+  const response = await fetchImpl(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -2309,12 +2371,12 @@ async function postMultipartToGateway(url, apiKey, form, clientRequestId, signal
     dispatcher: gatewayFetchAgent,
     signal
   });
-  return readGatewayResponse(response);
+  return readGatewayResponse(response, apiKey);
 }
 
-async function runGenerationRequest(auth, job, runtime, signal) {
+async function runGenerationRequest(auth, job, runtime, signal, resumeTaskId = '') {
   if (job.mode === 'video') {
-    return runVideoGenerationRequest(auth, job, runtime, signal);
+    return runVideoGenerationRequest(auth, job, runtime, signal, resumeTaskId);
   }
   const resultUrls = [];
   const requestIds = [];
@@ -2341,7 +2403,8 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       runtime.apiKey,
       buildProviderMultipartForm(plan, runtime),
       job.clientRequestId,
-      signal
+      signal,
+      runtime.fetch
     );
     const items = normalizeProviderImageItems(plan.adapter, payload);
     if (!items.length) {
@@ -2349,6 +2412,7 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       error.payload = payload;
       throw error;
     }
+    if (runtime.apiKeySource === 'platform' && items.length !== total) throw new PlatformProviderError('PLATFORM_RESULT_COUNT_MISMATCH', 502);
     requestIds.push(gatewayRequestId(payload));
     currentJob = await updateJob(auth, job.id, {
       status: 'saving',
@@ -2363,7 +2427,9 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       }
     }) || currentJob;
     for (let index = 0; index < items.length; index += 1) {
-      const stored = await persistGatewayImage(auth, job.id, items[index], resultUrls.length, job.outputFormat);
+      const stored = await persistGatewayImage(auth, job.id, items[index], resultUrls.length, job.outputFormat, runtime, signal);
+      if (runtime.apiKeySource === 'platform' && !stored) throw new PlatformProviderError('IMAGE_ASSET_SAVE_FAILED', 502);
+      if (runtime.apiKeySource === 'platform') standaloneAuthStore.billing.recordGenerationOutput(auth.user.id, job.id, stored);
       if (stored) resultUrls.push(stored);
       currentJob = await updateJob(auth, job.id, {
         status: 'image',
@@ -2404,9 +2470,11 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       plan.body,
       clientRequestId,
       signal,
-      runtime.profile?.type
+      runtime.profile?.type,
+      runtime.fetch
     );
     const items = normalizeProviderImageItems(plan.adapter, payload);
+    if (runtime.apiKeySource === 'platform' && items.length !== 1) throw new PlatformProviderError('PLATFORM_RESULT_COUNT_MISMATCH', 502);
     if (!items.length) {
       const error = new Error('IMAGES_GENERATIONS_RETURNED_NO_IMAGES');
       error.payload = payload;
@@ -2426,7 +2494,9 @@ async function runGenerationRequest(auth, job, runtime, signal) {
       }
     }) || currentJob;
     for (const item of items) {
-      const stored = await persistGatewayImage(auth, job.id, item, resultUrls.length, job.outputFormat);
+      const stored = await persistGatewayImage(auth, job.id, item, resultUrls.length, job.outputFormat, runtime, signal);
+      if (runtime.apiKeySource === 'platform' && !stored) throw new PlatformProviderError('IMAGE_ASSET_SAVE_FAILED', 502);
+      if (runtime.apiKeySource === 'platform') standaloneAuthStore.billing.recordGenerationOutput(auth.user.id, job.id, stored);
       if (stored) resultUrls.push(stored);
     }
     if (payload?.usage) usages.push(payload.usage);
@@ -2462,6 +2532,7 @@ async function runGenerationJob(auth, jobId, runtime, resumeTaskId = '') {
   try {
     const queuedAt = Number(existingJob.timing?.queuedAt) || Date.parse(existingJob.createdAt || '') || null;
     let job = await updateJob(auth, jobId, {
+      ...(recovering && runtime.recoveredBilling ? { billing: runtime.recoveredBilling } : {}),
       status: recovering ? 'upstream' : 'dispatching',
       stage: recovering ? 'upstream' : 'dispatching',
       startedAt: new Date(startedAt).toISOString(),
@@ -2544,7 +2615,7 @@ async function runGenerationJob(auth, jobId, runtime, resumeTaskId = '') {
             ? 'The running job was canceled locally, but the upstream may still finish or bill. Billing requires reconciliation.'
             : dispatchFailed
               ? gatewayDispatchErrorMessage(error)
-              : gatewayErrorMessage(error)
+              : redactPlatformValue(gatewayErrorMessage(error), runtime.apiKey)
       }
     });
   } finally {
@@ -2561,19 +2632,46 @@ function enqueueGenerationJob(auth, job, runtime, resumeTaskId = '') {
   setTimeout(() => drainGenerationQueue(auth.userKey), 0);
 }
 
-function recoverPersistedVideoJobs(auth, jobs) {
+async function recoverPersistedVideoJobs(auth, jobs) {
   if (AUTH_MODE !== 'standalone') return;
   for (const job of jobs) {
     const taskId = job.mode === 'video' && job.status === 'upstream'
       ? text(job.upstreamTaskId || job.requestIds?.[0], 180)
       : '';
     if (!taskId || jobIsActiveInMemory(auth, job.id)) continue;
+    let recoveredBilling;
     try {
+      const charge = standaloneAuthStore.billing.getGenerationCharge(auth.user.id, job.id);
+      if (charge?.metadata.source === 'platform' || job.apiKeySource === 'platform') {
+        if (!charge || charge.refunded || charge.metadata.source !== 'platform'
+            || job.apiKeySource !== 'platform' || charge.metadata.settlement === 'settled'
+            || charge.metadata.platformProviderId !== job.platformProviderId || charge.metadata.model !== job.model
+            || charge.metadata.upstreamTaskId !== taskId) continue;
+        recoveredBilling = {
+          amount: charge.amount, unit: charge.metadata.unit, quantity: charge.metadata.quantity,
+          source: 'platform', platformProviderId: job.platformProviderId,
+          status: charge.amount ? 'reserved' : 'disabled',
+          chargeReference: jobBillingReference(job.id), refundReference: jobRefundReference(job.id)
+        };
+      }
       const runtime = buildJobRuntime({ request: job }, auth);
+      if (recoveredBilling && runtime.connectionFingerprint !== charge.metadata.connectionFingerprint) {
+        throw new PlatformProviderError('PLATFORM_PROVIDER_CONNECTION_CHANGED', 409);
+      }
+      runtime.recoveredBilling = recoveredBilling;
       runtime.plan = buildJobInvocationPlan(job, runtime);
       enqueueGenerationJob(auth, job, runtime, taskId);
-    } catch {
-      // Keep the persisted job visible; the next read can retry recovery.
+    } catch (error) {
+      if (recoveredBilling) {
+        const reason = text(error?.code || 'PLATFORM_RECOVERY_UNAVAILABLE', 120);
+        const updated = await updateJob(auth, job.id, {
+          status: 'unknown', stage: 'unknown',
+          billing: markJobBillingUnknown(auth, { ...job, billing: recoveredBilling }, reason),
+          error: { code: 'PLATFORM_RECOVERY_BLOCKED', reason,
+            message: 'The paid upstream task could not be resumed with its original provider configuration. Reconcile its result and reserved credits.' }
+        });
+        if (updated) Object.assign(job, updated);
+      }
     }
   }
 }
@@ -2853,6 +2951,9 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
   }
 
   const auth = await authenticate(req);
+  if (req.method === 'GET' && parts.length === 3 && parts[2] === 'platform-models') {
+    return sendJson(res, 200, { ok: true, ...standaloneAuthStore.platformProviders.catalog(standaloneAuthStore.getBillingSettings().creditsEnabled) });
+  }
   if (req.method === 'POST' && parts.length === 3 && parts[2] === 'logout') {
     const result = standaloneAuthStore.logout(bearerToken(req));
     return sendJson(res, 200, { ok: true, ...result });
@@ -2907,6 +3008,43 @@ async function handleStandaloneAuthRoute(req, res, parts, url) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
   requireAdmin(auth);
+
+  if (req.method === 'GET' && parts.length === 4 && parts[3] === 'system') {
+    return sendJson(res, 200, { ok: true, system: {
+      registrationMode: AUTH_REGISTRATION_MODE,
+      passwordMinLength: AUTH_PASSWORD_MIN_LENGTH,
+      sessionTtlMs: AUTH_SESSION_TTL_MS,
+      providerSecretsConfigured: standaloneAuthStore.platformProviders.configured,
+      allowPrivateProviderUrls: ALLOW_PRIVATE_PROVIDER_URLS,
+      userProviderOnly: USER_PROVIDER_ONLY,
+      jobConcurrency: JOB_CONCURRENCY,
+      jobTimeoutMs: JOB_TIMEOUT_MS,
+      maxImageBytes: MAX_IMAGE_BYTES,
+      maxVideoBytes: MAX_VIDEO_BYTES,
+      storage: 'sqlite'
+    } });
+  }
+  if (parts[3] === 'providers') {
+    const providers = standaloneAuthStore.platformProviders;
+    if (req.method === 'GET' && parts.length === 4) return sendJson(res, 200, { ok: true, providers: providers.list() });
+    if (req.method === 'POST' && (parts.length === 4 || parts.length === 5)) {
+      const body = await readJsonBody(req, 1024 * 1024);
+      const provider = providers.save(body, parts.length === 5 ? decodeRoutePart(parts[4]) : '');
+      standaloneAuthStore.secureDatabaseFiles();
+      return sendJson(res, parts.length === 4 ? 201 : 200, { ok: true, provider });
+    }
+    if (req.method === 'DELETE' && parts.length === 5) {
+      const result = providers.remove(decodeRoutePart(parts[4]));
+      standaloneAuthStore.secureDatabaseFiles();
+      return sendJson(res, 200, { ok: true, ...result });
+    }
+    if (req.method === 'POST' && parts.length === 6 && parts[5] === 'models') {
+      const provider = await providers.sync(decodeRoutePart(parts[4]));
+      standaloneAuthStore.secureDatabaseFiles();
+      return sendJson(res, 200, { ok: true, provider });
+    }
+    return sendJson(res, 405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
+  }
 
   if (req.method === 'GET' && parts.length === 5 && parts[3] === 'update' && parts[4] === 'status') {
     return sendJson(res, 200, { ok: true, update: await readManualUpdateStatus() });
@@ -3078,6 +3216,12 @@ async function handler(req, res) {
 
     if (req.method === 'POST' && parts[0] === 'studio-api' && parts[1] === 'model-sync' && parts.length === 2) {
       const body = await readJsonBody(req);
+      if (AUTH_MODE === 'standalone' && body.apiKeySource === 'platform') {
+        const catalog = standaloneAuthStore.platformProviders.catalog(standaloneAuthStore.getBillingSettings().creditsEnabled);
+        const provider = catalog.providers.find((item) => item.id === body.platformProviderId);
+        if (!provider) throw new PlatformProviderError('PLATFORM_PROVIDER_UNAVAILABLE', 403);
+        return sendJson(res, 200, { ok: true, models: { data: provider.models } });
+      }
       let apiKey;
       let gatewayBaseUrl;
       let profile;
@@ -3141,7 +3285,7 @@ async function handler(req, res) {
       const requestedLimit = Math.max(1, Number(url.searchParams.get('limit') || 40));
       const limit = JOB_LIMIT > 0 ? Math.min(JOB_LIMIT, requestedLimit) : requestedLimit;
       const jobs = await readJobs(auth);
-      recoverPersistedVideoJobs(auth, jobs);
+      await recoverPersistedVideoJobs(auth, jobs);
       const filtered = sessionId ? jobs.filter((job) => job.sessionId === sessionId) : jobs;
       return sendJson(res, 200, { ok: true, jobs: filtered.slice(0, limit) });
     }
@@ -3154,7 +3298,16 @@ async function handler(req, res) {
         const existingById = jobs.find((item) => item.id === job.id);
         if (existingById) return { job: existingById, duplicate: true };
 
-        const runtime = buildJobRuntime(body, auth);
+        const runtime = buildJobRuntime(body, auth, job);
+        if (AUTH_MODE === 'standalone') {
+          job.apiKeySource = runtime.apiKeySource;
+          job.platformProviderId = runtime.platformProviderId || '';
+          if (runtime.apiKeySource === 'platform') {
+            job.providerId = runtime.profile.type;
+            job.providerFamily = runtime.profile.type;
+            job.providerLabel = runtime.providerLabel;
+          }
+        }
         if (job.route === 'edits' && !runtime.images.length) {
           const error = new Error('REFERENCE_IMAGE_REQUIRED');
           error.status = 400;
@@ -3172,7 +3325,7 @@ async function handler(req, res) {
           ));
           if (existing) return { job: existing, duplicate: true };
         }
-        job.billing = reserveJobCredits(auth, job);
+        job.billing = reserveJobCredits(auth, job, runtime);
         try {
           await writeJobsUnlocked(auth, [job, ...jobs.filter((item) => item.id !== job.id)]);
         } catch (error) {
@@ -3199,7 +3352,7 @@ async function handler(req, res) {
       const jobs = await readJobs(auth);
       const job = jobs.find((item) => item.id === jobId);
       if (!job) return sendJson(res, 404, { ok: false, error: 'GENERATION_JOB_NOT_FOUND' });
-      recoverPersistedVideoJobs(auth, [job]);
+      await recoverPersistedVideoJobs(auth, [job]);
       return sendJson(res, 200, { ok: true, job });
     }
 

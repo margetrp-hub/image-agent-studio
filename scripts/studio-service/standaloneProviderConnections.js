@@ -278,7 +278,7 @@ function privateHost(hostname) {
   return host === 'localhost' || host.endsWith('.localhost') || host === 'metadata.google.internal' || host === '::1' || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
 }
 
-function parseMasterKey(value) {
+export function parseMasterKey(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, 'hex');
@@ -290,7 +290,7 @@ function parseMasterKey(value) {
   }
 }
 
-function encryptSecret(value, key) {
+export function encryptSecret(value, key) {
   const iv = randomBytes(12);
   const cipher = createCipheriv(CIPHER, key, iv);
   const aad = `${value.ownerId}:${value.connectionId}`;
@@ -299,7 +299,7 @@ function encryptSecret(value, key) {
   return { ciphertext: ciphertext.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') };
 }
 
-function decryptSecret(row, key, ownerId, connectionId) {
+export function decryptSecret(row, key, ownerId, connectionId) {
   try {
     const decipher = createDecipheriv(CIPHER, key, Buffer.from(row.secret_iv, 'base64'));
     decipher.setAAD(Buffer.from(`${ownerId}:${connectionId}`));

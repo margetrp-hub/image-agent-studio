@@ -6,7 +6,7 @@ This is the canonical architecture document for Image Agent Studio. Other README
 
 Image Agent Studio is an independent creation workstation for image and video workflows. It keeps briefs, prompts, references, projects, visual branches, task state, history, and durable assets in one workspace.
 
-The workstation is not a model provider, gateway, account pool, quota system, or billing service. OpenAI-compatible APIs, NewAPI, Sub2API, xAI-compatible services, and future integrations connect through provider adapters. Adapter names describe transport and capability differences; they do not define the product.
+The workstation owns its user accounts and an optional platform credit ledger. It does not own upstream model serving, provider account pools or upstream monetary billing. OpenAI-compatible APIs, NewAPI, Sub2API, xAI-compatible services, and future integrations connect through provider adapters. Adapter names describe transport and capability differences; they do not define the product.
 
 Image Agent Canvas is a separate Codex plugin and a separate repository. This repository does not own its MCP server, tldraw runtime, Codex plugin manifest, or project-level plugin storage. The two products may exchange stable assets and prompt/workflow contracts later, but neither is packaged inside the other.
 
@@ -16,7 +16,7 @@ The repository is in a staged migration. The following distinctions are intentio
 
 ### Working compatibility runtime
 
-The root web application and Node Studio service remain the production-compatible path. They currently own the established generation flow, session/history compatibility, queue execution, generated asset handling, deployment scripts, and existing data layouts.
+The root web application and Node Studio service remain the production-compatible path. They currently own the established generation flow, session/history compatibility, queue execution, generated asset handling, deployment scripts, and existing data layouts. The standalone admin console also manages encrypted platform suppliers, model publication and per-operation credit pricing in the existing SQLite account database. This billing authority has not moved into the Go provider-link store.
 
 ### Implemented Go foundations
 
@@ -87,6 +87,7 @@ The service boundary owns protected and durable operations:
 - user identity and authorization scope;
 - project, session, history, and job persistence;
 - provider credential custody;
+- platform model publication, authoritative pricing, credit reservation and refund records;
 - server-side model synchronization and dispatch planning;
 - content-addressed asset ingestion and access checks;
 - job events, cancellation, and eventual queue execution;
@@ -146,7 +147,15 @@ This supports `#1 -> #2 -> #3` image branches and the same pattern for video sce
 
 ## Provider and Secret Boundary
 
-Image Agent Studio supports two server-side provider ownership models.
+The production compatibility runtime supports administrator-managed platform suppliers and per-user connections. The Go migration core has its own staged shared-link implementation; these stores are not interchangeable.
+
+### Platform suppliers in the compatibility runtime
+
+`scripts/studio-service/platformProviders.js` owns encrypted supplier configuration and discovered model metadata in `studio_platform_providers`. Model prices are integer credits for image output, image-edit output, or one video task. Client requests identify the platform supplier and model, while the service resolves credentials, invocation adapters and charge amounts. Model discovery does not publish new models automatically.
+
+The job worker records the chosen price in a credit reservation before dispatch. Duplicate identifiers cannot spend the same reservation twice. Confirmed failure refunds derive from the original ledger entry; ambiguous upstream outcomes remain available for reconciliation. Personal Key and linked-account requests do not consume platform credits. Platform access is disabled when credits are disabled.
+
+Operational policies remain in `studio_settings`; master keys, network access policy, storage locations and runtime limits stay in deployment configuration. See [configuration ownership](./OPERATIONS.zh-CN.md#后台与配置归属).
 
 ### Shared admin links
 

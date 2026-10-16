@@ -105,6 +105,18 @@ export function createUserBackupService({
     if (new Set(sessions.map((item) => item.sessionId.toLowerCase())).size !== sessions.length) throw invalid();
     const jobs = unique(objects(data.jobs), 'id');
     if (jobs.some((job) => typeof job.id !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(job.id))) throw invalid();
+    const activeStatuses = new Set(['queued', 'dispatching', 'gateway', 'upstream', 'image', 'video', 'saving']);
+    const restoredJobs = jobs.map((job) => {
+      const restored = { ...job };
+      delete restored.apiKey;
+      delete restored.gatewayBaseUrl;
+      if (activeStatuses.has(job.status)) {
+        // Backups restore historical data, never execution authority or credit reservations.
+        Object.assign(restored, { status: 'unknown', stage: 'unknown', billing: null,
+          error: { code: 'RESTORED_JOB_NOT_RESUMABLE', message: 'Restored active jobs require reconciliation and cannot resume automatically.' } });
+      }
+      return restored;
+    });
     const communityPrompts = unique(objects(data.communityPrompts === undefined ? [] : data.communityPrompts), 'id');
     if (communityPrompts.some((item) => typeof item.id !== 'string' || !/^[A-Za-z0-9._:-]{1,120}$/.test(item.id)
       || typeof item.prompt !== 'string' || !item.prompt.trim())) throw invalid();
@@ -112,7 +124,7 @@ export function createUserBackupService({
       records,
       session,
       sessions,
-      jobs,
+      jobs: restoredJobs,
       communityPrompts,
       assets: validateAssetSnapshot(data.assets)
     };

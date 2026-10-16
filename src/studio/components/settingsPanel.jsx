@@ -25,6 +25,7 @@ import {
   usesGatewayAccount
 } from '../util/providerSettings.js';
 import { modelOptionsForProfile, providerSettingsFromProfile } from '../util/providerLibrary.js';
+import { PlatformProviderPicker } from './platformProviderPicker.jsx';
 
 const MANUAL_MODEL_OPTION = '__manual_model__';
 
@@ -111,6 +112,8 @@ export function SettingsPanel({
   onSelectKey,
   providerSettings,
   onProviderChange,
+  platformCatalog,
+  onSelectPlatformProvider,
   providerProfiles = [],
   activeProviderProfileId,
   assistantProviderProfileId = '',
@@ -424,6 +427,7 @@ export function SettingsPanel({
           <button type="button" className="iconButton" onClick={onClose} aria-label={t('settings.close', '关闭')} title={t('settings.close', '关闭')}><X size={17} /></button>
         </div>
 
+        {!editing && STUDIO_STANDALONE && platformCatalog ? <PlatformProviderPicker {...platformCatalog} selectedId={providerSettings.apiKeySource === 'platform' ? providerSettings.platformProviderId : ''} onSelect={onSelectPlatformProvider} onRefresh={platformCatalog.refresh} /> : null}
         {!editing ? <section className="providerLibrary" aria-label={t('settings.libraryTitle', '供应商库')}>
           <div className="providerLibraryHead">
             <div>

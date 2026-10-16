@@ -33,6 +33,7 @@ export function defaultProviderGatewayBaseUrl(settings) {
 }
 
 export function providerLabel(settings, apiKey) {
+  if (settings.apiKeySource === 'platform') return settings.providerName || '平台供应商';
   const provider = getImageProvider(settings.providerId, settings.apiKeySource);
   if (settings.apiKeySource === 'manual') return provider?.label || (settings.manualGatewayBaseUrl ? 'Custom API' : 'Manual provider');
   if (settings.apiKeySource === 'linked') return settings.providerName || '已绑定供应商';

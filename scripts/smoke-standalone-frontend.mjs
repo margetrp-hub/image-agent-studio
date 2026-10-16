@@ -359,12 +359,16 @@ try {
   await page.waitForSelector('.iasAdminApp');
   assert.match(await page.locator('.iasAdminHeading').innerText(), /运营概览/, 'Admin dashboard did not render.');
   assert.match(await page.locator('.iasStatsGrid').innerText(), /注册用户[\s\S]*2/, 'Admin stats were not rendered.');
+  await page.getByRole('navigation', { name: '管理导航' }).getByRole('link', { name: '用户账户' }).click();
   assert.match(await page.locator('.iasUsersSection').innerText(), /studio-creator[\s\S]*200/, 'Admin user credits were not rendered.');
+  await page.getByRole('navigation', { name: '管理导航' }).getByRole('link', { name: '系统运行' }).click();
   assert.match(await page.locator('.iasUpdateSection').innerText(), /系统更新[\s\S]*v1\.0\.14/, 'Admin update panel was not rendered.');
   await page.getByRole('button', { name: '检查并更新' }).click();
+  await page.getByRole('button', { name: '确认更新', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('.iasUpdateSection')?.textContent?.includes('更新完成'));
   assert.ok(requests.some((item) => item.path.endsWith('/auth/admin/update') && item.method === 'POST'), 'Admin manual update was not requested.');
 
+  await page.getByRole('navigation', { name: '管理导航' }).getByRole('link', { name: '积分与充值' }).click();
   const bonusInput = page.locator('.iasCostGrid .iasField').filter({ hasText: '注册奖励' }).locator('input');
   await bonusInput.fill('250');
   await page.getByRole('button', { name: '保存设置' }).click();
@@ -373,6 +377,7 @@ try {
   assert.ok(settingsRequest, 'Admin billing settings update was not requested.');
   assert.equal(JSON.parse(settingsRequest.postData).registrationBonusCredits, 250, 'Admin billing settings sent the wrong registration bonus.');
 
+  await page.getByRole('navigation', { name: '管理导航' }).getByRole('link', { name: '用户账户' }).click();
   const creatorRow = page.locator('.iasUserTable tbody tr').filter({ hasText: 'creator@example.test' });
   await creatorRow.getByRole('button', { name: '调账' }).click();
   await page.locator('.iasDialog input').fill('25');
@@ -410,6 +415,8 @@ try {
   });
   await page.goto(new URL('admin.html', baseUrl).toString(), { waitUntil: 'networkidle' });
   await page.waitForSelector('.iasAdminApp');
+  await page.getByRole('button', { name: '打开管理导航' }).click();
+  await page.getByRole('dialog').getByRole('link', { name: '用户账户' }).click();
   const mobileAdminLayout = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
     pageWidth: document.documentElement.scrollWidth,

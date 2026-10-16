@@ -195,6 +195,8 @@ const WorkflowStoryboard = React.lazy(() => import('./studio/components/workflow
   default: module.WorkflowStoryboard
 })));
 import { buildGenerationTask as buildGenerationTaskPure, generationFilesForJob as generationFilesForJobPure, waitForServerJob as waitForServerJobPure } from './studio/generation/taskBuilder.js';
+import { platformModelOptions, platformModelSupports, platformPriceLabel, platformProviderSettings } from './studio/providers/platformCatalog.js';
+import { usePlatformCatalog } from './studio/providers/usePlatformCatalog.js';
 import { buildCanvasContinuationPlan, composeCanvasContinuationPrompt } from './studio/generation/promptComposition.js';
 import {
   resolveProviderRequest,
@@ -638,6 +640,7 @@ function buildCategoryGroups(cases) {
 }
 
 function connectionReady(settings, apiKey, isAuthenticated) {
+  if (settings.apiKeySource === 'platform') return Boolean(isAuthenticated && settings.platformProviderId);
   if (settings.apiKeySource === 'linked') {
     return Boolean(isAuthenticated && settings.providerProfileId);
   }
@@ -648,6 +651,7 @@ function connectionReady(settings, apiKey, isAuthenticated) {
 }
 
 function providerSetupMessage(settings, providerRequest, t) {
+  if (settings.apiKeySource === 'platform') return '请登录并选择可用的平台供应商。';
   if (settings.apiKeySource === 'linked' && !providerRequest?.providerConnectionId) {
     return t('statusMessages.providerConnectionRequired', '请先绑定供应商账号。');
   }
@@ -981,10 +985,11 @@ function CreationDesk({
   useEffect(() => {
     const requestId = String(firstRunRequest?.id || '');
     if (!requestId || handledFirstRunRequestRef.current === requestId) return;
-    setPendingFirstRunRequest(firstRunRequest);
-    setMode('image');
+    setPendingFirstRunRequest(firstRunRequest.generate === false ? null : firstRunRequest);
+    setMode(firstRunRequest.mode || 'image');
     setPrompt(firstRunRequest.prompt || '');
     setModel(firstRunRequest.model || providerSettings.imageGenerationModel || IMAGE_MODELS[0]);
+    if (firstRunRequest.mode === 'video') setVideoModel(firstRunRequest.model);
     setCount(1);
     setSelectedCanvasNodeId('');
     updateLayoutSections({
@@ -993,6 +998,10 @@ function CreationDesk({
       composerFolded: false,
       composerParameters: false
     });
+    if (firstRunRequest.generate === false) {
+      handledFirstRunRequestRef.current = requestId;
+      onFirstRunRequestConsumed?.(requestId);
+    }
   }, [firstRunRequest?.id]);
 
   useEffect(() => {
@@ -1054,6 +1063,7 @@ function CreationDesk({
   }, []);
 
   const isReady = connectionReady(providerSettings, apiKey, isAuthenticated);
+  const usesPlatformProvider = providerSettings.apiKeySource === 'platform';
   const promptAssistantSettings = assistantProviderSettings || providerSettings;
   const promptAssistantClient = assistantClient || client;
   const currentImageProvider = getImageProvider(providerSettings.providerId, providerSettings.apiKeySource);
@@ -1083,7 +1093,9 @@ function CreationDesk({
     providerSettings.imageEditModel
   ].map((id) => String(id || '').trim()).filter(Boolean).map((id) => ({ id, label: id }));
   const baseImageModelOptions = modelOptions?.image?.length ? modelOptions.image : defaultImageModelOptions;
-  const imageModelOptions = [
+  const imageModelOptions = usesPlatformProvider ? (modelOptions?.image || [])
+    .filter((item) => platformModelSupports(item, mode === 'edit' || mode === 'mask' ? 'edit' : 'image'))
+    .map((item) => ({ ...item, billingOperation: mode === 'edit' || mode === 'mask' ? 'edit' : 'image', label: `${item.name || item.id} · ${platformPriceLabel(item, mode === 'edit' || mode === 'mask' ? 'edit' : 'image')}` })) : [
     ...configuredImageModelOptions.filter((item) => !baseImageModelOptions.some((option) => option.id === item.id)),
     ...baseImageModelOptions
   ];
@@ -1092,13 +1104,19 @@ function CreationDesk({
   const syncedVideoModelOptions = configuredVideoModel && !baseVideoModelOptions.some((item) => item.id === configuredVideoModel)
     ? [{ id: configuredVideoModel, label: configuredVideoModel }, ...baseVideoModelOptions]
     : baseVideoModelOptions;
-  const videoModelOptions = videoModel && !syncedVideoModelOptions.some((item) => item.id === videoModel)
+  const videoModelOptions = usesPlatformProvider ? (modelOptions?.video || [])
+    .filter((item) => platformModelSupports(item, 'video'))
+    .map((item) => ({ ...item, billingOperation: 'video', label: `${item.name || item.id} · ${platformPriceLabel(item, 'video')}` })) : videoModel && !syncedVideoModelOptions.some((item) => item.id === videoModel)
     ? [{ id: videoModel, label: videoModel }, ...syncedVideoModelOptions]
     : syncedVideoModelOptions;
   const activeModelInfo = imageModelOptions.find((item) => item.id === model);
   const activeVideoModelInfo = videoModelOptions.find((item) => item.id === videoModel);
-  const hasSyncedVideoModels = syncedVideoModelOptions.length > 0;
-  const hasVideoModels = hasSyncedVideoModels || Boolean(videoModel);
+  const hasSyncedVideoModels = usesPlatformProvider ? videoModelOptions.length > 0 : syncedVideoModelOptions.length > 0;
+  const hasVideoModels = usesPlatformProvider ? videoModelOptions.length > 0 : hasSyncedVideoModels || Boolean(videoModel);
+  const availableDeskModes = usesPlatformProvider ? DESK_MODES.filter((item) => (
+    (item.value !== 'mask' || currentImageProvider.capabilities.mask)
+    && (modelOptions?.image || []).some((candidate) => platformModelSupports(candidate, item.value === 'image' ? 'image' : 'edit'))
+  )) : DESK_MODES;
   const size = sizeFromAspect(aspect, customSize);
   const countValue = clampCountForProvider(count, currentImageProvider, normalizeCount);
   const videoSize = videoSizeFromAspect(videoAspect);
@@ -2375,16 +2393,28 @@ function CreationDesk({
   }, [focusSignal]);
 
   useEffect(() => {
-    if (!imageModelOptions.some((item) => item.id === model)) {
-      setModel(imageModelOptions[0]?.id || IMAGE_MODELS[0]);
+    if (firstRunRequest?.generate === false && firstRunRequest.mode !== 'video' && imageModelOptions.some((item) => item.id === firstRunRequest.model)) {
+      setModel(firstRunRequest.model);
+      return;
     }
-  }, [modelOptions?.image]);
+    if (!imageModelOptions.some((item) => item.id === model)) {
+      setModel(imageModelOptions[0]?.id || (usesPlatformProvider ? '' : IMAGE_MODELS[0]));
+    }
+  }, [modelOptions?.image, usesPlatformProvider, mode]);
 
   useEffect(() => {
+    if (usesPlatformProvider) {
+      if (firstRunRequest?.generate === false && firstRunRequest.mode === 'video' && videoModelOptions.some((item) => item.id === firstRunRequest.model)) {
+        setVideoModel(firstRunRequest.model);
+        return;
+      }
+      if (!videoModelOptions.some((item) => item.id === videoModel)) setVideoModel(videoModelOptions[0]?.id || '');
+      return;
+    }
     if (syncedVideoModelOptions.length && !syncedVideoModelOptions.some((item) => item.id === videoModel)) {
       setVideoModel(syncedVideoModelOptions[0].id);
     }
-  }, [modelOptions?.video]);
+  }, [modelOptions?.video, usesPlatformProvider]);
 
   useEffect(() => () => {
     generationRef.current.controller?.abort();
@@ -2526,6 +2556,10 @@ function CreationDesk({
       return;
     }
     const providerRequest = resolveProviderRequest(promptAssistantSettings, apiKey);
+    if (promptAssistantSettings.apiKeySource === 'platform') {
+      setMessage('平台供应商暂不支持提示词助手。');
+      return;
+    }
     if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
       setStatus('error');
       setMessage(providerSetupMessage(promptAssistantSettings, providerRequest, t));
@@ -2937,6 +2971,7 @@ function CreationDesk({
           mode: task.mode,
           route: task.mode === 'edit' || task.mode === 'mask' ? 'edits' : 'generations',
           providerId: providerSettings.providerId,
+          platformProviderId: providerSettings.platformProviderId,
           apiKeySource: providerSettings.apiKeySource,
           model: task.model,
           prompt: task.prompt,
@@ -3135,7 +3170,7 @@ function CreationDesk({
         return false;
       }
     }
-    if (usesGatewayAccount(providerSettings) && !isAuthenticated) {
+    if ((usesGatewayAccount(providerSettings) || usesPlatformProvider) && !isAuthenticated) {
       saveDraft({
         caseId: selectedCase?.id || null,
         mode: activeMode,
@@ -3160,7 +3195,17 @@ function CreationDesk({
         generations: currentGenerationPlan.endpoint
       }
     });
-    if (!providerRequest.apiKey || !providerRequest.gatewayBaseUrl) {
+    if (usesPlatformProvider) {
+      const operation = activeMode === 'video' ? 'video' : activeIsImageEditMode ? 'edit' : 'image';
+      const options = operation === 'video' ? modelOptions?.video : modelOptions?.image;
+      const selected = options?.find((item) => item.id === (operation === 'video' ? activeVideoModel : activeModel));
+      if (!platformModelSupports(selected, operation) || selected.platformProviderId !== providerSettings.platformProviderId) {
+        setStatus('error');
+        setMessage('当前平台模型不支持此操作或已下架，请刷新模型后重试。');
+        return false;
+      }
+    }
+    if (!connectionReady(providerSettings, apiKey, isAuthenticated)) {
       setStatus('error');
       setMessage(providerSetupMessage(providerSettings, providerRequest, t));
       onOpenSettings();
@@ -3287,6 +3332,7 @@ function CreationDesk({
             parentCanvasNodeId: lineageParentId,
             providerId: providerSettings.providerId,
             providerProfileId: providerSettings.providerProfileId,
+            platformProviderId: providerSettings.platformProviderId,
             apiKeySource: providerSettings.apiKeySource,
             providerLabel: providerLabel(providerSettings, apiKey),
             images: jobImages,
@@ -3452,7 +3498,7 @@ function CreationDesk({
             category: selectedCase.category
           } : null
         });
-        if (usesGatewayAccount(providerSettings)) onProfileRefresh();
+        if (usesGatewayAccount(providerSettings) || usesPlatformProvider) onProfileRefresh();
         return true;
       }
 
@@ -3479,7 +3525,9 @@ function CreationDesk({
       let payload = null;
       let urls = [];
       let persistedResultUrls = [];
-      const canUseServerJob = providerSettings.apiKeySource === 'linked'
+      const canUseServerJob = usesPlatformProvider
+        ? Boolean(providerSettings.platformProviderId && isAuthenticated)
+        : providerSettings.apiKeySource === 'linked'
         ? Boolean(providerRequest.providerConnectionId && isAuthenticated)
         : Boolean(providerRequest.apiKey && providerRequest.gatewayBaseUrl && (isAuthenticated || providerSettings.apiKeySource === 'manual'));
       if (canUseServerJob) {
@@ -3504,6 +3552,7 @@ function CreationDesk({
             parentCanvasNodeId: lineageParentId,
             providerId: providerSettings.providerId,
             providerProfileId: providerSettings.providerProfileId,
+            platformProviderId: providerSettings.platformProviderId,
             apiKeySource: providerSettings.apiKeySource,
             providerLabel: providerLabel(providerSettings, apiKey),
             mode: activeMode,
@@ -3680,7 +3729,7 @@ function CreationDesk({
           category: selectedCase.category
         } : null
       });
-      if (usesGatewayAccount(providerSettings)) onProfileRefresh();
+      if (usesGatewayAccount(providerSettings) || usesPlatformProvider) onProfileRefresh();
       return true;
     } catch (error) {
       if (!isCurrentRequest() && !timeoutReached) return false;
@@ -3775,7 +3824,7 @@ function CreationDesk({
     : Number.POSITIVE_INFINITY;
   const isGenerating = activeGenerationCount > 0
     || (status === 'loading' && Boolean(generationRef.current.controller));
-  const generationActionDisabled = false;
+  const generationActionDisabled = usesPlatformProvider && (mode === 'video' ? !activeVideoModelInfo : !activeModelInfo);
   const generationActionClass = status === 'error' ? 'isRetryAction' : '';
   const needsReviewBeforeRetry = status === 'error' && progress.stage === 'pending_review';
   const generationActionLabel = isGenerating
@@ -4295,12 +4344,12 @@ function CreationDesk({
                     <span>{t('settings.provider', '供应商')}</span>
                     {providerProfiles.length ? (
                       <select value={activeProviderProfileId} onChange={(event) => onSelectProvider?.(event.target.value)}>
-                        {providerProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                        {providerProfiles.map((profile) => <option key={profile.id} value={profile.id} disabled={profile.disabled}>{profile.name}</option>)}
                       </select>
                     ) : (
                       <button type="button" className="singleKeyButton" onClick={onOpenSettings}>
                         {STUDIO_STANDALONE ? <Server size={14} /> : <KeyRound size={14} />}
-                        <strong>{STUDIO_STANDALONE && providerSettings.apiKeySource !== 'manual'
+                        <strong>{STUDIO_STANDALONE && !['manual', 'platform'].includes(providerSettings.apiKeySource)
                           ? t('settings.studioManagedProvider', '服务端托管')
                           : providerLabel(providerSettings, apiKey)}</strong>
                       </button>
@@ -4318,7 +4367,8 @@ function CreationDesk({
                   ) : (
                     <label className="singleField">
                       <span>{t('params.imageModel', '图片模型')}</span>
-                      <select value={model} onChange={(event) => setModel(event.target.value)}>
+                      <select value={model} onChange={(event) => setModel(event.target.value)} disabled={!imageModelOptions.length}>
+                        {!imageModelOptions.length ? <option value="">暂无可用模型</option> : null}
                         {imageModelOptions.map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}
                       </select>
                     </label>
@@ -4863,7 +4913,7 @@ function CreationDesk({
       <div className="deskPanel">
         {activeWorkspace === 'image' ? (
           <div className="modeTabs imageModeTabs">
-            {DESK_MODES.map((item) => {
+             {availableDeskModes.map((item) => {
               const Icon = item.icon;
               return (
                 <button type="button" className={mode === item.value ? 'active' : ''} key={item.value} onClick={() => setMode(item.value)}>
@@ -5279,7 +5329,7 @@ function CreationDesk({
         )}
         {layoutSections.parameters ? <div className="billingStrip">
           <span>{t('params.billingModelSource', '模型来源：{value}', {
-            value: mode === 'video'
+            value: usesPlatformProvider ? '平台供应商' : mode === 'video'
               ? (modelsStatus === 'loading' ? t('params.loadingVideoModels', '正在读取视频模型') : hasVideoModels ? t('params.availableVideoModels', '当前 Key 可用视频模型') : t('params.unavailableVideoModels', '当前 Key 未开放视频模型'))
               : modelsStatus === 'ready'
                 ? t('params.availableModels', '当前 Key 可用模型')
@@ -5394,7 +5444,7 @@ function CreationDesk({
             aspectLabel={aspectLabel}
             countValue={countValue}
             deskModeLabel={deskModeLabel}
-            deskModes={DESK_MODES}
+            deskModes={availableDeskModes}
             hasVideoModels={hasVideoModels}
             imageAspectOptions={imageAspectOptions}
             imageCountRange={imageCountRange}
@@ -5531,13 +5581,13 @@ function loadProviderWorkspaceState() {
   const legacySettings = loadProviderSettings();
   const library = loadProviderLibrary(legacySettings);
   const activeProfile = library.profiles.find((profile) => profile.id === library.activeProfileId) || library.profiles[0];
-  const settings = activeProfile ? saveProviderSettings(providerSettingsFromProfile(activeProfile)) : legacySettings;
+  const settings = legacySettings.apiKeySource === 'platform' ? legacySettings : activeProfile ? saveProviderSettings(providerSettingsFromProfile(activeProfile)) : legacySettings;
   return {
     library: activeProfile
       ? { ...library, activeProfileId: activeProfile.id }
       : library,
     settings,
-    modelOptions: modelOptionsForProfile(activeProfile)
+    modelOptions: settings.apiKeySource === 'platform' ? { image: [], video: [], responses: [] } : modelOptionsForProfile(activeProfile)
   };
 }
 
@@ -5567,6 +5617,12 @@ function StudioApp() {
   const [favoriteTemplates, setFavoriteTemplates] = useState(() => loadTemplateFavorites());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const platformCatalog = usePlatformCatalog(client, STUDIO_STANDALONE && Boolean(session?.accessToken), settingsOpen);
+  const workspaceProviderProfiles = [...providerLibrary.profiles, ...platformCatalog.catalog.providers.map((provider) => ({ id: `platform:${provider.id}`, name: `${provider.name} · 平台积分` }))];
+  const workspaceProviderId = providerSettings.apiKeySource === 'platform' ? `platform:${providerSettings.platformProviderId}` : providerLibrary.activeProfileId;
+  if (providerSettings.apiKeySource === 'platform' && !workspaceProviderProfiles.some((item) => item.id === workspaceProviderId)) {
+    workspaceProviderProfiles.push({ id: workspaceProviderId, name: `${providerSettings.providerName || '平台供应商'} · 当前不可用`, disabled: true });
+  }
   const [firstRunOpen, setFirstRunOpen] = useState(false);
   const [firstRunRequest, setFirstRunRequest] = useState(null);
   const [inspirationUploadOpen, setInspirationUploadOpen] = useState(false);
@@ -5654,6 +5710,7 @@ function StudioApp() {
       current.setProviderSettings(savedSettings);
       return current;
     });
+    if (savedSettings.apiKeySource === 'platform') return;
     setProviderLibrary((current) => {
       const profileId = savedSettings.providerProfileId || current.activeProfileId;
       const currentProfile = current.profiles.find((profile) => profile.id === profileId);
@@ -5694,6 +5751,11 @@ function StudioApp() {
   }
 
   function handleSelectProvider(profileId) {
+    if (profileId.startsWith('platform:')) {
+      const provider = platformCatalog.catalog.providers.find((item) => `platform:${item.id}` === profileId);
+      if (provider) handleSelectPlatformProvider(provider);
+      return;
+    }
     const profile = providerLibrary.profiles.find((item) => item.id === profileId);
     if (!profile) return;
     const nextSettings = saveProviderSettings(providerSettingsFromProfile(profile));
@@ -5701,6 +5763,18 @@ function StudioApp() {
     setProviderLibrary(nextLibrary);
     setProviderSettings(nextSettings);
     setModelOptions(modelOptionsForProfile(profile));
+    setClient((current) => {
+      current.setProviderSettings(nextSettings);
+      return current;
+    });
+  }
+
+  function handleSelectPlatformProvider(provider) {
+    const nextSettings = saveProviderSettings(platformProviderSettings(provider));
+    setProviderSettings(nextSettings);
+    setModelOptions(platformModelOptions(provider));
+    setModelsStatus('ready');
+    setModelSyncError(null);
     setClient((current) => {
       current.setProviderSettings(nextSettings);
       return current;
@@ -5766,6 +5840,17 @@ function StudioApp() {
     setFirstRunOpen(false);
   }
 
+  function handleFirstRunPlatformSelection({ providerId, model, mode }) {
+    const provider = platformCatalog.catalog.providers.find((item) => item.id === providerId);
+    const selected = provider?.models.find((item) => item.id === model);
+    if (platformCatalog.status !== 'ready' || !platformCatalog.catalog.creditsEnabled || !platformModelSupports(selected, mode)) throw new Error('PLATFORM_MODEL_UNAVAILABLE');
+    handleSelectPlatformProvider(provider);
+    saveFirstRunState('completed');
+    setFirstRunOpen(false);
+    setActiveWorkspace(mode === 'video' ? 'video' : 'image');
+    setFirstRunRequest({ id: `first-run-platform-${Date.now()}`, model, mode, prompt: '', generate: false });
+  }
+
   function handleOpenFirstRun() {
     setSettingsOpen(false);
     setFirstRunOpen(true);
@@ -5799,6 +5884,7 @@ function StudioApp() {
         setModelsStatus(result.modelsStatus);
         setModelSyncError(result.modelSyncError || null);
         setUsageSummary(result.usageSummary);
+        if (providerSettings.apiKeySource === 'platform') return;
         setProviderLibrary((current) => {
           const profileId = current.activeProfileId || providerSettings.providerProfileId;
           const profile = current.profiles.find((item) => item.id === profileId);
@@ -5993,6 +6079,7 @@ function StudioApp() {
   }, [
     providerSettings.providerId,
     providerSettings.apiKeySource,
+    providerSettings.platformProviderId,
     providerSettings.providerProfileId,
     providerSettings.manualApiKey,
     providerSettings.manualGatewayBaseUrl,
@@ -6001,7 +6088,13 @@ function StudioApp() {
   ]);
 
   useEffect(() => {
-    if (modelsStatus !== 'ready') return;
+    if (providerSettings.apiKeySource !== 'platform' || platformCatalog.status === 'loading') return;
+    const provider = platformCatalog.catalog.providers.find((item) => item.id === providerSettings.platformProviderId);
+    setModelOptions(platformModelOptions(provider));
+  }, [platformCatalog.catalog, platformCatalog.status, providerSettings.apiKeySource, providerSettings.platformProviderId]);
+
+  useEffect(() => {
+    if (modelsStatus !== 'ready' || providerSettings.apiKeySource === 'platform') return;
     const imageModel = modelOptions.image?.[0]?.id || '';
     const videoModel = modelOptions.video?.[0]?.id || '';
     if (!imageModel && !videoModel) return;
@@ -6563,8 +6656,8 @@ function StudioApp() {
             assistantProviderSettings={assistantProviderSettings}
             providerSettings={providerSettings}
             onProviderChange={handleProviderChange}
-            providerProfiles={providerLibrary.profiles}
-            activeProviderProfileId={providerLibrary.activeProfileId}
+            providerProfiles={workspaceProviderProfiles}
+            activeProviderProfileId={workspaceProviderId}
             onSelectProvider={handleSelectProvider}
             modelOptions={modelOptions}
             modelsStatus={modelsStatus}
@@ -6673,6 +6766,8 @@ function StudioApp() {
             open
             onClose={handleCloseFirstRun}
             onComplete={handleFirstRunComplete}
+            platformCatalog={platformCatalog}
+            onSelectPlatform={handleFirstRunPlatformSelection}
             t={t}
           />
         </React.Suspense>
@@ -6687,8 +6782,10 @@ function StudioApp() {
             onSelectKey={handleSelectKey}
             providerSettings={providerSettings}
             onProviderChange={handleProviderChange}
+            platformCatalog={platformCatalog}
+            onSelectPlatformProvider={handleSelectPlatformProvider}
             providerProfiles={providerLibrary.profiles}
-            activeProviderProfileId={providerLibrary.activeProfileId}
+            activeProviderProfileId={workspaceProviderId}
             assistantProviderProfileId={assistantConfig.providerProfileId}
             assistantModel={assistantConfig.model}
             onAssistantConfigChange={handleAssistantConfigChange}

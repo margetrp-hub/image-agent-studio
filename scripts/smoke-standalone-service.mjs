@@ -309,7 +309,7 @@ try {
     body: {
       kind: 'image-agent-studio.user-backup',
       version: 1,
-      data: { sessions: [{ sessionId: '../member/session', prompt: 'attack' }] }
+      data: { records: [], jobs: [], assets: [], session: null, sessions: [{ sessionId: '../member/session', prompt: 'attack' }] }
     }
   });
   assert.equal(maliciousRestore.status, 400);
@@ -325,7 +325,7 @@ try {
     body: {
       kind: 'image-agent-studio.user-backup',
       version: 1,
-      data: { records: [{ id: `../../${member.id}`, prompt: 'attack' }] }
+      data: { records: [{ id: `../../${member.id}`, prompt: 'attack' }], jobs: [], assets: [], session: null }
     }
   });
   assert.equal(maliciousRecordRestore.status, 400);

@@ -85,7 +85,7 @@ export function ComposerParamShelf({
               <label className="composerParamField composerParamGroup composerProviderParamGroup">
                 <span>{t('settings.provider', '供应商')}</span>
                 <select value={activeProviderProfileId} onChange={(event) => onProviderChange?.(event.target.value)}>
-                  {providerProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                  {providerProfiles.map((profile) => <option key={profile.id} value={profile.id} disabled={profile.disabled}>{profile.name}</option>)}
                 </select>
               </label>
             ) : null}

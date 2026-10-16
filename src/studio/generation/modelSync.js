@@ -4,6 +4,7 @@
 
 import { AiGatewayClient, STUDIO_STANDALONE } from '../../aiGatewayClient.js';
 import { formatUsageValue } from '../util/billing.js';
+import { platformModelOptions } from '../providers/platformCatalog.js';
 
 const IMAGE_MODEL_PATTERN = /(?:^|[^a-z0-9])(?:gpt-)?image[-_a-z0-9]*\d|(?:^|[^a-z0-9])dall[-_a-z0-9]*\d|grok[-_.]imagine[-_.]image|(?:^|[-_.])(seedream|nano[-_.]?banana|flux|ideogram|recraft|stable[-_.]?diffusion|sdxl|sd3|jimeng|doubao[-_.]?image|gemini[-_.a-z0-9]*image|imagen|midjourney|mj|firefly|leonardo|playground|kolors|qwen[-_.]?image|hunyuan[-_.]?image|hidream|photon|cogview)(?:[-_.0-9]|$)/i;
 const VIDEO_MODEL_PATTERN = /grok[-_.]imagine[-_.]video|(?:^|[-_.])(video|sora|veo|kling|runway|luma|hailuo|jimeng|seedance|wan|vidu|minimax|hunyuan|pixverse|pika|dreamina)(?:[-_.0-9]|$)/i;
@@ -37,6 +38,9 @@ export function modelLooksLikeImage(item) {
 }
 
 export function resolveProviderRequest(settings, apiKey) {
+  if (STUDIO_STANDALONE && settings?.apiKeySource === 'platform') {
+    return { apiKeySource: 'platform', platformProviderId: settings.platformProviderId };
+  }
   if (STUDIO_STANDALONE && settings?.apiKeySource === 'linked') {
     return {
       apiKey: 'studio-linked-provider',
@@ -76,6 +80,12 @@ export function resolveProviderRequest(settings, apiKey) {
 }
 
 export async function syncGatewayModels({ session, providerSettings, apiKey, signal, GatewayClient = AiGatewayClient } = {}) {
+  if (STUDIO_STANDALONE && providerSettings?.apiKeySource === 'platform') {
+    const client = new GatewayClient({ session, providerSettings });
+    const catalog = await client.listPlatformModels({ signal });
+    const provider = catalog.creditsEnabled ? catalog.providers?.find((item) => item.id === providerSettings.platformProviderId) : null;
+    return { modelOptions: platformModelOptions(provider), modelsStatus: provider ? 'ready' : 'empty', usageSummary: '', modelSyncError: null };
+  }
   const providerRequest = resolveProviderRequest(providerSettings, apiKey);
   if (!providerRequest.apiKey) {
     return emptyModelSyncResult('idle');

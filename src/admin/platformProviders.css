@@ -1,0 +1,23 @@
+.iasPlatformProviders { min-width: 0; }
+.iasPlatformProviderHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.iasPlatformProviderHeading h2, .iasPlatformProviderHeading h3 { margin: 0; font-size: 17px; letter-spacing: 0; }
+.iasPlatformProviderActions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.iasPlatformTableWrap { max-width: 100%; overflow-x: auto; margin-top: 16px; }
+.iasPlatformTable { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.iasPlatformTable th, .iasPlatformTable td { padding: 12px 10px; border-bottom: 1px solid var(--ias-line, #dce0e5); vertical-align: middle; }
+.iasPlatformTable th { font-weight: 500; white-space: nowrap; }
+.iasPlatformTable td:first-child { min-width: 160px; max-width: 240px; overflow-wrap: anywhere; }
+.iasPlatformTable small { display: block; margin-top: 4px; opacity: .7; }
+.iasPlatformTable input[type=number] { width: 108px; min-width: 90px; }
+.iasPlatformTable tr[data-selected=true] { background: color-mix(in srgb, currentColor 4%, transparent); }
+.iasPlatformProviderName { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.iasPlatformProviderName:hover { text-decoration: underline; }
+.iasPlatformEndpoint { min-width: 170px; max-width: 300px; overflow-wrap: anywhere; }
+.iasPlatformMuted { opacity: .65; }
+.iasPlatformModels { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--ias-line, #dce0e5); }
+.iasPlatformModelSearch { display: flex; align-items: center; gap: 8px; max-width: 320px; margin-top: 16px; }
+.iasPlatformProviderDialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; }
+.iasPlatformProviderForm { display: grid; gap: 16px; margin-top: 20px; }
+.iasPlatformProviderForm label { display: grid; gap: 7px; font-size: 13px; }
+.iasPlatformProviderForm select { padding: 9px 10px; min-width: 0; border: 1px solid var(--ias-line, #dce0e5); border-radius: 6px; color: inherit; background: inherit; font: inherit; }
+.iasPlatformProviderDialog > .iasPlatformProviderActions { margin-top: 20px; justify-content: flex-end; }

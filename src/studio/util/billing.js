@@ -5,6 +5,7 @@
 // needs to show what a generation cost or what a model charges.
 
 import { normalizeCount } from './imageOptions.js';
+import { platformPriceLabel } from '../providers/platformCatalog.js';
 
 export function formatUsageValue(value) {
   if (value === undefined || value === null || value === '') return '后台未返回';
@@ -19,6 +20,7 @@ export function pointValue(value) {
 }
 
 export function modelBillingLabel(model, count = 1, t = (key, fallback) => fallback || key) {
+  if (model?.platformProviderId) return platformPriceLabel(model, model.billingOperation || 'image', count);
   const raw = model?.raw || model || {};
   const unitPoints = raw.unit_points ?? raw.unitPoints;
   const inputPoints = raw.input_unit_points ?? raw.inputUnitPoints;

@@ -61,7 +61,7 @@ export function generationTaskFingerprint(value = {}) {
     compactFingerprintValue(value.mode || 'image'),
     compactFingerprintValue(value.route || ''),
     compactFingerprintValue(value.providerId || value.providerFamily || ''),
-    compactFingerprintValue(value.providerProfileId),
+    compactFingerprintValue(value.apiKeySource === 'platform' ? value.platformProviderId : value.providerProfileId),
     compactFingerprintValue(value.apiKeySource || ''),
     compactFingerprintValue(value.model),
     prompt,

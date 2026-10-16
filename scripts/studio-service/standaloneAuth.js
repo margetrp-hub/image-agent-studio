@@ -4,6 +4,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createStandaloneBillingStore } from './standaloneBilling.js';
 import { createStandaloneProviderConnectionStore } from './standaloneProviderConnections.js';
+import { createPlatformProviderStore } from './platformProviders.js';
 
 const PASSWORD_ALGORITHM = 'pbkdf2-sha256';
 const PASSWORD_KEY_BYTES = 32;
@@ -119,7 +120,8 @@ export class StandaloneAuthStore {
     billingDefaults = {},
     providerMasterKey = '',
     allowPrivateProviderUrls = false,
-    providerFetchImpl = globalThis.fetch
+    providerFetchImpl = globalThis.fetch,
+    platformProviderFetchImpl
   } = {}) {
     if (!databasePath || typeof databasePath !== 'string') {
       throw new TypeError('databasePath is required. Use ":memory:" for an in-memory store.');
@@ -163,6 +165,13 @@ export class StandaloneAuthStore {
       masterKey: providerMasterKey,
       allowPrivateUrls: allowPrivateProviderUrls,
       fetchImpl: providerFetchImpl,
+      now
+    });
+    this.platformProviders = createPlatformProviderStore({
+      database: this.database,
+      masterKey: providerMasterKey,
+      allowPrivateUrls: allowPrivateProviderUrls,
+      fetchImpl: platformProviderFetchImpl,
       now
     });
     this.secureDatabaseFiles();
@@ -732,6 +741,7 @@ export class StandaloneAuthStore {
   }
 
   close() {
+    this.platformProviders.close().catch(() => {});
     this.database.close();
   }
 
