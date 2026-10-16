@@ -2,13 +2,15 @@
 // (pan, node drag, node resize, link create/finish, media click, zoom/reset).
 // All state and setters stay in CreationDesk and are passed in via `deps`;
 // the hook just bundles the imperative event choreography so it can be
-// reasoned about and tested as a unit. Handlers are recreated every render
-// (matching the previous inline behaviour) so closures never go stale.
+// reasoned about and tested as a unit. Continuous updates are coalesced per
+// animation frame; pointer release flushes the final position synchronously.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import {
   CANVAS_DRAG_CLICK_TOLERANCE,
+  CANVAS_MAX_ZOOM,
+  CANVAS_MIN_ZOOM,
   CANVAS_NODE_HEIGHT,
   CANVAS_NODE_HORIZONTAL_GAP,
   CANVAS_NODE_MAX_HEIGHT,
@@ -82,14 +84,46 @@ export function useCanvasInteraction(deps) {
     t
   } = deps;
 
+  const frameRef = useRef(null);
+  const pendingUpdatesRef = useRef(new Map());
+  const pendingZoomRef = useRef([]);
+
+  function flushCanvasUpdates() {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    const updates = [...pendingUpdatesRef.current.values()];
+    pendingUpdatesRef.current.clear();
+    updates.forEach((update) => update());
+  }
+
+  function scheduleCanvasUpdate(key, update) {
+    pendingUpdatesRef.current.set(key, update);
+    if (frameRef.current === null) frameRef.current = window.requestAnimationFrame(flushCanvasUpdates);
+  }
+
+  useEffect(() => () => {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    pendingUpdatesRef.current.clear();
+    pendingZoomRef.current = [];
+  }, []);
+
   function setCanvasZoom(nextZoom) {
-    setCanvasView((current) => ({
-      ...current,
-      zoom: Math.max(0.28, Math.min(2.4, typeof nextZoom === 'function' ? nextZoom(current.zoom) : nextZoom))
-    }));
+    pendingZoomRef.current.push(nextZoom);
+    scheduleCanvasUpdate('zoom', () => {
+      const updates = pendingZoomRef.current;
+      pendingZoomRef.current = [];
+      setCanvasView((current) => {
+        const zoom = updates.reduce((value, update) => (
+          clamp(typeof update === 'function' ? update(value) : update, CANVAS_MIN_ZOOM, CANVAS_MAX_ZOOM)
+        ), current.zoom);
+        return zoom === current.zoom ? current : { ...current, zoom };
+      });
+    });
   }
 
   function resetCanvasView() {
+    flushCanvasUpdates();
     setCanvasView({ x: 0, y: 0, zoom: 1 });
   }
 
@@ -132,6 +166,21 @@ export function useCanvasInteraction(deps) {
   function moveCanvasPan(event) {
     const drag = canvasDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    // React clears currentTarget after dispatch. Keep just the coordinates and
+    // DOM references required by the deferred link geometry calculation.
+    const pointEvent = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      currentTarget: event.currentTarget,
+      target: event.target
+    };
+    if (drag.type === 'node-move' && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE) {
+      drag.moved = true;
+    }
+    scheduleCanvasUpdate('pointer', () => applyCanvasMove(pointEvent, drag));
+  }
+
+  function applyCanvasMove(event, drag) {
     if (drag.type === 'node-resize') {
       resizeCanvasNode(event, drag);
       return;
@@ -158,6 +207,8 @@ export function useCanvasInteraction(deps) {
   function endCanvasPan(event) {
     const drag = canvasDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.type === 'pointerup' && drag.type !== 'link-create') moveCanvasPan(event);
+    flushCanvasUpdates();
     if (drag.type === 'node-move' && drag.moved) {
       suppressCanvasClickRef.current = true;
       window.setTimeout(() => {
@@ -165,6 +216,11 @@ export function useCanvasInteraction(deps) {
       }, 0);
     }
     if (drag.type === 'link-create') {
+      if (event.type === 'pointercancel') {
+        setCanvasLinkDraft(null);
+        canvasDragRef.current = null;
+        return;
+      }
       const targetNodeId = findCanvasLinkTarget(event, drag.fromId, canvasView, canvasNodes, canvasNodeMap);
       const linked = addCanvasCustomLink(drag.fromId, targetNodeId);
       const moved = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE;
@@ -226,11 +282,17 @@ export function useCanvasInteraction(deps) {
       CANVAS_NODE_MIN_HEIGHT,
       CANVAS_NODE_MAX_HEIGHT
     );
-    setCanvasNodes((current) => current.map((node) => (
-      node.id === drag.nodeId
-        ? { ...node, width: Math.round(nextWidth), height: Math.round(nextHeight) }
-        : node
-    )));
+    updateCanvasNode(drag.nodeId, { width: Math.round(nextWidth), height: Math.round(nextHeight) });
+  }
+
+  function updateCanvasNode(nodeId, patch) {
+    setCanvasNodes((current) => {
+      const index = current.findIndex((node) => node.id === nodeId);
+      if (index < 0 || Object.keys(patch).every((key) => current[index][key] === patch[key])) return current;
+      const next = current.slice();
+      next[index] = { ...current[index], ...patch };
+      return next;
+    });
   }
 
   function moveCanvasNode(event, drag) {
@@ -240,15 +302,7 @@ export function useCanvasInteraction(deps) {
     if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CANVAS_DRAG_CLICK_TOLERANCE) {
       drag.moved = true;
     }
-    setCanvasNodes((current) => current.map((node) => (
-      node.id === drag.nodeId
-        ? {
-          ...node,
-          x: Math.round(drag.originX + dx),
-          y: Math.round(drag.originY + dy)
-        }
-        : node
-    )));
+    updateCanvasNode(drag.nodeId, { x: Math.round(drag.originX + dx), y: Math.round(drag.originY + dy) });
   }
 
   function startCanvasLink(event, node) {
@@ -275,6 +329,7 @@ export function useCanvasInteraction(deps) {
     event.stopPropagation();
     const draft = canvasLinkDraft;
     if (!draft?.fromId) return;
+    flushCanvasUpdates();
     addCanvasCustomLink(draft.fromId, node.id);
     setCanvasLinkDraft(null);
     canvasDragRef.current = null;

@@ -4,6 +4,7 @@
 // business logic and state ownership. Geometry helpers come from
 // canvasGeometry.js, asset/download helpers from the shared util modules.
 
+import { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import { Copy, Download, ImageIcon, Ratio, Redo2, Search, Share2, Shuffle, Sparkles, SquarePen, Trash2, X } from 'lucide-react';
 
 import { ProtectedStudioImage } from './media.jsx';
@@ -51,18 +52,80 @@ function workflowRowsForNode(node, instruction, mode, t) {
   };
 }
 
-export function CanvasNodeCard({
+const CARD_ACTIONS = [
+  'onStartNodeDrag', 'onStartNodeResize', 'onFinishCanvasLink', 'onStartCanvasLink',
+  'onMediaClick', 'onOpenEditor', 'onCloseEditor', 'onEditorPromptChange', 'onEditorModeChange',
+  'onPreview', 'onShare', 'onSetAsReference', 'onCopyPrompt', 'onDelete', 'onGenerateFromEditor', 'onReroll'
+];
+const EMPTY_OPTIONS = [];
+
+function CanvasNodePlaceholder({ node }) {
+  return <div className="canvasNodePlaceholder">
+    <ImageIcon size={20} />
+    <strong>#{node.canvasIndex || ''}</strong>
+    <span>{compact(node.prompt || node.title || '', 32)}</span>
+  </div>;
+}
+
+export function CanvasNodeCard(props) {
+  const latestProps = useRef(props);
+  useLayoutEffect(() => { latestProps.current = props; });
+  const actions = useMemo(() => Object.fromEntries(CARD_ACTIONS.map((name) => [name, (...args) => {
+    const current = latestProps.current;
+    if (name === 'onShare') args[2] ||= current.node.downloadMeta || current.currentDownloadMeta;
+    return current[name]?.(...args);
+  }])), []);
+  const { node, canvasZoom = 1 } = props;
+  const selected = props.selectedCanvasNodeId === node.id;
+  const editing = props.canvasEditorNodeId === node.id;
+  const downloadMeta = node.downloadMeta || props.currentDownloadMeta;
+  const nodeDownloadName = useMemo(() => buildStudioDownloadFilename({
+    ...(downloadMeta || {}),
+    mode: node.kind === 'video' ? 'video' : 'image',
+    index: Math.max(0, (node.canvasIndex || 1) - 1),
+    extension: node.kind === 'video' ? resultVideoExtension(node.url) : resultExtension(node.url, props.outputFormat)
+  }), [downloadMeta, node.kind, node.canvasIndex, node.url, props.outputFormat]);
+
+  // Project global selection/visibility sets into scalars. Unrelated camera,
+  // editor and progress changes can then skip the expensive card subtree.
+  return <MemoizedCanvasNodeCard
+    {...actions}
+    node={node}
+    nodeDownloadName={nodeDownloadName}
+    nodeIsVirtualized={props.canvasPerformanceMode && !props.visibleCanvasNodeIds.has(node.id)}
+    mediaIsPlaceholder={canvasZoom < 0.2 && !selected && !editing}
+    selected={selected}
+    child={props.childNodeIds.has(node.id)}
+    parent={props.parentNodeIds.has(node.id)}
+    linked={props.linkedNodeIds.has(node.id)}
+    linkingSource={props.canvasLinkDraft?.fromId === node.id}
+    showNextHint={props.selectedCanvasNodeId === node.id && !props.childNodeIds.size}
+    editing={editing}
+    canvasEditorPrompt={editing ? props.canvasEditorPrompt : ''}
+    canvasEditorMode={editing ? props.canvasEditorMode : ''}
+    status={editing ? props.status : ''}
+    generationActionClass={editing ? props.generationActionClass : ''}
+    generationActionDisabled={editing ? props.generationActionDisabled : false}
+    generationActionLabel={editing ? props.generationActionLabel : ''}
+    imageAspectOptions={editing ? props.imageAspectOptions || EMPTY_OPTIONS : EMPTY_OPTIONS}
+    onShare={props.onShare ? actions.onShare : undefined}
+    onReroll={props.onReroll ? actions.onReroll : undefined}
+    t={props.t}
+  />;
+}
+
+const MemoizedCanvasNodeCard = memo(function CanvasNodeContent({
   node,
-  outputFormat,
-  currentDownloadMeta,
-  visibleCanvasNodeIds,
-  canvasPerformanceMode,
-  selectedCanvasNodeId,
-  childNodeIds,
-  parentNodeIds,
-  linkedNodeIds,
-  canvasLinkDraft,
-  canvasEditorNodeId,
+  nodeDownloadName,
+  nodeIsVirtualized,
+  mediaIsPlaceholder,
+  selected,
+  child,
+  parent,
+  linked,
+  linkingSource,
+  showNextHint,
+  editing,
   canvasEditorPrompt,
   canvasEditorMode,
   status,
@@ -91,22 +154,13 @@ export function CanvasNodeCard({
   const nodeIndex = Math.max(0, (node.canvasIndex || 1) - 1);
   const currentNodeWidth = nodeWidth(node);
   const currentNodeHeight = nodeHeight(node);
-  const nodeIsVisible = visibleCanvasNodeIds.has(node.id);
-  const nodeIsVirtualized = canvasPerformanceMode && !nodeIsVisible;
-  const nodeExtension = node.kind === 'video' ? resultVideoExtension(node.url) : resultExtension(node.url, outputFormat);
-  const nodeDownloadName = buildStudioDownloadFilename({
-    ...(node.downloadMeta || currentDownloadMeta || {}),
-    mode: node.kind === 'video' ? 'video' : 'image',
-    index: nodeIndex,
-    extension: nodeExtension
-  });
-  const workflowPreview = canvasEditorNodeId === node.id
+  const workflowPreview = editing
     ? workflowRowsForNode(node, canvasEditorPrompt, canvasEditorMode, t)
     : null;
 
   return (
     <div
-      className={`canvasNode resultNode graphNode ${selectedCanvasNodeId === node.id ? 'selected' : ''} ${childNodeIds.has(node.id) ? 'lineageChild' : ''} ${parentNodeIds.has(node.id) ? 'lineageParent' : ''} ${linkedNodeIds.has(node.id) ? 'linkingRelated' : ''} ${canvasLinkDraft?.fromId === node.id ? 'linkingSource' : ''} ${canvasEditorNodeId === node.id ? 'editing' : ''} ${nodeIsVirtualized ? 'virtualized' : ''}`}
+      className={`canvasNode resultNode graphNode ${selected ? 'selected' : ''} ${child ? 'lineageChild' : ''} ${parent ? 'lineageParent' : ''} ${linked ? 'linkingRelated' : ''} ${linkingSource ? 'linkingSource' : ''} ${editing ? 'editing' : ''} ${nodeIsVirtualized ? 'virtualized' : ''}`}
       key={node.id}
       style={{
         left: `calc(50% + ${node.x}px)`,
@@ -121,6 +175,11 @@ export function CanvasNodeCard({
         onOpenEditor(node);
       }}
     >
+      {nodeIsVirtualized ? (
+        <div className="canvasNodeMedia">
+          <CanvasNodePlaceholder node={node} />
+        </div>
+      ) : <>
       <button
         type="button"
         className="canvasPort canvasPortIn"
@@ -146,13 +205,7 @@ export function CanvasNodeCard({
           onOpenEditor(node);
         }}
       >
-        {nodeIsVirtualized ? (
-          <div className="canvasNodePlaceholder">
-            <ImageIcon size={20} />
-            <strong>#{node.canvasIndex || ''}</strong>
-            <span>{compact(node.prompt || node.title || '', 32)}</span>
-          </div>
-        ) : node.kind === 'video' ? (
+        {mediaIsPlaceholder ? <CanvasNodePlaceholder node={node} /> : node.kind === 'video' ? (
           <video src={displayResultUrl(node.url)} playsInline preload="metadata" />
         ) : (
           <>
@@ -195,7 +248,7 @@ export function CanvasNodeCard({
           <Download size={13} />
         </a>
         {onShare ? (
-          <button type="button" onClick={() => onShare(node.url, nodeIndex, node.downloadMeta || currentDownloadMeta)} aria-label={`${t('canvas.shareResult', '分享生成结果')} #${node.canvasIndex || ''}`} title={t('canvas.shareResult', '分享生成结果')}>
+          <button type="button" onClick={() => onShare(node.url, nodeIndex, node.downloadMeta)} aria-label={`${t('canvas.shareResult', '分享生成结果')} #${node.canvasIndex || ''}`} title={t('canvas.shareResult', '分享生成结果')}>
             <Share2 size={13} />
           </button>
         ) : null}
@@ -203,7 +256,7 @@ export function CanvasNodeCard({
           <Trash2 size={13} />
         </button>
       </div>
-      {canvasEditorNodeId === node.id ? (
+      {editing ? (
         <div className="canvasInlineEditor" onClick={(event) => event.stopPropagation()}>
           <div className="canvasInlineEditorHead">
             <strong>{t('canvas.inlineContinue', '#{index} 继续优化', { index: node.canvasIndex || '' })}</strong>
@@ -307,12 +360,13 @@ export function CanvasNodeCard({
         title={t('canvas.resize', '拖拽调整窗口大小')}
       />
       <small>{compact(node.prompt, 46)}</small>
-      {selectedCanvasNodeId === node.id && !childNodeIds.size ? (
+      {showNextHint ? (
         <div className="canvasNextHint">
           <strong>{t('canvas.continueTitle', '继续这张图')}</strong>
           <span>{t('canvas.continueHint', '在下方会话补充要求，或点右上角继续优化。')}</span>
         </div>
       ) : null}
+      </>}
     </div>
   );
-}
+});

@@ -57,12 +57,20 @@ const lazyCssImports = [
   './styles/studio.generation-confirm-dialog.css',
   './styles/studio.workflow-board.css'
 ];
-const cssFiles = [...expectedCssImports, ...lazyCssImports].map((importPath) => (
+const cssFiles = [...expectedCssImports, ...lazyCssImports, './styles/studio.canvas-view-toolbar.css', './styles/studio.canvas-composer-mobile.css'].map((importPath) => (
   importPath === './studio.css'
     ? 'src/studio.css'
     : `src/${importPath.slice(2)}`
 ));
 const cssBudgets = {
+  'src/styles/studio.canvas-composer-mobile.css': {
+    lines: 120,
+    important: 80
+  },
+  'src/styles/studio.canvas-view-toolbar.css': {
+    lines: 40,
+    important: 0
+  },
   'src/studio.css': {
     lines: 2458,
     important: 0

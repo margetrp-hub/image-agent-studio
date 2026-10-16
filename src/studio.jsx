@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Copy,
@@ -209,7 +209,9 @@ import {
   endpointForGenerationTask,
   imageGenerationRouteForMode
 } from './studio/generation/executor.js';
-import { canvasEdgeGeometry, canvasEdgeLineageClass, canvasLinkPreviewGeometry, canvasViewForNodes, nodeHeight, nodeWidth } from './studio/util/canvasGeometry.js';
+import { canvasEdgeLineageClass, canvasFitViewForNodes, canvasLinkPreviewGeometry, canvasViewForNodes, nodeHeight, nodeWidth } from './studio/util/canvasGeometry.js';
+import { CanvasConnection } from './studio/components/canvasConnection.jsx';
+import { CanvasViewToolbar } from './studio/components/canvasViewToolbar.jsx';
 import {
   CANVAS_DRAG_CLICK_TOLERANCE,
   CANVAS_NODE_HEIGHT,
@@ -393,6 +395,8 @@ import {
   hasRestorableServerGeneration as _hasRestorableServerGeneration
 } from './studio/util/sessionPredicates.js';
 import { createGatewayClient, createHistoryClient } from './studio/runtime/clients.js';
+import { buildLibrarySearchIndex, searchLibraryIndex } from './studio/util/librarySearch.js';
+import { useSessionAutosave } from './studio/hooks/useSessionAutosave.js';
 
 const IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'gpt-image-1-mini'];
 const VIDEO_MODELS = [];
@@ -510,10 +514,11 @@ const {
   prepareCurrentSessionForServer
 });
 
-function loadStaticLibraryData() {
+function loadStaticLibraryData(options = {}) {
   return _loadStaticLibraryData({
     promptPresets: PROMPT_PRESETS,
-    videoInspirations: FALLBACK_VIDEO_INSPIRATIONS
+    videoInspirations: FALLBACK_VIDEO_INSPIRATIONS,
+    ...options
   });
 }
 
@@ -1422,7 +1427,19 @@ function CreationDesk({
     setTiming(next.timing);
   }
 
+  const sessionAutosave = useSessionAutosave((pending, publish) => {
+    const snapshot = saveCurrentSession(pending);
+    if (currentSessionRef.current === pending) currentSessionRef.current = snapshot;
+    if (publish) notifySessionSnapshotChange(snapshot, {
+      encodePayload: sessionSnapshotComparePayload,
+      lastEncodedRef: lastSessionSnapshotPayloadRef,
+      onSessionSnapshot
+    });
+  });
+
   function commitCurrentSessionPatch(patch) {
+    // Generation transitions must be durable immediately, ahead of autosave.
+    sessionAutosave.cancel();
     const snapshot = saveCurrentSession({
       ...currentSessionRef.current,
       sessionId,
@@ -1515,12 +1532,13 @@ function CreationDesk({
     return () => {
       cancelled = true;
     };
-  }, [canvasNodes, isAuthenticated, canvasPerformanceMode, visibleCanvasNodeIds]);
+  }, [canvasNodes, isAuthenticated, canvasPerformanceMode]);
 
   useEffect(() => {
-    const snapshot = saveCurrentSession({
+    const snapshot = {
       sessionId,
       createdAt: currentSessionRef.current?.createdAt || sessionCreatedAtRef.current,
+      updatedAt: new Date().toISOString(),
       mode,
       prompt,
       model,
@@ -1553,13 +1571,9 @@ function CreationDesk({
         ...draftParameters(),
         ...videoDraftParameters()
       }
-    });
+    };
     currentSessionRef.current = snapshot;
-    notifySessionSnapshotChange(snapshot, {
-      encodePayload: sessionSnapshotComparePayload,
-      lastEncodedRef: lastSessionSnapshotPayloadRef,
-      onSessionSnapshot
-    });
+    sessionAutosave.schedule(snapshot);
   }, [
     sessionId,
     mode,
@@ -1635,6 +1649,22 @@ function CreationDesk({
 
   function toggleLayoutSection(key) {
     updateLayoutSections({ [key]: !layoutSections[key] });
+  }
+
+  function frameCanvasNodes(nodes = canvasNodes) {
+    const canvas = workPreviewRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    const composer = canvas?.closest('.creationDesk')?.querySelector('.bottomComposerBar')?.getBoundingClientRect();
+    const width = rect?.width || canvasViewport.width;
+    const height = rect?.height || canvasViewport.height;
+    const toolbar = canvas?.querySelector('.canvasViewToolbar')?.getBoundingClientRect();
+    const topInset = rect && toolbar ? Math.max(0, toolbar.bottom - rect.top + 8) : 0;
+    const bottom = rect && composer && composer.top > rect.top && composer.top < rect.bottom
+      ? Math.max(1, composer.top - rect.top - 16)
+      : height;
+    const availableHeight = Math.max(1, bottom - topInset);
+    const next = canvasFitViewForNodes(nodes, { width, height: availableHeight }, 40);
+    setCanvasView({ ...next, y: next.y + topInset + (availableHeight - height) / 2 });
   }
 
   function focusCanvasOnNodes(nodes = canvasNodes, preferredId = selectedCanvasNodeId) {
@@ -4175,12 +4205,7 @@ function CreationDesk({
         {workspaceFlowMode === 'canvas' ? (
           workflowCanvasActive ? (
           <>
-        <div className="canvasToolbar" aria-label={t('canvas.toolbar', '画布工具')}>
-          <button type="button" onClick={() => setCanvasZoom((value) => value - 0.1)} aria-label={t('canvas.zoomOut', '缩小画布')} title={`${t('canvas.zoomOut', '缩小画布')} Ctrl/Cmd + -`}>-</button>
-          <span>{Math.round(canvasView.zoom * 100)}%</span>
-          <button type="button" onClick={() => setCanvasZoom((value) => value + 0.1)} aria-label={t('canvas.zoomIn', '放大画布')} title={`${t('canvas.zoomIn', '放大画布')} Ctrl/Cmd + +`}>+</button>
-          <button type="button" onClick={resetCanvasView} title={`${t('canvas.reset', '重置')} Ctrl/Cmd + 0`}>{t('canvas.reset', '重置')}</button>
-        </div>
+        <CanvasViewToolbar zoom={canvasView.zoom} hasNodes={Boolean(canvasNodes.length)} hasSelection={Boolean(selectedCanvasNode)} onZoom={setCanvasZoom} onReset={resetCanvasView} onFit={() => frameCanvasNodes(canvasNodes)} onFocus={() => frameCanvasNodes([selectedCanvasNode])} t={t} />
         <div
           className="canvasPlane"
           style={{
@@ -4198,31 +4223,8 @@ function CreationDesk({
                 <marker id="canvasLinkArrowActive" markerWidth="15" markerHeight="15" refX="12" refY="7.5" orient="auto" markerUnits="userSpaceOnUse">
                   <path className="canvasLinkArrowActive" d="M 1 2 L 12 7.5 L 1 13 z" />
                 </marker>
-                <filter id="canvasLinkGlow" x="-24%" y="-24%" width="148%" height="148%">
-                  <feGaussianBlur stdDeviation="6" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
               </defs>
-              {renderedCanvasEdges.map((edge) => {
-                const { path, jointX, jointY } = canvasEdgeGeometry(edge.from, edge.to, CANVAS_PLANE_WIDTH, CANVAS_PLANE_HEIGHT);
-                const edgeClass = resolveCanvasEdgeLineageClass(edge);
-                const isEdgeActive = edgeClass.includes('active');
-                return (
-                  <g className={`canvasLinkGroup ${edgeClass} ${edge.type === 'custom' ? 'custom' : 'lineage'}`} key={edge.id}>
-                    <path className="canvasLinkGlow" d={path} filter="url(#canvasLinkGlow)" />
-                    <path className="canvasLinkPulse" d={path} />
-                    <path className="canvasLinkPath" d={path} markerEnd={isEdgeActive ? 'url(#canvasLinkArrowActive)' : 'url(#canvasLinkArrow)'} />
-                    <circle className="canvasLinkJoint" cx={jointX} cy={jointY} r="4.3" />
-                    <circle className="canvasLinkJointCore" cx={jointX} cy={jointY} r="1.6" />
-                    <text className="canvasLinkLabel" x={jointX + 12} y={jointY - 10}>
-                      {`#${edge.from.canvasIndex || ''} -> #${edge.to.canvasIndex || ''}`}
-                    </text>
-                  </g>
-                );
-              })}
+              {renderedCanvasEdges.map((edge) => <CanvasConnection key={edge.id} from={edge.from} to={edge.to} type={edge.type} lineageClass={resolveCanvasEdgeLineageClass(edge)} performanceMode={canvasPerformanceMode} />)}
               {canvasLinkPreview?.point ? (() => {
                 const path = canvasLinkPreviewGeometry(canvasLinkPreview.from, canvasLinkPreview.point, CANVAS_PLANE_WIDTH, CANVAS_PLANE_HEIGHT);
                 return <path className="canvasLinkPreview" d={path} />;
@@ -4236,6 +4238,7 @@ function CreationDesk({
               outputFormat={outputFormat}
               currentDownloadMeta={currentDownloadMeta}
               visibleCanvasNodeIds={visibleCanvasNodeIds}
+              canvasZoom={canvasView.zoom}
               canvasPerformanceMode={canvasPerformanceMode}
               selectedCanvasNodeId={selectedCanvasNodeId}
               childNodeIds={childNodeIds}
@@ -5597,6 +5600,7 @@ function StudioApp() {
     initialSession?.accessToken ? loadActiveCurrentSession() : loadCurrentSession()
   ), [initialSession?.accessToken]);
   const [siteData, setSiteData] = useState(null);
+  const [libraryRequested, setLibraryRequested] = useState(() => Boolean(loadDraft()?.caseId));
   const [session, setSession] = useState(() => initialSession);
   const [profile, setProfile] = useState(() => initialSession?.user || null);
   const [creditsEnabled, setCreditsEnabled] = useState(false);
@@ -5613,6 +5617,7 @@ function StudioApp() {
   const [keys, setKeys] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [category, setCategory] = useState('All');
   const [favoriteTemplates, setFavoriteTemplates] = useState(() => loadTemplateFavorites());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -5972,11 +5977,18 @@ function StudioApp() {
   ]);
 
   useEffect(() => {
+    if (activeWorkspace === 'inspiration') setLibraryRequested(true);
+  }, [activeWorkspace]);
+
+  useEffect(() => {
+    if (!session?.accessToken) setCreditsEnabled(false);
+    if (!libraryRequested) return;
+    const controller = new AbortController();
+    const signal = controller.signal;
     if (!session?.accessToken) {
       let active = true;
-      setCreditsEnabled(false);
       setSiteData(null);
-      loadStaticLibraryData()
+      loadStaticLibraryData({ signal })
         .then((nextSiteData) => {
           if (!active) return;
           setSiteData(nextSiteData);
@@ -5989,17 +6001,18 @@ function StudioApp() {
         });
       return () => {
         active = false;
+        controller.abort();
       };
     }
     let active = true;
     const libraryClient = createHistoryClient({ session });
     setSiteData(null);
-    libraryClient.listLibrary()
+    libraryClient.listLibrary({ signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]) })
       .then((payload) => {
         if (!active) return;
         const nextSiteData = normalizeLibraryPayload(payload);
         if (!nextSiteData.cases.length) {
-          return loadStaticLibraryData();
+          return loadStaticLibraryData({ signal, skipService: true });
         }
         return nextSiteData;
       })
@@ -6013,7 +6026,7 @@ function StudioApp() {
       })
       .catch((error) => {
         if (!active) return;
-        loadStaticLibraryData()
+        loadStaticLibraryData({ signal, skipService: true })
           .then((nextSiteData) => {
             if (!active) return;
             setSiteData(nextSiteData);
@@ -6027,8 +6040,9 @@ function StudioApp() {
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [session?.accessToken]);
+  }, [session?.accessToken, libraryRequested]);
 
   useEffect(() => {
     hydrateSession({ keepExisting: true });
@@ -6227,16 +6241,10 @@ function StudioApp() {
     [siteData, historyHighlightCases]
   );
   const categoryGroups = useMemo(() => buildCategoryGroups(inspirationSourceCases), [inspirationSourceCases]);
-  const visibleCases = useMemo(() => {
-    const source = orderTemplates(inspirationSourceCases);
-    const needle = query.trim().toLowerCase();
-    return source.filter((item) => {
-      const matchesCategory = category === 'All' || item.category === category;
-      const matchesQuery = !needle || `${item.title} ${categoryLabel(item.category)} ${item.sourceLabel} ${item.sourceName} ${item.promptPreview}`.toLowerCase().includes(needle);
-      const matchesFavorite = !showFavoritesOnly || favoriteTemplates.has(templateKey(item));
-      return matchesCategory && matchesQuery && matchesFavorite;
-    });
-  }, [inspirationSourceCases, query, category, favoriteTemplates, showFavoritesOnly]);
+  const librarySearchIndex = useMemo(() => buildLibrarySearchIndex(inspirationSourceCases, categoryLabel), [inspirationSourceCases]);
+  const visibleCases = useMemo(() => searchLibraryIndex(librarySearchIndex, {
+    query: deferredQuery, category, favorites: favoriteTemplates, favoritesOnly: showFavoritesOnly
+  }), [librarySearchIndex, deferredQuery, category, favoriteTemplates, showFavoritesOnly]);
 
   const filteredHistoryItems = useMemo(() => {
     if (activeWorkspace === 'image') return historyItems.filter((item) => item.mode !== 'video' && item.kind !== 'video');
@@ -6574,7 +6582,7 @@ function StudioApp() {
     historyClient.clearRecords().catch(() => setHistoryStatus('local'));
   }
 
-  if (bootError && !siteData) {
+  if (bootError && libraryRequested && !siteData) {
     return <main className="studioError">加载失败：{bootError}</main>;
   }
 

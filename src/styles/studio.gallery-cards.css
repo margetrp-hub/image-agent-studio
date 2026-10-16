@@ -1,421 +1,267 @@
-/* Main inspiration/template gallery card lock. Scoped away from side drawers. */
+/* Owned by the lazy gallery workspace; drawer and history cards keep their styles. */
 .galleryWorkspacePanel.inspirationWorkspace {
-  height: auto !important;
-  min-height: 100dvh !important;
-  max-height: none !important;
-  display: block !important;
-  align-content: start !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  height: 100%;
+  min-height: 0;
+  padding: 20px 24px;
+  display: block;
+  overflow: auto;
 }
+.inspirationWorkspace::before { display: none; }
 
-.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid {
-  height: auto !important;
-  min-height: max-content !important;
-  max-height: none !important;
-  overflow: visible !important;
-  align-items: start;
+.inspirationWorkspace .inspirationCanvasGrid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  padding: 2px 2px 16px;
+  overflow: visible;
 }
-
-.galleryWorkspacePanel.inspirationWorkspace > .galleryWorkspaceHead,
-.galleryWorkspacePanel.inspirationWorkspace > .galleryWorkspaceToolbar,
-.galleryWorkspacePanel.inspirationWorkspace > .gallerySelectionPreview,
-.galleryWorkspacePanel.inspirationWorkspace > .inspirationCanvasGrid {
-  margin-bottom: 12px !important;
+.inspirationWorkspace .inspirationCanvasGrid .caseTile {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color 140ms ease;
 }
-
-.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid:empty {
-  display: none !important;
+.inspirationWorkspace .inspirationCanvasGrid .caseTile:hover,
+.inspirationWorkspace .inspirationCanvasGrid .videoInspirationTile:hover {
+  transform: none;
+  box-shadow: none !important;
 }
-
-.galleryWorkspacePanel.inspirationWorkspace .galleryLicenseNotice {
-  margin-top: 4px !important;
+.inspirationWorkspace .inspirationCanvasGrid .caseTileMain {
+  height: auto;
+  min-height: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  transform: none !important;
+  color: var(--studio-text-strong);
+  text-align: left;
 }
-
-.gallerySelectionPreview {
-  min-height: 118px !important;
-  padding: 12px !important;
-  display: grid !important;
-  grid-template-columns: 118px minmax(0, 1fr) auto !important;
-  gap: 12px !important;
-  align-items: center !important;
-  border: 1px solid color-mix(in srgb, var(--studio-primary) 22%, var(--studio-border)) !important;
-  border-radius: 16px !important;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 10%, transparent), transparent 44%),
-    color-mix(in srgb, var(--studio-surface-strong) 92%, transparent) !important;
-  box-shadow: var(--studio-shadow-soft) !important;
+.inspirationWorkspace .caseTileMain > strong {
+  margin: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 18px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
-
-.gallerySelectionMedia {
-  width: 118px !important;
-  height: 92px !important;
-  display: grid !important;
-  place-items: center !important;
-  overflow: hidden !important;
-  border-radius: 12px !important;
-  background: color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-soft)) !important;
-  color: var(--studio-primary) !important;
+.inspirationWorkspace .caseTileMain > em,
+.inspirationWorkspace .caseTileMain > small {
+  margin: 0;
+  display: block;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-
-.gallerySelectionMedia > span,
-.gallerySelectionMedia img {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
+.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid .caseMedia {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--studio-surface-soft) !important;
+  border-radius: 6px !important;
+  color: var(--studio-muted);
 }
-
-.gallerySelectionMedia img {
-  object-fit: cover !important;
+.inspirationWorkspace .caseMedia::after { display: none; }
+.inspirationWorkspace .galleryThumbnail {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
 }
-
-.gallerySelectionBody {
-  min-width: 0 !important;
-  display: grid !important;
-  gap: 5px !important;
+/* Neutralize the legacy badge selector that matched every span inside a card. */
+.inspirationWorkspace .inspirationCanvasGrid .caseTile span {
+  position: static;
+  inset: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
 }
-
-.gallerySelectionBody span {
-  color: var(--studio-primary) !important;
-  font-size: 11px !important;
-  font-weight: 950 !important;
+.inspirationWorkspace .galleryThumbnail .protectedStudioImage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
 }
-
-.gallerySelectionBody strong {
-  min-width: 0 !important;
-  overflow: hidden !important;
-  color: var(--studio-text-strong) !important;
-  font-size: 16px !important;
-  font-weight: 950 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid .caseMedia img {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  object-fit: contain !important;
+  transform: none !important;
+  opacity: 1;
+  transition: opacity 160ms ease;
 }
+.galleryWorkspacePanel.inspirationWorkspace .inspirationCanvasGrid .galleryThumbnail.isPending img { opacity: 0; }
 
-.gallerySelectionBody p {
-  max-height: 42px !important;
-  margin: 0 !important;
-  display: -webkit-box !important;
-  overflow: hidden !important;
-  color: var(--studio-muted) !important;
-  font-size: 12px !important;
-  line-height: 1.45 !important;
-  -webkit-box-orient: vertical !important;
-  -webkit-line-clamp: 2 !important;
+.inspirationWorkspace .casePromptButton {
+  position: static;
+  margin: auto 10px 0;
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  text-align: left;
 }
-
-.galleryUseTemplateButton {
-  min-width: 92px !important;
-  white-space: nowrap !important;
+.inspirationWorkspace .casePromptButton p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
 }
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile {
-  min-height: 258px !important;
-  position: relative !important;
-  overflow: hidden !important;
-  border-radius: 12px !important;
+.inspirationWorkspace .inspirationCanvasGrid .caseTileActions,
+.inspirationWorkspace .communityPromptStats {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 10px 10px;
 }
+.inspirationWorkspace .caseTileActions button,
+.inspirationWorkspace .communityPromptStats button {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-muted);
+  font-size: 11px;
+}
+.inspirationWorkspace .caseTileActions button:hover,
+.inspirationWorkspace .communityPromptStats button:hover,
+.inspirationWorkspace .caseTileActions button.active,
+.inspirationWorkspace .communityPromptStats button.active {
+  background: var(--studio-surface-soft);
+  color: var(--studio-primary);
+  border-color: var(--studio-primary);
+}
+.inspirationWorkspace .caseTileActions .appendMiniButton { color: var(--studio-primary); }
 
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 258px !important;
-  padding: 10px 10px 82px !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: 128px auto auto !important;
-  gap: 8px !important;
-  align-content: start !important;
-  align-items: start !important;
+.inspirationWorkspace .promptOnlyZone {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 8px;
+  padding: 16px 0 0;
+  display: grid;
+  gap: 12px;
+  border: 0 !important;
+  border-top: 1px solid var(--studio-border) !important;
+  border-radius: 0 !important;
   background: transparent !important;
 }
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia {
-  position: relative !important;
-  grid-column: 1 !important;
-  grid-row: 1 !important;
-  width: 100% !important;
-  height: 128px !important;
-  min-height: 128px !important;
-  display: grid !important;
-  place-items: center !important;
-  overflow: hidden !important;
-  border-radius: 10px !important;
-  background:
-    radial-gradient(circle at 20% 12%, color-mix(in srgb, #fff 36%, transparent), transparent 34%),
-    color-mix(in srgb, var(--studio-primary) 8%, var(--studio-surface-soft)) !important;
+.inspirationWorkspace .promptOnlyZoneHead,
+.inspirationWorkspace .promptOnlyZoneHead > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--studio-muted);
 }
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia::after {
-  background: linear-gradient(180deg, transparent 68%, rgba(15, 23, 42, 0.08)) !important;
-  opacity: 0.42 !important;
+.inspirationWorkspace .promptOnlyZoneHead { justify-content: space-between; }
+.inspirationWorkspace .promptOnlyZoneHead h3 { margin: 0; color: var(--studio-text-strong); font-size: 14px; }
+.inspirationWorkspace .promptOnlyZoneHead em { font-size: 12px; font-style: normal; }
+.inspirationWorkspace .promptOnlyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
 }
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia img {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-  object-fit: cover !important;
-  border-radius: inherit !important;
+.inspirationWorkspace .promptCaseMain { flex: 1; }
+.inspirationWorkspace .casePromptExcerpt {
+  margin: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
+.inspirationWorkspace .communityPromptStats { justify-content: flex-start; padding-bottom: 0; }
+.inspirationWorkspace .communityPromptStats button { width: auto; min-width: 32px; padding: 0 6px; }
+.inspirationWorkspace .caseTileActions .promptUseButton { width: auto; padding: 0 10px; }
 
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia > span {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-  overflow: hidden !important;
-  border-radius: inherit !important;
+.inspirationWorkspace .inspirationCanvasGrid .videoInspirationTile {
+  min-width: 0;
+  min-height: 144px;
+  padding: 14px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  border-radius: 8px;
+  box-shadow: none;
 }
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia > svg {
-  position: absolute !important;
-  z-index: 1 !important;
-  color: color-mix(in srgb, var(--studio-primary) 72%, transparent) !important;
-  opacity: 0.72 !important;
-  pointer-events: none !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > span {
-  position: absolute !important;
-  left: 18px !important;
-  top: 18px !important;
-  z-index: 2 !important;
-  max-width: calc(100% - 92px) !important;
-  min-height: 22px !important;
-  padding: 0 8px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: 999px !important;
-  background: color-mix(in srgb, #071b1f 78%, transparent) !important;
-  color: #fff !important;
-  font-size: 11px !important;
-  font-weight: 950 !important;
-  line-height: 1 !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > strong {
-  grid-column: 1 !important;
-  grid-row: 2 !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  display: -webkit-box !important;
-  overflow: hidden !important;
-  color: var(--studio-text-strong) !important;
-  font-size: 14px !important;
-  font-weight: 950 !important;
-  line-height: 1.22 !important;
-  -webkit-box-orient: vertical !important;
-  -webkit-line-clamp: 2 !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > em,
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain > small {
-  grid-column: 1 !important;
-  grid-row: 3 !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  display: block !important;
-  overflow: hidden !important;
-  color: var(--studio-muted) !important;
-  font-size: 11px !important;
-  font-style: normal !important;
-  font-weight: 780 !important;
-  line-height: 1.25 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileActions {
-  position: absolute !important;
-  top: auto !important;
-  right: 10px !important;
-  bottom: 10px !important;
-  z-index: 3 !important;
-  display: flex !important;
-  gap: 7px !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTileActions button {
-  width: 30px !important;
-  height: 30px !important;
-  min-height: 30px !important;
-}
-
-.promptOnlyZone {
-  grid-column: 1 / -1 !important;
-  margin-top: 4px !important;
-  padding: 14px !important;
-  display: grid !important;
-  gap: 12px !important;
-  border: 1px solid color-mix(in srgb, var(--studio-primary) 14%, var(--studio-border)) !important;
-  border-radius: 14px !important;
-  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent) !important;
-}
-
-.promptOnlyZoneHead {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 12px !important;
-}
-
-.promptOnlyZoneHead div {
-  min-width: 0 !important;
-  display: grid !important;
-  gap: 3px !important;
-}
-
-.promptOnlyZoneHead span {
-  color: var(--studio-primary) !important;
-  font-size: 11px !important;
-  font-weight: 950 !important;
-}
-
-.promptOnlyZoneHead strong {
-  color: var(--studio-text-strong) !important;
-  font-size: 14px !important;
-  font-weight: 950 !important;
-}
-
-.promptOnlyZoneHead em {
-  min-width: 32px !important;
-  height: 26px !important;
-  display: inline-grid !important;
-  place-items: center !important;
-  border-radius: 999px !important;
-  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-soft)) !important;
-  color: var(--studio-primary) !important;
-  font-size: 12px !important;
-  font-style: normal !important;
-  font-weight: 950 !important;
-}
-
-.promptOnlyGrid {
-  display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px !important;
-}
-
-/* Keep the continuation action in normal flow instead of creating a fake card. */
-.galleryWorkspacePanel.inspirationWorkspace .galleryLoadMore {
+.inspirationWorkspace .videoInspirationTile strong,
+.inspirationWorkspace .videoInspirationTile p { overflow-wrap: anywhere; }
+.inspirationWorkspace .galleryLoadMore {
   grid-column: 1 / -1;
   justify-self: center;
-  width: min(260px, 100%);
-  min-width: 180px;
-  min-height: 40px;
-  margin: 2px 0 4px;
+  width: auto;
+  max-width: 100%;
+  min-height: 36px;
+  margin: 4px 0;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 6px;
+  font-size: 12px;
 }
-
-.galleryWorkspacePanel.inspirationWorkspace .galleryLicenseLine {
-  min-width: 0;
-  margin-top: 2px;
-  border-radius: 12px;
+.inspirationWorkspace .workspaceEmptyPanel { grid-column: 1 / -1; min-height: 220px; }
+.inspirationWorkspace .workspaceEmptyPanel h2 { font-size: 18px; }
+.inspirationWorkspace .galleryLicenseLine {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--studio-border);
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-size: 11px;
 }
-@media (max-width: 1180px) {
-  .promptOnlyGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+.inspirationWorkspace .galleryLicenseLine p { flex: 1 1 320px; margin: 0; }
+.inspirationWorkspace :is(button, a, select):focus-visible,
+.inspirationWorkspace .gallerySearch:focus-within,
+.inspirationWorkspace .galleryCategoryFilter:focus-within {
+  outline: 2px solid var(--studio-primary);
+  outline-offset: 2px;
+}
+.inspirationWorkspace .caseTileMain:focus-visible { outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) {
+  .inspirationWorkspace *, .inspirationWorkspace *::before, .inspirationWorkspace *::after {
+    animation: none !important;
+    transition: none !important;
   }
-}
-@media (max-width: 900px) {
-  .promptOnlyGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 560px) {
-  .promptOnlyGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly,
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain {
-  min-height: 150px !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain {
-  padding: 14px 12px 48px !important;
-  grid-template-rows: auto 1fr auto !important;
-  gap: 8px !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain > strong {
-  grid-row: auto !important;
-  -webkit-line-clamp: 2 !important;
-}
-
-.casePromptExcerpt {
-  min-width: 0 !important;
-  margin: 0 !important;
-  display: -webkit-box !important;
-  overflow: hidden !important;
-  color: var(--studio-muted) !important;
-  font-size: 12px !important;
-  line-height: 1.45 !important;
-  -webkit-box-orient: vertical !important;
-  -webkit-line-clamp: 3 !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileMain > em {
-  grid-row: auto !important;
-}
-
-.communityPromptStats {
-  position: absolute !important;
-  left: 10px !important;
-  right: 10px !important;
-  bottom: 10px !important;
-  z-index: 3 !important;
-  display: flex !important;
-  gap: 5px !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .caseTileActions {
-  top: 10px !important;
-  right: 10px !important;
-  bottom: auto !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .promptUseButton {
-  width: auto !important;
-  min-width: 104px !important;
-  padding: 0 10px !important;
-  gap: 5px !important;
-  border-color: color-mix(in srgb, var(--studio-primary) 42%, var(--studio-border)) !important;
-  background: color-mix(in srgb, var(--studio-primary) 12%, var(--studio-surface-strong)) !important;
-  color: var(--studio-primary) !important;
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseTile.promptOnly .promptUseButton span {
-  font-size: 11px !important;
-  font-weight: 950 !important;
-  white-space: nowrap !important;
-}
-
-.communityPromptStats button {
-  height: 30px !important;
-  min-width: 30px !important;
-  padding: 0 7px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 3px !important;
-  border: 1px solid color-mix(in srgb, var(--studio-border) 80%, transparent) !important;
-  border-radius: 999px !important;
-  background: color-mix(in srgb, var(--studio-surface-strong) 88%, transparent) !important;
-  color: var(--studio-muted) !important;
-  font-size: 11px !important;
-  font-weight: 900 !important;
-}
-
-.communityPromptStats button:hover,
-.communityPromptStats button.active {
-  border-color: color-mix(in srgb, var(--studio-primary) 38%, var(--studio-border)) !important;
-  background: color-mix(in srgb, var(--studio-primary) 10%, var(--studio-surface-soft)) !important;
-  color: var(--studio-primary) !important;
 }

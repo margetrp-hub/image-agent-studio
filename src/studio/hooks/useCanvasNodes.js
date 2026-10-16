@@ -13,6 +13,7 @@
 // graph is still empty). We never clobber a graph the user has built.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { canvasGraphAdjacency, canvasReachableNodeIds } from '../util/canvasGeometry.js';
 
 export function useCanvasNodes(restoredSession) {
   const [canvasNodes, setCanvasNodes] = useState(() => (
@@ -85,49 +86,18 @@ export function useCanvasNodes(restoredSession) {
     return { from, point: canvasLinkDraft.point || null };
   }, [canvasLinkDraft, canvasNodeMap]);
 
-  const childNodeIds = useMemo(() => {
-    if (!selectedCanvasNodeId) return new Set();
-    const ids = new Set();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const node of canvasNodes) {
-        const isCustomChild = canvasCustomLinks.some(
-          (link) => link.toId === node.id
-            && (link.fromId === selectedCanvasNodeId || ids.has(link.fromId))
-        );
-        if (
-          !ids.has(node.id)
-          && (node.parentId === selectedCanvasNodeId || ids.has(node.parentId) || isCustomChild)
-        ) {
-          ids.add(node.id);
-          changed = true;
-        }
-      }
-    }
-    return ids;
-  }, [canvasNodes, canvasCustomLinks, selectedCanvasNodeId]);
-
-  const parentNodeIds = useMemo(() => {
-    if (!selectedCanvasNodeId) return new Set();
-    const ids = new Set();
-    const visit = (nodeId) => {
-      const current = canvasNodeMap.get(nodeId);
-      const parentIds = [
-        current?.parentId,
-        ...canvasCustomLinks
-          .filter((link) => link.toId === nodeId)
-          .map((link) => link.fromId)
-      ].filter(Boolean);
-      parentIds.forEach((parentId) => {
-        if (ids.has(parentId) || !canvasNodeMap.has(parentId)) return;
-        ids.add(parentId);
-        visit(parentId);
-      });
-    };
-    visit(selectedCanvasNodeId);
-    return ids;
-  }, [canvasNodeMap, canvasCustomLinks, selectedCanvasNodeId]);
+  const adjacency = useMemo(
+    () => canvasGraphAdjacency(canvasNodes, canvasCustomLinks),
+    [canvasNodes, canvasCustomLinks]
+  );
+  const childNodeIds = useMemo(
+    () => canvasReachableNodeIds(adjacency.children, selectedCanvasNodeId),
+    [adjacency, selectedCanvasNodeId]
+  );
+  const parentNodeIds = useMemo(
+    () => canvasReachableNodeIds(adjacency.parents, selectedCanvasNodeId),
+    [adjacency, selectedCanvasNodeId]
+  );
 
   const linkedNodeIds = useMemo(() => {
     if (!canvasLinkDraft?.fromId) return new Set();
@@ -139,7 +109,7 @@ export function useCanvasNodes(restoredSession) {
     ]);
   }, [canvasEdges, canvasLinkDraft?.fromId]);
 
-  const selectedCanvasNode = canvasNodes.find((node) => node.id === selectedCanvasNodeId) || null;
+  const selectedCanvasNode = canvasNodeMap.get(selectedCanvasNodeId) || null;
 
   return {
     canvasNodes,

@@ -75,12 +75,13 @@ export function normalizeLibraryPayload(payload, {
 // Tries the asset-versioned URL first, then the bare `/<file>` path. The two
 // candidates exist because the asset hash isn't always present in dev builds
 // and we want production caching without breaking local dev.
-export async function fetchPublicJson(fileName, fallback = {}) {
+export async function fetchPublicJson(fileName, fallback = {}, { signal } = {}) {
   const candidates = [publicJsonPath(fileName), `/${fileName}`]
     .filter((value, index, list) => value && list.indexOf(value) === index);
   for (const url of candidates) {
     try {
       const response = await fetch(url, {
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000),
         headers: { Accept: 'application/json' }
       });
       if (!response.ok) {
@@ -88,15 +89,17 @@ export async function fetchPublicJson(fileName, fallback = {}) {
       }
       return await response.json();
     } catch {
+      signal?.throwIfAborted();
       // Try the next deployment path before falling back to an empty payload.
     }
   }
   return fallback;
 }
 
-export async function fetchServiceLibraryData() {
+export async function fetchServiceLibraryData({ signal } = {}) {
   try {
     const response = await fetch('/studio-api/library', {
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000),
       headers: { Accept: 'application/json' }
     });
     if (!response.ok) throw new Error(`HTTP_${response.status}`);
@@ -104,6 +107,7 @@ export async function fetchServiceLibraryData() {
     if (payload?.ok === false) throw new Error(payload.error || 'LIBRARY_UNAVAILABLE');
     return payload;
   } catch {
+    signal?.throwIfAborted();
     return null;
   }
 }
@@ -112,7 +116,7 @@ export async function fetchServiceLibraryData() {
 // with `staticLibrary: true` so downstream code can distinguish bundled cases
 // from user-saved ones.
 export async function loadStaticLibraryData(options = {}) {
-  const serviceData = await fetchServiceLibraryData();
+  const serviceData = options.skipService ? null : await fetchServiceLibraryData(options);
   if (serviceData?.cases?.length) {
     const data = normalizeLibraryPayload(serviceData, options);
     return {
@@ -122,8 +126,8 @@ export async function loadStaticLibraryData(options = {}) {
   }
 
   const [localData, inspirationData] = await Promise.all([
-    fetchPublicJson('cases.json', { cases: [] }),
-    fetchPublicJson('inspirations.json', { cases: [] })
+    fetchPublicJson('cases.json', { cases: [] }, options),
+    fetchPublicJson('inspirations.json', { cases: [] }, options)
   ]);
   const data = normalizeLibraryPayload(mergeSiteData(localData, inspirationData), options);
   return {

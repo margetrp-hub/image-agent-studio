@@ -5,6 +5,8 @@
 
 export const CANVAS_PLANE_WIDTH = 12000;
 export const CANVAS_PLANE_HEIGHT = 8400;
+export const CANVAS_MIN_ZOOM = 0.05;
+export const CANVAS_MAX_ZOOM = 2.4;
 export const CANVAS_NODE_WIDTH = 340;
 export const CANVAS_NODE_HEIGHT = 280;
 export const CANVAS_NODE_MIN_WIDTH = 240;

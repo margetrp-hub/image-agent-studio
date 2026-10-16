@@ -52,6 +52,7 @@ function ProtectedStudioMedia({ src, fallbackSrc = '', alt = '', fallback = null
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     const objectUrls = [];
     const candidates = [src, fallbackSrc]
       .map((value) => String(value || '').trim())
@@ -63,11 +64,12 @@ function ProtectedStudioMedia({ src, fallbackSrc = '', alt = '', fallback = null
       const session = loadSession();
       if (!session?.accessToken) return '';
       const historyClient = new StudioHistoryClient({ session });
-      return await enqueueProtectedImageTask(() => historyClient.resolveAssetUrl(value)) || '';
+      return await enqueueProtectedImageTask(() => historyClient.resolveAssetUrl(value), { signal: controller.signal }) || '';
     }
 
     async function resolveImage() {
       for (const value of candidates) {
+        if (!active) return;
         try {
           const url = await resolveCandidate(value);
           if (active && url) {
@@ -92,12 +94,14 @@ function ProtectedStudioMedia({ src, fallbackSrc = '', alt = '', fallback = null
     setResolvedSrc(candidates[0] && (!isProtectedStudioAsset(candidates[0]) || isPublicLibraryAsset(candidates[0])) ? displayResultUrl(candidates[0]) : '');
     if (!shouldResolve) return () => {
       active = false;
+      controller.abort();
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
     resolveImage();
 
     return () => {
       active = false;
+      controller.abort();
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [src, fallbackSrc, shouldResolve]);

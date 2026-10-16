@@ -1,0 +1,34 @@
+.canvasViewToolbar {
+  position: absolute;
+  z-index: 18;
+  top: 76px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  background: var(--studio-surface-strong);
+  color: var(--studio-text);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
+}
+.canvasViewToolbar button {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  transition: background 140ms ease, color 140ms ease;
+}
+.canvasViewToolbar button:hover:not(:disabled) { background: var(--studio-surface-hover); color: var(--studio-primary); }
+.canvasViewToolbar button:focus-visible { outline: 2px solid var(--studio-primary); outline-offset: 1px; }
+.canvasViewToolbar button:disabled { opacity: .35; cursor: default; }
+.canvasViewToolbar span { width: 42px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--studio-muted); }
+@media (max-width: 760px) {
+  .canvasViewToolbar { top: 126px; right: 8px; flex-direction: column; }
+  .canvasViewToolbar span { width: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .canvasViewToolbar button { transition: none; } }

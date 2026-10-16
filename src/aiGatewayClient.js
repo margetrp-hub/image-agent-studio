@@ -12,6 +12,7 @@ import {
   shouldFallbackToImagesTransport
 } from './gateway/index.js';
 import { PROVIDER_VIDEO_TRANSPORTS, normalizeImageRouteMode, normalizeProviderId } from './studio/providers/index.js';
+import { createAssetBlobCache } from './studio/util/assetBlobCache.js';
 
 const SESSION_KEY = 'sub2api-studio:session:v1';
 const STANDALONE_SESSION_KEY = 'image-agent-studio:session:v1';
@@ -41,7 +42,8 @@ const envResponsesPartialImages = Number(viteEnv.VITE_AI_RESPONSES_PARTIAL_IMAGE
 const envPromptOptimizerModel = viteEnv.VITE_AI_PROMPT_OPTIMIZER_MODEL || viteEnv.VITE_SUB2API_PROMPT_OPTIMIZER_MODEL || '';
 const STUDIO_ASSET_BLOB_CACHE_LIMIT = 80;
 const STUDIO_ASSET_FAILURE_TTL_MS = 5 * 60 * 1000;
-const studioAssetBlobCache = new Map();
+const studioAssetBlobCache = createAssetBlobCache({ maxEntries: STUDIO_ASSET_BLOB_CACHE_LIMIT });
+const studioAssetRequests = new Map();
 const studioAssetFailureCache = new Map();
 const STANDALONE_PROVIDER_KEY = Object.freeze({
   id: 'studio-managed',
@@ -543,36 +545,31 @@ async function cachedStudioAssetBlob({ baseUrl, url, session }) {
   if (failedAt) studioAssetFailureCache.delete(cacheKey);
 
   const cached = studioAssetBlobCache.get(cacheKey);
-  if (cached) {
-    studioAssetBlobCache.delete(cacheKey);
-    studioAssetBlobCache.set(cacheKey, cached);
-    return cached instanceof Promise ? cached : cached;
-  }
+  if (cached) return cached;
+  if (studioAssetRequests.has(cacheKey)) return studioAssetRequests.get(cacheKey);
 
   const pending = fetch(`${baseUrl}${url}`, {
+    signal: AbortSignal.timeout(45000),
     headers: studioAuthHeaders(session)
   }).then(async (response) => {
     if (!response.ok) throw new Error(`HTTP_${response.status}`);
     return response.blob();
   });
-  studioAssetBlobCache.set(cacheKey, pending);
+  studioAssetRequests.set(cacheKey, pending);
 
   try {
     const blob = await pending;
     studioAssetBlobCache.set(cacheKey, blob);
-    while (studioAssetBlobCache.size > STUDIO_ASSET_BLOB_CACHE_LIMIT) {
-      const oldestKey = studioAssetBlobCache.keys().next().value;
-      studioAssetBlobCache.delete(oldestKey);
-    }
     return blob;
   } catch (error) {
-    studioAssetBlobCache.delete(cacheKey);
     studioAssetFailureCache.set(cacheKey, Date.now());
     while (studioAssetFailureCache.size > STUDIO_ASSET_BLOB_CACHE_LIMIT) {
       const oldestKey = studioAssetFailureCache.keys().next().value;
       studioAssetFailureCache.delete(oldestKey);
     }
     throw error;
+  } finally {
+    studioAssetRequests.delete(cacheKey);
   }
 }
 
@@ -2301,8 +2298,8 @@ export class StudioHistoryClient {
     };
   }
 
-  async listLibrary() {
-    const payload = await this.request('/library');
+  async listLibrary({ signal } = {}) {
+    const payload = await this.request('/library', { signal });
     return {
       ...payload,
       cases: Array.isArray(payload.cases) ? payload.cases : []

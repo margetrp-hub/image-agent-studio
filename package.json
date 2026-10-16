@@ -32,6 +32,8 @@
     "check:env": "node scripts/check-env-contract.mjs",
     "check:public-data": "node scripts/check-public-data.mjs",
     "check:css": "node scripts/check-css-cascade-map.mjs",
+    "check:performance": "node scripts/check-workspace-performance.mjs && node --test src/studio/util/canvasGeometry.test.mjs",
+    "smoke:performance": "node scripts/smoke-canvas-interaction.mjs && node scripts/smoke-workspace-autosave.mjs && node scripts/smoke-library-startup.mjs && node scripts/smoke-inspiration-layout.mjs && node scripts/smoke-canvas-mobile-composer.mjs",
     "check:source": "node scripts/check-source-encoding.mjs",
     "check:errors": "node scripts/check-error-catalog.mjs",
     "check:hardening": "npm run check:css && npm run check:errors && npm run check:storage-security && npm run check:standalone-auth && npm run smoke:data:integrity && npm run smoke:generation:dedupe && npm run smoke:provider-protocols && npm run smoke:backup && npm run smoke:session:isolation && npm run smoke:studio:modals && npm run smoke:history:lightbox && npm run smoke:community:prompt-flow",

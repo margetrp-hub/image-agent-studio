@@ -676,15 +676,6 @@
     transform 160ms ease-out !important;
 }
 
-.studioLayout .creationDesk.referencesOpen .canvasToolbar,
-.studioLayout .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
-  right: calc(var(--reference-sidebar-width) + 18px) !important;
-  transition:
-    right 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 170ms ease,
-    box-shadow 170ms ease !important;
-}
-
 .studioLayout .creationDesk .referenceSidePanel.isOpen,
 .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
 .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
@@ -1022,11 +1013,6 @@
     --reference-sidebar-width: min(238px, 64vw);
   }
 
-  .studioLayout .creationDesk.referencesOpen .canvasToolbar,
-  .studioLayout .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
-    right: calc(var(--reference-sidebar-width) + 10px) !important;
-  }
-
   .studioLayout .creationDesk .referenceSidePanel.isOpen,
   .studioLayout.railCollapsed .creationDesk .referenceSidePanel.isOpen,
   .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .referenceSidePanel.isOpen,
@@ -1068,7 +1054,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas,
-  .studioLayout .creationDesk.referencesOpen .canvasToolbar,
   .studioLayout .creationDesk .referenceSidePanel.isOpen {
     transition-duration: 0.01ms !important;
   }
@@ -1299,11 +1284,6 @@
 
   .studioLayout .creationDesk.referencesOpen .workPreview.infiniteCanvas {
     inset: 0 !important;
-  }
-
-  .studioLayout .creationDesk.referencesOpen .canvasToolbar,
-  .studioLayout .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
-    right: 12px !important;
   }
 
   .studioLayout .creationDesk.referencesOpen.composerOpen:not(.composerFolded) .bottomComposerBar.isExpandedComposer,

@@ -1,5 +1,5 @@
 // galleryWorkspace — the inspiration / template / history library views shown
-// in the workspace shell. Bundles five card components (CategoryCard, CaseCard,
+// in the workspace shell. Bundles four card components (CaseCard,
 // PromptCaseCard, VideoInspirationCard, HistoryCard), a HistoryDetailPanel,
 // and the GalleryWorkspacePanel orchestrator that switches between
 // "inspiration" mode (cases + video inspirations) and "history" mode.
@@ -9,7 +9,7 @@
 // / Lightbox / ResultGrid / VideoResultGrid / PromptSectionList / ProtectedHistoryThumb
 // primitives, so they extract cleanly.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   Copy,
@@ -27,10 +27,10 @@ import {
   ThumbsUp,
   Trash2,
   Upload,
-  Video
+  Video,
+  X
 } from 'lucide-react';
 import '../../styles/studio.gallery-cards.css';
-import '../../styles/studio.gallery-cards-responsive.css';
 
 import { compact, templateKey } from '../util/formatters.js';
 import { displayResultUrl } from '../util/assets.js';
@@ -56,15 +56,14 @@ import {
   caseCardMeta,
   hasLibraryPreviewImage,
   imageFallback,
-  libraryFallbackImage,
   riskLabel,
   templatePreviewImage,
-  templateReferenceFullImage,
   templateThumbnail
 } from '../util/templates.js';
 
-import { ProtectedHistoryThumb, ProtectedStudioImage, ProtectedStudioVideo } from './media.jsx';
+import { ProtectedHistoryThumb, ProtectedStudioImage } from './media.jsx';
 import '../../styles/studio.gallery-filters.css';
+import '../../styles/studio.gallery-cards-responsive.css';
 import { Lightbox, ResultGrid, VideoLightbox, VideoResultGrid } from './resultDisplay.jsx';
 
 const INITIAL_TEMPLATE_LIMIT = 12;
@@ -82,34 +81,36 @@ function isUserSubmittedCase(item) {
   );
 }
 
-function CategoryCard({ group, selected, onSelect }) {
-  const sampleFallback = (group.samples || []).map(libraryFallbackImage).find(Boolean) || libraryFallbackImage(group.featured);
-  const fallback = sampleFallback || group.coverFallback || '';
+function GalleryThumbnail({ src, fallbackSrc, alt }) {
+  const holder = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!('IntersectionObserver' in window)) {
+      setVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '160px' });
+    observer.observe(holder.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <button className={`categoryTile ${selected ? 'selected' : ''}`} type="button" onClick={() => onSelect(group.id)}>
-      <div className="categoryThumbs">
-        {(group.cover || fallback) ? (
-          <ProtectedStudioImage
-            src={group.cover || fallback}
-            fallbackSrc={fallback}
-            alt={group.label}
-          />
-        ) : null}
-        <ImageIcon size={22} />
-      </div>
-      <div>
-        <strong>{group.label}</strong>
-        <span>{group.count} 个模板</span>
-        <small>{group.samples.map((item) => item.title).slice(0, 2).join(' / ')}</small>
-      </div>
-    </button>
+    <div ref={holder} className={`galleryThumbnail ${loaded ? 'isLoaded' : 'isPending'}`} onLoadCapture={() => setLoaded(true)}>
+      {visible ? <ProtectedStudioImage src={src} fallbackSrc={fallbackSrc} alt={alt} fallback={<ImageIcon size={22} />} /> : <ImageIcon size={22} aria-hidden="true" />}
+    </div>
   );
 }
 
-function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavorite, onAppend, onReact, t = (key, fallback) => fallback || key }) {
+function CaseCard({ item, selected, onPreview, favorite, onToggleFavorite, onAppend, onReact, t = (key, fallback) => fallback || key }) {
   const image = templateThumbnail(item);
   const fallback = imageFallback(item);
-  const hasPreviewImage = hasLibraryPreviewImage(item);
   const meta = caseCardMeta(item);
   const risks = Array.isArray(item.riskTags) ? item.riskTags.slice(0, 3) : [];
   const promptPreview = item.promptPreview || item.prompt || item.summary || '';
@@ -118,34 +119,19 @@ function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavor
       <button
         className="caseTileMain"
         type="button"
-        onClick={(event) => {
-          if (hasPreviewImage && event.target.closest?.('.caseMedia') && onPreview) {
-            onPreview(item);
-            return;
-          }
-          onSelect(item);
-        }}
+        onClick={() => onPreview(item)}
+        aria-label={`${t('gallery.preview', '查看')} ${item.title}`}
       >
-        <div
-          className="caseMedia"
-          onClick={(event) => {
-            if (!hasPreviewImage || !onPreview) return;
-            event.preventDefault();
-            event.stopPropagation();
-            onPreview(item);
-          }}
-        >
-          {item.generation?.mode === 'video' ? <ProtectedStudioVideo src={item.image} muted playsInline preload="metadata" /> : (image || fallback) ? (
-            <ProtectedStudioImage
+        <div className="caseMedia">
+          {item.generation?.mode === 'video' ? <Video size={24} /> : (image || fallback) ? (
+            <GalleryThumbnail
+              key={image || fallback}
               src={image || fallback}
               fallbackSrc={image && fallback !== image ? fallback : ''}
               alt={item.imageAlt || item.title}
             />
           ) : null}
-          <ImageIcon size={18} />
-          <small className="casePreviewHint">{t('gallery.preview', '查看')}</small>
         </div>
-        <span>{typeof item.id === 'number' ? `#${item.id}` : t('gallery.external', '外部')}</span>
         <strong>{item.title}</strong>
         {meta ? <em>{meta}</em> : null}
         {risks.length ? (
@@ -164,7 +150,6 @@ function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavor
           title={t('gallery.viewPrompt', '查看提示词')}
         >
           <Info size={12} />
-          <span>{t('gallery.promptOnly', '提示词')}</span>
           <p>{compact(promptPreview, 112)}</p>
         </button>
       ) : null}
@@ -200,6 +185,7 @@ function CaseCard({ item, selected, onSelect, onPreview, favorite, onToggleFavor
           }}
           aria-label={favorite ? t('gallery.unfavoriteTemplate', '取消收藏模板') : t('gallery.favoriteTemplate', '收藏模板')}
           title={favorite ? t('gallery.unfavorite', '取消收藏') : t('gallery.favoriteTemplate', '收藏模板')}
+          aria-pressed={favorite}
         >
           <Star size={13} />
         </button>
@@ -213,7 +199,7 @@ function PromptCaseCard({ item, selected, onSelect, onPreview, favorite, onToggl
   const promptPreview = item.promptPreview || item.summary || item.prompt || '';
   return (
     <div className={`caseTile promptOnly ${selected ? 'selected' : ''}`}>
-      <button className="caseTileMain promptCaseMain" type="button" onClick={() => (onPreview ? onPreview(item) : onSelect(item))}>
+      <button className="caseTileMain promptCaseMain" type="button" aria-label={`${t('gallery.viewPrompt', '查看提示词')} ${item.title}`} onClick={() => (onPreview ? onPreview(item) : onSelect(item))}>
         <strong>{item.title}</strong>
         <p className="casePromptExcerpt">{compact(promptPreview, 180) || t('gallery.promptOnlyHint', '这条灵感暂时没有可用图片，但提示词仍可预览和选用。')}</p>
         {meta ? <em>{meta}</em> : null}
@@ -224,19 +210,19 @@ function PromptCaseCard({ item, selected, onSelect, onPreview, favorite, onToggl
             <Trash2 size={12} />
           </button>
         ) : null}
-        <button type="button" aria-label={t('gallery.upvotePrompt', 'Upvote prompt')} className={item.userReaction === 'up' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'up'); }}>
+        <button type="button" aria-label={t('gallery.upvotePrompt', 'Upvote prompt')} title={t('gallery.upvotePrompt', 'Upvote prompt')} aria-pressed={item.userReaction === 'up'} className={item.userReaction === 'up' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'up'); }}>
           <ThumbsUp size={12} />
           {item.reactions?.up || 0}
         </button>
-        <button type="button" aria-label={t('gallery.downvotePrompt', 'Downvote prompt')} className={item.userReaction === 'down' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'down'); }}>
+        <button type="button" aria-label={t('gallery.downvotePrompt', 'Downvote prompt')} title={t('gallery.downvotePrompt', 'Downvote prompt')} aria-pressed={item.userReaction === 'down'} className={item.userReaction === 'down' ? 'active' : ''} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'down'); }}>
           <ThumbsDown size={12} />
           {item.reactions?.down || 0}
         </button>
-        <button type="button" aria-label={t('gallery.copyPrompt', 'Copy prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'copy'); }}>
+        <button type="button" aria-label={t('gallery.copyPrompt', 'Copy prompt')} title={t('gallery.copyPrompt', 'Copy prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'copy'); }}>
           <Copy size={12} />
           {item.copied || 0}
         </button>
-        <button type="button" aria-label={t('gallery.sharePrompt', 'Share prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'share'); }}>
+        <button type="button" aria-label={t('gallery.sharePrompt', 'Share prompt')} title={t('gallery.sharePrompt', 'Share prompt')} onClick={(event) => { event.stopPropagation(); onReact?.(item, 'share'); }}>
           <Share2 size={12} />
           {item.shared || 0}
         </button>
@@ -266,6 +252,7 @@ function PromptCaseCard({ item, selected, onSelect, onPreview, favorite, onToggl
           }}
           aria-label={favorite ? t('gallery.unfavoriteTemplate', '取消收藏模板') : t('gallery.favoriteTemplate', '收藏模板')}
           title={favorite ? t('gallery.unfavorite', '取消收藏') : t('gallery.favoriteTemplate', '收藏模板')}
+          aria-pressed={favorite}
         >
           <Star size={13} />
         </button>
@@ -512,9 +499,11 @@ export function GalleryWorkspacePanel({
   t = (key, fallback) => fallback || key
 }) {
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_TEMPLATE_LIMIT);
+  const [promptLimit, setPromptLimit] = useState(6);
   const [activeKind, setActiveKind] = useState('image');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [galleryPreview, setGalleryPreview] = useState(null);
+  const searchInput = useRef(null);
   const isHistory = type === 'history';
   const isVideo = activeKind === 'video';
   const filteredSourceCases = useMemo(() => {
@@ -526,11 +515,14 @@ export function GalleryWorkspacePanel({
     original: cases.filter((item) => !isUserSubmittedCase(item)).length,
     user: cases.filter(isUserSubmittedCase).length
   }), [cases]);
-  const browsingCategory = !isVideo;
-  const imageCases = filteredSourceCases.filter(hasLibraryPreviewImage);
-  const promptOnlyCases = filteredSourceCases.filter((item) => !hasLibraryPreviewImage(item));
+  const [imageCases, promptOnlyCases] = useMemo(() => {
+    const images = [];
+    const prompts = [];
+    filteredSourceCases.forEach((item) => (hasLibraryPreviewImage(item) ? images : prompts).push(item));
+    return [images, prompts];
+  }, [filteredSourceCases]);
   const visibleCases = imageCases.slice(0, visibleLimit);
-  const promptVisibleLimit = imageCases.length ? Math.max(6, Math.ceil(visibleLimit / 2)) : visibleLimit;
+  const promptVisibleLimit = imageCases.length ? promptLimit : Math.max(INITIAL_TEMPLATE_LIMIT, promptLimit);
   const visiblePromptCases = promptOnlyCases.slice(0, promptVisibleLimit);
   const visibleLibraryCaseCount = visibleCases.length + visiblePromptCases.length;
   const videoNeedle = query.trim().toLowerCase();
@@ -543,10 +535,6 @@ export function GalleryWorkspacePanel({
   const historySessionItems = useMemo(() => groupHistorySessions(historyItems || []), [historyItems]);
   const visibleHistoryItems = historySessionItems.slice(0, visibleLimit);
   const historyLocalHasMore = visibleLimit < historySessionItems.length;
-  const selectedTemplate = selected && selected.kind !== 'video-inspiration' ? selected : null;
-  const selectedTemplateImage = selectedTemplate ? templateReferenceFullImage(selectedTemplate) : '';
-  const selectedTemplateFallback = selectedTemplate ? templateThumbnail(selectedTemplate) : '';
-  const selectedTemplatePrompt = selectedTemplate?.promptPreview || selectedTemplate?.prompt || selectedTemplate?.summary || '';
   const selectedHistoryItem = useMemo(() => {
     if (!isHistory || !selectedHistoryId) return null;
     return historySessionItems.find((item) => (
@@ -564,7 +552,16 @@ export function GalleryWorkspacePanel({
 
   useEffect(() => {
     setVisibleLimit(INITIAL_TEMPLATE_LIMIT);
-  }, [category, query, activeKind, sourceFilter, type]);
+    setPromptLimit(6);
+  }, [category, query, activeKind, sourceFilter, type, showFavoritesOnly]);
+
+  const resetFilters = () => {
+    setQuery('');
+    setCategory('All');
+    setSourceFilter('all');
+    if (showFavoritesOnly) onToggleFavoritesOnly();
+    searchInput.current?.focus();
+  };
 
   const useLibraryItem = (item) => {
     onSelect(item);
@@ -572,10 +569,6 @@ export function GalleryWorkspacePanel({
     onOpenWorkspace?.(item?.kind === 'video-inspiration' || item?.generation?.mode === 'video' ? 'video' : 'image');
   };
   const selectLibraryItem = (item) => {
-    if (isVideo) {
-      onSelect(item);
-      return;
-    }
     openTemplatePreview(item);
   };
   const openTemplatePreview = (item) => {
@@ -692,11 +685,11 @@ export function GalleryWorkspacePanel({
         </div>
         <div className="galleryWorkspaceActions">
           <div className="galleryKindSwitch" role="group" aria-label={t('gallery.inspirationType', '灵感类型')}>
-            <button type="button" className={!isVideo ? 'active' : ''} onClick={() => setActiveKind('image')}>
+            <button type="button" className={!isVideo ? 'active' : ''} aria-pressed={!isVideo} onClick={() => setActiveKind('image')}>
               <ImageIcon size={15} />
               {t('workspace.image', '图片创作')}
             </button>
-            <button type="button" className={isVideo ? 'active' : ''} onClick={() => setActiveKind('video')}>
+            <button type="button" className={isVideo ? 'active' : ''} aria-pressed={isVideo} onClick={() => setActiveKind('video')}>
               <Video size={15} />
               {t('workspace.video', '视频创作')}
             </button>
@@ -708,10 +701,11 @@ export function GalleryWorkspacePanel({
         </div>
       </div>
       <div className="galleryWorkspaceToolbar">
-        <label className="gallerySearch">
+        <div className="gallerySearch">
           <Search size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isVideo ? t('gallery.searchVideo', '搜索视频灵感') : t('gallery.searchImage', '搜索图片模板')} />
-        </label>
+          <input ref={searchInput} type="search" value={query} onChange={(event) => setQuery(event.target.value)} aria-label={isVideo ? t('gallery.searchVideo', '搜索视频灵感') : t('gallery.searchImage', '搜索图片模板')} placeholder={isVideo ? t('gallery.searchVideo', '搜索视频灵感') : t('gallery.searchImage', '搜索图片模板')} />
+          {query ? <button type="button" onClick={() => { setQuery(''); searchInput.current?.focus(); }} aria-label={t('gallery.clear', '清空')} title={t('gallery.clear', '清空')}><X size={15} /></button> : null}
+        </div>
         {!isVideo ? (
           <>
             <div className="gallerySourceSwitch" role="group" aria-label={t('gallery.sourceFilter', '灵感来源')}>
@@ -733,7 +727,6 @@ export function GalleryWorkspacePanel({
             </div>
             <label className="galleryCategoryFilter">
               <Filter size={15} />
-              <span className="srOnly">{t('gallery.categoryFilter', '分类筛选')}</span>
               <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label={t('gallery.categoryFilter', '分类筛选')}>
                 <option value="All">{t('gallery.allCategories', '全部分类')}</option>
                 {categoryGroups.map((group) => <option value={group.id} key={group.id}>{group.label} · {group.count}</option>)}
@@ -749,8 +742,9 @@ export function GalleryWorkspacePanel({
             </button>
             <button
               type="button"
-              className={`galleryFilterButton ${showFavoritesOnly ? 'active' : ''}`}
+              className={`galleryFilterButton galleryFavoritesFilter ${showFavoritesOnly ? 'active' : ''}`}
               onClick={onToggleFavoritesOnly}
+              aria-pressed={showFavoritesOnly}
             >
               <Star size={15} />
               {showFavoritesOnly ? t('gallery.favorited', '已收藏') : t('gallery.favoriteCount', '收藏 {count}', { count: favoriteTemplates.size })}
@@ -758,37 +752,13 @@ export function GalleryWorkspacePanel({
           </>
         ) : null}
       </div>
-      {!isVideo && browsingCategory && selectedTemplate ? (
-        <section className="gallerySelectionPreview" aria-label={t('gallery.selectedPreview', '已选灵感预览')}>
-          {selectedTemplateImage || selectedTemplateFallback ? (
-          <button
-            type="button"
-            className="gallerySelectionMedia gallerySelectionPreviewButton"
-            onClick={() => openTemplatePreview(selectedTemplate)}
-            aria-label={t('gallery.preview', '查看')}
-          >
-            <ProtectedStudioImage
-              src={selectedTemplateImage || selectedTemplateFallback}
-              fallbackSrc={selectedTemplateImage && selectedTemplateFallback !== selectedTemplateImage ? selectedTemplateFallback : ''}
-              alt={selectedTemplate.imageAlt || selectedTemplate.title}
-            />
-          </button>
-          ) : (
-          <div className="gallerySelectionMedia">
-            <ImageIcon size={20} />
-          </div>
-          )}
-          <div className="gallerySelectionBody">
-            <span>{t('gallery.selectedPreview', '已选灵感预览')}</span>
-            <strong>{selectedTemplate.title}</strong>
-            <p>{selectedTemplatePrompt || t('gallery.selectedNoPrompt', '点击选用后会读取完整提示词并带入底部对话框。')}</p>
-          </div>
-          <button type="button" className="primaryAction galleryUseTemplateButton" onClick={() => useLibraryItem(selectedTemplate)}>
-            <Check size={15} />
-            {t('gallery.useTemplate', '选用')}
-          </button>
-        </section>
-      ) : null}
+      <div className="galleryResultsSummary" role="status" aria-live="polite" aria-atomic="true">
+        {isVideo ? <Video size={14} /> : <ImageIcon size={14} />}
+        <span>{isVideo ? `${visibleVideoItems.length} / ${visibleVideoInspirations.length}` : `${visibleLibraryCaseCount} / ${filteredSourceCases.length}`}</span>
+        {(query || (!isVideo && (category !== 'All' || sourceFilter !== 'all' || showFavoritesOnly))) ? (
+          <button type="button" onClick={resetFilters}><X size={13} />{t('canvas.reset', '重置')}</button>
+        ) : null}
+      </div>
       <div className="inspirationCanvasGrid">
         {loading ? (
           <div className="workspaceEmptyPanel">
@@ -815,13 +785,12 @@ export function GalleryWorkspacePanel({
               <p>{t('gallery.tryAnotherKeyword', '换一个关键词再试试。')}</p>
             </div>
           )
-        ) : browsingCategory ? (
+        ) : filteredSourceCases.length ? (
           <>
             {visibleCases.map((item) => (
               <CaseCard
                 item={item}
                 selected={selected?.id === item.id}
-                onSelect={selectLibraryItem}
                 onPreview={openTemplatePreview}
                 favorite={favoriteTemplates.has(templateKey(item))}
                 onToggleFavorite={onToggleTemplateFavorite}
@@ -831,12 +800,17 @@ export function GalleryWorkspacePanel({
                 key={item.id}
               />
             ))}
+            {visibleCases.length < imageCases.length ? (
+              <button type="button" className="loadMoreButton galleryLoadMore galleryImageLoadMore" onClick={() => setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE)}>
+                {t('gallery.loadMoreCount', '加载更多 {visible}/{total}', { visible: visibleCases.length, total: imageCases.length })}
+              </button>
+            ) : null}
             {promptOnlyCases.length ? (
               <section className="promptOnlyZone" aria-label={t('gallery.promptZone', '提示词专区')}>
                 <div className="promptOnlyZoneHead">
                   <div>
-                    <span>{t('gallery.promptZone', '提示词专区')}</span>
-                    <strong>{t('gallery.promptZoneTitle', '没有可用图片，但提示词仍可选用')}</strong>
+                    <MessageSquareText size={16} />
+                    <h3>{t('gallery.promptZone', '提示词专区')}</h3>
                   </div>
                   <em>{promptOnlyCases.length}</em>
                 </div>
@@ -856,18 +830,20 @@ export function GalleryWorkspacePanel({
                     />
                   ))}
                 </div>
+                {visiblePromptCases.length < promptOnlyCases.length ? (
+                  <button type="button" className="loadMoreButton galleryLoadMore galleryPromptLoadMore" onClick={() => setPromptLimit(promptVisibleLimit + 6)}>
+                    {t('gallery.loadMoreCount', '加载更多 {visible}/{total}', { visible: visiblePromptCases.length, total: promptOnlyCases.length })}
+                  </button>
+                ) : null}
               </section>
-            ) : null}
-            {visibleLimit < Math.max(imageCases.length, promptOnlyCases.length * 2) ? (
-              <button type="button" className="loadMoreButton galleryLoadMore" onClick={() => setVisibleLimit((value) => value + TEMPLATE_PAGE_SIZE)}>
-                {t('gallery.loadMoreCount', '加载更多 {visible}/{total}', { visible: Math.min(visibleLibraryCaseCount, cases.length), total: cases.length })}
-              </button>
             ) : null}
           </>
         ) : (
-          categoryGroups.map((group) => (
-            <CategoryCard group={group} selected={category === group.id} onSelect={setCategory} key={group.id} />
-          ))
+          <div className="workspaceEmptyPanel galleryEmptyState">
+            <Search size={28} />
+            <h2>{t('gallery.tryAnotherKeyword', '换一个关键词再试试。')}</h2>
+            <button type="button" className="secondaryButton" onClick={resetFilters}>{t('canvas.reset', '重置')}</button>
+          </div>
         )}
       </div>
       {!isVideo ? (
@@ -875,7 +851,7 @@ export function GalleryWorkspacePanel({
           <span>{licenseNotice?.name || COMMUNITY_LICENSE_NOTICE.name}</span>
           <p>{licenseNotice?.notice || licenseNotice?.text || COMMUNITY_LICENSE_NOTICE.text}</p>
           <a href={licenseNotice?.url || COMMUNITY_LICENSE_NOTICE.url} target="_blank" rel="noreferrer">CC BY 4.0</a>
-          <strong>{browsingCategory ? `${cases.length}/${totalCaseCount}` : t('gallery.categoryCount', '{count} 类', { count: categoryGroups.length })}</strong>
+          <strong>{`${filteredSourceCases.length}/${totalCaseCount}`}</strong>
         </div>
       ) : null}
       <Lightbox

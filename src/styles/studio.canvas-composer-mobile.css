@@ -1,0 +1,119 @@
+/* Layered important declarations outrank the legacy unlayered state locks.
+   Keep the mobile canvas layout together instead of escalating specificity. */
+@layer mobile-canvas-composer {
+  @media (max-width: 760px) {
+    .canvasFlowMode .bottomComposerBar {
+      position: fixed !important;
+      inset: auto 8px 10px !important;
+      width: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: calc(100dvh - 150px) !important;
+      margin: 0 !important;
+      padding: 12px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      transform: none !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar :is(.composerPanelHead, .composerPromptRow, .composerParamShelf) {
+      position: static !important;
+      inset: auto !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      margin: 0 !important;
+      transform: none !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .composerPanelHead {
+      flex: 0 0 40px !important;
+      height: 40px !important;
+      min-height: 40px !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .composerPromptRow {
+      flex: 1 1 160px !important;
+      height: 160px !important;
+      min-height: 112px !important;
+      max-height: none !important;
+      padding: 0 !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 64px !important;
+      grid-template-rows: minmax(0, 1fr) !important;
+      gap: 8px !important;
+      align-items: stretch !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar :is(.bottomComposerInput, .bottomComposerInput textarea, .composerActionGroup) {
+      height: 100% !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      align-self: stretch !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .bottomComposerInput textarea {
+      resize: none !important;
+      white-space: pre-wrap !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .composerActionGroup {
+      grid-template-columns: minmax(0, 1fr) !important;
+      grid-template-rows: repeat(2, minmax(44px, 1fr)) !important;
+      gap: 8px !important;
+      padding: 0 !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar :is(.composerGenerateAction, .composerAssistantAction) {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      height: 100% !important;
+      min-height: 44px !important;
+      max-height: none !important;
+      margin: 0 !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .composerParamShelf {
+      flex: 0 1 auto !important;
+      height: auto !important;
+      min-height: 36px !important;
+      max-height: 160px !important;
+      overflow-y: auto !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .composerParamShelf.isCollapsed {
+      flex: 0 0 36px !important;
+      height: 36px !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar .composerThread {
+      flex: 0 1 auto !important;
+      min-height: 34px !important;
+      align-self: stretch !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar.isFolded {
+      display: grid !important;
+      grid-template-columns: 36px minmax(0, 1fr) !important;
+      grid-template-rows: 96px !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar.isFolded .composerPromptRow {
+      height: 96px !important;
+      min-height: 96px !important;
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+    }
+
+    .canvasFlowMode .bottomComposerBar.isFolded .composerPanelHead {
+      align-self: center !important;
+    }
+  }
+}

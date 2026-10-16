@@ -269,7 +269,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
     }
     const keys = {
       composer: '.bottomComposerBar',
-      canvasToolbar: '.canvasToolbar',
+      canvasToolbar: '.canvasViewToolbar',
       queueDock: '.canvasQueueDock',
       queueItem: '.canvasQueueItem',
       queueAction: '.canvasQueueItem button',

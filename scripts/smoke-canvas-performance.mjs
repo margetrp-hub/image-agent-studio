@@ -108,8 +108,48 @@ async function runCanvasPerformanceScenario({ baseUrl, protectedAssets = false }
       };
     }, TOTAL_NODES);
 
+    await page.getByRole('button', { name: '显示全部图片', exact: true }).click();
+    await page.waitForTimeout(300);
+    const fit = await page.evaluate(() => {
+      const viewport = document.querySelector('.infiniteCanvas').getBoundingClientRect();
+      const composer = document.querySelector('.bottomComposerBar')?.getBoundingClientRect();
+      const bottom = composer?.top > viewport.top ? Math.min(viewport.bottom, composer.top) : viewport.bottom;
+      const nodes = [...document.querySelectorAll('.graphNode')].map((node) => node.getBoundingClientRect());
+      const toolbar = document.querySelector('.canvasViewToolbar');
+      const toolbarRect = toolbar.getBoundingClientRect();
+      return {
+        allInView: nodes.every((node) => node.left >= viewport.left - 1 && node.right <= viewport.right + 1 && node.top >= viewport.top - 1 && node.bottom <= bottom + 1),
+        outside: nodes.filter((node) => node.left < viewport.left - 1 || node.right > viewport.right + 1 || node.top < viewport.top - 1 || node.bottom > bottom + 1).map((node) => node.toJSON()),
+        viewport: viewport.toJSON(), bottom,
+        toolbarVisible: getComputedStyle(toolbar).display !== 'none' && toolbarRect.bottom <= bottom,
+        decorativeLayers: document.querySelectorAll('.canvasLinkGlow, .canvasLinkPulse, .canvasLinkJointCore').length
+      };
+    });
+    assert(fit.allInView && fit.toolbarVisible, 'Fit-all must frame every node above the composer with accessible tools.', fit);
+    assert(fit.decorativeLayers === 0, 'Hidden decorative edge layers should not be mounted.', fit);
+    if (!protectedAssets) await page.screenshot({ path: `${screenshotDir}/canvas-fit-all.png`, fullPage: true });
+    if (!protectedAssets) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole('button', { name: '收起参考图', exact: true }).click();
+      await page.getByRole('button', { name: '显示全部图片', exact: true }).click();
+      const mobileTools = await page.locator('.canvasViewToolbar').boundingBox();
+      const mobileLayout = await page.evaluate(() => ({
+        scroll: [scrollX, scrollY],
+        regions: ['.studioLayout', '.creationDesk', '.infiniteCanvas', '.referenceSidePanel', '.workbenchTopControls', '.canvasViewToolbar'].map((selector) => {
+          const el = document.querySelector(selector);
+          if (!el) return { selector };
+          const style = getComputedStyle(el);
+          return { selector, rect: el.getBoundingClientRect().toJSON(), scroll: [el.scrollLeft, el.scrollTop], position: style.position, inset: style.inset, grid: style.gridTemplateColumns, transform: style.transform };
+        })
+      }));
+      await page.screenshot({ path: `${screenshotDir}/canvas-fit-mobile.png`, fullPage: true });
+      assert(mobileTools.x >= 0 && mobileTools.x + mobileTools.width <= 390 && mobileTools.y + mobileTools.height <= 844, 'Canvas tools must remain reachable on mobile.', { mobileTools, mobileLayout });
+      assert(mobileLayout.regions.find(({ selector }) => selector === '.infiniteCanvas').scroll.every((value) => value === 0), 'Canvas focus must not scroll the fixed controls with the plane.', mobileLayout);
+    }
+
     return {
       ...result,
+      fit,
       protectedAssetRequests: assetRequests.length,
       protectedAssetUniqueRequests: new Set(assetRequests).size,
       protectedAssetRequestUrls: assetRequests

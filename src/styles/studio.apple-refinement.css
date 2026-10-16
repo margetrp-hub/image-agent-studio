@@ -209,7 +209,6 @@ textarea:focus {
 .studioLayout .creationDesk .workbenchTopControls,
 .studioLayout .creationDesk .workbenchModeSwitch,
 .workflowViewSwitch,
-.canvasToolbar,
 .generationQueueDock,
 .canvasQueueDock {
   border: 1px solid var(--studio-border) !important;

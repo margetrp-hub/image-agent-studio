@@ -19,18 +19,6 @@
   grid-row: 1 / -1 !important;
 }
 
-.creationDesk .canvasToolbar,
-.creationDesk.paramRailCollapsed .canvasToolbar {
-  top: 16px !important;
-  right: 320px !important;
-  bottom: auto !important;
-  z-index: 11 !important;
-}
-
-.creationDesk:not(.referencesOpen) .canvasToolbar {
-  right: 70px !important;
-}
-
 .creationDesk .deskPanel,
 .creationDesk .resultStage,
 .creationDesk .paramRail,

@@ -27,48 +27,6 @@
   background-position: center;
 }
 
-.canvasToolbar {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  z-index: 4;
-  min-height: 38px;
-  padding: 5px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--studio-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent);
-  box-shadow: var(--studio-shadow-soft);
-  backdrop-filter: blur(14px);
-}
-
-.canvasToolbar button {
-  min-width: 30px;
-  height: 30px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--studio-text);
-  font-size: 12px;
-  font-weight: 950;
-}
-
-.canvasToolbar button:hover {
-  background: var(--studio-surface-hover);
-  color: var(--studio-primary);
-}
-
-.canvasToolbar span {
-  min-width: 42px;
-  color: var(--studio-muted);
-  font-size: 12px;
-  font-weight: 900;
-  text-align: center;
-}
-
 .canvasPlane {
   position: absolute;
   left: 50%;
@@ -99,28 +57,10 @@
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--studio-primary) 48%, transparent));
 }
 
-.canvasLinkGlow,
-.canvasLinkPulse,
 .canvasLinkPath,
 .canvasLinkPreview {
   fill: none;
   stroke-linecap: round;
-}
-
-.canvasLinkGlow {
-  stroke: color-mix(in srgb, var(--studio-primary) 72%, var(--studio-info));
-  stroke-width: 7;
-  stroke-dasharray: 10 12;
-  opacity: 0.12;
-}
-
-.canvasLinkPulse {
-  stroke: color-mix(in srgb, var(--studio-primary) 92%, #fff);
-  stroke-width: 3.2;
-  stroke-dasharray: 1.5 24;
-  opacity: 0;
-  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--studio-primary) 42%, transparent));
-  animation: canvasLinkDash 4.8s linear infinite;
 }
 
 .canvasLinkPath {
@@ -162,17 +102,10 @@
   opacity: 0.78;
 }
 
-.canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkGlow,
 .canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkPath,
 .canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkJoint,
-.canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkJointCore,
 .canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkLabel {
   opacity: 0.14;
-}
-
-.canvasLinkGroup.active .canvasLinkGlow {
-  stroke-width: 9;
-  opacity: 0.34;
 }
 
 .canvasLinkGroup.active .canvasLinkPath {
@@ -189,26 +122,12 @@
   stroke-width: 3;
 }
 
-.canvasLinkGroup.active .canvasLinkPulse {
-  opacity: 0.48;
-}
-
 .canvasLinkGroup.active .canvasLinkJoint {
   fill: color-mix(in srgb, var(--studio-primary) 22%, var(--studio-surface-strong));
   stroke-width: 2;
   filter:
     drop-shadow(0 0 6px color-mix(in srgb, var(--studio-primary) 52%, transparent))
     drop-shadow(0 0 14px color-mix(in srgb, var(--studio-info) 28%, transparent));
-}
-
-.canvasLinkJointCore {
-  fill: color-mix(in srgb, var(--studio-primary) 78%, #fff);
-  opacity: 0.55;
-}
-
-.canvasLinkGroup.active .canvasLinkJointCore {
-  fill: #fff;
-  opacity: 1;
 }
 
 .canvasLinkGroup.branchRoot .canvasLinkPath,
@@ -229,10 +148,6 @@
 .canvasLinkGroup.custom .canvasLinkPath {
   stroke: color-mix(in srgb, var(--studio-accent) 58%, var(--studio-primary));
   stroke-dasharray: 7 8;
-}
-
-.canvasLinkGroup.custom .canvasLinkGlow {
-  stroke: color-mix(in srgb, var(--studio-accent) 55%, var(--studio-primary));
 }
 
 @keyframes canvasLinkDash {
@@ -899,8 +814,6 @@
   transition-duration: 40ms;
 }
 
-.canvasLinks.performanceMode .canvasLinkGlow,
-.canvasLinks.performanceMode .canvasLinkPulse,
 .canvasLinks.performanceMode .canvasLinkLabel {
   display: none;
 }

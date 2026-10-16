@@ -371,11 +371,6 @@
     grid-template-columns: minmax(0, 1fr) 340px !important;
   }
 
-  .creationDesk.referencesOpen .canvasToolbar,
-  .creationDesk.referencesOpen.paramRailCollapsed .canvasToolbar {
-    right: 366px !important;
-  }
-
   .creationDesk.referencesOpen .referenceSidePanel {
     width: auto !important;
     min-width: 300px !important;

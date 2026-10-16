@@ -424,11 +424,6 @@
   z-index: 0;
 }
 
-.canvasToolbar {
-  right: 16px;
-  bottom: 16px;
-}
-
 .paramRail {
   grid-column: 2;
   grid-row: 1 / 3;

@@ -244,6 +244,8 @@ export const dictionaries = {
     },
     canvas: {
       toolbar: '画布工具',
+      focusSelected: '定位选中图片',
+      fitAll: '显示全部图片',
       zoomOut: '缩小画布',
       zoomIn: '放大画布',
       reset: '重置',
@@ -1153,6 +1155,8 @@ export const dictionaries = {
     },
     canvas: {
       toolbar: 'Canvas tools',
+      focusSelected: 'Focus selected image',
+      fitAll: 'Fit all images',
       zoomOut: 'Zoom out',
       zoomIn: 'Zoom in',
       reset: 'Reset',

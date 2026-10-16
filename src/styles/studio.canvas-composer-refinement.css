@@ -1,3 +1,5 @@
+@import './studio.canvas-composer-mobile.css';
+
 /* Canvas mode keeps the conversation surface focused on input. */
 .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer {
   width: min(900px, calc(100% - 44px)) !important;
@@ -152,30 +154,4 @@
 
 .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer.noThread .composerParamShelf {
   grid-row: 3 !important;
-}
-
-@media (max-width: 760px) {
-  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer {
-    width: calc(100% - 20px) !important;
-    min-width: 0 !important;
-    height: min(520px, calc(100dvh - 32px)) !important;
-    min-height: min(360px, calc(100dvh - 32px)) !important;
-    max-height: min(520px, calc(100dvh - 32px)) !important;
-  }
-
-  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer:has(.composerParamShelf.isExpanded) {
-    height: min(610px, calc(100dvh - 28px)) !important;
-  }
-
-  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerPromptRow {
-    grid-template-columns: minmax(0, 1fr) 58px !important;
-  }
-
-  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerActionGroup,
-  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerAssistantAction,
-  .studioLayout .creationDesk.canvasFlowMode.composerOpen .bottomComposerBar.codexComposerPanel.isExpandedComposer .composerGenerateAction {
-    width: 58px !important;
-    min-width: 58px !important;
-    max-width: 58px !important;
-  }
 }

@@ -222,11 +222,6 @@
   transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 120ms ease-out;
 }
 
-.creationDesk.paramRailCollapsed .canvasToolbar {
-  right: 72px;
-  transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms ease, box-shadow 180ms ease;
-}
-
 .creationDesk.paramRailCollapsed .paramRail {
   position: relative;
   width: 46px;
@@ -318,7 +313,6 @@
 .creationDesk,
 .paramRail,
 .paramDrawer,
-.canvasToolbar,
 .referenceBox,
 .referenceCollapsedBlock,
 .bottomComposerToggle,
@@ -437,7 +431,6 @@
   .creationDesk,
   .paramRail,
   .paramDrawer,
-  .canvasToolbar,
   .referenceBox,
   .referenceCollapsedBlock,
   .bottomComposerToggle,

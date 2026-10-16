@@ -267,10 +267,6 @@
   grid-template-columns: minmax(0, 1fr) 52px;
 }
 
-.creationDesk.paramRailCollapsed .canvasToolbar {
-  right: 70px;
-}
-
 .creationDesk.paramRailCollapsed .paramRail {
   width: 44px;
   min-height: 74px;

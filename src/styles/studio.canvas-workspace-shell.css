@@ -1,9 +1,4 @@
 /* Final alignment pass: canvas controls live top-right, rails align to one shell. */
-.canvasToolbar {
-  top: 16px;
-  right: 150px;
-  bottom: auto;
-}
 
 .creationDesk.referencesOpen .promptCollapsedBlock {
   transform: translateY(204px);
@@ -590,23 +585,6 @@
 .uploadDrop span {
   font-size: 11px;
   font-weight: 850;
-}
-
-.canvasToolbar {
-  right: 138px;
-  min-height: 34px;
-  padding: 4px;
-  gap: 3px;
-}
-
-.canvasToolbar button {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
-}
-
-.canvasToolbar span {
-  min-width: 38px;
 }
 
 .paramRail {

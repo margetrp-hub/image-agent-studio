@@ -832,10 +832,6 @@ html[lang="en"] .creationDesk.paramRailCollapsed .paramRailHead::after {
   content: "Params";
 }
 
-.creationDesk.paramRailCollapsed .canvasToolbar {
-  right: 58px;
-}
-
 .creationDesk .paramRail {
   width: 54px;
   margin-right: 6px;

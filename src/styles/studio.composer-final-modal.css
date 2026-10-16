@@ -463,10 +463,8 @@
     0 20px 54px rgba(10, 163, 156, 0.18) !important;
 }
 
-.canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkGlow,
 .canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkPath,
 .canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkJoint,
-.canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkJointCore,
 .canvasLinks.hasSelection .canvasLinkGroup.idle .canvasLinkLabel {
   opacity: 0.26 !important;
 }

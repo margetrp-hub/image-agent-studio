@@ -4,6 +4,8 @@
 
 import { clamp } from './formatters.js';
 import {
+  CANVAS_MAX_ZOOM,
+  CANVAS_MIN_ZOOM,
   CANVAS_NODE_HEIGHT,
   CANVAS_NODE_MAX_HEIGHT,
   CANVAS_NODE_MAX_WIDTH,
@@ -20,6 +22,40 @@ export function nodeHeight(node) {
   return clamp(Number(node?.height) || CANVAS_NODE_HEIGHT, CANVAS_NODE_MIN_HEIGHT, CANVAS_NODE_MAX_HEIGHT);
 }
 
+export function canvasGraphAdjacency(nodes, links = []) {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const children = new Map();
+  const parents = new Map();
+  const connect = (fromId, toId) => {
+    if (!fromId || !nodeIds.has(toId)) return;
+    if (!children.has(fromId)) children.set(fromId, new Set());
+    children.get(fromId).add(toId);
+    if (!nodeIds.has(fromId)) return;
+    if (!parents.has(toId)) parents.set(toId, new Set());
+    parents.get(toId).add(fromId);
+  };
+  nodes.forEach((node) => connect(node.parentId, node.id));
+  links.forEach((link) => connect(link.fromId, link.toId));
+  return { children, parents };
+}
+
+export function canvasReachableNodeIds(adjacency, fromId) {
+  const ids = new Set();
+  if (!fromId) return ids;
+  const pending = [fromId];
+  const visited = new Set();
+  while (pending.length) {
+    const current = pending.pop();
+    if (visited.has(current)) continue;
+    visited.add(current);
+    for (const id of adjacency.get(current) || []) {
+      ids.add(id);
+      if (!visited.has(id)) pending.push(id);
+    }
+  }
+  return ids;
+}
+
 export function canvasViewForNodes(nodes = [], preferredId = '') {
   const visibleNodes = Array.isArray(nodes) ? nodes.filter(Boolean) : [];
   if (!visibleNodes.length) return { x: 0, y: 0, zoom: 1 };
@@ -34,6 +70,33 @@ export function canvasViewForNodes(nodes = [], preferredId = '') {
     y: -((top + bottom) / 2),
     zoom: 1
   };
+}
+
+// Padding is in screen pixels. The minimum zoom still bounds extremely wide
+// boards; center their bounds even when fitting would require a smaller scale.
+export function canvasFitViewForNodes(nodes = [], viewport = {}, padding = 64) {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    if (!node) continue;
+    const x = Number(node.x ?? 0);
+    const y = Number(node.y ?? 0);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x + nodeWidth(node));
+    bottom = Math.max(bottom, y + nodeHeight(node));
+  }
+  if (left === Infinity) return { x: 0, y: 0, zoom: 1 };
+  const width = Number(viewport?.width);
+  const height = Number(viewport?.height);
+  const inset = Number.isFinite(Number(padding)) ? Math.max(0, Number(padding)) : 64;
+  const availableWidth = Math.max(1, (Number.isFinite(width) && width > 0 ? width : 1200) - inset * 2);
+  const availableHeight = Math.max(1, (Number.isFinite(height) && height > 0 ? height : 720) - inset * 2);
+  const zoom = clamp(Math.min(availableWidth / (right - left), availableHeight / (bottom - top)), CANVAS_MIN_ZOOM, CANVAS_MAX_ZOOM);
+  return { x: -(left + (right - left) / 2) * zoom, y: -(top + (bottom - top) / 2) * zoom, zoom };
 }
 
 // Compute the cubic-bezier path geometry for a canvas edge between two nodes.

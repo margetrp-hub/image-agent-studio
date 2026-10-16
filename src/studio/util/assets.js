@@ -1,4 +1,4 @@
-const BASE_PATH = import.meta.env.BASE_URL || '/';
+const BASE_PATH = import.meta.env?.BASE_URL || '/';
 const PROTECTED_IMAGE_CONCURRENCY = 6;
 const protectedImageQueue = [];
 let activeProtectedImageRequests = 0;
@@ -37,8 +37,9 @@ export function isProtectedStudioAsset(url) {
 function runQueuedProtectedImageTasks() {
   while (activeProtectedImageRequests < PROTECTED_IMAGE_CONCURRENCY && protectedImageQueue.length) {
     const task = protectedImageQueue.shift();
+    task.detach();
     activeProtectedImageRequests += 1;
-    task.run()
+    Promise.resolve().then(task.run)
       .then(task.resolve, task.reject)
       .finally(() => {
         activeProtectedImageRequests = Math.max(0, activeProtectedImageRequests - 1);
@@ -47,9 +48,22 @@ function runQueuedProtectedImageTasks() {
   }
 }
 
-export function enqueueProtectedImageTask(run) {
+export function enqueueProtectedImageTask(run, { signal } = {}) {
   return new Promise((resolve, reject) => {
-    protectedImageQueue.push({ run, resolve, reject });
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const abort = () => {
+      const index = protectedImageQueue.indexOf(task);
+      if (index < 0) return;
+      protectedImageQueue.splice(index, 1);
+      task.detach();
+      reject(signal.reason);
+    };
+    const task = { run, resolve, reject, detach: () => signal?.removeEventListener('abort', abort) };
+    signal?.addEventListener('abort', abort, { once: true });
+    protectedImageQueue.push(task);
     runQueuedProtectedImageTasks();
   });
 }

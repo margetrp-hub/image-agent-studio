@@ -1,56 +1,29 @@
-.uploadInspirationButton {
-  border-color: color-mix(in srgb, var(--studio-primary) 26%, var(--studio-border)) !important;
-  color: var(--studio-primary) !important;
+.inspirationUploadPanel { width: min(680px, calc(100vw - 28px)) !important; }
+.inspirationUploadPanel textarea { resize: vertical !important; }
+
+@media (max-width: 900px) {
+  .galleryWorkspacePanel.inspirationWorkspace { padding: 16px; }
+  .inspirationWorkspace .galleryWorkspaceHead { flex-wrap: wrap; }
+  .inspirationWorkspace .gallerySearch { flex-basis: 100%; }
 }
-
-.inspirationUploadPanel {
-  width: min(680px, calc(100vw - 28px)) !important;
-}
-
-.inspirationUploadPanel textarea {
-  resize: vertical !important;
-}
-
-@media (max-width: 760px) {
-  .gallerySelectionPreview {
-    grid-template-columns: 88px minmax(0, 1fr) !important;
-  }
-
-  .gallerySelectionMedia {
-    width: 88px !important;
-    height: 72px !important;
-  }
-
-  .galleryUseTemplateButton {
-    grid-column: 1 / -1 !important;
-    width: 100% !important;
-  }
-
-  .galleryWorkspacePanel .inspirationCanvasGrid .caseTile,
-  .galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain {
-    min-height: 246px !important;
-  }
-
-  .galleryWorkspacePanel .inspirationCanvasGrid .caseTileMain {
-    grid-template-rows: 116px auto auto !important;
-    padding-bottom: 82px !important;
-  }
-
-  .galleryWorkspacePanel .inspirationCanvasGrid .caseMedia {
-    height: 116px !important;
-    min-height: 116px !important;
-  }
-}
-
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia.imageMissing,
-.galleryWorkspacePanel .inspirationCanvasGrid .caseMedia:has(.protectedStudioImage.isFailed) {
-  border: 1px dashed color-mix(in srgb, var(--studio-primary) 24%, var(--studio-border)) !important;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 8%, transparent), transparent 62%),
-    repeating-linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--studio-primary) 5%, transparent) 0 8px,
-      transparent 8px 18px
-    ),
-    color-mix(in srgb, var(--studio-surface-soft) 86%, transparent) !important;
+@media (max-width: 560px) {
+  .galleryWorkspacePanel.inspirationWorkspace { padding: 12px; }
+  .inspirationWorkspace .galleryWorkspaceHead { gap: 10px; margin-bottom: 12px; }
+  .inspirationWorkspace .galleryWorkspaceHead h2 { font-size: 20px; }
+  .inspirationWorkspace .galleryWorkspaceActions { width: 100%; justify-content: space-between; }
+  .inspirationWorkspace .galleryWorkspaceActions > .primaryAction { min-height: 40px; padding: 0 10px; }
+  .inspirationWorkspace .galleryKindSwitch { min-height: 40px; padding: 2px; gap: 2px; }
+  .inspirationWorkspace .galleryKindSwitch button { padding: 0 8px; }
+  .inspirationWorkspace .galleryWorkspaceToolbar { gap: 8px; }
+  .inspirationWorkspace .gallerySourceSwitch { width: 100%; }
+  .inspirationWorkspace .gallerySourceSwitch button { flex: 1; min-height: 36px; }
+  .inspirationWorkspace .galleryCategoryFilter { flex: 1 1 140px; }
+  .inspirationWorkspace .galleryCategoryFilter select { width: 100%; }
+  .inspirationWorkspace .galleryFilterButton { min-height: 40px; padding: 0 8px; }
+  .inspirationWorkspace .gallerySearch input { height: 40px; }
+  .inspirationWorkspace .inspirationCanvasGrid,
+  .inspirationWorkspace .promptOnlyGrid { grid-template-columns: minmax(0, 1fr); }
+  .inspirationWorkspace .caseTileActions button,
+  .inspirationWorkspace .communityPromptStats button { min-width: 40px; height: 40px; }
+  .inspirationWorkspace .galleryLoadMore { min-height: 44px; }
 }
