@@ -1,7 +1,7 @@
 {
   "name": "image-agent-studio",
   "private": true,
-  "version": "1.0.30",
+  "version": "1.0.31",
   "type": "module",
   "scripts": {
     "check:deploy": "node scripts/check-deploy-config.mjs",
@@ -73,6 +73,7 @@
     "smoke:projects": "npm exec --yes --package=playwright -- node scripts/smoke-project-session-grouping.mjs",
     "smoke:history:queue": "npm exec --yes --package=playwright -- node scripts/smoke-generation-queue-recovery.mjs",
     "smoke:generation:dedupe": "node scripts/smoke-generation-job-dedupe.mjs",
+    "smoke:generation:errors": "node scripts/smoke-generation-error-details.mjs",
     "smoke:backup": "node scripts/smoke-backup-restore.mjs",
     "smoke:data:integrity": "node scripts/check-task-fingerprints.mjs && node scripts/smoke-data-integrity.mjs && node scripts/smoke-restore-transaction.mjs",
     "smoke:image:route": "npm exec --yes --package=playwright -- node scripts/smoke-image-generation-route.mjs",

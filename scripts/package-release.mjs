@@ -10,6 +10,7 @@ const releaseDir = join(root, 'release');
 const include = [
   'index.html',
   'studio.html',
+  'admin.html',
   'login.html',
   'favicon.svg',
   'demo-canvas-1.svg',
@@ -42,6 +43,7 @@ const serviceInclude = [
   'docs/DEPLOY.zh-CN.md',
   'docs/DOCKER.zh-CN.md',
   'docs/PROVIDERS.md',
+  'docs/OPERATIONS.zh-CN.md',
   'docs/VPS-GIT-SYNC.zh-CN.md'
 ];
 const serviceRuntimeInclude = [

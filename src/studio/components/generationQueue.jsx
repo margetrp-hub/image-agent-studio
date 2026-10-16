@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, GripVertical, Redo2, X } from 'lucide-react';
 import { StudioModal, CopyTextButton } from './studioModal.jsx';
+import { generationErrorDetail, generationErrorMessage, serverJobMessage } from '../util/generationJobs.js';
 
 const QUEUE_DOCK_STORAGE_KEY = 'image-agent-studio:generation-queue-dock:v1';
 
@@ -14,15 +15,14 @@ function queueStatusLabel(status, t) {
 }
 
 function queueSummary(item, t, formatError) {
-  if (item?.status === 'failed' && item?.error && typeof formatError === 'function') {
-    const message = formatError({
+  if (item?.status === 'failed') {
+    const format = typeof formatError === 'function' ? formatError : generationErrorMessage;
+    return format({
       ...item.error,
-      message: item.error.message || item.summary || 'GENERATION_JOB_FAILED',
-      status: item.error.status,
-      requestId: item.error.requestId || item.requestIds?.[0] || ''
-    }, t);
-    if (message) return message;
+      requestId: item.error?.requestId || item.requestIds?.[0] || ''
+    }, t) || t('errors.generationFailed', '生成失败');
   }
+  if (item?.status === 'unknown') return serverJobMessage(item, t);
   return item?.summary || '';
 }
 
@@ -128,7 +128,7 @@ export function GenerationQueueDock({
   const errorItem = queueItems.find((item) => item.id === expandedErrorId);
   const errorText = errorItem ? [...new Set([
     queueSummary(errorItem, t, formatError),
-    errorItem.error?.message,
+    generationErrorDetail(errorItem.error),
     errorItem.error?.code,
     errorItem.error?.status ? `HTTP ${errorItem.error.status}` : '',
     errorItem.error?.requestId || errorItem.requestIds?.[0] || ''

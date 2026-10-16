@@ -1,5 +1,6 @@
 import { classifyWorkbenchError, ERROR_CATEGORIES } from '../src/studio/errors/catalog.js';
-import { generationErrorMessage } from '../src/studio/util/generationJobs.js';
+import { generationErrorDetail, generationErrorMessage } from '../src/studio/util/generationJobs.js';
+import { createTranslator } from '../src/studio/i18n.js';
 
 function assert(condition, message, evidence) {
   if (!condition) {
@@ -33,5 +34,35 @@ const moderationMessage = generationErrorMessage(
   (_key, fallback) => fallback
 );
 assert(moderationMessage.startsWith('上游内容审核拒绝了这次请求'), 'Content moderation errors must use the dedicated user-facing message.', moderationMessage);
+
+const t = createTranslator('en');
+const htmlError = {
+  code: 'HTTP_502', status: 502, requestId: 'req-html-502',
+  message: '<!DOCTYPE html><html><head><title>ohlao.cfd | 502: Bad gateway</title></head><body>timeout quota permission</body></html>'
+};
+const htmlMessage = generationErrorMessage(htmlError, t);
+assert(htmlMessage.includes(t('errors.serviceUnavailable')), 'HTML page content must not misclassify HTTP 502.', htmlMessage);
+assert(htmlMessage.includes(htmlError.requestId), 'The sanitized message must retain the request ID.', htmlMessage);
+assert(generationErrorDetail(htmlError) === '', 'Error details must omit raw HTML pages.');
+assert(htmlError.message.startsWith('<!DOCTYPE html>'), 'Presentation must not mutate the stored error.');
+
+const providerMessage = 'Generated video rejected by content moderation.';
+for (const payload of [
+  { error: { message: providerMessage } },
+  { message: providerMessage },
+  { response: { error: { message: providerMessage } } }
+]) {
+  const error = { ...htmlError, payload };
+  assert(generationErrorDetail(error) === providerMessage, 'Structured provider errors must take precedence over a transport HTML message.', error);
+  assert(generationErrorMessage(error, t).includes(t('errors.contentModeration')), 'Provider moderation errors must not be masked by HTTP 502.', error);
+}
+for (const message of [
+  'Video duration must be < 16 seconds; received 20.',
+  'Reference image <image> is invalid.',
+  JSON.stringify({ error: { code: 'video_error', message: '<html> was not a valid reference' } })
+]) {
+  assert(generationErrorDetail({ message }) === message, 'Non-HTML provider details must remain intact.', message);
+}
+assert(generationErrorMessage({ message: '<html><body>proxy error</body></html>' }, t) === t('errors.generationFailed'), 'HTML without a status must use a generic failure, not raw markup.');
 
 console.log('Error catalog check passed.');

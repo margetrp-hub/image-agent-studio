@@ -1,5 +1,21 @@
 ﻿# Release Notes
 
+## 1.0.31
+
+The administrator console now separates user management, suppliers, registration, credits, redemption codes, and runtime configuration. Administrators can publish platform models and prices so customers can generate without their own API key.
+
+- Seven focused administration pages include desktop navigation, a mobile drawer, retained drafts, and per-page saves.
+- Platform supplier credentials are encrypted. Model sync preserves prices, leaves new models unpublished, and removes unavailable models from the customer catalog.
+- The server calculates platform charges and prevents duplicate deductions. Partial batches retain charges only for delivered outputs; confirmed failed outputs are refunded at the original price. Unknown outcomes remain available for reconciliation.
+- Imported backups cannot authorize generation or refunds, and recovering a platform video task checks its original ledger and supplier connection.
+- Personal-key calls do not consume platform credits. New users can explicitly select a published platform model without entering a personal key; selection alone does not submit a paid request.
+- Failed-task polling retains the actual error. Error dialogs no longer show inherited prompts or raw gateway HTML, and preserve structured provider errors, status codes, and request IDs.
+- Frontend packages now include `admin.html`; service packages include the platform supplier module and operations guide.
+
+Verification includes focused billing/provider contracts, service and backup/recovery tests, administration and onboarding browser tests, six error-detail browser scenarios, production build and package checks. The deployed frontend was checked against the public build and authenticated administration pages.
+
+Pricing uses integer credits per output image/edit or per video task. Configure and publish suppliers and model prices before enabling credits. Existing billing settings are preserved. Real paid upstream generation was not part of this verification; this release does not resolve an external supplier's HTTP 502 outage.
+
 ## 1.0.30
 
 This security release updates the provider HTTP runtime and makes the VPS hardening applied in production reproducible.

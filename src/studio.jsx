@@ -1811,7 +1811,7 @@ function CreationDesk({
             await attachServerJobResult(historyClient, finalJob);
             clearRemoteGenerationJob(finalJob.id, 'done');
           } else {
-            clearRemoteGenerationJob(finalJob.id, queueStatusFromServerJob(finalJob));
+            syncRemoteGenerationJob(finalJob);
             setStatus('error');
             setMessage(serverJobMessage(finalJob, t));
           }

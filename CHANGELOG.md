@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.0.31 - 2026-10-16
+
+- Split administration into seven pages with desktop navigation, a mobile drawer, and independently saved configuration drafts.
+- Added encrypted platform suppliers, model synchronization, publication, per-operation credit pricing, and an explicit platform-model onboarding choice.
+- Kept personal-key calls separate from platform billing; added server-side charging, duplicate protection, partial-output refunds, and recovery checks against original ledger and supplier identities.
+- Preserved failed-task errors during polling and removed prompt text and raw gateway HTML from error dialogs while retaining error codes and request IDs.
+- Included the administrator entry page and operations guide in release packages.
+
+Platform suppliers require administrator configuration and publication. This release does not establish recovery of external Grok video providers returning HTTP 502.
+
 ## 1.0.30 - 2026-10-03
 
 - Updated the production Undici runtime to 7.29.1 to address the published security advisories affecting provider requests.

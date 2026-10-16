@@ -91,6 +91,7 @@ assertNoLegacyPackages();
 assertPair('core', [
   'index.html',
   'studio.html',
+  'admin.html',
   'login.html',
   'studio-assets/',
   'cases.json',
@@ -106,6 +107,7 @@ assertPair('service', [
   'scripts/image-sub2api-studio-history-service.mjs',
   'scripts/create-standalone-admin.mjs',
   'scripts/studio-service/standaloneAuth.js',
+  'scripts/studio-service/platformProviders.js',
   'scripts/studio-service/userBackup.js',
   'scripts/studio-service/userStorage.js',
   'deploy/sync-from-git.sh',
@@ -125,6 +127,7 @@ assertPair('service', [
   'docs/DEPLOY.zh-CN.md',
   'docs/DOCKER.zh-CN.md',
   'docs/PROVIDERS.md',
+  'docs/OPERATIONS.zh-CN.md',
   'docs/VPS-GIT-SYNC.zh-CN.md'
 ]);
 

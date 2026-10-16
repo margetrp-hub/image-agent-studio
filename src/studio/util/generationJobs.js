@@ -288,15 +288,22 @@ export function errorRequestId(error, message = '') {
   return match?.[1] || '';
 }
 
-export function generationErrorMessage(error, t = defaultTranslate, compactText = (value) => String(value || '').slice(0, 180)) {
+export function generationErrorDetail(error) {
   const message = String(
     error?.payload?.error?.message
       || error?.payload?.message
       || error?.payload?.response?.error?.message
       || error?.message
-      || t('errors.generationFailed', '生成失败')
+      || ''
   );
+  // Gateway HTML is not a provider error; its scripts and page copy can also
+  // contain misleading classification keywords such as "timeout" or "quota".
+  return /^\s*(?:<!doctype\s+html\b|<(?:html|head|body)\b)/i.test(message) ? '' : message;
+}
 
+export function generationErrorMessage(error, t = defaultTranslate, compactText = (value) => String(value || '').slice(0, 180)) {
+  const detail = generationErrorDetail(error);
+  const message = detail || t('errors.generationFailed', '生成失败');
   const lowered = message.toLowerCase();
   const requestId = errorRequestId(error, message);
   const requestSuffix = requestId ? t('errors.requestIdSuffix', ' 请求 ID：{requestId}', { requestId }) : '';
@@ -388,6 +395,7 @@ export function generationErrorMessage(error, t = defaultTranslate, compactText 
   if (error?.name === 'AbortError') {
     return t('errors.abort', '本页监听已停止；如果请求已经到达上游，仍可能继续处理或产生扣费。');
   }
+  if (!detail) return `${message}${requestSuffix}`;
   if (/^[\u0000-\u007F]*$/.test(message) && /[A-Za-z]/.test(message)) {
     return t('errors.unknownEnglish', '生成失败。上游返回了未识别的英文错误，请稍后重试，或调整模型/尺寸/数量后再试。原始信息：{message}', { message: compactText(message, 180) });
   }
