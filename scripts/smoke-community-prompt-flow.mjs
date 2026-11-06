@@ -17,7 +17,7 @@ try {
   assert(baseUrl, 'Vite smoke server did not expose a local URL.');
 
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1366, height: 920 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1366, height: 920 } });
   let communityItems = [];
 
   await page.addInitScript(() => {

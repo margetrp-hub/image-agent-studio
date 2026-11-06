@@ -174,7 +174,7 @@ async function installRoutes(page) {
 }
 
 async function runScenario(browser, baseUrl, files, viewport, name, options = {}) {
-  const page = await browser.newPage({ viewport });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport });
   const referencesOpen = options.referencesOpen ?? name !== 'mobile';
   const liveStatus = options.liveStatus === true;
   await installRoutes(page);
@@ -541,7 +541,7 @@ async function runScenario(browser, baseUrl, files, viewport, name, options = {}
 }
 
 async function runCloseReopenScenario(browser, baseUrl) {
-  const page = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1360, height: 900 } });
   await installRoutes(page);
   await page.addInitScript(({ layoutKey, sessionKey, session }) => {
     localStorage.removeItem('auth_token');
@@ -613,7 +613,7 @@ async function runCloseReopenScenario(browser, baseUrl) {
   await page.screenshot({ path: screenshotPath, fullPage: true });
   await page.close();
 
-  const hiddenPage = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+  const hiddenPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1360, height: 900 } });
   await installRoutes(hiddenPage);
   await hiddenPage.addInitScript(({ layoutKey, sessionKey, session }) => {
     localStorage.removeItem('auth_token');

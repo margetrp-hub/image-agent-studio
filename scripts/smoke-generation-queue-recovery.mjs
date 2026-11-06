@@ -191,7 +191,7 @@ try {
   assert(baseUrl, 'Vite smoke server did not expose a local URL.');
 
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   let jobPollCount = 0;
   let sessionSaveCount = 0;
 
@@ -309,7 +309,7 @@ try {
   assert(result.buttons.length >= 1, 'Unknown queue item did not expose an acknowledge/remove control.', result);
   assert(sessionSaveCount >= 1, 'Recovered queue snapshot was not saved back to the history service.', { sessionSaveCount });
 
-  const failedPage = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const failedPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   let failedSessionSaveCount = 0;
   let failedRetryCreateCount = 0;
   const failedRetryRequests = [];
@@ -497,7 +497,7 @@ try {
   assert(failedRetryResult.status === 'success' && failedRetryResult.canvasNodes >= 1, 'Fresh service job after restored failure did not restore a result into the canvas.', failedRetryResult);
   await failedPage.close();
 
-  const runningPage = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const runningPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   let runningCancelCount = 0;
   let runningPollCount = 0;
   await installCommonRoutes(runningPage);
@@ -637,7 +637,7 @@ try {
   assert(!runningResult.body.includes('正在生成'), 'Canceled running job left the main composer in a generating state.', runningResult);
   await runningPage.close();
 
-  const localQueuedContext = await browser.newContext({ viewport: { width: 1440, height: 980 } });
+  const localQueuedContext = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   const localQueuedPage = await localQueuedContext.newPage();
   let localJobCreateCount = 0;
   await installCommonRoutes(localQueuedPage);

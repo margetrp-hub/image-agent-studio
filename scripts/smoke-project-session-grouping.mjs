@@ -48,7 +48,7 @@ try {
   assert(baseUrl, 'Vite smoke server did not expose a local URL.');
 
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
 
   await page.addInitScript((records) => {
     localStorage.setItem('image-sub2api-studio:history:v2:guest', JSON.stringify(records));
@@ -104,7 +104,7 @@ try {
   );
   assert(canvasResult.activeSessionId === 'project-session-one' && canvasResult.storedSessionId === 'project-session-one', 'Opening a history project should adopt that project session id for continued generation.', canvasResult);
 
-  const queuePage = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const queuePage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   await queuePage.addInitScript(() => {
     localStorage.setItem('image-sub2api-studio:history:v2:guest', JSON.stringify([]));
     localStorage.setItem('image-sub2api-studio:current-session:v1', JSON.stringify({

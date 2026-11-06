@@ -22,7 +22,7 @@ try {
   const baseUrl = server.resolvedUrls?.local?.[0];
   step(`vite=${baseUrl}`);
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(30000);
   page.on('requestfailed', (request) => step(`requestfailed ${request.method()} ${request.url()} ${request.failure()?.errorText || ''}`));

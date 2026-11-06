@@ -339,6 +339,12 @@ public/
   style-library.json
 ```
 
+## Continuous Integration
+
+Pull requests and pushes to `main` run `.github/workflows/ci.yml`. The checks build both web entry points, run the existing contract and browser recovery suites, test the Go server with the race detector, and build and smoke-test Docker images. Upgrade ZIPs are built and inspected on Linux, including their matching core/service contents.
+
+These checks use local fixtures and disposable containers; they do not require provider credentials. Failed checks remain visible in the Actions logs. Rerun the failed job after fixing its cause. CI does not publish a release or deploy a VPS.
+
 ## License
 
 Code is released under the [MIT License](LICENSE). Community prompt templates follow `CC BY 4.0` where applicable. Third-party dependencies, prompt sources, user-provided assets, and external provider services keep their own licenses or service terms.

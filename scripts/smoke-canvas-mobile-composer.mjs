@@ -79,7 +79,7 @@ try {
   browser = await chromium.launch({ headless: true });
   const results = [];
   for (const hasThread of [false, true]) {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+    const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
     page.setDefaultTimeout(12000);
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));

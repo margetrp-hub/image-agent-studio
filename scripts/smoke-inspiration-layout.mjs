@@ -50,7 +50,7 @@ try {
   const viewports = [{ width: 1440, height: 980 }, { width: 390, height: 844 }];
   if (!baseline) viewports.push({ width: 320, height: 740 }, { width: 768, height: 1024 });
   for (const viewport of viewports) {
-    const page = await browser.newPage({ viewport });
+    const page = await browser.newPage({ locale: 'zh-CN', viewport });
     page.setDefaultTimeout(10000);
     const requests = [];
     const errors = [];
@@ -145,6 +145,10 @@ try {
     await page.locator('.lightboxOverlay').waitFor();
     await page.keyboard.press('Escape');
     await page.locator('.lightboxOverlay').waitFor({ state: 'detached' });
+    if (!baseline) {
+      // Radix restores focus in its asynchronous unmount callback.
+      await page.waitForFunction((element) => element === document.activeElement, await card.elementHandle());
+    }
     metrics.previewRestoresFocus = await card.evaluate((element) => element === document.activeElement);
     if (!baseline) {
       assert(metrics.previewRestoresFocus, 'Escape should return keyboard focus to the card.');
