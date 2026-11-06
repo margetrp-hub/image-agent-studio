@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        type: string
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ inputs.checkout_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workstation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Build both entry points and verify contracts, auth, persistence and browser recovery
+        run: npm run check:local
+      - name: Verify standalone runtime and platform provider contracts
+        run: |
+          npm run check:standalone:billing
+          npm run check:standalone:providers
+          npm run check:platform:providers
+          npm run smoke:standalone:service
+          npm run check:performance
+          npm run smoke:performance
+      - name: Build and inspect the distributable upgrade packages
+        run: npm run package:release
+
+  server-go:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/server-go
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/server-go/go.mod
+          cache: false
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: go build ./cmd/studio-server
+
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Build web/history images and check persisted session and unknown queue after restart
+        run: npm run smoke:docker
+      - name: Build optional Go runtime image
+        run: docker build --target server-go --tag image-agent-studio-server-go:ci .

@@ -15,7 +15,6 @@ dist/
 
 # Local legacy/source-material snapshots kept out of the public package
 .claude-plugin/
-.github/
 agents/
 api/
 !apps/web/src/api/

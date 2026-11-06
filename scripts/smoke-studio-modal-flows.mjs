@@ -137,7 +137,8 @@ try {
 
   const errorPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const summary = 'A recovered generation should remain visible without squeezing the composer. '.repeat(20);
-  await installFixtures(errorPage, { authenticated: false, history: [], session: { sessionId: 'modal-error', mode: 'image', status: 'idle', prompt: 'Continue the product.', model: 'gpt-image-2', canvasNodes: [], generationQueue: [{ id: 'modal-error-job', status: 'unknown', prompt: summary, summary, remote: true, restorable: false, count: 1 }] } });
+  // The dialog reads persisted error evidence; the task prompt is not an error.
+  await installFixtures(errorPage, { authenticated: false, history: [], session: { sessionId: 'modal-error', mode: 'image', status: 'idle', prompt: 'Continue the product.', model: 'gpt-image-2', canvasNodes: [], generationQueue: [{ id: 'modal-error-job', status: 'unknown', prompt: 'Continue the product.', summary: 'Recovered task', error: { message: summary }, remote: true, restorable: false, count: 1 }] } });
   await errorPage.goto(new URL('studio.html', base).href, { waitUntil: 'networkidle' });
   const rowBefore = await errorPage.locator('.canvasQueueItem').first().boundingBox();
   await errorPage.locator('.canvasQueueErrorSummary').first().click();

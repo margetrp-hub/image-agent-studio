@@ -50,7 +50,9 @@ function sha256(file) {
 }
 
 function listZip(file) {
-  return execFileSync('tar', ['-tf', file], { encoding: 'utf8' })
+  const command = process.platform === 'win32' ? 'tar' : 'unzip';
+  const args = process.platform === 'win32' ? ['-tf', file] : ['-Z1', file];
+  return execFileSync(command, args, { encoding: 'utf8' })
     .split(/\r?\n/)
     .map((item) => item.replace(/^\.\//, '').trim())
     .filter(Boolean);
@@ -59,7 +61,9 @@ function listZip(file) {
 function extractZip(file, targetDir) {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
-  execFileSync('tar', ['-xf', file, '-C', targetDir], { stdio: 'ignore' });
+  const command = process.platform === 'win32' ? 'tar' : 'unzip';
+  const args = process.platform === 'win32' ? ['-xf', file, '-C', targetDir] : ['-q', file, '-d', targetDir];
+  execFileSync(command, args, { stdio: 'ignore' });
 }
 
 function assertPair(kind, requiredEntries) {
