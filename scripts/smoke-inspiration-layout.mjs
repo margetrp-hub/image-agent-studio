@@ -145,6 +145,10 @@ try {
     await page.locator('.lightboxOverlay').waitFor();
     await page.keyboard.press('Escape');
     await page.locator('.lightboxOverlay').waitFor({ state: 'detached' });
+    if (!baseline) {
+      // Radix restores focus in its asynchronous unmount callback.
+      await page.waitForFunction((element) => element === document.activeElement, await card.elementHandle());
+    }
     metrics.previewRestoresFocus = await card.evaluate((element) => element === document.activeElement);
     if (!baseline) {
       assert(metrics.previewRestoresFocus, 'Escape should return keyboard focus to the card.');
