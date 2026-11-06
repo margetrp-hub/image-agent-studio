@@ -50,7 +50,7 @@ try {
   const viewports = [{ width: 1440, height: 980 }, { width: 390, height: 844 }];
   if (!baseline) viewports.push({ width: 320, height: 740 }, { width: 768, height: 1024 });
   for (const viewport of viewports) {
-    const page = await browser.newPage({ viewport });
+    const page = await browser.newPage({ locale: 'zh-CN', viewport });
     page.setDefaultTimeout(10000);
     const requests = [];
     const errors = [];

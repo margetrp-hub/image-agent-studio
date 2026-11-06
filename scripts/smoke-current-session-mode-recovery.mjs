@@ -29,7 +29,7 @@ async function installRoutes(page) {
 }
 
 async function runScenario(browser, baseUrl, scenario) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 860 } });
   await installRoutes(page);
   await page.addInitScript(({ sessionKey, session }) => {
     localStorage.removeItem('auth_token');

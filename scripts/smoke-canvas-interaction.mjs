@@ -87,7 +87,7 @@ let browser;
 try {
   await server.listen();
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const page = await browser.newPage({ locale: 'zh-CN' });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(new URL('/__canvas_interaction__', server.resolvedUrls.local[0]).href);

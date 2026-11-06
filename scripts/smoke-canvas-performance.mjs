@@ -44,7 +44,7 @@ function canvasNodes({ protectedAssets = false } = {}) {
 }
 
 async function runCanvasPerformanceScenario({ baseUrl, protectedAssets = false }) {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   const assetRequests = [];
   if (protectedAssets) {
     await page.route('**/studio-api/history/**/assets/0.png', async (route) => {

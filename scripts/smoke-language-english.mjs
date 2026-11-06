@@ -27,7 +27,7 @@ try {
   assert(baseUrl, 'Vite smoke server did not expose a local URL.');
 
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1440, height: 980 } });
 
   await page.route('**/studio-api/library**', (route) => route.fulfill({
     status: 200,

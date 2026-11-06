@@ -59,7 +59,7 @@ try {
   await server.listen();
   const base = server.resolvedUrls.local[0];
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await installFixtures(page);
@@ -135,7 +135,7 @@ try {
   assert.deepEqual(pageErrors, []);
   await page.close();
 
-  const errorPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errorPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 390, height: 844 } });
   const summary = 'A recovered generation should remain visible without squeezing the composer. '.repeat(20);
   // The dialog reads persisted error evidence; the task prompt is not an error.
   await installFixtures(errorPage, { authenticated: false, history: [], session: { sessionId: 'modal-error', mode: 'image', status: 'idle', prompt: 'Continue the product.', model: 'gpt-image-2', canvasNodes: [], generationQueue: [{ id: 'modal-error-job', status: 'unknown', prompt: 'Continue the product.', summary: 'Recovered task', error: { message: summary }, remote: true, restorable: false, count: 1 }] } });
@@ -154,7 +154,7 @@ try {
   await errorPage.waitForFunction(() => document.activeElement.classList.contains('canvasQueueErrorSummary'));
   await errorPage.close();
 
-  const video = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const video = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 980 } });
   const videoRecord = { ...records[0], id: 'modal-video', sessionId: 'modal-video', mode: 'video', resultUrls: ['/modal-video.webm', '/modal-video-next.webm'] };
   await installFixtures(video, { history: [videoRecord] });
   // A real browser-encoded clip lets the media element and native controls lay out normally.
@@ -194,7 +194,7 @@ try {
 
   // Mount the real share dialog with persisted URLs: ordinary history flows may
   // already have resolved those URLs to blobs before opening the share dialog.
-  const protectedPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const protectedPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 390, height: 844 } });
   const protectedErrors = [];
   const assetRequests = [];
   protectedPage.on('pageerror', (error) => protectedErrors.push(error.message));
