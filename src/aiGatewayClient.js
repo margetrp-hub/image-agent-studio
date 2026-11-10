@@ -14,6 +14,8 @@ import {
 import { PROVIDER_VIDEO_TRANSPORTS, normalizeImageRouteMode, normalizeProviderId } from './studio/providers/index.js';
 import { createAssetBlobCache } from './studio/util/assetBlobCache.js';
 
+import { authorizedLaunchParams, receiveAuthorizedLaunch } from './studio/auth/authorizedLaunch.js';
+
 const SESSION_KEY = 'sub2api-studio:session:v1';
 const STANDALONE_SESSION_KEY = 'image-agent-studio:session:v1';
 const SELECTED_KEY_ID = 'sub2api-studio:selected-key-id:v1';
@@ -471,22 +473,35 @@ function clearEmbeddedLaunchParams() {
 }
 
 export function isEmbeddedStudioLaunch() {
-  return Boolean(embeddedLaunchParams());
+  return Boolean(authorizedLaunchParams() || embeddedLaunchParams());
 }
 
+let authorizedBootstrap;
 export async function bootstrapEmbeddedSession() {
   if (!STUDIO_STANDALONE) return null;
+  // Share one exchange across React effect restarts; never create two sessions for one click.
+  if (authorizedBootstrap) return authorizedBootstrap;
+  if (authorizedLaunchParams()) {
+    authorizedBootstrap = receiveAuthorizedLaunch(exchangeEmbeddedSession);
+    return authorizedBootstrap;
+  }
   const launch = embeddedLaunchParams();
   if (!launch) return null;
   clearEmbeddedLaunchParams();
+  return exchangeEmbeddedSession(launch);
+}
+
+async function exchangeEmbeddedSession(launch, signal) {
   const response = await fetch(`${trimTrailingSlash(window.location.origin)}/studio-api/auth/embedded`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(launch)
+    body: JSON.stringify(launch),
+    signal
   });
   const data = await readJsonResponse(response);
   const session = sessionFromAuthResponse(data);
   if (!session.accessToken) throw new Error('EMBED_SESSION_TOKEN_MISSING');
+  if (signal?.aborted) throw new Error('AUTHORIZATION_CANCELLED');
   saveSession(session);
   return session;
 }

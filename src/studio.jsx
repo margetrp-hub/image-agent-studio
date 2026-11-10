@@ -5594,11 +5594,17 @@ function loadProviderWorkspaceState() {
   };
 }
 
+// A host-authorized entry must not hydrate a different, previously stored account.
+// Clear only the old login, before any client or mount effect can read it; history stays intact.
+const authorizingStudioEntry = STUDIO_STANDALONE && isEmbeddedStudioLaunch();
+if (authorizingStudioEntry) clearSession();
+
 function StudioApp() {
-  const initialSession = useMemo(() => loadSession(), []);
+  const authorizingOnEntry = authorizingStudioEntry;
+  const initialSession = useMemo(() => authorizingOnEntry ? null : loadSession(), [authorizingOnEntry]);
   const initialCurrentSession = useMemo(() => (
-    initialSession?.accessToken ? loadActiveCurrentSession() : loadCurrentSession()
-  ), [initialSession?.accessToken]);
+    authorizingOnEntry ? null : initialSession?.accessToken ? loadActiveCurrentSession() : loadCurrentSession()
+  ), [initialSession?.accessToken, authorizingOnEntry]);
   const [siteData, setSiteData] = useState(null);
   const [libraryRequested, setLibraryRequested] = useState(() => Boolean(loadDraft()?.caseId));
   const [session, setSession] = useState(() => initialSession);
@@ -5649,7 +5655,7 @@ function StudioApp() {
   const [appendTemplateRequest, setAppendTemplateRequest] = useState(null);
   const [remoteSession, setRemoteSession] = useState(null);
   const [embeddedAuthStatus, setEmbeddedAuthStatus] = useState(() => (
-    STUDIO_STANDALONE && isEmbeddedStudioLaunch() ? 'pending' : 'idle'
+    authorizingOnEntry ? 'pending' : 'idle'
   ));
   const [remoteSessionReady, setRemoteSessionReady] = useState(() => !initialSession?.accessToken);
   const [currentSessionSnapshot, setCurrentSessionSnapshot] = useState(() => initialCurrentSession);
