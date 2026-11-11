@@ -40,6 +40,8 @@ An authorized entry clears the previous browser login before any clients or hydr
 
 Local verification (2026-11-11): five receiver tests pass, including exact parent/origin/state checks and cancel/late-result behavior. The original workbench loads from the gateway menu and signs in through the isolated Sub2API service. Blocking `/studio-api/auth/embedded` displays the original login screen instead of the old account; unblocking and retrying returns to the signed-in workbench. These are local integration results, not production deployment or generation/billing acceptance.
 
+Production verification (2026-11-11): frontend commit `b8fab05759eddfe071ab03a17323f73cde23cd71` was deployed to the existing Studio host; the backend remains1.0.30. The gateway's API/CN origins were added to the existing embed/CSP allowlists. Its menu now targets `https://studio.ohlao.cfd/studio/studio.html` directly because the legacy root redirect discarded the authorization query. Repeating the actual gateway menu flow with a normal authenticated session returned200 from `/studio-api/auth/embedded` and displayed the workbench without page errors. Per-user provider mode and disabled credits are unchanged; no generation, payment or reward mutation was performed. Prior entry HTML/configuration are retained under the private deployment rollback directory. The gateway release repository's r54 production receipts record the paired deployment.
+
 If your production data is under `/var/lib/image-sub2api-studio`, keep that path until you intentionally migrate it:
 
 ```bash
