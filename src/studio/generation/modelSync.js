@@ -2,7 +2,7 @@
 // React page shell. Keep request shaping, model classification, and usage
 // display normalization here so StudioApp only applies state updates.
 
-import { AiGatewayClient, STUDIO_STANDALONE } from '../../aiGatewayClient.js';
+import { AiGatewayClient, STUDIO_STANDALONE, getConfiguredBaseUrls } from '../../aiGatewayClient.js';
 import { formatUsageValue } from '../util/billing.js';
 import { platformModelOptions } from '../providers/platformCatalog.js';
 
@@ -73,6 +73,7 @@ export function resolveProviderRequest(settings, apiKey) {
   }
   return {
     apiKey: apiKey?.key || '',
+    gatewayBaseUrl: getConfiguredBaseUrls().gatewayBaseUrl,
     route: settings.route || 'auto',
     responsesModel: settings.responsesModel,
     partialImages: settings.partialImages
@@ -90,7 +91,7 @@ export async function syncGatewayModels({ session, providerSettings, apiKey, sig
   if (!providerRequest.apiKey) {
     return emptyModelSyncResult('idle');
   }
-  if (!providerRequest.gatewayBaseUrl && !providerRequest.providerConnectionId) {
+  if (providerSettings?.apiKeySource === 'manual' && !providerRequest.gatewayBaseUrl && !providerRequest.providerConnectionId) {
     return emptyModelSyncResult('fallback', {
       code: 'MANUAL_PROVIDER_GATEWAY_REQUIRED',
       message: 'A provider URL is required before model sync.',

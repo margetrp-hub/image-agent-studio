@@ -25,7 +25,7 @@ The root web application and Node Studio service remain the production-compatibl
 - Prompt helper requests use `POST /v1/chat/completions`.
 - The `xai-compatible` adapter supports durable base64 image results and asynchronous video polling without changing the workstation contract.
 - `/v1/responses` is an explicit compatibility path, not the default image route.
-- Docker defaults to first-party standalone authentication; gateway authentication remains available for existing account systems.
+- Docker defaults to gateway authentication, with no Studio registration, billing or admin console. Sub2API and New API own credentials and quota; Studio keeps tasks, history and assets.
 - Sessions, generation jobs, history records, and generated assets use Studio API persistence so established deployments can recover after refresh or service restart.
 - Large history, template, and inspiration views render in batches to reduce browser pressure.
 - Legacy `VITE_SUB2API_*`, `SUB2API_*`, process names, and data paths remain only where existing deployments need them.
@@ -88,9 +88,17 @@ Screenshots use demo data with masked keys.
 
 ## Local Run
 
+For the easiest self-hosted setup, copy `.env.example` to `.env`, set `AI_GATEWAY_BASE_URL` to your gateway site root, and choose `STUDIO_GATEWAY_TYPE=sub2api` or `newapi`. Then run `docker compose up --build -d` and open `http://localhost:8080/studio/`. Connect using your own inference API key. No Studio admin account or shared server API key is needed.
+
+The default `STUDIO_GATEWAY_AUTH=api-key` stores a private workspace per verified key. Credentials stay in the browser tab session; reconnect with the same key after closing it. Export a personal backup before rotating a key, then restore it after connecting with the new key. Quota and charges remain on the gateway. For stable account-based history, `STUDIO_GATEWAY_AUTH=account` accepts a Sub2API account access token or a New API account access token plus user ID. It reads existing inference keys; it never creates one automatically. See [Docker setup](docs/DOCKER.zh-CN.md).
+
 ```bash
 npm install
 cp .env.example .env.local
+# Configure the gateway and set STUDIO_DATA_DIR=./.image-sub2api-studio-data
+# and STUDIO_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 in .env.local.
+node --env-file=.env.local scripts/image-agent-studio-history-service.mjs
+# In a second terminal:
 npm run dev:studio
 ```
 

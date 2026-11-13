@@ -2,11 +2,11 @@
 
 Docker 配置提供一个完整可运行的 Image Agent Studio：
 
-- `studio-web`：Nginx，负责 `/studio/` 静态前端、`/studio-api/`、`/api/`、`/login` 和 `/v1/*` 同源代理。
+- `studio-web`：Nginx，负责 `/studio/` 静态前端和 `/studio-api/` 同源服务入口；默认不构建管理页面。
 - `studio-history`：Node 历史/会话服务，负责历史图库、当前画布会话、生成队列和结果资产持久化。
 - `studio-data`：Docker volume，保存每个用户或本地工作区的 `records.json`、`session.json`、`jobs.json` 和图片资产。
 
-模型网关不打进镜像。项目通过 `AI_GATEWAY_UPSTREAM` 连接官方 API、自定义 OpenAI 兼容接口、NewAPI 兼容部署、Sub2API 兼容部署或其他后续适配器。
+模型网关不打进镜像。服务通过 `AI_GATEWAY_BASE_URL` 校验 Sub2API / New API 凭据并调用模型；默认不创建 Studio 账号数据库、充值账本或管理接口。
 
 ## 1. 准备配置
 
@@ -18,9 +18,13 @@ cp .env.example .env
 
 ```env
 STUDIO_PORT=8080
-AI_GATEWAY_UPSTREAM=http://host.docker.internal:8080
+AI_GATEWAY_BASE_URL=https://gateway.example.com
+STUDIO_GATEWAY_TYPE=sub2api
+STUDIO_GATEWAY_AUTH=api-key
 VITE_AI_IMAGE_ROUTE=auto
-STUDIO_AUTH_MODE=local
+STUDIO_AUTH_MODE=gateway
+VITE_STUDIO_STANDALONE=false
+VITE_STUDIO_GATEWAY_PROXY=true
 STUDIO_VERSION=1.0.0
 ```
 
@@ -43,7 +47,22 @@ VITE_AI_GATEWAY_LOGIN_URL=/login
 VITE_STUDIO_HISTORY_BASE_URL=
 ```
 
-这样浏览器只访问 Studio 域名，由 Nginx 转发 `/v1/*`、`/api/` 和 `/login` 到 `AI_GATEWAY_UPSTREAM`。
+浏览器的账号验证、模型同步、提示词助手与持久生成任务都访问 `/studio-api/`，由 Node 调用配置的网关。网关地址使用站点根地址，不带 `/v1`；容器访问宿主机可使用 `host.docker.internal` 和实际网关端口。轻量部署的服务端模型请求限定为此地址。
+
+默认 `api-key` 接入只需使用者填写网关的推理 API Key；通过 `/v1/models` 验证后按 Key 哈希保存独立工作区，服务不把 Key 当成网关账号 ID。关闭标签页后需重新连接；同一 Key 的历史保持不变。换 Key 前在 Studio 导出个人备份，再连接新 Key 恢复。额度、模型权限和扣费全部由网关处理。
+
+已有用户体系需要跨 Key 保持历史时，设置 `STUDIO_GATEWAY_AUTH=account`：
+
+| 网关 | 使用者提供 | 服务校验 |
+| --- | --- | --- |
+| Sub2API | 账号访问令牌（不是推理 Key） | `/api/v1/auth/me`，仅404回退 `/api/v1/user/profile` |
+| New API | 账号访问令牌、用户编号 | `/api/user/self` 与 `New-Api-User`，响应用户必须一致 |
+
+账号接入读取网关现有的可用推理 Key，不自动创建 Key。New API 令牌需具备读取本人资料、列出和读取本人 Key 的权限；网关拒绝时到网关检查授权或使用默认 API Key 接入。没有可用 Key 时界面提供重新连接入口。账号模式的 Sub2API 历史保持原目录，New API 使用独立身份命名空间。
+
+未配置地址显示配置提示；无效/撤销凭据拒绝私有读取和新任务；网关超时或5xx显示暂时不可用，保留输入可重试。重新连接不会自动重发生成任务。已提交的生成结果以任务状态为准，unknown 不能当作失败盲目重试。
+
+旧部署如仍需已有 Studio 账号数据，升级期间显式保留 `STUDIO_AUTH_MODE=standalone`、`VITE_STUDIO_STANDALONE=true` 和原数据卷。此项只为兼容迁移，不是独立 full/lite 仓库。切换身份体系不会自动关联旧账号数据，先按原账号导出备份，再以新身份恢复；不要直接切换生产配置。
 
 ## 2. 启动
 

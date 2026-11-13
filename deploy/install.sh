@@ -8,8 +8,8 @@ STATIC_DIR="${STATIC_DIR:-/var/www/image-agent-studio}"
 SERVICE_DIR="${SERVICE_DIR:-/opt/image-agent-studio}"
 DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"
 SERVICE_NAME="${SERVICE_NAME:-image-agent-studio-history}"
-STUDIO_AUTH_MODE="${STUDIO_AUTH_MODE:-standalone}"
-INSTALL_MANUAL_UPGRADE="${INSTALL_MANUAL_UPGRADE:-1}"
+STUDIO_AUTH_MODE="${STUDIO_AUTH_MODE:-gateway}"
+INSTALL_MANUAL_UPGRADE="${INSTALL_MANUAL_UPGRADE:-0}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "ERROR: run with sudo because install writes /opt, /var/www, /var/lib, and systemd." >&2

@@ -11,6 +11,8 @@ deploy/upgrade.sh
 
 zip 包只保留给无法直接从 GitHub 拉取代码的临时场景。
 
+新安装默认是无管理后台的网关接入模式，配置见 [部署指南](../docs/DEPLOY.zh-CN.md)。已有独立账号部署升级时，在构建环境中显式保留 `VITE_STUDIO_STANDALONE=true`，在服务环境中保留 `STUDIO_AUTH_MODE=standalone` 和原数据目录；切换到网关身份前先导出个人备份。Git 同步会在轻量构建中移除旧的静态 `admin.html`，不会删除账号数据库或创作数据。手工覆盖 zip 时也需移除目标静态目录中旧的 `admin.html`，避免保留失效后台入口。
+
 ## 标准 Git 更新
 
 新部署：
@@ -64,9 +66,9 @@ sudo BRANCH=main \
 
 在网关后台看到文生图入站和上游都是 `/v1/images/generations`，才说明走的是正式图片模型链路。
 
-## 管理员后台手动更新
+## 旧独立账号部署的管理员后台手动更新
 
-标准安装会安装一个 root 权限的 `systemd.path` 监听器，但不会定时检查或自动覆盖线上版本。
+轻量部署使用上面的 Git 更新命令，不安装后台更新监听器。只有显式设置 `INSTALL_MANUAL_UPGRADE=1` 的旧独立账号部署才安装 root 权限的 `systemd.path` 监听器；它不会定时检查或自动覆盖线上版本。
 管理员登录 `/admin/` 后点击“检查并更新”，后台只写入固定的更新请求；VPS 随后检查最新 GitHub Release，
 备份数据并部署对应版本。更新状态会回写到管理员页面，失败时会尝试回滚到更新前的提交。
 

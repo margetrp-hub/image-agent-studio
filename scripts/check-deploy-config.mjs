@@ -59,7 +59,7 @@ mustMatch('vite.config.js', /base:\s*process\.env\.STUDIO_BASE_PATH\s*\|\|\s*pro
 mustInclude('docker-compose.yml', 'VITE_BASE_PATH: ${VITE_BASE_PATH:-/studio/}', 'Docker web image should build for /studio/');
 mustInclude('docker-compose.yml', 'STUDIO_BASE_PATH: ${STUDIO_BASE_PATH:-/studio/}', 'Docker web image should build with matching Studio base path');
 mustInclude('docker-compose.yml', 'STUDIO_HISTORY_UPSTREAM: http://studio-history:8787', 'Nginx must proxy the history service container');
-mustInclude('docker-compose.yml', 'STUDIO_AUTH_MODE: ${STUDIO_AUTH_MODE:-standalone}', 'Docker should default to Studio-owned user authentication');
+mustInclude('docker-compose.yml', 'STUDIO_AUTH_MODE: ${STUDIO_AUTH_MODE:-gateway}', 'Docker should default to gateway-owned authentication');
 mustInclude('docker-compose.yml', 'STUDIO_AUTH_REGISTRATION_MODE: ${STUDIO_AUTH_REGISTRATION_MODE:-open}', 'Docker should default to user self-registration');
 mustInclude('docker-compose.yml', 'studio-data:/data', 'History, sessions, jobs, and generated assets must persist in a volume');
 mustInclude('docker-compose.yml', 'STUDIO_JOB_CONCURRENCY: ${STUDIO_JOB_CONCURRENCY:-0}', 'Server-side queue concurrency must default to no Workbench-side cap');
@@ -82,6 +82,8 @@ mustInclude('deploy/sync-from-git.sh', 'SERVICE_NAME="${SERVICE_NAME:-image-agen
 mustInclude('deploy/sync-from-git.sh', 'deploy/service-runtime/package.json', 'Git sync must install the minimal service runtime manifest');
 mustNotInclude('deploy/sync-from-git.sh', 'cp -a "$REPO_DIR/package.json" "$REPO_DIR/package-lock.json" "$SERVICE_DIR/"', 'Git sync must not install frontend and build dependencies in the service directory');
 mustInclude('deploy/sync-from-git.sh', 'rm -rf "$STATIC_DIR/studio-assets"', 'Git sync should replace hashed assets without deleting the persistent data directory');
+mustInclude('deploy/sync-from-git.sh', 'if [ ! -f "$REPO_DIR/dist/admin.html" ]; then', 'Lightweight upgrades must remove a stale generated admin page');
+mustInclude('deploy/sync-from-git.sh', 'rm -f "$STATIC_DIR/admin.html"', 'Lightweight upgrades must not retain a previously published admin entry');
 mustInclude('deploy/sync-from-git.sh', 'STUDIO_DATA_DIR=$DATA_DIR', 'Git sync must preserve and reuse the configured persistent data directory');
 mustInclude('deploy/sync-from-git.sh', 'CLEAN_STALE_DROPINS', 'Git sync must provide an explicit, backup-first cleanup path for stale systemd drop-ins');
 mustInclude('deploy/sync-from-git.sh', '10-runtime.conf', 'Git sync must archive the manual runtime drop-in during explicit consolidation');
@@ -101,13 +103,18 @@ mustNotInclude('deploy/image-agent-studio-manual-upgrade.path', 'OnUnitActiveSec
 mustInclude('deploy/sync-from-git.sh', 'curl -fsS "$HEALTH_URL"', 'Git sync must verify the local history service health endpoint');
 mustInclude('deploy/sync-from-git.sh', 'scripts/image-agent-studio-history-service.mjs', 'Git sync must deploy the standard service wrapper');
 mustInclude('deploy/sync-from-git.sh', 'deploy/image-agent-studio-history.service', 'Git sync must deploy the standard systemd unit');
+mustInclude('deploy/image-agent-studio-history.service', 'Environment=STUDIO_AUTH_MODE=gateway', 'Systemd must use gateway-owned authentication by default');
+mustInclude('deploy/image-agent-studio-history.service', 'Environment=STUDIO_GATEWAY_AUTH=api-key', 'Systemd must use the same lightweight credential mode as Docker');
+mustInclude('deploy/image-agent-studio-history.service', 'EnvironmentFile=-/etc/image-agent-studio.env', 'Systemd must allow explicit configuration for new and existing installations');
 mustInclude('deploy/sync-from-git.sh', 'deploy/nginx-image-agent-studio.conf', 'Git sync must deploy the standard Nginx snippet');
 mustInclude('deploy/install.sh', 'bash "$REPO_DIR/deploy/sync-from-git.sh"', 'Install helper must use the Git sync deploy path');
+mustInclude('deploy/install.sh', 'INSTALL_MANUAL_UPGRADE="${INSTALL_MANUAL_UPGRADE:-0}"', 'Lightweight installs must not enable the legacy admin-triggered updater');
 mustInclude('deploy/upgrade.sh', 'bash "$REPO_DIR/deploy/backup.sh"', 'Upgrade helper must back up before syncing by default');
 mustInclude('deploy/backup.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"', 'Backup helper must use the standard data root by default');
 mustInclude('deploy/restore.sh', 'DATA_DIR="${DATA_DIR:-/var/lib/image-agent-studio}"', 'Restore helper must use the standard data root by default');
 mustInclude('deploy/self-check.sh', '/studio-api/health', 'Self-check helper must verify the history API');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/;', 'Standard Nginx static root must match Git sync default STATIC_DIR');
+mustInclude('deploy/nginx-image-agent-studio.conf', 'location = /studio/admin.html', 'Missing admin pages must not fall back to the Studio application');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'alias /var/www/image-agent-studio/studio-assets/;', 'Standard Nginx asset root must match Git sync default STATIC_DIR');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'proxy_pass http://127.0.0.1:8787/studio-api/;', 'Standard Nginx must proxy the Studio persistence API to the local service');
 mustInclude('deploy/nginx-image-agent-studio.conf', 'Strict-Transport-Security', 'Standard HTTPS deployment guidance must include HSTS');
@@ -155,7 +162,7 @@ mustInclude('.dockerignore', 'output', 'Docker context must not include Playwrig
 mustInclude('.dockerignore', 'release', 'Docker context must not include generated release packages');
 mustInclude('.dockerignore', 'release/desktop', 'Docker context must not include generated desktop executables');
 
-mustInclude('.env.example', 'STUDIO_AUTH_MODE=standalone', 'Example config must default to Studio-owned user authentication');
+mustInclude('.env.example', 'STUDIO_AUTH_MODE=gateway', 'Example config must default to gateway-owned authentication');
 mustInclude('.env.example', 'STUDIO_AUTH_REGISTRATION_MODE=open', 'Example config must default to user self-registration');
 mustInclude('.env.example', 'STUDIO_PROVIDER_BASE_URL=', 'Example config must document the server-owned provider URL');
 mustInclude('.env.example', 'STUDIO_PROVIDER_TYPE=', 'Example config must document the server-owned provider family');

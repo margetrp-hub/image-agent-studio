@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
@@ -35,7 +35,10 @@ const devProxy = {
     : {})
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env };
+  const standalone = String(env.VITE_STUDIO_STANDALONE).toLowerCase() === 'true';
+  return {
   base: process.env.STUDIO_BASE_PATH || process.env.VITE_BASE_PATH,
   plugins: [react()],
   publicDir: 'public',
@@ -49,7 +52,7 @@ export default defineConfig({
         main: resolve(import.meta.dirname, 'index.html'),
         studio: resolve(import.meta.dirname, 'studio.html'),
         login: resolve(import.meta.dirname, 'login.html'),
-        admin: resolve(import.meta.dirname, 'admin.html')
+        ...(standalone ? { admin: resolve(import.meta.dirname, 'admin.html') } : {})
       },
       output: {
         manualChunks(id) {
@@ -61,4 +64,5 @@ export default defineConfig({
       }
     }
   }
+};
 });

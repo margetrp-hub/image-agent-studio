@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Agent, FormData as UndiciFormData, fetch as undiciFetch } from 'undici';
 import { createServiceConfig } from './studio-service/config.js';
+import { createGatewayAuth } from './studio-service/gatewayAuth.js';
 import { createCommunityPromptStore, sanitizeCommunityPrompt } from './studio-service/communityPrompts.js';
 import { atomicWriteJson, parseJsonText } from './studio-service/jsonFiles.js';
 import { createKeyedLock } from './studio-service/keyedLock.js';
@@ -51,6 +52,8 @@ const {
   STUDIO_MASTER_KEY,
   ALLOW_PRIVATE_PROVIDER_URLS,
   AI_GATEWAY_BASE_URL,
+  GATEWAY_TYPE,
+  GATEWAY_AUTH,
   STUDIO_EMBED_GATEWAY_BASE_URL,
   STUDIO_EMBED_ORIGINS,
   PROVIDER_BASE_URL,
@@ -77,6 +80,8 @@ const {
   MAX_VIDEO_BYTES,
   ALLOWED_ORIGINS
 } = createServiceConfig({ scriptsDir: __dirname });
+
+const gatewayAuth = createGatewayAuth({ baseUrl: AI_GATEWAY_BASE_URL, type: GATEWAY_TYPE, credentialMode: GATEWAY_AUTH });
 
 // A provider may briefly return 404 while an async video task becomes visible.
 // Once that window is exhausted, keep the request ID and fail instead of polling
@@ -395,7 +400,7 @@ function sendCors(req, res) {
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   }
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, New-Api-User');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   return Boolean(!origin || allowOrigin);
 }
@@ -693,21 +698,8 @@ async function authenticate(req) {
     };
   }
 
-  let user;
-  try {
-    user = await gatewayAccountRequest('/api/v1/auth/me', token);
-  } catch {
-    user = await gatewayAccountRequest('/api/v1/user/profile', token);
-  }
-
-  const userId = user?.id || user?.user?.id || user?.email || user?.username;
-  if (!userId) {
-    const error = new Error('USER_ID_MISSING');
-    error.status = 401;
-    throw error;
-  }
-
-  const key = createHash('sha256').update(String(userId)).digest('hex');
+  const user = await gatewayAuth.profile(token, req.headers['new-api-user']);
+  const key = createHash('sha256').update(gatewayAuth.storageIdentity(user)).digest('hex');
   return {
     user,
     userKey: key,
@@ -1692,7 +1684,10 @@ function chatCompletionText(payload) {
 
 async function providerChatCompletion({ model, messages, signal, request = {}, userId = '' }) {
   if (request.apiKeySource === 'platform') throw new PlatformProviderError('PLATFORM_PROMPT_NOT_SUPPORTED');
-  const runtime = standaloneProviderRuntime(request, userId);
+  const runtime = AUTH_MODE === 'standalone'
+    ? standaloneProviderRuntime(request, userId)
+    : { apiKey: text(request.apiKey, 4000), gatewayBaseUrl: gatewayRuntimeBase(request.gatewayBaseUrl) };
+  if (!runtime.apiKey) throw Object.assign(new Error('GENERATION_JOB_API_KEY_REQUIRED'), { status: 400 });
   const selectedModel = text(request.apiKeySource === 'manual'
     ? model || 'gpt-4o-mini'
     : PROVIDER_CHAT_MODEL || model || 'gpt-4o-mini', 160);
@@ -1720,7 +1715,7 @@ function sanitizeChatMessages(messages) {
 }
 
 async function handleStandalonePromptRoute(req, res, parts, userId) {
-  if (AUTH_MODE !== 'standalone' || req.method !== 'POST' || parts.length !== 3) {
+  if (req.method !== 'POST' || parts.length !== 3) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
   const body = await readJsonBody(req);
@@ -2231,8 +2226,8 @@ function buildJobRuntime(body, auth, job) {
     ({ apiKey, gatewayBaseUrl, profile } = providerRuntime);
   } else {
     apiKey = text(body.apiKey || request.apiKey, 4000);
-    gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || request.gatewayBaseUrl || AI_GATEWAY_BASE_URL);
-    profile = providerProfile(request.providerFamily || request.providerId);
+    gatewayBaseUrl = gatewayRuntimeBase(body.gatewayBaseUrl || request.gatewayBaseUrl);
+    profile = gatewayRuntimeProfile(request.providerFamily || request.providerId);
   }
   if (!apiKey) {
     const error = new Error('GENERATION_JOB_API_KEY_REQUIRED');
@@ -2247,6 +2242,19 @@ function buildJobRuntime(body, auth, job) {
     images,
     mask: body.mask ? normalizeImageInput(body.mask, 0) : null
   };
+}
+
+function gatewayRuntimeBase(requestedBase) {
+  const configured = gatewayAuth.config.gatewayBaseUrl;
+  const base = normalizeGatewayBaseUrl(requestedBase || configured || AI_GATEWAY_BASE_URL);
+  if (AUTH_MODE === 'gateway' && base !== configured) {
+    throw Object.assign(new Error('GATEWAY_ENDPOINT_MISMATCH'), { status: 400 });
+  }
+  return base;
+}
+
+function gatewayRuntimeProfile(value) {
+  return providerProfile(AUTH_MODE === 'gateway' && (!value || value === 'gateway-account') ? `${GATEWAY_TYPE}-compatible` : value);
 }
 
 function buildJobInvocationPlan(job, runtime) {
@@ -3154,6 +3162,8 @@ async function handler(req, res) {
       service: 'image-agent-studio-history',
       legacyService: 'ai-image-workbench-history',
       version: SERVICE_VERSION,
+      authMode: AUTH_MODE,
+      gatewayConfigured: AUTH_MODE === 'gateway' && gatewayAuth.config.configured,
       providerType: AUTH_MODE === 'standalone' ? providerProfile(PROVIDER_TYPE).type : '',
       providerConfigured: AUTH_MODE === 'standalone' ? (!USER_PROVIDER_ONLY && Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)) : false,
       videoConfigured: AUTH_MODE === 'standalone' ? (!USER_PROVIDER_ONLY && Boolean(PROVIDER_BASE_URL && PROVIDER_API_KEY)) : false,
@@ -3165,12 +3175,29 @@ async function handler(req, res) {
     });
   }
 
-  if (parts[0] !== 'studio-api' || !['auth', 'history', 'session', 'generation-jobs', 'model-sync', 'prompt', 'library', 'library-assets', 'community-prompts', 'prompt-presets', 'video-inspirations', 'backup'].includes(parts[1])) {
+  if (parts[0] !== 'studio-api' || !['gateway', 'auth', 'history', 'session', 'generation-jobs', 'model-sync', 'prompt', 'library', 'library-assets', 'community-prompts', 'prompt-presets', 'video-inspirations', 'backup'].includes(parts[1])) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
 
   try {
     const hasAuthHeader = Boolean(String(req.headers.authorization || '').trim());
+
+    if (parts[1] === 'gateway') {
+      if (AUTH_MODE !== 'gateway' || req.method !== 'GET') return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+      if (parts.length === 3 && parts[2] === 'config') return sendJson(res, 200, { ok: true, ...gatewayAuth.config });
+      const auth = await authenticate(req);
+      if (parts.length === 4 && ['auth/me', 'user/profile'].includes(parts.slice(2).join('/'))) {
+        return sendJson(res, 200, { code: 0, data: auth.user });
+      }
+      if (parts[2] === 'keys' && [3, 4].includes(parts.length)) {
+        const token = bearerToken(req);
+        const data = parts.length === 3
+          ? await gatewayAuth.keys(token, auth.user.id)
+          : await gatewayAuth.key(token, auth.user.id, parts[3]);
+        return sendJson(res, 200, { code: 0, data });
+      }
+      return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
+    }
 
     if (parts[1] === 'auth') {
       if (req.method === 'POST' && parts.length === 3 && parts[2] === 'embedded') {
@@ -3229,8 +3256,8 @@ async function handler(req, res) {
         ({ apiKey, gatewayBaseUrl, profile } = standaloneProviderRuntime(body, auth.user.id));
       } else {
         apiKey = text(body.apiKey, 4000);
-        profile = providerProfile(body.providerType || body.providerId);
-        gatewayBaseUrl = normalizeGatewayBaseUrl(body.gatewayBaseUrl || AI_GATEWAY_BASE_URL, profile.type);
+        profile = gatewayRuntimeProfile(body.providerType || body.providerId);
+        gatewayBaseUrl = AUTH_MODE === 'gateway' ? gatewayRuntimeBase(body.gatewayBaseUrl) : normalizeGatewayBaseUrl(body.gatewayBaseUrl || AI_GATEWAY_BASE_URL, profile.type);
       }
       if (!apiKey) return sendJson(res, 400, { ok: false, error: 'MODEL_SYNC_API_KEY_REQUIRED' });
       const models = await fetchGatewayModels(apiKey, gatewayBaseUrl, profile.type, req.signal);
@@ -3299,6 +3326,7 @@ async function handler(req, res) {
         if (existingById) return { job: existingById, duplicate: true };
 
         const runtime = buildJobRuntime(body, auth, job);
+        if (AUTH_MODE === 'gateway') job.providerFamily = runtime.profile.type;
         if (AUTH_MODE === 'standalone') {
           job.apiKeySource = runtime.apiKeySource;
           job.platformProviderId = runtime.platformProviderId || '';
@@ -3582,7 +3610,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`image-agent-studio history service listening on http://${HOST}:${PORT}/studio-api`);
+  console.log(`image-agent-studio history service listening on http://${HOST}:${server.address().port}/studio-api`);
   console.log(`Data directory: ${DATA_DIR}`);
   console.log(`Auth mode: ${AUTH_MODE}`);
   if (AUTH_MODE === 'standalone') {

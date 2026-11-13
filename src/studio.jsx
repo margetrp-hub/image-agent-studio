@@ -95,7 +95,8 @@ import {
   loadSession,
   saveProviderSettings,
   saveSelectedKeyId,
-  STUDIO_STANDALONE
+  STUDIO_STANDALONE,
+  STUDIO_GATEWAY_PROXY
 } from './aiGatewayClient';
 import { createTranslator, loadStudioLanguage, nextLanguage, saveStudioLanguage, SUPPORTED_LANGUAGES } from './studio/i18n.js';
 import { createHistoryCanvasBuilder } from './studio/canvas/historyCanvas.js';
@@ -668,7 +669,7 @@ function providerSetupMessage(settings, providerRequest, t) {
 }
 
 function canUseClientGenerationFallback() {
-  return Boolean(import.meta.env.DEV && !STUDIO_STANDALONE);
+  return Boolean(import.meta.env.DEV && !STUDIO_STANDALONE && !STUDIO_GATEWAY_PROXY);
 }
 
 function workspaceLabel(value) {
@@ -3350,7 +3351,7 @@ function CreationDesk({
           activeVideoInputFiles = await selectedCanvasReferenceFiles(activeSelectedNode);
           if (!isCurrentRequest()) return false;
         }
-        if (STUDIO_STANDALONE) {
+        if (STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) {
           const historyClient = createHistoryClient({ session: loadSession() });
           const jobImages = await generationFilesForJob(activeVideoInputFiles, 1);
           const job = await historyClient.createGenerationJob(buildServerVideoGenerationJobPayload({
@@ -5955,7 +5956,7 @@ function StudioApp() {
   }, [embeddedAuthStatus, providerSettings]);
 
   useEffect(() => {
-    if (STUDIO_STANDALONE && !session?.accessToken) {
+    if ((STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) && !session?.accessToken) {
       if (embeddedAuthStatus === 'pending') return;
       window.location.replace(getLoginUrl());
     }
@@ -6080,6 +6081,7 @@ function StudioApp() {
       setCreditsEnabled(STUDIO_STANDALONE && standaloneConfig?.credits?.enabled === true);
       if (standaloneConfig) setBillingConfig(standaloneConfig);
       setProviderConnections(nextProviderConnections);
+      setBootError(STUDIO_GATEWAY_PROXY && !nextKey ? '网关中没有可用的推理 Key，请在网关创建后重新连接。' : '');
     }).catch((error) => {
       if (!active) return;
       setBootError(error.message);
@@ -6336,9 +6338,15 @@ function StudioApp() {
     setUsageSummary('');
   }
 
-  function handleSelectKey(nextKey) {
-    saveSelectedKeyId(nextKey.id);
-    setApiKey(nextKey);
+  async function handleSelectKey(nextKey) {
+    try {
+      const resolved = await client.resolveApiKey(nextKey);
+      saveSelectedKeyId(resolved.id);
+      setApiKey(resolved);
+    } catch (error) {
+      setModelSyncError({ code: error.message, message: '读取 API Key 失败，请重试或在网关检查权限。', retryable: true });
+      setModelsStatus('error');
+    }
   }
 
   function handleLanguageToggle() {
@@ -6585,16 +6593,23 @@ function StudioApp() {
     historyClient.clearRecords().catch(() => setHistoryStatus('local'));
   }
 
-  if (bootError && libraryRequested && !siteData) {
+  if (!STUDIO_GATEWAY_PROXY && bootError && libraryRequested && !siteData) {
     return <main className="studioError">加载失败：{bootError}</main>;
   }
 
-  if (STUDIO_STANDALONE && !session?.accessToken) {
+  if ((STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) && !session?.accessToken) {
     return <main className="studioError">正在前往登录...</main>;
   }
 
   return (
     <main>
+      {STUDIO_GATEWAY_PROXY && bootError ? (
+        <div className="libraryLockNotice" role="alert">
+          <span>{bootError.startsWith('GATEWAY_') ? '网关连接失效或暂时不可用，请检查凭据后重新连接。' : bootError}</span>
+          {session?.gatewaySiteUrl ? <a href={session.gatewaySiteUrl} target="_blank" rel="noopener noreferrer">打开网关</a> : null}
+          <button type="button" onClick={() => { window.location.href = getLoginUrl(); }}>重新连接</button>
+        </div>
+      ) : null}
       {isLibraryLocked ? (
         <div className="libraryLockNotice">
           <KeyRound size={15} />
@@ -6639,6 +6654,7 @@ function StudioApp() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenBilling={() => setBillingOpen(true)}
           onOpenAdmin={() => { window.location.href = STUDIO_ADMIN_URL; }}
+          onLogout={session?.accessToken ? handleLogout : undefined}
           theme={theme}
           onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
           currentLanguage={SUPPORTED_LANGUAGES.find((item) => item.value === language) || SUPPORTED_LANGUAGES[0]}

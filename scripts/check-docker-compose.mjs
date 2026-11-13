@@ -43,8 +43,12 @@ assert(web.healthcheck?.interval === '30s' && web.healthcheck?.timeout === '5s' 
 const webPort = web.ports?.[0];
 assert(webPort?.target === 80 && String(webPort.published) === '8080', 'studio-web must publish host 8080 to container 80 by default.', web.ports);
 
-assert(web.build?.args?.VITE_STUDIO_STANDALONE === 'true', 'studio-web must default to the standalone login path.', web.build?.args);
-assert(history.environment?.STUDIO_AUTH_MODE === 'standalone', 'studio-history must default to Studio-owned authentication.', history.environment);
+assert(web.build?.args?.VITE_STUDIO_STANDALONE === 'false', 'studio-web must not enable Studio accounts by default.', web.build?.args);
+assert(web.build?.args?.VITE_STUDIO_GATEWAY_PROXY === 'true', 'studio-web must use the same-origin gateway connector.', web.build?.args);
+assert(history.environment?.STUDIO_AUTH_MODE === 'gateway', 'studio-history must use gateway-owned authentication.', history.environment);
+assert(history.environment?.STUDIO_GATEWAY_AUTH === 'api-key', 'first install must support a gateway API key.', history.environment);
+assert(history.environment?.STUDIO_GATEWAY_TYPE === 'sub2api', 'gateway family must be configurable.', history.environment);
+assert('AI_GATEWAY_BASE_URL' in history.environment, 'history service must receive the gateway URL.');
 assert(history.environment?.STUDIO_AUTH_REGISTRATION_MODE === 'open', 'studio-history must default to user self-registration.', history.environment);
 assert(history.environment?.STUDIO_PROVIDER_TYPE === 'openai-compatible', 'studio-history must expose the provider family setting.', history.environment);
 assert(history.environment?.STUDIO_DATA_DIR === '/data', 'studio-history must write persisted data to /data.', history.environment);

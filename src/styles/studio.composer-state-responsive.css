@@ -95,10 +95,6 @@
   }
 }
 
-.singleGenerationWorkspace :is(.singleGenerationHead > button, .singleActionBar button, .singleKeyButton) {
-  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
-}
-
 .singleGenerationWorkspace :is(.singleGenerationHead > button, .singleActionBar button, .singleKeyButton):hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--studio-primary) 44%, var(--studio-border));
   background: color-mix(in srgb, var(--studio-primary) 7%, var(--studio-surface));

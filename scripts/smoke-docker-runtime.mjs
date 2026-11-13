@@ -83,6 +83,10 @@ try {
 
   const studio = await waitFor(`${baseUrl}/studio/`, (response, text) => response.ok && text.includes('studio-assets'), 'Studio HTML');
   const health = await waitFor(`${baseUrl}/studio-api/health`, (response, text) => response.ok && text.includes('"ok":true'), 'Studio API health');
+  for (const route of ['/admin.html', '/studio/admin.html', '/studio-api/auth/admin/users']) {
+    const response = await fetch(`${baseUrl}${route}`);
+    assert(response.status === 404, 'Default lightweight runtime must not expose an admin entry.', { route, status: response.status });
+  }
 
   const html = studio.text;
   const scriptMatch = html.match(/src="([^"]*studio-assets\/[^"]+\.js)"/);

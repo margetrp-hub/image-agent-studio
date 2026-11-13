@@ -30,6 +30,8 @@ const SUB2API_EXPIRES_AT_KEY = 'token_expires_at';
 
 const viteEnv = import.meta.env || {};
 export const STUDIO_STANDALONE = String(viteEnv.VITE_STUDIO_STANDALONE || '').toLowerCase() === 'true';
+export const STUDIO_GATEWAY_PROXY = !STUDIO_STANDALONE && String(viteEnv.VITE_STUDIO_GATEWAY_PROXY || '').toLowerCase() === 'true';
+const GATEWAY_SESSION_KEY = 'image-agent-studio:gateway-session:v1';
 const envBaseUrl = viteEnv.VITE_AI_GATEWAY_BASE_URL || viteEnv.VITE_SUB2API_BASE_URL || '';
 const envGatewayBaseUrl = viteEnv.VITE_AI_GATEWAY_MODEL_BASE_URL || viteEnv.VITE_SUB2API_GATEWAY_BASE_URL || '';
 const envLoginUrl = viteEnv.VITE_AI_GATEWAY_LOGIN_URL || viteEnv.VITE_SUB2API_LOGIN_URL || '';
@@ -272,6 +274,10 @@ function normalizeProviderSettings(value = {}) {
 }
 
 export function getConfiguredBaseUrls() {
+  if (STUDIO_GATEWAY_PROXY) {
+    const historyBase = trimTrailingSlash(envStudioHistoryBaseUrl || window.location.origin);
+    return { apiBaseUrl: `${historyBase}/studio-api/gateway`, gatewayBaseUrl: loadSession()?.gatewayBaseUrl || '', studioHistoryBaseUrl: historyBase };
+  }
   if (STUDIO_STANDALONE) {
     return {
       apiBaseUrl: `${trimTrailingSlash(window.location.origin)}/studio-api`,
@@ -396,7 +402,7 @@ export function saveProviderSettings(settings) {
 }
 
 export function getLoginUrl() {
-  if (STUDIO_STANDALONE) {
+  if (STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) {
     const currentPath = String(window.location.pathname || '');
     const inferredBase = currentPath === '/studio' || currentPath.startsWith('/studio/')
       ? '/studio/'
@@ -521,7 +527,7 @@ function loadSub2ApiSession() {
 
 function authHeadersFromSession(session) {
   return session?.accessToken
-    ? { Authorization: `Bearer ${session.accessToken}` }
+    ? { Authorization: `Bearer ${session.accessToken}`, ...(session.gatewayType === 'newapi' && session.credentialMode === 'account' && session.user?.id ? { 'New-Api-User': String(session.user.id) } : {}) }
     : {};
 }
 
@@ -589,6 +595,12 @@ async function cachedStudioAssetBlob({ baseUrl, url, session }) {
 }
 
 export function loadSession() {
+  if (STUDIO_GATEWAY_PROXY) {
+    try {
+      const session = JSON.parse(sessionStorage.getItem(GATEWAY_SESSION_KEY) || 'null');
+      return session?.accessToken ? session : null;
+    } catch { return null; }
+  }
   if (STUDIO_STANDALONE) {
     try {
       const parsed = JSON.parse(localStorage.getItem(STANDALONE_SESSION_KEY) || 'null');
@@ -610,6 +622,10 @@ export function loadSession() {
 }
 
 export function saveSession(session) {
+  if (STUDIO_GATEWAY_PROXY) {
+    sessionStorage.setItem(GATEWAY_SESSION_KEY, JSON.stringify(session));
+    return;
+  }
   if (STUDIO_STANDALONE) {
     localStorage.setItem(STANDALONE_SESSION_KEY, JSON.stringify(session));
     return;
@@ -622,6 +638,11 @@ export function saveSession(session) {
 }
 
 export function clearSession() {
+  if (STUDIO_GATEWAY_PROXY) {
+    sessionStorage.removeItem(GATEWAY_SESSION_KEY);
+    localStorage.removeItem(SELECTED_KEY_ID);
+    return;
+  }
   if (STUDIO_STANDALONE) {
     localStorage.removeItem(STANDALONE_SESSION_KEY);
     localStorage.removeItem(SELECTED_KEY_ID);
@@ -992,10 +1013,10 @@ async function readJsonResponse(response) {
 export class AiGatewayClient {
   constructor({ apiBaseUrl, gatewayBaseUrl, session, providerSettings } = {}) {
     const bases = getConfiguredBaseUrls();
-    this.apiBaseUrl = STUDIO_STANDALONE
+    this.apiBaseUrl = STUDIO_GATEWAY_PROXY ? bases.apiBaseUrl : STUDIO_STANDALONE
       ? `${trimTrailingSlash(window.location.origin)}/studio-api`
       : normalizeApiBaseUrl(apiBaseUrl || bases.apiBaseUrl);
-    this.gatewayBaseUrl = STUDIO_STANDALONE
+    this.gatewayBaseUrl = STUDIO_GATEWAY_PROXY ? (session?.gatewayBaseUrl || bases.gatewayBaseUrl) : STUDIO_STANDALONE
       ? ''
       : normalizeGatewayBaseUrl(gatewayBaseUrl || bases.gatewayBaseUrl);
     this.session = session || loadSession();
@@ -1050,7 +1071,8 @@ export class AiGatewayClient {
       await this.ensureFreshSession();
     }
 
-    const response = await fetch(`${this.apiBaseUrl}${path}`, {
+    const requestBase = STUDIO_GATEWAY_PROXY && path.startsWith('/prompt/') ? getConfiguredBaseUrls().studioHistoryBaseUrl + '/studio-api' : this.apiBaseUrl;
+    const response = await fetch(`${requestBase}${path}`, {
       ...fetchOptions,
       ...(signal ? { signal } : {}),
       headers: {
@@ -1340,6 +1362,7 @@ export class AiGatewayClient {
   }
 
   async createStudioKey() {
+    if (STUDIO_GATEWAY_PROXY) return null;
     if (STUDIO_STANDALONE) return { ...STANDALONE_PROVIDER_KEY };
     const created = await this.request('/keys', {
       method: 'POST',
@@ -1355,6 +1378,13 @@ export class AiGatewayClient {
     if (STUDIO_STANDALONE) return this.session?.accessToken ? { ...STANDALONE_PROVIDER_KEY } : null;
     const selectedId = loadSelectedKeyId();
     const keys = await this.listKeys();
+    if (STUDIO_GATEWAY_PROXY) {
+      const candidate = keys.find((key) => key.id === selectedId && keyStatusIsUsable(key.status)) || keys.find((key) => keyStatusIsUsable(key.status));
+      if (!candidate) return null;
+      const key = await this.resolveApiKey(candidate);
+      saveSelectedKeyId(key.id);
+      return key;
+    }
     const selected = keys.find((key) => key.id === selectedId);
     if (keyIsUsable(selected)) return selected;
 
@@ -1367,6 +1397,11 @@ export class AiGatewayClient {
     const created = await this.createStudioKey();
     if (created?.id) saveSelectedKeyId(created.id);
     return created;
+  }
+
+  async resolveApiKey(key) {
+    if (!STUDIO_GATEWAY_PROXY || key?.key) return key;
+    return normalizeApiKeyItem(await this.request(`/keys/${encodeURIComponent(key.id)}`));
   }
 
   async generateImageViaLegacy({ apiKey, model, prompt, size, quality, n, gatewayBaseUrl, endpoint = '/v1/images/generations', payloadFormat = 'images-json', onProgress, signal }) {
@@ -1454,8 +1489,8 @@ export class AiGatewayClient {
 
   async optimizePrompt({ apiKey, prompt, instruction = '', size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
     if (this.providerSettings.apiKeySource === 'platform') throw new Error('PLATFORM_PROMPT_UNSUPPORTED');
-    if (STUDIO_STANDALONE) {
-      const providerRequest = this.providerSettings.apiKeySource === 'manual'
+    if (STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) {
+      const providerRequest = STUDIO_GATEWAY_PROXY ? { apiKey, gatewayBaseUrl: gatewayBaseUrl || this.gatewayBaseUrl } : this.providerSettings.apiKeySource === 'manual'
         ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
         : this.providerSettings.apiKeySource === 'linked'
           ? { providerConnectionId: this.providerSettings.providerProfileId, providerType: this.providerSettings.providerId, apiKeySource: 'linked' }
@@ -1540,8 +1575,8 @@ export class AiGatewayClient {
 
   async chatPromptAssistant({ apiKey, prompt, basePrompt = '', userInstruction = '', selectedCanvasLabel = '', messages = [], size = '', aspectRatio = '', quality = '', resolutionTier = '', gatewayBaseUrl, model, onPartial, signal }) {
     if (this.providerSettings.apiKeySource === 'platform') throw new Error('PLATFORM_PROMPT_UNSUPPORTED');
-    if (STUDIO_STANDALONE) {
-      const providerRequest = this.providerSettings.apiKeySource === 'manual'
+    if (STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) {
+      const providerRequest = STUDIO_GATEWAY_PROXY ? { apiKey, gatewayBaseUrl: gatewayBaseUrl || this.gatewayBaseUrl } : this.providerSettings.apiKeySource === 'manual'
         ? { apiKey, gatewayBaseUrl, providerType: this.providerSettings.providerId, apiKeySource: 'manual' }
         : this.providerSettings.apiKeySource === 'linked'
           ? { providerConnectionId: this.providerSettings.providerProfileId, providerType: this.providerSettings.providerId, apiKeySource: 'linked' }
@@ -1645,6 +1680,7 @@ export class AiGatewayClient {
   }
 
   async listGatewayModels({ apiKey, gatewayBaseUrl, signal } = {}) {
+    if (STUDIO_GATEWAY_PROXY) return this.listGatewayModelsViaStudio({ apiKey, gatewayBaseUrl: gatewayBaseUrl || this.gatewayBaseUrl, signal });
     if (STUDIO_STANDALONE && this.providerSettings.apiKeySource === 'platform') {
       const catalog = await this.listPlatformModels({ signal });
       const provider = catalog.creditsEnabled ? catalog.providers?.find((item) => item.id === this.providerSettings.platformProviderId) : null;
@@ -1737,7 +1773,7 @@ export class AiGatewayClient {
   }
 
   async getGatewayUsage({ apiKey, gatewayBaseUrl, signal } = {}) {
-    if (STUDIO_STANDALONE) return {};
+    if (STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) return {};
     const resolvedGatewayBaseUrl = normalizeGatewayBaseUrl(gatewayBaseUrl || this.gatewayBaseUrl);
     const response = await fetch(`${resolvedGatewayBaseUrl}/usage`, {
       headers: {

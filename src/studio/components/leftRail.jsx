@@ -6,6 +6,7 @@ import {
   Images,
   KeyRound,
   Languages,
+  LogOut,
   MessageSquareText,
   Moon,
   PanelLeftClose,
@@ -43,6 +44,7 @@ export function LeftRail({
   onOpenSettings,
   onOpenBilling,
   onOpenAdmin,
+  onLogout,
   theme,
   onThemeToggle,
   currentProject,
@@ -275,6 +277,7 @@ export function LeftRail({
           <button type="button" className="railThemeButton" onClick={onThemeToggle} aria-label={theme === 'dark' ? t('rail.light', '切换浅色') : t('rail.dark', '切换深色')}>
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
+          {onLogout ? <button type="button" className="railThemeButton" onClick={onLogout} aria-label={t('topbar.logout', '退出')} title={t('topbar.logout', '退出')}><LogOut size={16} /></button> : null}
           {isAdmin ? (
             <button type="button" className="railThemeButton railAdminButton" onClick={onOpenAdmin} aria-label={t('rail.admin', '管理控制台')} title={t('rail.admin', '管理控制台')}>
               <ShieldCheck size={16} />

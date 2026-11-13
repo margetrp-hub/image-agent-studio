@@ -3,6 +3,7 @@ import {
   clearSession,
   getLoginUrl,
   loadSession,
+  STUDIO_GATEWAY_PROXY,
   STUDIO_STANDALONE
 } from './aiGatewayClient.js';
 import { safeSameOriginRedirect } from './studio/authRedirect.js';
@@ -191,7 +192,10 @@ async function submitResetPassword() {
   await client.resetPassword({ identifier, token, password });
 }
 
-if (!STUDIO_STANDALONE) {
+if (STUDIO_GATEWAY_PROXY) {
+  const { mountGatewayLogin } = await import('./studio/auth/gatewayLogin.js');
+  await mountGatewayLogin({ redirect });
+} else if (!STUDIO_STANDALONE) {
   window.location.replace(getLoginUrl());
 } else {
   setMode('login');

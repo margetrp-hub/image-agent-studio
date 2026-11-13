@@ -59,7 +59,17 @@ export async function atomicWriteFile(filePath, data, options = {}) {
   const tempPath = path.join(directory, `.${fileName}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
   try {
     await fs.writeFile(tempPath, data, { mode: options.mode ?? 0o640 });
-    await fs.rename(tempPath, filePath);
+    // Windows can briefly deny replacement while a reader/scanner holds the target.
+    // Retry the same completed temp file; never repeat the upstream operation.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await fs.rename(tempPath, filePath);
+        break;
+      } catch (error) {
+        if (process.platform !== 'win32' || error.code !== 'EPERM' || attempt >= 4) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+      }
+    }
   } catch (error) {
     await fs.rm(tempPath, { force: true }).catch(() => {});
     throw error;

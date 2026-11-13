@@ -6,7 +6,10 @@ After=network.target
 Type=simple
 WorkingDirectory=/opt/image-agent-studio
 Environment=NODE_ENV=production
-Environment=STUDIO_AUTH_MODE=standalone
+Environment=STUDIO_AUTH_MODE=gateway
+Environment=STUDIO_GATEWAY_TYPE=sub2api
+Environment=STUDIO_GATEWAY_AUTH=api-key
+Environment=AI_GATEWAY_BASE_URL=
 Environment=STUDIO_AUTH_DB_PATH=/var/lib/image-agent-studio/auth.sqlite
 Environment=STUDIO_AUTH_PASSWORD_MIN_LENGTH=8
 Environment=STUDIO_AUTH_PASSWORD_ITERATIONS=600000

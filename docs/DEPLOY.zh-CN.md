@@ -1,23 +1,23 @@
 # 部署指南
 
-这份指南面向 Image Agent Studio 自托管版本。它是一个独立创作工作站，不依赖某一个反代或网关；Sub2API、NewAPI、官方 API、自定义 OpenAI 兼容接口都只是可选接入方式。
+这份指南面向 Image Agent Studio 自托管部署。新安装推荐使用 [Docker 轻量接入](./DOCKER.zh-CN.md)：配置 Sub2API 或 New API 的地址，使用者填入自己的 API Key 即可进入工作台。默认不构建管理后台，不启用 Studio 注册、充值或账号数据库；任务、历史和资产持久化服务仍保留。
 
 仓库提供三块能力：
 
 - 静态创作工作台：`studio.html` 和前端资源。
-- Provider 接入：图片生成、图片编辑、提示词助手、模型同步，以及可选登录、用户资料和 Key 列表。
+- 网关接入：服务端校验凭据、同步模型、调用图片/视频生成与提示词助手。账号、额度和扣费由网关管理；可选账号令牌模式用于保持跨 Key 的用户身份。
 - 历史/会话服务：保存历史图库、当前画布会话、队列任务和生成结果资产。
 
 生产环境建议启用 Node 历史/会话服务。请把 `STUDIO_DATA_DIR` 指到持久目录，例如 `/var/lib/image-agent-studio`。如果这个目录放在临时目录或容器内部，刷新恢复、跨浏览器恢复和历史图库都会在重建后丢失。
 
 ## 1. 准备环境
 
-- Node.js 20 或更高版本。
+- Node.js 22.12 或更高版本；以下源码运行方式需要自行维护 Node，Docker 则使用镜像中的运行时。
 - 一个可访问的图片生成接口：官方 OpenAI 风格 API、NewAPI 兼容部署、Sub2API 兼容部署、自定义 OpenAI 兼容网关，或其他后续适配器。
 - 可选：Nginx、Docker 或其他静态站点托管方式。
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local
 ```
 
@@ -29,19 +29,16 @@ Copy-Item .env.example .env.local
 
 ## 2. 本地运行
 
+先在 `.env.local` 中填写前端开关（示例默认已启用同源服务），然后在一个终端启动持久化服务：
+
 ```bash
-npm run dev:studio
+STUDIO_AUTH_MODE=gateway STUDIO_GATEWAY_TYPE=sub2api STUDIO_GATEWAY_AUTH=api-key \
+  AI_GATEWAY_BASE_URL=https://gateway.example.com npm run history:service
 ```
 
-Vite 输出本地地址后打开 `/studio.html`。
+PowerShell 中分别设置上述 `$env:变量名` 后运行 `npm run history:service`。New API 将 `STUDIO_GATEWAY_TYPE` 改为 `newapi`。Node 服务的运行变量使用进程环境，不会自动读取 Vite 的 `.env.local`。
 
-本地测试真实网关时可配置：
-
-```env
-VITE_DEV_AI_GATEWAY_PROXY_TARGET=https://gateway.example.com
-```
-
-这样本地 `/v1`、`/api`、`/login` 会代理到你的网关域名，避免浏览器 CORS。
+另一个终端运行 `npm run dev:studio`，打开 `/studio.html`。Vite 默认把 `/studio-api` 代理到本地8787端口；浏览器不需要跨域访问网关。旧直连调试才使用 `VITE_DEV_AI_GATEWAY_PROXY_TARGET`。
 
 ## 3. 生产构建
 
@@ -54,15 +51,13 @@ npm run build
 `/studio/` 子路径：
 
 ```bash
-STUDIO_BASE_PATH=/studio/ npm run build
+npm run build:studio
 ```
 
 Windows PowerShell：
 
 ```powershell
-$env:STUDIO_BASE_PATH="/studio/"
-npm run build
-Remove-Item Env:\STUDIO_BASE_PATH
+npm run build:studio
 ```
 
 构建产物在 `dist/`，不要提交到 GitHub。
@@ -83,7 +78,9 @@ Remove-Item Env:\STUDIO_BASE_PATH
 sudo git clone https://github.com/margetrp-hub/image-agent-studio.git \
   /opt/image-agent-studio-repo
 
-sudo bash /opt/image-agent-studio-repo/deploy/install.sh
+sudo AI_GATEWAY_BASE_URL=https://gateway.example.com \
+  STUDIO_GATEWAY_TYPE=sub2api STUDIO_GATEWAY_AUTH=api-key \
+  bash /opt/image-agent-studio-repo/deploy/install.sh
 ```
 
 后续更新：
@@ -93,7 +90,16 @@ cd /opt/image-agent-studio-repo
 sudo bash deploy/upgrade.sh
 ```
 
-手动安装 systemd 时使用：
+在 `/etc/image-agent-studio.env` 持久保存网关配置，后续升级也使用同一配置：
+
+```env
+STUDIO_AUTH_MODE=gateway
+STUDIO_GATEWAY_TYPE=sub2api
+STUDIO_GATEWAY_AUTH=api-key
+AI_GATEWAY_BASE_URL=https://gateway.example.com
+```
+
+手动安装 systemd 时先准备上述文件，再使用：
 
 ```bash
 sudo cp /opt/image-agent-studio/deploy/image-agent-studio-history.service \
@@ -106,8 +112,6 @@ curl http://127.0.0.1:8787/studio-api/health
 把 `deploy/nginx-image-agent-studio.conf` 合并到 Nginx server block，并替换：
 
 - `studio.example.com`：Studio 域名。
-- `gateway.example.com`：Provider 或网关域名。
-- `127.0.0.1:8080`：Provider upstream。
 - `/var/www/image-agent-studio/`：实际静态目录。
 
 验证并重载：
@@ -118,6 +122,8 @@ sudo systemctl reload nginx
 ```
 
 ## 5. 旧 VPS 兼容部署
+
+已有 Studio 独立账号的部署需显式保留 `STUDIO_AUTH_MODE=standalone`、`VITE_STUDIO_STANDALONE=true` 和原数据目录；不要直接切换身份体系。切换到网关前先以原账号导出个人备份，再以新身份恢复。旧配置只用于迁移兼容，两种部署仍维护在同一仓库。
 
 如果线上已经使用旧目录，可以继续保留：
 
@@ -153,6 +159,7 @@ Docker 形态包含两个容器：
 
 ```bash
 cp .env.example .env
+# 编辑 .env：填写 AI_GATEWAY_BASE_URL，选择 STUDIO_GATEWAY_TYPE。
 npm run check:docker
 docker compose up --build -d
 npm run ops:self-check
@@ -167,13 +174,13 @@ http://localhost:8080/studio/
 如果 OpenAI 兼容网关在宿主机 `127.0.0.1:8080`：
 
 ```env
-AI_GATEWAY_UPSTREAM=http://host.docker.internal:8080
+AI_GATEWAY_BASE_URL=http://host.docker.internal:8080
 ```
 
 远程网关：
 
 ```env
-AI_GATEWAY_UPSTREAM=https://gateway.example.com
+AI_GATEWAY_BASE_URL=https://gateway.example.com
 ```
 
 更多见 [Docker 生产部署](./DOCKER.zh-CN.md)。
@@ -204,7 +211,7 @@ AI_GATEWAY_UPSTREAM=https://gateway.example.com
 
 ## 9. 可选网关合约检查
 
-账号型 OpenAI 兼容网关可以运行：
+旧 Sub2API 账号协议可以运行（此脚本不代表 New API 账号适配验收）：
 
 ```bash
 AI_GATEWAY_BASE_URL=https://gateway.example.com \

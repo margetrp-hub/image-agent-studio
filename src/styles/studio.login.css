@@ -191,3 +191,10 @@ button, input { font: inherit; }
   background: var(--ias-accent-strong);
   border-color: var(--ias-accent-strong);
 }
+.studioLoginShell.isGatewayLogin .studioLoginAside { min-height: 360px; }
+.studioLoginShell.isGatewayLogin .studioLoginContent { display: grid; align-content: center; }
+@media (max-width: 720px) {
+  .studioLoginShell.isGatewayLogin .studioLoginAside { min-height: 0; padding: 24px; }
+  .studioLoginShell.isGatewayLogin .studioLoginIntro { margin-top: 28px; }
+  .studioLoginShell.isGatewayLogin .studioLoginContent { padding: 24px; }
+}

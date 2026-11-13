@@ -37,3 +37,10 @@ GET  /v1/video/generations/{id}
 - Empty model list: check channel permission, model mapping, upstream health, and whether the public endpoint really exposes `/v1/models`.
 - A discovered model is not selectable: add or correct its server-side invocation adapter and protocol contract; do not force it through a generic endpoint.
 - Requests reaching `/v1/responses` during normal text-to-image: verify provider dispatch with `npm run check:providers` and `npm run check:provider-protocols`.
+## Gateway account and API key entry
+
+The default Docker runtime has no Studio account/admin system. Set `AI_GATEWAY_BASE_URL` to the New API site root, `STUDIO_GATEWAY_TYPE=newapi`, and keep `STUDIO_GATEWAY_AUTH=api-key`. The connection page validates an inference key through `/v1/models`, then scopes Studio history to that key. The gateway owns quota and charging.
+
+For account-scoped history, set `STUDIO_GATEWAY_AUTH=account`. Users supply an account access token and their New API user ID; the service verifies `/api/user/self` with `New-Api-User`, lists `/api/token/`, and reads the selected key using `POST /api/token/:id/key`. Masked list keys are never sent as model credentials. No gateway key is automatically created. Access-token policies vary by gateway version; missing permissions are shown as connection errors. Use API-key entry when the account token cannot read inference keys.
+
+Upstream contract references: [New API routes](https://github.com/QuantumNous/new-api/blob/main/router/api-router.go), [token controller](https://github.com/QuantumNous/new-api/blob/main/controller/token.go). The connector tests both families against isolated HTTP fixtures; live gateway credentials and paid requests are outside that verification.

@@ -1,5 +1,11 @@
 # Image Agent Studio
 
+默认采用无管理后台的轻量部署：账号、API Key、额度与扣费归 Sub2API / New API，Studio 保留创作界面、任务队列、历史和图片资产。沿用一个仓库、一套核心代码。
+
+快速开始：复制 `.env.example` 为 `.env`，设置 `AI_GATEWAY_BASE_URL` 为网关站点根地址，选择 `STUDIO_GATEWAY_TYPE=sub2api` 或 `newapi`，运行 `docker compose up --build -d`，打开 `http://localhost:8080/studio/`，填自己的 API Key 即可。无需创建 Studio 管理员或配置共享模型 Key。
+
+默认按 Key 隔离历史；Key 只保留在浏览器当前标签页会话，关闭后重新连接即可找回服务端历史。换 Key 前导出个人备份，连接新 Key 后恢复。已有站点可选 `STUDIO_GATEWAY_AUTH=account`，使用网关账号身份保存历史，详见 [Docker 部署](docs/DOCKER.zh-CN.md)。旧 standalone 数据不自动迁移，升级前保留明确配置与备份。
+
 我做 Image Agent Studio，是因为生图工作流很容易被拆散：提示词在一个地方，参考图在另一个地方，参数藏在请求里，生成结果刷新后又可能丢，上下文和分支关系也很难追。
 
 这个项目想把这些东西放回一个稳定工作区：写需求、挂参考图、选模型路线、生成或编辑、把结果留在画布上，并且能从任意一张图继续往下做，不丢提示词、Mask、参数、分支和历史。
@@ -29,7 +35,7 @@ Go 迁移期间，根目录 Web 应用和 Node Studio 服务仍是兼容现有�
 - 提示词助手使用 `POST /v1/chat/completions`。
 - `xai-compatible` 适配器支持持久化的 base64 图片结果和异步视频轮询，但不改变工作站本身的接口边界。
 - `/v1/responses` 只作为显式兼容路径，不是默认生图路线。
-- Docker 默认使用工作站自有账号体系；已有账号系统的部署仍可使用网关鉴权。
+- Docker 默认使用网关鉴权，不启用工作站注册、充值和管理后台；原 standalone 配置仅保留升级兼容。
 - 会话、生成任务、历史记录和生成资产通过 Studio API 保存，现有部署可在刷新或服务重启后恢复工作状态。
 - 历史图库、模板库和灵感库采用分批渲染，降低大量图片同时进入浏览器的压力。
 - 旧的 `VITE_SUB2API_*`、`SUB2API_*`、进程名和数据目录只在兼容旧部署时保留。

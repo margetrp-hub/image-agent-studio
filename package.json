@@ -69,7 +69,7 @@
     "smoke:history": "npm exec --yes --package=playwright -- node scripts/smoke-history-session.mjs",
     "smoke:session:isolation": "node scripts/smoke-session-isolation.mjs",
     "smoke:history:idb": "npm exec --yes --package=playwright -- node scripts/smoke-history-indexeddb.mjs",
-    "smoke:gateway:auth": "node scripts/smoke-gateway-auth-service.mjs",
+    "smoke:gateway:auth": "node --test scripts/studio-service/jsonFiles.test.mjs && node scripts/smoke-gateway-auth-service.mjs && node scripts/smoke-gateway-connect.mjs",
     "smoke:standalone:service": "node scripts/smoke-standalone-service.mjs",
     "smoke:provider-protocols": "node scripts/smoke-provider-protocol-service.mjs",
     "smoke:projects": "npm exec --yes --package=playwright -- node scripts/smoke-project-session-grouping.mjs",

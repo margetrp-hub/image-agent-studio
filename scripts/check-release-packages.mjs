@@ -8,6 +8,7 @@ import { checkPublicData } from './check-public-data.mjs';
 const root = process.cwd();
 const releaseDir = path.join(root, 'release');
 const failures = [];
+const standalone = String(process.env.VITE_STUDIO_STANDALONE || 'false').toLowerCase() === 'true';
 const legacyReleasePatterns = [
   /^image-sub2api-studio-(core|service)-update-.*\.zip$/,
   /^ai-image-workbench-(core|service)-update-.*\.zip$/
@@ -78,6 +79,9 @@ function assertPair(kind, requiredEntries) {
   }
 
   if (kind === 'core') {
+    if (entries.has('admin.html') !== standalone) {
+      fail(`${path.basename(pkg.file)}: admin.html must be included only for an explicit VITE_STUDIO_STANDALONE=true build.`);
+    }
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `image-agent-studio-${kind}-${pkg.stamp}-`));
     try {
       extractZip(pkg.file, tempDir);
@@ -95,7 +99,6 @@ assertNoLegacyPackages();
 assertPair('core', [
   'index.html',
   'studio.html',
-  'admin.html',
   'login.html',
   'studio-assets/',
   'cases.json',
@@ -111,6 +114,7 @@ assertPair('service', [
   'scripts/image-sub2api-studio-history-service.mjs',
   'scripts/create-standalone-admin.mjs',
   'scripts/studio-service/standaloneAuth.js',
+  'scripts/studio-service/gatewayAuth.js',
   'scripts/studio-service/platformProviders.js',
   'scripts/studio-service/userBackup.js',
   'scripts/studio-service/userStorage.js',

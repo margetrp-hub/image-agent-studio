@@ -425,3 +425,5 @@ html[lang="en"] .settingsDialog .providerSettingsGroup > span::after {
     height: 92px;
   }
 }
+.settingsTitle h2 { font-weight: 650; line-height: 1.35; }
+.settingsDialog :is(label, .settingsGroup > span) { font-weight: 600; }

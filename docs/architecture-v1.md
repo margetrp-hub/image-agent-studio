@@ -6,7 +6,7 @@ This is the canonical architecture document for Image Agent Studio. Other README
 
 Image Agent Studio is an independent creation workstation for image and video workflows. It keeps briefs, prompts, references, projects, visual branches, task state, history, and durable assets in one workspace.
 
-The workstation owns its user accounts and an optional platform credit ledger. It does not own upstream model serving, provider account pools or upstream monetary billing. OpenAI-compatible APIs, NewAPI, Sub2API, xAI-compatible services, and future integrations connect through provider adapters. Adapter names describe transport and capability differences; they do not define the product.
+The default deployment delegates credentials, accounts, quota and billing to a configured Sub2API or New API gateway. Studio owns creation tasks, history and private assets; it does not construct a user database, credit ledger or admin console in this mode. API-key entry scopes a workspace to a verified key; optional account entry scopes it to a gateway-verified identity. Existing Studio-owned accounts and the optional credit ledger remain available only through explicit standalone configuration for migration compatibility. OpenAI-compatible APIs and other integrations retain their existing provider adapters.
 
 Image Agent Canvas is a separate Codex plugin and a separate repository. This repository does not own its MCP server, tldraw runtime, Codex plugin manifest, or project-level plugin storage. The two products may exchange stable assets and prompt/workflow contracts later, but neither is packaged inside the other.
 
@@ -16,7 +16,7 @@ The repository is in a staged migration. The following distinctions are intentio
 
 ### Working compatibility runtime
 
-The root web application and Node Studio service remain the production-compatible path. They currently own the established generation flow, session/history compatibility, queue execution, generated asset handling, deployment scripts, and existing data layouts. The standalone admin console also manages encrypted platform suppliers, model publication and per-operation credit pricing in the existing SQLite account database. This billing authority has not moved into the Go provider-link store.
+The root web application and Node Studio service remain the production-compatible path. They own the established generation flow, session/history compatibility, queue execution, generated asset handling, deployment scripts, and existing data layouts. New deployments use same-origin gateway connection, model sync, prompt helpers and persistent generation jobs. The standalone admin console and SQLite account database are omitted from the default build/runtime and retained only for explicit legacy deployments. No account data is automatically remapped when authentication mode changes; export/import is the supported manual transition.
 
 ### Implemented Go foundations
 
