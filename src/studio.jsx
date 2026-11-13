@@ -4597,13 +4597,10 @@ function CreationDesk({
                   </button>
                 </div>
                 </section>
-                <section className="singleGenerationPanel singleStatusPanel">
+                {(isGenerating || message || timing) ? <section className="singleGenerationPanel singleStatusPanel">
                   <div className="singleGenerationHead">
                     <div>
                       <strong>{t('single.statusTitle', '生成状态')}</strong>
-                      <span>{STUDIO_STANDALONE
-                        ? t('single.serverGeneration', '图片生成')
-                        : (timing?.routeLabel || confirmTaskRouteLabel || composerRouteLabel)}</span>
                     </div>
                     {isGenerating ? (
                       <button type="button" onClick={stopGeneration}>
@@ -4615,7 +4612,7 @@ function CreationDesk({
                   <ProgressBar progress={progress} active={status === 'loading' || status === 'success' || progress.stage === 'failed' || progress.stage === 'pending_review'} t={t} />
                   <GenerationTimingPanel timing={timing} t={t} />
                   {message ? <p className={`singleStatusLine ${status}`}>{message}</p> : null}
-                </section>
+                </section> : null}
               </div>
               <div className="singleGenerationSide">
                 <section className={`singleGenerationPanel singleLatestResult ${hasPrimaryResult ? 'hasResult' : ''}`}>

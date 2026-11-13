@@ -1,13 +1,13 @@
 @media (max-width: 720px) {
   .settingsOverlay {
-    padding: 6px;
-    place-items: start center;
+    padding: 12px;
+    place-items: center;
   }
 
   .settingsDialog {
-    width: min(100%, calc(100vw - 12px)) !important;
-    max-height: calc(100dvh - 12px) !important;
-    padding: 10px !important;
+    width: min(100%, calc(100vw - 24px)) !important;
+    max-height: calc(100dvh - 24px) !important;
+    padding: 14px !important;
     border-radius: var(--studio-radius-card, 16px) !important;
   }
 
@@ -20,8 +20,8 @@
   }
 
   .settingsDialog .iconButton {
-    width: 34px;
-    min-height: 34px;
+    width: 44px;
+    min-height: 44px;
     border-radius: 12px;
   }
 
@@ -32,9 +32,9 @@
   }
 
   .settingsActions {
-    bottom: -10px;
-    margin: 8px -10px -10px;
-    padding: 8px 10px 9px;
+    bottom: -14px;
+    margin: 8px -14px -14px;
+    padding: 12px 14px;
   }
 
   .settingsCallConfigHead {

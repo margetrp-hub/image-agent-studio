@@ -31,3 +31,7 @@ body textarea,
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
+
+.singleGenerationHead strong, .settingsTitle h2 { font-weight: 650; line-height: 1.35; }
+.settingsDialog :is(label, .settingsGroup > span) { font-weight: 600; }
+.singleGenerationWorkspace :is(input, select, textarea) { font-size: 14px; }

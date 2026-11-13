@@ -114,18 +114,19 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 12%, transparent);
 }
 
-.providerLibrarySearch input {
+.settingsDialog .providerLibrarySearch input {
   min-width: 0;
   height: 34px;
   padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.providerLibrarySearch input:focus {
-  border: 0;
-  box-shadow: none;
+.settingsDialog .providerLibrarySearch input:focus {
+  outline: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .providerLibraryList {

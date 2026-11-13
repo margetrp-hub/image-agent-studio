@@ -42,10 +42,9 @@ main [role="button"]:focus-visible,
 .sideUploadDrop:focus-within,
 .referencePreviewButton:focus-visible,
 .resultPreviewButton:focus-visible {
-  outline: 0 !important;
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--studio-primary) 20%, transparent),
-    0 10px 26px rgba(15, 23, 42, 0.12) !important;
+  outline: 2px solid var(--studio-primary) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-primary) 14%, transparent) !important;
 }
 
 main button:not(:disabled):active,
@@ -70,11 +69,10 @@ main [role="button"]:active,
 .maskGenerateButton:not(:disabled),
 .canvasInlineGenerate:not(:disabled) {
   border-color: transparent !important;
-  background:
-    linear-gradient(135deg, var(--studio-primary), color-mix(in srgb, var(--studio-primary) 74%, #047e77)) !important;
+  background: var(--studio-primary) !important;
   color: #fff !important;
   box-shadow:
-    0 14px 32px color-mix(in srgb, var(--studio-primary) 24%, transparent),
+    0 2px 6px color-mix(in srgb, var(--studio-primary) 16%, transparent),
     0 1px 0 color-mix(in srgb, #fff 34%, transparent) inset !important;
 }
 
@@ -86,10 +84,10 @@ main [role="button"]:active,
 .paramDrawerGenerate:not(:disabled):hover,
 .maskGenerateButton:not(:disabled):hover,
 .canvasInlineGenerate:not(:disabled):hover {
-  transform: translateY(-2px) !important;
-  filter: saturate(1.08) brightness(1.02) !important;
+  transform: none !important;
+  filter: brightness(0.96) !important;
   box-shadow:
-    0 18px 42px color-mix(in srgb, var(--studio-primary) 30%, transparent),
+    0 3px 8px color-mix(in srgb, var(--studio-primary) 18%, transparent),
     0 1px 0 color-mix(in srgb, #fff 42%, transparent) inset !important;
 }
 
@@ -119,7 +117,7 @@ main [role="button"]:active,
     linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 94%, transparent), color-mix(in srgb, var(--studio-surface-soft) 78%, transparent)) !important;
   color: var(--studio-text-strong) !important;
   box-shadow:
-    0 7px 18px rgba(15, 23, 42, 0.055),
+    0 1px 3px rgba(15, 23, 42, 0.05),
     0 1px 0 color-mix(in srgb, #fff 68%, transparent) inset !important;
 }
 
@@ -144,13 +142,13 @@ main [role="button"]:active,
 .settingsActions button:not(:disabled):hover,
 .promptSuggestionActions button:not(:disabled):hover,
 .maskToolbar button:not(:disabled):hover {
-  transform: translateY(-1px) !important;
+  transform: none !important;
   border-color: color-mix(in srgb, var(--studio-primary) 38%, var(--studio-border)) !important;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--studio-primary) 9%, var(--studio-surface-strong)), color-mix(in srgb, var(--studio-primary) 6%, var(--studio-surface-soft))) !important;
   color: var(--studio-primary) !important;
   box-shadow:
-    0 12px 28px rgba(15, 23, 42, 0.09),
+    0 2px 5px rgba(15, 23, 42, 0.06),
     0 0 0 1px color-mix(in srgb, var(--studio-primary) 9%, transparent) inset !important;
 }
 
@@ -210,7 +208,7 @@ main [role="button"]:active,
   border-color: color-mix(in srgb, var(--studio-primary) 28%, transparent) !important;
   background: color-mix(in srgb, var(--studio-primary) 10%, var(--studio-surface-strong)) !important;
   color: var(--studio-primary) !important;
-  box-shadow: 0 7px 18px color-mix(in srgb, var(--studio-primary) 12%, transparent) !important;
+  box-shadow: none !important;
 }
 
 .sideProjectOpen:not(:disabled),

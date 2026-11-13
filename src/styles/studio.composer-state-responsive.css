@@ -103,16 +103,16 @@
   border-color: color-mix(in srgb, var(--studio-primary) 44%, var(--studio-border));
   background: color-mix(in srgb, var(--studio-primary) 7%, var(--studio-surface));
   color: var(--studio-text-strong);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--studio-primary) 10%, transparent);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--studio-primary) 8%, transparent);
+  transform: none;
 }
 
 .singleGenerationWorkspace .singleActionBar .singleGenerateButton {
   border-color: transparent;
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--studio-primary) 19%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--studio-primary) 16%, transparent);
 }
 
 .singleGenerationWorkspace .singleActionBar .singleGenerateButton:hover:not(:disabled) {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--studio-primary) 92%, #fff 8%), color-mix(in srgb, var(--studio-accent) 88%, #fff 12%));
+  background: var(--studio-primary-strong);
   color: #fff;
 }
