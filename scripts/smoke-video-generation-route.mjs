@@ -186,6 +186,8 @@ try {
   assert(!/[\u3400-\u9fff]/.test(videoOptionText), 'English video options must not contain Chinese UI labels.', { videoOptions });
   await fillGenerationPrompt(page, 'Five second product video, slow push-in camera, clean studio light, no captions.');
   await clickGenerate(page);
+  const confirmation = await page.locator('.generationConfirmDialog').innerText();
+  assert(confirmation.includes('/v1/video/generations'), 'Video confirmation did not expose the concrete video route.', { confirmation });
   await page.locator('.generationConfirmPrimary').click();
   await page.waitForFunction(() => (
     document.querySelectorAll('.resultGrid video, .canvasNode video').length >= 1
@@ -199,8 +201,7 @@ try {
     sessionSecret: sessionStorage.getItem(manualSecretKey) || '',
     hasSecretInDom: document.body.innerText.includes(fakeSecret),
     canvasVideos: document.querySelectorAll('.canvasNode video').length,
-    resultVideos: document.querySelectorAll('.resultGrid video, .canvasNode video').length,
-    routeLabel: document.body.innerText.includes('/v1/video/generations')
+    resultVideos: document.querySelectorAll('.resultGrid video, .canvasNode video').length
   }), { providerSettingsKey, manualSecretKey, fakeSecret });
   result.browserErrors = browserErrors;
   result.failedRequests = failedRequests;
@@ -217,7 +218,6 @@ try {
   assert(requests.imageGenerations.length === 0, 'Video generation must not call /v1/images/generations.', { requests, result });
   assert(requests.responses.length === 0, 'Video generation must not call /v1/responses.', { requests, result });
   assert(result.resultVideos >= 1, 'Successful video generation did not render a video result.', result);
-  assert(result.routeLabel, 'Video confirmation/status did not expose the concrete video route.', result);
   assert(!result.persistedSettings.includes(fakeSecret), 'Manual API key leaked into localStorage during video generation.', result);
   assert(result.sessionSecret === fakeSecret, 'Manual API key was not retained in sessionStorage.', result);
   assert(!result.hasSecretInDom, 'Manual API key leaked into visible page text.', result);

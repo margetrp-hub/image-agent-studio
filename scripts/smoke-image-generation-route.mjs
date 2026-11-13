@@ -175,7 +175,7 @@ try {
     return {
       resultBottomGap: shell && result ? shell.bottom - result.bottom : 999,
       controlBottomGap: shell && control ? shell.bottom - control.bottom : 999,
-      statusHeight: status?.height || 999
+      hasStatusPanel: Boolean(status)
     };
   });
   await page.screenshot({ path: idleScreenshotPath });
@@ -288,7 +288,7 @@ try {
   assert(singleLayout.resultSidePanels === 1, 'The right side should contain only the result panel.', singleLayout);
   assert(!singleLayout.workspaceScrolls, 'Desktop single-generation workspace should fit without whole-page vertical scrolling.', singleLayout);
   assert(Math.abs(idleLayout.resultBottomGap) <= 2 && Math.abs(idleLayout.controlBottomGap) <= 2, 'Idle single-generation columns should fill the workspace instead of leaving a blank footer.', idleLayout);
-  assert(idleLayout.statusHeight < 100, 'The idle status panel should stay content-sized instead of becoming an empty filler card.', idleLayout);
+  assert(!idleLayout.hasStatusPanel, 'An idle workspace should not show an empty generation status panel.', idleLayout);
   assert(!singleLayout.controlColumnScrolls, 'Desktop single-generation controls should fit without an internal scrollbar at the reference viewport.', singleLayout);
   assert(singleLayout.formHeight >= singleLayout.formScrollHeight - 1, 'The single-generation form clipped its own content.', singleLayout);
   assert(singleLayout.statusTop >= singleLayout.formBottom, 'The generation status overlapped the single-generation form.', singleLayout);

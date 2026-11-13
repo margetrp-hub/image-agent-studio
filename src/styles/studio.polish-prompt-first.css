@@ -470,7 +470,7 @@
 .railAvatar {
   width: 34px;
   height: 34px;
-  background: linear-gradient(135deg, #d9b686, #eef4f3);
+  background: var(--studio-surface-soft);
   color: var(--studio-text-strong);
   font-size: 12px;
 }
