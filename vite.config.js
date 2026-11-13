@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
@@ -42,7 +42,16 @@ export default defineConfig(({ mode }) => {
   base: process.env.STUDIO_BASE_PATH || process.env.VITE_BASE_PATH,
   plugins: [react()],
   publicDir: 'public',
-  server: { proxy: devProxy },
+  server: {
+    proxy: devProxy,
+    // Runtime and QA data are not source. Watching them can hold Windows
+    // directory handles across backup restore renames and trigger spurious HMR.
+    watch: {
+      ignored: ['tmp', 'output', 'release', 'data', '.image-sub2api-studio-data',
+        '.ohlaoo-studio-data', '.tmp-history-test']
+        .map((directory) => `${normalizePath(resolve(import.meta.dirname, directory))}/**`)
+    }
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
