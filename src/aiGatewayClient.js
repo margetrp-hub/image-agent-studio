@@ -484,13 +484,15 @@ export function isEmbeddedStudioLaunch() {
 
 let authorizedBootstrap;
 export async function bootstrapEmbeddedSession() {
-  if (!STUDIO_STANDALONE) return null;
+  if (!STUDIO_STANDALONE && !STUDIO_GATEWAY_PROXY) return null;
   // Share one exchange across React effect restarts; never create two sessions for one click.
   if (authorizedBootstrap) return authorizedBootstrap;
   if (authorizedLaunchParams()) {
     authorizedBootstrap = receiveAuthorizedLaunch(exchangeEmbeddedSession);
     return authorizedBootstrap;
   }
+  // Gateway embedding only accepts the exact-frame handshake, never URL credentials.
+  if (STUDIO_GATEWAY_PROXY) return null;
   const launch = embeddedLaunchParams();
   if (!launch) return null;
   clearEmbeddedLaunchParams();
@@ -505,8 +507,8 @@ async function exchangeEmbeddedSession(launch, signal) {
     signal
   });
   const data = await readJsonResponse(response);
-  const session = sessionFromAuthResponse(data);
-  if (!session.accessToken) throw new Error('EMBED_SESSION_TOKEN_MISSING');
+  const session = STUDIO_GATEWAY_PROXY ? data.session : sessionFromAuthResponse(data);
+  if (!session?.accessToken) throw new Error('EMBED_SESSION_TOKEN_MISSING');
   if (signal?.aborted) throw new Error('AUTHORIZATION_CANCELLED');
   saveSession(session);
   return session;

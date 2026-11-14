@@ -644,22 +644,33 @@ async function embeddedGatewayUser(token) {
 }
 
 async function handleEmbeddedAuthRoute(req, res, parts) {
-  if (AUTH_MODE !== 'standalone' || !standaloneAuthStore) {
+  const gatewayEmbedded = AUTH_MODE === 'gateway' && gatewayAuth.config.type === 'sub2api' && gatewayAuth.config.credentialMode === 'account';
+  if (!gatewayEmbedded && (AUTH_MODE !== 'standalone' || !standaloneAuthStore)) {
     return sendJson(res, 404, { ok: false, error: 'NOT_FOUND' });
   }
 
   const body = await readJsonBody(req, Math.max(1024, Number(AUTH_LOGIN_MAX_BODY_BYTES) || 16 * 1024));
   const parentOrigin = String(body.parentOrigin || '').trim().replace(/\/+$/, '');
-  if (STUDIO_EMBED_ORIGINS.length && !STUDIO_EMBED_ORIGINS.includes(parentOrigin)) {
+  if ((gatewayEmbedded || STUDIO_EMBED_ORIGINS.length) && !STUDIO_EMBED_ORIGINS.includes(parentOrigin)) {
     const error = new Error('EMBED_ORIGIN_NOT_ALLOWED');
     error.status = 403;
     throw error;
   }
-  const token = text(body.token, 512);
-  if (!token) {
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  if (!token || token.length > 4096) {
     const error = new Error('EMBED_TOKEN_REQUIRED');
     error.status = 401;
     throw error;
+  }
+
+  if (gatewayEmbedded) {
+    const user = await gatewayAuth.profile(token);
+    res.setHeader('Cache-Control', 'no-store');
+    return sendJson(res, 200, { ok: true, session: {
+      accessToken: token, user, gatewayType: gatewayAuth.config.type,
+      credentialMode: gatewayAuth.config.credentialMode,
+      gatewayBaseUrl: gatewayAuth.config.gatewayBaseUrl, gatewaySiteUrl: gatewayAuth.config.siteUrl
+    } });
   }
 
   const external = await embeddedGatewayUser(token);

@@ -1,0 +1,87 @@
+name: Publish matching lite edition
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing published release tag; blank only verifies and uploads an Actions artifact'
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: studio-lite-${{ inputs.release_tag || github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name || '' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.release_tag || github.event.release.tag_name || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify gateway identity, isolation, tasks and release recovery
+        run: |
+          node --test src/studio/auth/authorizedLaunch.test.mjs scripts/publish-lite.test.mjs
+          node scripts/smoke-gateway-connect.mjs
+      - name: Package the lite edition from this exact source
+        run: node scripts/package-lite.mjs
+      - name: Check deployment configuration
+        run: |
+          mkdir -p output/lite-check
+          tar -xzf output/lite/image-agent-studio-lite-*.tar.gz -C output/lite-check
+          AI_GATEWAY_BASE_URL=https://gateway.example.com docker compose -f output/lite-check/compose.yml config --quiet
+          test ! -e output/lite-check/dist/admin.html
+      - name: Start the extracted package and verify public boundaries
+        env:
+          AI_GATEWAY_BASE_URL: https://gateway.example.com
+        run: |
+          docker compose -p studio-lite-verification -f output/lite-check/compose.yml up --build -d --wait
+          curl --retry 5 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8080/studio/ > /dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/studio/admin.html)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/studio-api/auth/admin/users)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{}' http://127.0.0.1:8080/studio-api/auth/register)" = 404
+      - name: Stop the isolated package check
+        if: always()
+        env:
+          AI_GATEWAY_BASE_URL: https://gateway.example.com
+        run: |
+          if test -f output/lite-check/compose.yml; then
+            docker compose -p studio-lite-verification -f output/lite-check/compose.yml logs --tail 30
+            docker compose -p studio-lite-verification -f output/lite-check/compose.yml down --volumes
+          fi
+      - name: Publish and verify assets on the same release
+        if: env.RELEASE_TAG != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/publish-lite.mjs image-agent-studio
+      - name: Keep a verification package for manual runs without a release
+        if: env.RELEASE_TAG == ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-lite-verification-${{ github.sha }}
+          path: |
+            output/lite/*.tar.gz
+            output/lite/*.json
+            output/lite/*.sha256
+          if-no-files-found: error
+          retention-days: 3

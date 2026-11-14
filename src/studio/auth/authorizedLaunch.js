@@ -11,7 +11,7 @@ export function authorizedLaunchParams(host = window) {
   return { state, parentOrigin };
 }
 
-/** The existing server exchange still owns identity validation and session issuance. */
+/** The server verifies identity; gateway mode retains the upstream session. */
 export function receiveAuthorizedLaunch(exchange, host = window) {
   const launch = authorizedLaunchParams(host);
   const source = host.parent && host.parent !== host ? host.parent : host.opener;

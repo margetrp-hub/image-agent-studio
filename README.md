@@ -12,6 +12,8 @@ Demo: [studio.ohlao.cfd/studio/](https://studio.ohlao.cfd/studio/)
 
 Chinese README: [README.zh-CN.md](./README.zh-CN.md)
 
+Each published release automatically builds a matching lite bundle: prebuilt UI plus the necessary task service, with identity and billing owned by your gateway. See [lite releases](docs/LITE-RELEASE.md) for downloads, verification and retry behavior.
+
 ## Community
 
 If you are exploring AI image workflows, OpenAI-compatible image endpoints, gateway deployment, model routing, prompt workflows, or future workstation improvements, you are welcome to join the QQ group: `260789529`.

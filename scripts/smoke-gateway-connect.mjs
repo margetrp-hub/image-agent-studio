@@ -60,7 +60,8 @@ async function startService(type, credentialMode, configured = true) {
     cwd: root,
     env: { ...process.env, PORT: '0', STUDIO_HISTORY_HOST: '127.0.0.1', STUDIO_AUTH_MODE: 'gateway',
       AI_GATEWAY_BASE_URL: configured ? gatewayUrl : '', SUB2API_BASE_URL: '', STUDIO_GATEWAY_TYPE: type,
-      STUDIO_GATEWAY_AUTH: credentialMode, STUDIO_DATA_DIR: dataDir, STUDIO_ALLOWED_ORIGINS: 'http://127.0.0.1', STUDIO_VIDEO_POLL_INTERVAL_MS: '100' },
+      STUDIO_GATEWAY_AUTH: credentialMode, STUDIO_DATA_DIR: dataDir, STUDIO_ALLOWED_ORIGINS: 'http://127.0.0.1',
+      STUDIO_EMBED_ORIGINS: 'https://sub.example.invalid', STUDIO_VIDEO_POLL_INTERVAL_MS: '100' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let output = '';
@@ -104,6 +105,23 @@ try {
         const me = await api(service, '/gateway/auth/me', token, undefined, userId);
         assert.equal(me.status, 200);
         assert.equal(me.body.data.secret_field, undefined);
+        const embed = (token, parentOrigin = 'https://sub.example.invalid') => api(service, '/auth/embedded', '', { token, parentOrigin });
+        if (type === 'sub2api' && mode === 'account') {
+          assert.equal((await embed(token, 'https://wrong.example.invalid')).status, 403);
+          assert.equal((await embed('invalid')).status, 401);
+          state.unavailable = true;
+          assert.equal((await embed(token)).status, 503);
+          state.unavailable = false;
+          const authorized = await embed(token);
+          assert.equal(authorized.status, 200);
+          assert.equal(authorized.body.session.accessToken, token);
+          assert.equal(authorized.body.session.user.id, 42);
+          assert.equal(authorized.body.session.gatewayType, 'sub2api');
+          assert.equal(authorized.body.session.credentialMode, 'account');
+          assert.equal(authorized.body.session.user.secret_field, undefined);
+        } else {
+          assert.equal((await embed(token)).status, 404);
+        }
         if (userId) assert.equal((await api(service, '/gateway/auth/me', token, undefined, 43)).status, 401);
         for (const route of ['/auth/admin/users', '/auth/credits', '/auth/config']) assert.equal((await api(service, route, token)).status, 404);
         assert.equal((await api(service, '/auth/register', token, { email: 'test@example.com', password: 'not-used' })).status, 404);

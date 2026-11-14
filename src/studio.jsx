@@ -5594,7 +5594,7 @@ function loadProviderWorkspaceState() {
 
 // A host-authorized entry must not hydrate a different, previously stored account.
 // Clear only the old login, before any client or mount effect can read it; history stays intact.
-const authorizingStudioEntry = STUDIO_STANDALONE && isEmbeddedStudioLaunch();
+const authorizingStudioEntry = (STUDIO_STANDALONE || STUDIO_GATEWAY_PROXY) && isEmbeddedStudioLaunch();
 if (authorizingStudioEntry) clearSession();
 
 function StudioApp() {
@@ -5935,7 +5935,7 @@ function StudioApp() {
   }, [language, t]);
 
   useEffect(() => {
-    if (!STUDIO_STANDALONE || embeddedAuthStatus !== 'pending') return;
+    if ((!STUDIO_STANDALONE && !STUDIO_GATEWAY_PROXY) || embeddedAuthStatus !== 'pending') return;
     let active = true;
     bootstrapEmbeddedSession()
       .then((nextSession) => {

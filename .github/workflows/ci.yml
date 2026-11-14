@@ -47,6 +47,10 @@ jobs:
           npm run smoke:performance
       - name: Build and inspect the distributable upgrade packages
         run: npm run package:release
+      - name: Verify lite authorization and resumable release publication
+        run: |
+          node --test src/studio/auth/authorizedLaunch.test.mjs scripts/publish-lite.test.mjs
+          node scripts/smoke-gateway-connect.mjs
 
   server-go:
     runs-on: ubuntu-24.04

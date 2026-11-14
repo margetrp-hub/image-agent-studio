@@ -1,0 +1,35 @@
+services:
+  studio-web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "127.0.0.1:${STUDIO_PORT:-8080}:80"
+    environment:
+      STUDIO_HISTORY_UPSTREAM: http://studio-history:8787
+      STUDIO_NGINX_CLIENT_MAX_BODY_SIZE: 120m
+    depends_on:
+      studio-history:
+        condition: service_healthy
+    restart: unless-stopped
+  studio-history:
+    build:
+      context: .
+      target: service
+    environment:
+      STUDIO_AUTH_MODE: gateway
+      AI_GATEWAY_BASE_URL: ${AI_GATEWAY_BASE_URL:?Set the gateway URL in .env}
+      STUDIO_GATEWAY_TYPE: ${STUDIO_GATEWAY_TYPE:-sub2api}
+      STUDIO_GATEWAY_AUTH: ${STUDIO_GATEWAY_AUTH:-api-key}
+      STUDIO_EMBED_ORIGINS: ${STUDIO_EMBED_ORIGINS:-}
+      STUDIO_ALLOWED_ORIGINS: ${STUDIO_ALLOWED_ORIGINS:-http://127.0.0.1:8080}
+    volumes:
+      - studio-data:/data
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8787/studio-api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+volumes:
+  studio-data:

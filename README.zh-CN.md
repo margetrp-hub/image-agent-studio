@@ -2,6 +2,8 @@
 
 默认采用无管理后台的轻量部署：账号、API Key、额度与扣费归 Sub2API / New API，Studio 保留创作界面、任务队列、历史和图片资产。沿用一个仓库、一套核心代码。
 
+不想自行构建前端时，从 [Releases](https://github.com/margetrp-hub/image-agent-studio/releases) 下载 `image-agent-studio-lite-<版本>.tar.gz`，按包内说明填 `.env` 后启动。正式 Release 发布后自动生成同版本轻量包；维护和补发说明见 [轻量发布](docs/LITE-RELEASE.md)。
+
 快速开始：复制 `.env.example` 为 `.env`，设置 `AI_GATEWAY_BASE_URL` 为网关站点根地址，选择 `STUDIO_GATEWAY_TYPE=sub2api` 或 `newapi`，运行 `docker compose up --build -d`，打开 `http://localhost:8080/studio/`，填自己的 API Key 即可。无需创建 Studio 管理员或配置共享模型 Key。
 
 默认按 Key 隔离历史；Key 只保留在浏览器当前标签页会话，关闭后重新连接即可找回服务端历史。换 Key 前导出个人备份，连接新 Key 后恢复。已有站点可选 `STUDIO_GATEWAY_AUTH=account`，使用网关账号身份保存历史，详见 [Docker 部署](docs/DOCKER.zh-CN.md)。旧 standalone 数据不自动迁移，升级前保留明确配置与备份。
